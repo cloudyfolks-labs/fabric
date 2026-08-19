@@ -187,6 +187,47 @@ TLS arguments for kube-ovn components that expose HTTPS endpoints.
 {{- .Values.central.hcp.sbAddress -}}
 {{- end -}}
 
+{{- define "kubeovn.installMode" -}}
+{{- .Values.installMode | default "full" -}}
+{{- end -}}
+
+{{- define "kubeovn.renderControlPlane" -}}
+{{- $mode := include "kubeovn.installMode" . -}}
+{{- if or (eq $mode "full") (eq $mode "controlPlaneOnly") -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "kubeovn.renderDataPlane" -}}
+{{- $mode := include "kubeovn.installMode" . -}}
+{{- if or (eq $mode "full") (eq $mode "dataPlaneOnly") -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "kubeovn.renderFullOnly" -}}
+{{- if eq (include "kubeovn.installMode" .) "full" -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "kubeovn.k8sNodeCount" -}}
+{{- $nodes := lookup "v1" "Node" "" "" -}}
+{{- if and $nodes $nodes.items -}}
+{{- len $nodes.items -}}
+{{- else -}}
+{{- include "kubeovn.nodeCount" . -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "kubeovn.controllerReplicas" -}}
+{{- if eq (include "kubeovn.installMode" .) "dataPlaneOnly" -}}
+{{- min 2 (include "kubeovn.k8sNodeCount" . | int) -}}
+{{- else -}}
+{{- include "kubeovn.nodeCount" . -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "kubeovn.ovs-ovn.updateStrategy" -}}
   {{- $ds := lookup "apps/v1" "DaemonSet" $.Values.namespace "ovs-ovn" -}}
   {{- if $ds -}}

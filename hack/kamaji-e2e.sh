@@ -4,13 +4,13 @@
 # exercise kube-ovn's hosted OVN central Helm flow end to end.
 #
 # Kamaji provides the tenant Kubernetes control plane. Kube-OVN HCP is the
-# chart path under test (`ovn-central.hcp.enabled=true`); it is not the same
+# chart path under test (`central.hcp.enabled=true`); it is not the same
 # feature as Kamaji.
 #
 # Layout the script produces:
 #
 #   kind cluster `mgmt`         -- runs Kamaji + cert-manager + MetalLB.
-#       └── kube-ovn controlPlaneOnly + ovn-central.hcp.enabled install:
+#       └── kube-ovn controlPlaneOnly + central.hcp.enabled install:
 #           ovn-central StatefulSet (single-replica in CI, PVC-backed) plus
 #           ovn-nb/ovn-sb NodePort Services in the kube-ovn HCP namespace.
 #   docker container `tenant-worker-0`
@@ -129,9 +129,9 @@ chart_net_stack() {
   require_e2e_ip_family || return 1
 
   case "$E2E_IP_FAMILY" in
-    ipv4) echo "ipv4" ;;
-    ipv6) echo "ipv6" ;;
-    dual) echo "dual_stack" ;;
+    ipv4) echo "IPv4" ;;
+    ipv6) echo "IPv6" ;;
+    dual) echo "Dual" ;;
   esac
 }
 
@@ -141,7 +141,7 @@ hosted_ovn_central_net_stack() {
   # still uses chart_net_stack, so IPv6 and dual-stack coverage applies to the
   # Kube-OVN data-plane cluster instead of Kamaji's management-cluster plumbing.
   chart_net_stack >/dev/null || return 1
-  echo "ipv4"
+  echo "IPv4"
 }
 
 tenant_pod_cidr() {
@@ -244,7 +244,7 @@ global:
       repository: kube-ovn
       tag: dev
 
-ovn-central:
+central:
   hcp:
     enabled: true
     namespace: $HCP_NAMESPACE
@@ -260,8 +260,8 @@ ovn-central:
       size: 5Gi
 
 networking:
-  NET_STACK: $net_stack
-  ENABLE_SSL: false
+  stack: $net_stack
+  enableSsl: false
 EOF
 }
 
@@ -283,15 +283,15 @@ global:
       repository: kube-ovn
       tag: dev
 
-ovn-central:
+central:
   hcp:
     enabled: true
     nbAddress: $(hcp_ovn_nb_addr)
     sbAddress: $(hcp_ovn_sb_addr)
 
 networking:
-  NET_STACK: $net_stack
-  ENABLE_SSL: false
+  stack: $net_stack
+  enableSsl: false
 EOF
 }
 
@@ -596,8 +596,9 @@ cmd_render_tenant_worker_docker_args() {
 }
 
 cmd_render_mgmt_kind_config() {
-  local worker_nodes
+  local worker_nodes rendered_workers
   worker_nodes=$(tenant_control_plane_worker_nodes)
+  rendered_workers=0
   cat <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -608,13 +609,14 @@ nodes:
   - role: control-plane
     image: $MGMT_KIND_NODE_IMAGE
 EOF
-  for _ in $(seq 1 "$worker_nodes"); do
+  while [ "$rendered_workers" -lt "$worker_nodes" ]; do
     cat <<EOF
   - role: worker
     image: $MGMT_KIND_NODE_IMAGE
     labels:
       kube-ovn/tenant-control-plane: "true"
 EOF
+    rendered_workers=$((rendered_workers + 1))
   done
 }
 

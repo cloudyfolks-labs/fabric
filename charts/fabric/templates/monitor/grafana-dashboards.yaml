@@ -1,4 +1,4 @@
-{{- if .Values.grafanaDashboards.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.grafanaDashboards.enabled }}
 {{- $ns := default .Values.namespace .Values.grafanaDashboards.namespace }}
 {{- $datasource := .Values.grafanaDashboards.datasource }}
 {{- if not (regexMatch "^[A-Za-z0-9_.-]+$" $datasource) }}

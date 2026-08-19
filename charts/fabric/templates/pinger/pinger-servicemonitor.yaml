@@ -1,4 +1,4 @@
-{{- if .Values.pinger.serviceMonitor.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.pinger.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

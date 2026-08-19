@@ -1,4 +1,4 @@
-{{- if .Values.validatingWebhook.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.validatingWebhook.enabled }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:

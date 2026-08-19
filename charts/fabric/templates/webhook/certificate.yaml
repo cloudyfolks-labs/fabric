@@ -1,4 +1,4 @@
-{{- if .Values.validatingWebhook.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.validatingWebhook.enabled }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:

@@ -1,4 +1,4 @@
-{{- if .Values.apiNad.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.apiNad.enabled }}
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:

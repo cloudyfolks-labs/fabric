@@ -1,3 +1,4 @@
+{{- if include "kubeovn.renderDataPlane" . -}}
 {{- $ovsOvnImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.ovsOvn.image) | fromYaml -}}
 kind: DaemonSet
 apiVersion: apps/v1
@@ -235,3 +236,4 @@ spec:
         - hostPath:
             path: /var/run/containerd
           name: cruntime
+{{- end }}

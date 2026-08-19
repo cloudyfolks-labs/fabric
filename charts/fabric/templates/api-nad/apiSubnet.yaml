@@ -1,4 +1,4 @@
-{{- if .Values.apiNad.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.apiNad.enabled }}
 apiVersion: kubeovn.io/v1
 kind: Subnet
 metadata:

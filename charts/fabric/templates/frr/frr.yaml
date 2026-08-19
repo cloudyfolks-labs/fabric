@@ -1,4 +1,4 @@
-{{- if .Values.frr.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.frr.enabled }}
 {{- $frrAgentImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.frr.image) | fromYaml -}}
 apiVersion: v1
 kind: ServiceAccount

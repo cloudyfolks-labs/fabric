@@ -1,3 +1,4 @@
+{{- if include "kubeovn.renderDataPlane" . -}}
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -5,3 +6,4 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   image: {{ .Values.natGw.image.repository }}:{{ .Values.natGw.image.tag }}
+{{- end }}

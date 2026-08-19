@@ -1,4 +1,4 @@
-{{- if .Values.monitor.serviceMonitor.enabled }}
+{{- if and (include "kubeovn.renderFullOnly" .) .Values.monitor.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

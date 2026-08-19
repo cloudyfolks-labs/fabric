@@ -27,6 +27,12 @@ nameOverride: ""
 # @section -- Global parameters
 fullnameOverride: ""
 
+# -- Which parts of the chart to render. Can be either full, controlPlaneOnly or dataPlaneOnly.
+# controlPlaneOnly renders ovn-central with its services and RBAC.
+# dataPlaneOnly renders the other components against a remote ovn-central, configured via central.hcp.
+# @section -- Global parameters
+installMode: full
+
 # -- Namespace in which the CNI is deployed.
 # @section -- Global parameters
 namespace: kube-system

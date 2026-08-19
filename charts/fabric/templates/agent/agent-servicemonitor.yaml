@@ -1,4 +1,4 @@
-{{- if .Values.agent.serviceMonitor.enabled }}
+{{- if and (include "kubeovn.renderDataPlane" .) .Values.agent.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

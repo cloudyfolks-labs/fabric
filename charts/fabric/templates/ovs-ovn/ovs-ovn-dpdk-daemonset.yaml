@@ -1,4 +1,4 @@
-{{- if .Values.ovsOvn.dpdkHybrid.enabled }}
+{{- if and (include "kubeovn.renderFullOnly" .) .Values.ovsOvn.dpdkHybrid.enabled }}
 {{- $ovsOvnDpdkImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.ovsOvn.dpdkHybrid.image "defaultRepository" .Values.global.images.kubeovn.repository "defaultTag" .Values.ovsOvn.dpdkHybrid.tag) | fromYaml -}}
 kind: DaemonSet
 apiVersion: apps/v1

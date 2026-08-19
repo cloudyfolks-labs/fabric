@@ -775,6 +775,15 @@ false
 			<td>Pull policy for all images.</td>
 		</tr>
 		<tr>
+			<td>installMode</td>
+			<td>string</td>
+			<td><pre lang="json">
+"full"
+</pre>
+</td>
+			<td>Which parts of the chart to render. Can be either full, controlPlaneOnly or dataPlaneOnly. controlPlaneOnly renders ovn-central with its services and RBAC. dataPlaneOnly renders the other components against a remote ovn-central, configured via central.hcp.</td>
+		</tr>
+		<tr>
 			<td>masterNodes</td>
 			<td>list</td>
 			<td><pre lang="json">

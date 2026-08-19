@@ -1,3 +1,4 @@
+{{- if include "kubeovn.renderDataPlane" . -}}
 {{- $controllerImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.controller.image) | fromYaml -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -13,7 +14,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ include "kubeovn.nodeCount" . }}
+  replicas: {{ include "kubeovn.controllerReplicas" . }}
   selector:
     matchLabels:
       app.kubernetes.io/name: kube-ovn-controller
@@ -271,3 +272,4 @@ spec:
           secret:
             optional: true
             secretName: kube-ovn-tls
+{{- end }}
