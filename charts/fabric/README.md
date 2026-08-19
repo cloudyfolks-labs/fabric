@@ -1,9 +1,9 @@
-# Helm chart for Kube-OVN
+# fabric Helm chart
 
-![Version: v1.17.0](https://img.shields.io/badge/Version-v1.17.0-informational?style=flat-square)
+![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square)
 
-This is the v2 of the Helm Chart, replacing the first version in the long term.
-Make sure to adjust your old values with the new ones and pre-generate your templates with a dry-run to ensure no breaking change occurs.
+Kubernetes network fabric for multi-tenant clouds, a fork of kube-ovn.
+CRDs ship in the embedded `fabric-crds` subchart so `helm upgrade` keeps them up to date; set `crds.enabled=false` to manage CRDs yourself.
 
 ## Installing the Chart
 
@@ -12,13 +12,13 @@ Make sure to adjust your old values with the new ones and pre-generate your temp
 The Helm chart is available from GitHub Container Registry:
 
 ```bash
-helm install kube-ovn oci://ghcr.io/kubeovn/charts/kube-ovn-v2 --version v1.17.0
+helm install fabric oci://ghcr.io/cloudyfolks-labs/charts/fabric --version 0.1.0
 ```
 
 ### From Source
 
 ```bash
-helm install kube-ovn ./charts/kube-ovn-v2
+helm install fabric ./charts/fabric
 ```
 
 ## How to install Kube-OVN on Talos Linux
@@ -84,7 +84,7 @@ Additionally, the values file structure has changed (e.g. `networking.NET_STACK`
 Always generate the v2 templates with a dry-run first and compare them against your running resources:
 
 ```bash
-helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml > v2-manifests.yaml
+helm template kube-ovn ./charts/fabric -f your-values.yaml > v2-manifests.yaml
 ```
 
 ### Migration order
@@ -107,7 +107,7 @@ Monitoring-only component — safe to recreate first.
 kubectl delete daemonset kube-ovn-pinger -n kube-system
 
 # Apply the new DaemonSet and Service
-kubectl apply -f <(helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml \
+kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
   -s templates/pinger/pinger-daemonset.yaml \
   -s templates/pinger/pinger-service.yaml)
 ```
@@ -121,7 +121,7 @@ Metrics exporter — stateless and safe to recreate.
 kubectl delete deployment kube-ovn-monitor -n kube-system
 
 # Apply the new Deployment and Service
-kubectl apply -f <(helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml \
+kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
   -s templates/monitor/monitor-deployment.yaml \
   -s templates/monitor/monitor-service.yaml)
 ```
@@ -139,7 +139,7 @@ kubectl rollout status deployment kube-ovn-controller -n kube-system
 kubectl delete deployment kube-ovn-controller -n kube-system
 
 # Apply the new Deployment and Service
-kubectl apply -f <(helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml \
+kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
   -s templates/controller/controller-deployment.yaml \
   -s templates/controller/controller-service.yaml)
 ```
@@ -157,7 +157,7 @@ kubectl rollout status deployment ovn-central -n kube-system
 kubectl delete deployment ovn-central -n kube-system
 
 # Apply the new Deployment and Services
-kubectl apply -f <(helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml \
+kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
   -s templates/central/central-deployment.yaml \
   -s templates/central/northbound-service.yaml \
   -s templates/central/southbound-service.yaml \
@@ -180,7 +180,7 @@ kubectl label pod -n kube-system -l app=ovs \
   app.kubernetes.io/part-of=kube-ovn
 
 # Apply the new DaemonSet — it will adopt the relabeled pods without restarting them
-kubectl apply -f <(helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml \
+kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
   -s templates/ovs-ovn/ovs-ovn-daemonset.yaml)
 ```
 
@@ -202,11 +202,11 @@ kubectl label pod -n kube-system -l app=kube-ovn-cni \
   app.kubernetes.io/part-of=kube-ovn
 
 # Apply the new Service (selects the relabeled pods)
-kubectl apply -f <(helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml \
+kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
   -s templates/agent/agent-service.yaml)
 
 # Apply the new DaemonSet (will trigger a rolling restart)
-kubectl apply -f <(helm template kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml \
+kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
   -s templates/agent/agent-daemonset.yaml)
 ```
 
@@ -216,7 +216,7 @@ Once all components are healthy, run a full Helm upgrade to ensure every remaini
 (RBAC, CRDs, ConfigMaps, etc.) is in sync with the v2 chart:
 
 ```bash
-helm upgrade --install kube-ovn ./charts/kube-ovn-v2 -f your-values.yaml -n kube-system
+helm upgrade --install kube-ovn ./charts/fabric -f your-values.yaml -n kube-system
 ```
 
 ### Notes for GitOps users
@@ -743,12 +743,12 @@ false
 {
   "images": {
     "kubeovn": {
-      "repository": "kube-ovn",
-      "tag": "v1.17.0"
+      "repository": "fabric",
+      "tag": "v0.1.0"
     }
   },
   "registry": {
-    "address": "docker.io/kubeovn",
+    "address": "ghcr.io/cloudyfolks-labs",
     "imagePullSecrets": []
   }
 }

@@ -6,9 +6,7 @@ include makefiles/kind.mk
 include makefiles/talos.mk
 include makefiles/e2e.mk
 
-COMMA = ,
-HELM_OVN_DB_TLS_ARGS = $(if $(TLS_MIN_VERSION),--set networking.TLS_MIN_VERSION=$(TLS_MIN_VERSION),) $(if $(TLS_MAX_VERSION),--set networking.TLS_MAX_VERSION=$(TLS_MAX_VERSION),) $(if $(TLS_CIPHER_SUITES),--set 'networking.TLS_CIPHER_SUITES={$(TLS_CIPHER_SUITES)}',)
-HELM_OVN_DB_TLS_ARGS_V2 = $(if $(TLS_MIN_VERSION),--set networking.tlsMinVersion=$(TLS_MIN_VERSION),) $(if $(TLS_MAX_VERSION),--set networking.tlsMaxVersion=$(TLS_MAX_VERSION),) $(if $(TLS_CIPHER_SUITES),--set 'networking.tlsCipherSuites={$(TLS_CIPHER_SUITES)}',)
+HELM_OVN_DB_TLS_ARGS = $(if $(TLS_MIN_VERSION),--set networking.tlsMinVersion=$(TLS_MIN_VERSION),) $(if $(TLS_MAX_VERSION),--set networking.tlsMaxVersion=$(TLS_MAX_VERSION),) $(if $(TLS_CIPHER_SUITES),--set 'networking.tlsCipherSuites={$(TLS_CIPHER_SUITES)}',)
 
 REGISTRY = kubeovn
 DEV_TAG = dev
@@ -189,84 +187,21 @@ check-kube-ovn-pod-restarts:
 install-chart:
 	@timeout 120 bash -c 'until kubectl get node -l node-role.kubernetes.io/control-plane -o name 2>/dev/null | grep -q .; do echo "Waiting for control-plane nodes to be labeled..."; sleep 2; done'
 	kubectl label node --overwrite -l node-role.kubernetes.io/control-plane kube-ovn/role=master
-	helm install kubeovn ./charts/kube-ovn --wait \
+	helm install kubeovn ./charts/fabric --wait \
 		--set global.images.kubeovn.tag=$(VERSION) \
-		--set image.pullPolicy=$(or $(IMAGE_PULL_POLICY),IfNotPresent) \
-		--set OVN_DIR=$(or $(OVN_DIR),/etc/origin/ovn) \
-		--set OPENVSWITCH_DIR=$(or $(OPENVSWITCH_DIR),/etc/origin/openvswitch) \
-		--set DISABLE_MODULES_MANAGEMENT=$(or $(DISABLE_MODULES_MANAGEMENT),false) \
-		--set cni_conf.MOUNT_LOCAL_BIN_DIR=$(or $(MOUNT_LOCAL_BIN_DIR),true) \
-		--set networking.ENABLE_SSL=$(or $(ENABLE_SSL),false) \
+		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
+		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
 		$(HELM_OVN_DB_TLS_ARGS) \
-		--set networking.NETWORK_TYPE=$(or $(NETWORK_TYPE),geneve) \
-		--set networking.TUNNEL_TYPE=$(or $(TUNNEL_TYPE),geneve) \
-		--set networking.vlan.VLAN_INTERFACE_NAME=$(or $(VLAN_INTERFACE_NAME),) \
-		--set networking.vlan.VLAN_ID=$(or $(VLAN_ID),100) \
-		--set networking.NET_STACK=$(subst dual,dual_stack,$(or $(NET_STACK),ipv4)) \
-		--set-json networking.EXCLUDE_IPS='"$(or $(EXCLUDE_IPS),)"' \
-		--set-json ipv4.POD_CIDR='"$(or $(POD_CIDR),10.16.0.0/16)"' \
-		--set-json ipv4.POD_GATEWAY='"$(or $(POD_GATEWAY),10.16.0.1)"' \
-		--set-json ipv6.POD_CIDR='"$(or $(POD_CIDR),fd00:10:16::/112)"' \
-		--set-json ipv6.POD_GATEWAY='"$(or $(POD_GATEWAY),fd00:10:16::1)"' \
-		--set-json dual_stack.POD_CIDR='"$(or $(POD_CIDR),10.16.0.0/16$(COMMA)fd00:10:16::/112)"' \
-		--set-json dual_stack.POD_GATEWAY='"$(or $(POD_GATEWAY),10.16.0.1$(COMMA)fd00:10:16::1)"' \
-		--set func.SECURE_SERVING=$(or $(SECURE_SERVING),false) \
-		--set func.ENABLE_BIND_LOCAL_IP=$(or $(ENABLE_BIND_LOCAL_IP),true) \
-		--set func.ENABLE_OVN_IPSEC=$(or $(ENABLE_OVN_IPSEC),false) \
-		--set func.ENABLE_TPROXY=$(or $(ENABLE_TPROXY),false) \
-		--set func.ENABLE_IC=$(shell kubectl get node --show-labels | grep -qw "ovn.kubernetes.io/ic-gw" && echo true || echo false) \
-		--set func.ENABLE_ANP=$(or $(ENABLE_ANP),false) \
-		--set cni_conf.NON_PRIMARY_CNI=$(or $(ENABLE_NON_PRIMARY_CNI),false) \
-		--set cni_conf.CNI_CONFIG_PRIORITY=$(or $(CNI_CONFIG_PRIORITY),01)
-
-.PHONY: upgrade-chart
-upgrade-chart:
-	helm upgrade kubeovn ./charts/kube-ovn --wait \
-		--set global.images.kubeovn.tag=$(VERSION) \
-		--set image.pullPolicy=$(or $(IMAGE_PULL_POLICY),IfNotPresent) \
-		--set OVN_DIR=$(or $(OVN_DIR),/etc/origin/ovn) \
-		--set OPENVSWITCH_DIR=$(or $(OPENVSWITCH_DIR),/etc/origin/openvswitch) \
-		--set DISABLE_MODULES_MANAGEMENT=$(or $(DISABLE_MODULES_MANAGEMENT),false) \
-		--set cni_conf.MOUNT_LOCAL_BIN_DIR=$(or $(MOUNT_LOCAL_BIN_DIR),true) \
-		--set networking.ENABLE_SSL=$(or $(ENABLE_SSL),false) \
-		$(HELM_OVN_DB_TLS_ARGS) \
-		--set networking.NETWORK_TYPE=$(or $(NETWORK_TYPE),geneve) \
-		--set networking.TUNNEL_TYPE=$(or $(TUNNEL_TYPE),geneve) \
-		--set networking.vlan.VLAN_INTERFACE_NAME=$(or $(VLAN_INTERFACE_NAME),) \
-		--set networking.vlan.VLAN_ID=$(or $(VLAN_ID),100) \
-		--set networking.NET_STACK=$(subst dual,dual_stack,$(or $(NET_STACK),ipv4)) \
-		--set-json networking.EXCLUDE_IPS='"$(or $(EXCLUDE_IPS),)"' \
-		--set-json ipv4.POD_CIDR='"$(or $(POD_CIDR),10.16.0.0/16)"' \
-		--set-json ipv4.POD_GATEWAY='"$(or $(POD_GATEWAY),10.16.0.1)"' \
-		--set-json ipv6.POD_CIDR='"$(or $(POD_CIDR),fd00:10:16::/112)"' \
-		--set-json ipv6.POD_GATEWAY='"$(or $(POD_GATEWAY),fd00:10:16::1)"' \
-		--set-json dual_stack.POD_CIDR='"$(or $(POD_CIDR),10.16.0.0/16$(COMMA)fd00:10:16::/112)"' \
-		--set-json dual_stack.POD_GATEWAY='"$(or $(POD_GATEWAY),10.16.0.1$(COMMA)fd00:10:16::1)"' \
-		--set func.SECURE_SERVING=$(or $(SECURE_SERVING),false) \
-		--set func.ENABLE_BIND_LOCAL_IP=$(or $(ENABLE_BIND_LOCAL_IP),true) \
-		--set func.ENABLE_OVN_IPSEC=$(or $(ENABLE_OVN_IPSEC),false) \
-		--set func.ENABLE_TPROXY=$(or $(ENABLE_TPROXY),false) \
-		--set func.ENABLE_IC=$(shell kubectl get node --show-labels | grep -qw "ovn.kubernetes.io/ic-gw" && echo true || echo false) \
-		--set func.ENABLE_ANP=$(or $(ENABLE_ANP),false) \
-		--set cni_conf.NON_PRIMARY_CNI=$(or $(ENABLE_NON_PRIMARY_CNI),false) \
-		--set cni_conf.CNI_CONFIG_PRIORITY=$(or $(CNI_CONFIG_PRIORITY),01)
-	kubectl -n kube-system wait pod --for=condition=ready -l app=ovs --timeout=60s
-
-.PHONY: install-chart-v2
-install-chart-v2:
-	@timeout 120 bash -c 'until kubectl get node -l node-role.kubernetes.io/control-plane -o name 2>/dev/null | grep -q .; do echo "Waiting for control-plane nodes to be labeled..."; sleep 2; done'
-	kubectl label node --overwrite -l node-role.kubernetes.io/control-plane kube-ovn/role=master
-	helm install kubeovn ./charts/kube-ovn-v2 --wait \
-		--set global.images.kubeovn.tag=$(VERSION) \
-		$(HELM_OVN_DB_TLS_ARGS_V2) \
 		--set cni.nonPrimaryCNI=$(or $(ENABLE_NON_PRIMARY_CNI),false) \
 		--set cni.configPriority=$(or $(CNI_CONFIG_PRIORITY),01)
 
-.PHONY: upgrade-chart-v2
-upgrade-chart-v2:
-	helm upgrade kubeovn ./charts/kube-ovn-v2 --wait \
+.PHONY: upgrade-chart
+upgrade-chart:
+	helm upgrade kubeovn ./charts/fabric --wait \
 		--set global.images.kubeovn.tag=$(VERSION) \
-		$(HELM_OVN_DB_TLS_ARGS_V2) \
+		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
+		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
+		$(HELM_OVN_DB_TLS_ARGS) \
 		--set cni.nonPrimaryCNI=$(or $(ENABLE_NON_PRIMARY_CNI),false) \
 		--set cni.configPriority=$(or $(CNI_CONFIG_PRIORITY),01)
 	kubectl -n kube-system wait pod --for=condition=ready -l app=ovs --timeout=60s

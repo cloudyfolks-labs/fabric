@@ -77,7 +77,7 @@ networking:
 ```
 
 ```bash
-helm install --kube-context=mgmt kube-ovn ./charts/kube-ovn -f mgmt-values.yaml
+helm install --kube-context=mgmt kube-ovn ./charts/fabric -f mgmt-values.yaml
 ```
 
 This release renders:
@@ -130,7 +130,7 @@ networking:
 ```
 
 ```bash
-helm install --kube-context=tenant kube-ovn ./charts/kube-ovn -f tenant-values.yaml
+helm install --kube-context=tenant kube-ovn ./charts/fabric -f tenant-values.yaml
 ```
 
 This release renders:

@@ -63,19 +63,16 @@ if [ "$current_branch" != "master" ]; then
   echo "current branch is not master, release a patch version"
   echo "modify tag in install.sh and values.yaml"
   sed -i '/^VERSION=/c\VERSION="'"${VERSION}"'"' dist/images/install.sh
-  sed -i 's/tag:\ .*/tag:\ '"${VERSION}"'/' charts/kube-ovn/values.yaml
-  sed -i 's/version:\ .*/version:\ '"${VERSION}"'/' charts/kube-ovn/Chart.yaml
-  sed -i 's/appVersion:\ .*/appVersion:\ "'"${VERSION#v}"'"/' charts/kube-ovn/Chart.yaml
-  sed -i 's/tag:\ .*/tag:\ '"${VERSION}"'/' charts/kube-ovn-v2/values.yaml
-  sed -i 's/version:\ .*/version:\ '"${VERSION}"'/' charts/kube-ovn-v2/Chart.yaml
-  sed -i 's/appVersion:\ .*/appVersion:\ "'"${VERSION#v}"'"/' charts/kube-ovn-v2/Chart.yaml
+  sed -i 's/tag:\ .*/tag:\ '"${VERSION}"'/' charts/fabric/values.yaml
+  sed -i 's/version:\ .*/version:\ '"${VERSION}"'/' charts/fabric/Chart.yaml
+  sed -i 's/appVersion:\ .*/appVersion:\ "'"${VERSION#v}"'"/' charts/fabric/Chart.yaml
+  sed -i 's/version:\ .*/version:\ '"${VERSION}"'/' charts/fabric/charts/fabric-crds/Chart.yaml
 
   echo "commit, tag and push"
   git add dist/images/install.sh
-  git add charts/kube-ovn/values.yaml
-  git add charts/kube-ovn/Chart.yaml
-  git add charts/kube-ovn-v2/values.yaml
-  git add charts/kube-ovn-v2/Chart.yaml
+  git add charts/fabric/values.yaml
+  git add charts/fabric/Chart.yaml
+  git add charts/fabric/charts/fabric-crds/Chart.yaml
   git commit -m "release ${VERSION}"
   git tag ${VERSION}
   git push
@@ -144,12 +141,10 @@ else
   echo "prepare next release in master branch"
   echo ${NEXT_VERSION} > VERSION
   sed -i '/^VERSION=/c\VERSION="'"${NEXT_VERSION}"'"' dist/images/install.sh
-  sed -i 's/tag:\ .*/tag:\ '"${NEXT_VERSION}"'/' charts/kube-ovn/values.yaml
-  sed -i 's/version:\ .*/version:\ '"${NEXT_VERSION}"'/' charts/kube-ovn/Chart.yaml
-  sed -i 's/appVersion:\ .*/appVersion:\ "'"${NEXT_VERSION#v}"'"/' charts/kube-ovn/Chart.yaml
-  sed -i 's/tag:\ .*/tag:\ '"${NEXT_VERSION}"'/' charts/kube-ovn-v2/values.yaml
-  sed -i 's/version:\ .*/version:\ '"${NEXT_VERSION}"'/' charts/kube-ovn-v2/Chart.yaml
-  sed -i 's/appVersion:\ .*/appVersion:\ "'"${NEXT_VERSION#v}"'"/' charts/kube-ovn-v2/Chart.yaml
+  sed -i 's/tag:\ .*/tag:\ '"${NEXT_VERSION}"'/' charts/fabric/values.yaml
+  sed -i 's/version:\ .*/version:\ '"${NEXT_VERSION}"'/' charts/fabric/Chart.yaml
+  sed -i 's/appVersion:\ .*/appVersion:\ "'"${NEXT_VERSION#v}"'"/' charts/fabric/Chart.yaml
+  sed -i 's/version:\ .*/version:\ '"${NEXT_VERSION}"'/' charts/fabric/charts/fabric-crds/Chart.yaml
   sed -ri 's#(\s+)(- master)#\1\2\n\1- '$RELEASE_BRANCH'#' .github/workflows/build-kube-ovn-base.yaml
   sed -ri 's#(\s+)(- master)#\1\2\n\1- '$RELEASE_BRANCH'#' .github/workflows/build-kube-ovn-base-dpdk.yaml
   sed -ri 's#(\s+)(- master)#\1\2\n\1- '$RELEASE_BRANCH'#' .github/workflows/scheduled-e2e.yaml
@@ -162,10 +157,9 @@ else
 
   git add renovate.json
   git add dist/images/install.sh
-  git add charts/kube-ovn/values.yaml
-  git add charts/kube-ovn/Chart.yaml
-  git add charts/kube-ovn-v2/values.yaml
-  git add charts/kube-ovn-v2/Chart.yaml
+  git add charts/fabric/values.yaml
+  git add charts/fabric/Chart.yaml
+  git add charts/fabric/charts/fabric-crds/Chart.yaml
   git add VERSION
   git add .github/workflows/build-kube-ovn-base.yaml
   git add .github/workflows/build-kube-ovn-base-dpdk.yaml

@@ -198,8 +198,8 @@ class E2ESelectorTest(unittest.TestCase):
     def testInstallationBuildAndCodegenPathsPromoteToFull(self):
         for path in [
             "VERSION",
-            "charts/kube-ovn/Chart.yaml",
-            "charts/kube-ovn-v2/Chart.yaml",
+            "charts/fabric/Chart.yaml",
+            "charts/fabric/charts/fabric-crds/Chart.yaml",
             "makefiles/ut.mk",
             "hack/gen-crd.sh",
             "hack/update-codegen.sh",
@@ -569,7 +569,7 @@ class E2ESelectorTest(unittest.TestCase):
             ("test/e2e/multus/e2e_test.go", "multi-cni"),
             ("test/e2e/lb-svc/e2e_test.go", "service-lb-underlay"),
             ("pkg/controller/service.go", "service-lb-underlay"),
-            ("charts/kube-ovn/Chart.yaml", "install-platform"),
+            ("charts/fabric/Chart.yaml", "install-platform"),
             ("test/e2e/ha/e2e_test.go", "ha-hosted"),
             ("test/e2e/ovn-ic/e2e_test.go", "multi-cluster"),
             ("pkg/controller/ovn_ic_controller.go", "multi-cluster"),

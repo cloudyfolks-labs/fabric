@@ -229,12 +229,6 @@ kind-install-chart-ssl:
 .PHONY: kind-upgrade-chart
 kind-upgrade-chart: kind-load-image upgrade-chart
 
-.PHONY: kind-install-chart-v2
-kind-install-chart-v2: kind-load-image untaint-control-plane install-chart-v2
-
-.PHONY: kind-upgrade-chart-v2
-kind-upgrade-chart-v2: kind-load-image upgrade-chart-v2
-
 .PHONY: kind-install
 kind-install: kind-load-image
 	kubectl config use-context kind-kube-ovn
@@ -800,30 +794,6 @@ kind-install-multus-cilium-kubeovn-non-primary-%:
 	@echo "You can now run non-primary CNI tests with:"
 	@echo "  make kube-ovn-non-primary-cni-e2e"
 
-# v2 chart variant for non-primary CNI deployment
-.PHONY: kind-install-multus-cilium-kubeovn-non-primary-v2
-kind-install-multus-cilium-kubeovn-non-primary-v2: kind-install-multus-cilium-kubeovn-non-primary-v2-ipv4
-
-.PHONY: kind-install-multus-cilium-kubeovn-non-primary-v2-%
-kind-install-multus-cilium-kubeovn-non-primary-v2-%:
-	@echo "Setting up KIND cluster with Multus-CNI, Cilium delegate as primary CNI, and Kube-OVN as secondary CNI..."
-	@echo "1. Installing Cilium as primary CNI..."
-	@$(MAKE) kind-install-cilium-delegate-$*
-	@echo "2. Installing Multus-CNI..."
-	@$(MAKE) kind-install-multus
-	@echo "3. Installing Kube-OVN as secondary/non-primary CNI..."
-	@$(MAKE) NET_STACK=$* ENABLE_NON_PRIMARY_CNI=true CNI_CONFIG_PRIORITY=10 kind-install-chart
-	@echo "KIND cluster setup complete!"
-	@echo "  - Multus: Multi-CNI support"
-	@echo "  - Cilium: Primary CNI"
-	@echo "  - Kube-OVN: Secondary CNI for additional network interfaces"
-	@echo ""
-	@echo "You can now run non-primary CNI tests with:"
-	@echo "  make kube-ovn-non-primary-cni-e2e"
-
 # Convenience target for the most common use case (IPv4)
 .PHONY: kind-setup-non-primary-cni
 kind-setup-non-primary-cni: kind-install-multus-cilium-kubeovn-non-primary
-
-.PHONY: kind-setup-non-primary-cni-v2
-kind-setup-non-primary-cni-v2: kind-install-multus-cilium-kubeovn-non-primary-v2

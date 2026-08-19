@@ -67,7 +67,7 @@ KUBEOVN_IMAGE=${KUBEOVN_IMAGE:-kubeovn/kube-ovn:dev}
 JOB_DIR=${JOB_DIR:-/tmp/kamaji-e2e}
 REGISTRY_NAME=${REGISTRY_NAME:-kamaji-e2e-reg}
 
-CHART_DIR=${CHART_DIR:-$(cd "$(dirname "$0")/.." && pwd)/charts/kube-ovn}
+CHART_DIR=${CHART_DIR:-$(cd "$(dirname "$0")/.." && pwd)/charts/fabric}
 
 require_e2e_ip_family() {
   case "$E2E_IP_FAMILY" in

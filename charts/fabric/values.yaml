@@ -1,13 +1,16 @@
+crds:
+  enabled: true
+
 # -- Global configuration.
 # @section -- Global parameters
 global:
   registry:
-    address: docker.io/kubeovn
+    address: ghcr.io/cloudyfolks-labs
     imagePullSecrets: []
   images:
     kubeovn:
-      repository: kube-ovn
-      tag: v1.17.0
+      repository: fabric
+      tag: v0.1.0
 
 # -- Image configuration.
 # @section -- Global parameters
@@ -405,8 +408,8 @@ grafanaDashboards:
 
 natGw:
   image:
-    repository: docker.io/kubeovn/vpc-nat-gateway
-    tag: v1.17.0
+    repository: ghcr.io/cloudyfolks-labs/vpc-nat-gateway
+    tag: v0.1.0
 
 networkPolicies:
   # -- Enforcement level of network policies when they get applied (can be: standard, lax).

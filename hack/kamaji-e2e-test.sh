@@ -210,8 +210,8 @@ for source_file in \
   "$SCRIPT_DIR/../makefiles/e2e.mk" \
   "$SCRIPT_DIR/../makefiles/kind.mk" \
   "$SCRIPT_DIR/../test/e2e/kamaji/kamaji_test.go" \
-  "$SCRIPT_DIR/../charts/kube-ovn/values.yaml" \
-  "$SCRIPT_DIR/../charts/kube-ovn/templates/_helpers.tpl"; do
+  "$SCRIPT_DIR/../charts/fabric/values.yaml" \
+  "$SCRIPT_DIR/../charts/fabric/templates/_helpers.tpl"; do
   reject_text "$source_file" "Kamaji HCP"
   reject_text "$source_file" "Kamaji-style"
   reject_text "$source_file" "external HCP ovn-central"

@@ -54,7 +54,7 @@ ovn-central:
 ```
 
 ```bash
-helm install kube-ovn ./charts/kube-ovn -f values.yaml
+helm install kube-ovn ./charts/fabric -f values.yaml
 ```
 
 ### install.sh

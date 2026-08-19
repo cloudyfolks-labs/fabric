@@ -1,0 +1,5 @@
+apiVersion: v2
+name: fabric-crds
+description: fabric CustomResourceDefinitions
+type: application
+version: 0.1.0
