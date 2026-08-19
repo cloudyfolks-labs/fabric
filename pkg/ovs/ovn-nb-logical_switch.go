@@ -1,0 +1,469 @@
+package ovs
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/ovn-kubernetes/libovsdb/model"
+	"github.com/ovn-kubernetes/libovsdb/ovsdb"
+	"k8s.io/klog/v2"
+
+	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
+	"github.com/kubeovn/kube-ovn/pkg/util"
+)
+
+// CreateLogicalSwitch create logical switch
+func (c *OVNNbClient) CreateLogicalSwitch(lsName, lrName, cidrBlock, gateway, gatewayMAC string, needRouter, randomAllocateGW bool) error {
+	lspName := fmt.Sprintf("%s-%s", lsName, lrName)
+	lrpName := fmt.Sprintf("%s-%s", lrName, lsName)
+
+	// underlay subnets without a CIDR (e.g. BYO-DHCP / external DHCP) have no
+	// router-side networks to configure, so skip address/mask computation
+	var switchNetworks string
+	if cidrBlock != "" {
+		networks, err := util.GetIPAddrWithMask(gateway, cidrBlock)
+		if err != nil {
+			klog.Errorf("failed to get ip %s with mask %s, %v", gateway, cidrBlock, err)
+			return err
+		}
+		switchNetworks = networks
+	}
+
+	exist, err := c.LogicalSwitchExists(lsName)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	// only update logical router port networks when logical switch exist
+	if exist && switchNetworks != "" {
+		if randomAllocateGW {
+			return nil
+		}
+
+		lrp := &ovnnb.LogicalRouterPort{
+			Name:     lrpName,
+			Networks: strings.Split(switchNetworks, ","),
+		}
+		fields := []any{&lrp.Networks}
+		if gatewayMAC != "" {
+			lrp.MAC = gatewayMAC
+			fields = append(fields, &lrp.MAC)
+		}
+		if err := c.UpdateLogicalRouterPort(lrp, fields...); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("update logical router port %s", lrpName)
+		}
+	} else {
+		if err := c.CreateBareLogicalSwitch(lsName); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("create logical switch %s", lsName)
+		}
+	}
+
+	if needRouter && switchNetworks != "" {
+		if err := c.CreateLogicalPatchPort(lsName, lrName, lspName, lrpName, switchNetworks, gatewayMAC); err != nil {
+			klog.Error(err)
+			return err
+		}
+	} else {
+		if randomAllocateGW {
+			return nil
+		}
+
+		if err := c.RemoveLogicalPatchPort(lspName, lrpName); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("remove router type port %s and %s: %w", lspName, lrpName, err)
+		}
+	}
+
+	return nil
+}
+
+// CreateBareLogicalSwitch create logical switch with basic configuration
+func (c *OVNNbClient) CreateBareLogicalSwitch(lsName string) error {
+	exist, err := c.LogicalSwitchExists(lsName)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	// ignore
+	if exist {
+		return nil
+	}
+
+	ls := &ovnnb.LogicalSwitch{
+		Name:        lsName,
+		ExternalIDs: map[string]string{"vendor": util.CniTypeName},
+	}
+
+	op, err := c.Create(ls)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("generate operations for creating logical switch %s: %w", lsName, err)
+	}
+
+	if err := c.Transact("ls-add", op); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("create logical switch %s: %w", lsName, err)
+	}
+
+	return nil
+}
+
+// LogicalSwitchAddPort add port to logical switch
+func (c *OVNNbClient) LogicalSwitchAddPort(lsName, lspName string) error {
+	lsp, err := c.GetLogicalSwitchPort(lspName, false)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("get logical switch port %s when logical switch add port: %w", lspName, err)
+	}
+
+	ops, err := c.LogicalSwitchUpdatePortOp(lsName, lsp.UUID, ovsdb.MutateOperationInsert)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("generate operations for logical switch %s add port %s: %w", lsName, lspName, err)
+	}
+
+	if err := c.Transact("lsp-add", ops); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("add port %s to logical switch %s: %w", lspName, lsName, err)
+	}
+
+	return nil
+}
+
+// LogicalSwitchDelPort del port from logical switch
+func (c *OVNNbClient) LogicalSwitchDelPort(lsName, lspName string) error {
+	lsp, err := c.GetLogicalSwitchPort(lspName, true)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("get logical switch port %s when logical switch del port: %w", lspName, err)
+	}
+
+	if lsp == nil {
+		return nil
+	}
+
+	ops, err := c.LogicalSwitchUpdatePortOp(lsName, lsp.UUID, ovsdb.MutateOperationDelete)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("generate operations for logical switch %s del port %s: %w", lsName, lspName, err)
+	}
+
+	if err := c.Transact("lsp-del", ops); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("del port %s from logical switch %s: %w", lspName, lsName, err)
+	}
+
+	return nil
+}
+
+// LogicalSwitchUpdateLoadBalancers add several lb to or from logical switch once
+func (c *OVNNbClient) LogicalSwitchUpdateLoadBalancers(lsName string, op ovsdb.Mutator, lbNames ...string) error {
+	if len(lbNames) == 0 {
+		return nil
+	}
+
+	lbUUIDs := make([]string, 0, len(lbNames))
+
+	for _, lbName := range lbNames {
+		lb, err := c.GetLoadBalancer(lbName, true)
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+
+		// ignore non-existent object
+		if lb != nil {
+			lbUUIDs = append(lbUUIDs, lb.UUID)
+		}
+	}
+
+	ops, err := c.LogicalSwitchUpdateLoadBalancerOp(lsName, lbUUIDs, op)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("generate operations for logical switch %s update lbs %v: %w", lsName, lbNames, err)
+	}
+
+	if err := c.Transact("ls-lb-update", ops); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("logical switch %s update lbs %v: %w", lsName, lbNames, err)
+	}
+
+	return nil
+}
+
+// LogicalSwitchUpdateOtherConfig add other config to or from logical switch once
+func (c *OVNNbClient) LogicalSwitchUpdateOtherConfig(lsName string, op ovsdb.Mutator, otherConfig map[string]string) error {
+	if len(otherConfig) == 0 {
+		return nil
+	}
+
+	ops, err := c.LogicalSwitchUpdateOtherConfigOp(lsName, otherConfig, op)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("generate operations for logical switch %s update other config %v: %w", lsName, otherConfig, err)
+	}
+
+	if err := c.Transact("ls-other-config-update", ops); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("logical switch %s update other config %v: %w", lsName, otherConfig, err)
+	}
+
+	return nil
+}
+
+// DeleteLogicalSwitch delete logical switch
+func (c *OVNNbClient) DeleteLogicalSwitch(lsName string) error {
+	op, err := c.DeleteLogicalSwitchOp(lsName)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	if err := c.Transact("ls-del", op); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("delete logical switch %s: %w", lsName, err)
+	}
+
+	return nil
+}
+
+// GetLogicalSwitch get logical switch by name,
+// it is because of lack of name index that doesn't use OVNNbClient.Get
+func (c *OVNNbClient) GetLogicalSwitch(lsName string, ignoreNotFound bool) (*ovnnb.LogicalSwitch, error) {
+	if lsName == "" {
+		err := errors.New("empty logical switch name")
+		klog.Error(err)
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+
+	lsList := make([]ovnnb.LogicalSwitch, 0)
+	if err := c.ovsDbClient.WhereCache(func(ls *ovnnb.LogicalSwitch) bool {
+		return ls.Name == lsName
+	}).List(ctx, &lsList); err != nil {
+		klog.Error(err)
+		return nil, fmt.Errorf("list logical switch %q: %w", lsName, err)
+	}
+
+	// not found
+	if len(lsList) == 0 {
+		if ignoreNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("not found logical switch %q", lsName)
+	}
+
+	if len(lsList) > 1 {
+		return nil, fmt.Errorf("more than one logical switch with same name %q", lsName)
+	}
+
+	// #nosec G602
+	return &lsList[0], nil
+}
+
+func (c *OVNNbClient) LogicalSwitchExists(lsName string) (bool, error) {
+	ls, err := c.GetLogicalSwitch(lsName, true)
+	return ls != nil, err
+}
+
+// ListLogicalSwitch list logical switch
+func (c *OVNNbClient) ListLogicalSwitch(needVendorFilter bool, filter func(ls *ovnnb.LogicalSwitch) bool) ([]ovnnb.LogicalSwitch, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+
+	lsList := make([]ovnnb.LogicalSwitch, 0)
+
+	if err := c.ovsDbClient.WhereCache(func(ls *ovnnb.LogicalSwitch) bool {
+		if needVendorFilter && (len(ls.ExternalIDs) == 0 || ls.ExternalIDs["vendor"] != util.CniTypeName) {
+			return false
+		}
+
+		if filter != nil {
+			return filter(ls)
+		}
+
+		return true
+	}).List(ctx, &lsList); err != nil {
+		klog.Error(err)
+		return nil, fmt.Errorf("list logical switch: %w", err)
+	}
+
+	return lsList, nil
+}
+
+// ListLogicalSwitchNames list logical switch names
+func (c *OVNNbClient) ListLogicalSwitchNames(needVendorFilter bool, filter func(ls *ovnnb.LogicalSwitch) bool) ([]string, error) {
+	lsList, err := c.ListLogicalSwitch(needVendorFilter, filter)
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+
+	names := make([]string, 0, len(lsList))
+	for i := range lsList {
+		names = append(names, lsList[i].Name)
+	}
+	return names, nil
+}
+
+// LogicalSwitchUpdatePortOp create operations add port to or delete port from logical switch
+func (c *OVNNbClient) LogicalSwitchUpdatePortOp(lsName, lspUUID string, op ovsdb.Mutator) ([]ovsdb.Operation, error) {
+	if len(lspUUID) == 0 {
+		return nil, nil
+	}
+
+	if lsName == "" && op == ovsdb.MutateOperationDelete {
+		lsList, err := c.ListLogicalSwitch(false, func(ls *ovnnb.LogicalSwitch) bool {
+			return slices.Contains(ls.Ports, lspUUID)
+		})
+		if err != nil {
+			klog.Error(err)
+			return nil, fmt.Errorf("failed to list LS by LSP UUID %s: %w", lspUUID, err)
+		}
+		if len(lsList) == 0 {
+			err = fmt.Errorf("no LS found for LSP %s", lspUUID)
+			klog.Error(err)
+			return nil, err
+		}
+		if len(lsList) != 1 {
+			lsNames := make([]string, len(lsList))
+			for i := range lsList {
+				lsNames[i] = lsList[i].Name
+			}
+			err = fmt.Errorf("multiple LS found for LSP %s: %s", lspUUID, strings.Join(lsNames, ", "))
+			klog.Error(err)
+			return nil, err
+		}
+		lsName = lsList[0].Name
+	}
+
+	mutation := func(ls *ovnnb.LogicalSwitch) *model.Mutation {
+		mutation := &model.Mutation{
+			Field:   &ls.Ports,
+			Value:   []string{lspUUID},
+			Mutator: op,
+		}
+
+		return mutation
+	}
+
+	return c.LogicalSwitchOp(lsName, mutation)
+}
+
+// LogicalSwitchUpdateOtherConfigOp create operations add otherConfig to or delete otherConfig from logical switch
+func (c *OVNNbClient) LogicalSwitchUpdateOtherConfigOp(lsName string, otherConfig map[string]string, op ovsdb.Mutator) ([]ovsdb.Operation, error) {
+	if len(otherConfig) == 0 {
+		return nil, nil
+	}
+
+	mutation := func(ls *ovnnb.LogicalSwitch) *model.Mutation {
+		mutation := &model.Mutation{
+			Field:   &ls.OtherConfig,
+			Value:   otherConfig,
+			Mutator: op,
+		}
+
+		return mutation
+	}
+
+	return c.LogicalSwitchOp(lsName, mutation)
+}
+
+// LogicalSwitchUpdateLoadBalancerOp create operations add lb to or delete lb from logical switch
+func (c *OVNNbClient) LogicalSwitchUpdateLoadBalancerOp(lsName string, lbUUIDs []string, op ovsdb.Mutator) ([]ovsdb.Operation, error) {
+	if len(lbUUIDs) == 0 {
+		return nil, nil
+	}
+
+	mutation := func(ls *ovnnb.LogicalSwitch) *model.Mutation {
+		mutation := &model.Mutation{
+			Field:   &ls.LoadBalancer,
+			Value:   lbUUIDs,
+			Mutator: op,
+		}
+
+		return mutation
+	}
+
+	return c.LogicalSwitchOp(lsName, mutation)
+}
+
+// logicalSwitchUpdateACLOp create operations add acl to or delete acl from logical switch
+func (c *OVNNbClient) logicalSwitchUpdateACLOp(lsName string, aclUUIDs []string, op ovsdb.Mutator) ([]ovsdb.Operation, error) {
+	if len(aclUUIDs) == 0 {
+		return nil, nil
+	}
+
+	mutation := func(ls *ovnnb.LogicalSwitch) *model.Mutation {
+		mutation := &model.Mutation{
+			Field:   &ls.ACLs,
+			Value:   aclUUIDs,
+			Mutator: op,
+		}
+
+		return mutation
+	}
+
+	return c.LogicalSwitchOp(lsName, mutation)
+}
+
+// LogicalSwitchOp create operations about logical switch
+func (c *OVNNbClient) LogicalSwitchOp(lsName string, mutationsFunc ...func(ls *ovnnb.LogicalSwitch) *model.Mutation) ([]ovsdb.Operation, error) {
+	ls, err := c.GetLogicalSwitch(lsName, false)
+	if err != nil {
+		klog.Error(err)
+		return nil, fmt.Errorf("get logical switch %s when generate mutate operations: %w", lsName, err)
+	}
+
+	if len(mutationsFunc) == 0 {
+		return nil, nil
+	}
+
+	mutations := make([]model.Mutation, 0, len(mutationsFunc))
+
+	for _, f := range mutationsFunc {
+		mutation := f(ls)
+
+		if mutation != nil {
+			mutations = append(mutations, *mutation)
+		}
+	}
+
+	ops, err := c.ovsDbClient.Where(ls).Mutate(ls, mutations...)
+	if err != nil {
+		klog.Error(err)
+		return nil, fmt.Errorf("generate operations for mutating logical switch %s: %w", lsName, err)
+	}
+
+	return ops, nil
+}
+
+// DeleteLogicalSwitchOp create operations that delete logical switch
+func (c *OVNNbClient) DeleteLogicalSwitchOp(lsName string) ([]ovsdb.Operation, error) {
+	ls, err := c.GetLogicalSwitch(lsName, true)
+	if err != nil {
+		klog.Error(err)
+		return nil, fmt.Errorf("get logical switch %s: %w", lsName, err)
+	}
+
+	// not found, skip
+	if ls == nil {
+		return nil, nil
+	}
+
+	op, err := c.Where(ls).Delete()
+	if err != nil {
+		klog.Error(err)
+		return nil, fmt.Errorf("generate operations for deleting logical switch %s: %w", lsName, err)
+	}
+
+	return op, nil
+}

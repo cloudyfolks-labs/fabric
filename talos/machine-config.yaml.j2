@@ -1,0 +1,70 @@
+{% macro random_duid_uuid() -%}
+  {{- "0004" -}}
+  {%- for i in range(0, 32) -%}
+    {{- [0,1,2,3,4,5,6,7,8,9,"a","b","c","d","e","f"] | random -}}
+  {%- endfor -%}
+{%- endmacro -%}
+{%- set duidv6 = random_duid_uuid() -%}
+{%- if 'control-plane' in node -%}
+  {%- set duidv6 = '00030001aabbccddeeff' -%}
+{%- endif -%}
+{%- if ip_family is not defined -%}
+  {%- set ip_family = "ipv4" -%}
+{%- endif -%}
+machine:
+  install:
+    disk: /dev/vda
+    wipe: true
+  kernel:
+    modules:
+      # the following kernel modules configuration may be unnecessary
+      - name: openvswitch
+      - name: geneve
+      - name: vxlan
+  kubelet:
+    nodeIP:
+      validSubnets:
+        # subnets MUST match the libvirt network CIDRs
+        {%- if ip_family is equalto "ipv4" or ip_family is equalto "dual" %}
+        - 172.99.99.0/24
+        {%- endif %}
+        {%- if ip_family is equalto "ipv6" or ip_family is equalto "dual" %}
+        - 2001:db8:99:99::/120
+        {%- endif %}
+    extraArgs:
+      provider-id: talos://libvirt/{{ cluster }}/{{ node }}
+---
+apiVersion: v1alpha1
+kind: TimeSyncConfig
+enabled: false
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: {{ node }}
+auto: off
+---
+apiVersion: v1alpha1
+kind: ResolverConfig
+searchDomains:
+  disableDefault: true
+---
+apiVersion: v1alpha1
+kind: LinkConfig
+name: enp0s5f0
+up: true
+{%- if ip_family is equalto "ipv4" or ip_family is equalto "dual" %}
+---
+apiVersion: v1alpha1
+kind: DHCPv4Config
+name: enp0s5f0
+ignoreHostname: true
+{%- endif %}
+{%- if ip_family is equalto "ipv6" or ip_family is equalto "dual" %}
+---
+apiVersion: v1alpha1
+kind: DHCPv6Config
+name: enp0s5f0
+ignoreHostname: true
+clientIdentifier: duid
+duidRaw: "{{ duidv6 }}"
+{%- endif %}

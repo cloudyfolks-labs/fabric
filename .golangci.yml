@@ -1,0 +1,81 @@
+version: "2"
+linters:
+  enable:
+    - errorlint
+    - gocritic
+    - gosec
+    - loggercheck
+    - misspell
+    - perfsprint
+    - predeclared
+    - revive
+    - unconvert
+    - usestdlibvars
+    - whitespace
+  settings:
+    errorlint:
+      asserts: false
+    perfsprint:
+      strconcat: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gocritic
+        text: appendAssign
+      - linters:
+          - revive
+        text: don't use an underscore in package name
+      - linters:
+          - revive
+        text: VpcDns should be VpcDNS
+      - linters:
+          - revive
+        text: VpcDnsList should be VpcDNSList
+      - linters:
+          - revive
+        text: avoid meaningless package names
+      - linters:
+          - revive
+        text: avoid package names that conflict with Go standard library package names
+      # Exclude gosec from running on tests files.
+      - linters:
+          - gosec
+        path: _test\.go
+      # Exclude gosec from running on tests files.
+      - linters:
+          - gosec
+        path: test/
+      - linters:
+          - staticcheck
+        text: Endpoints is deprecated
+      - linters:
+          - staticcheck
+        text: EndpointSubset is deprecated
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/kubeovn/kube-ovn
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

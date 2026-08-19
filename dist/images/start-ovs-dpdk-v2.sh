@@ -1,0 +1,150 @@
+#!/bin/bash
+
+set -euo pipefail
+OVN_REMOTE_PROBE_INTERVAL=${OVN_REMOTE_PROBE_INTERVAL:-10000}
+OVN_REMOTE_OPENFLOW_INTERVAL=${OVN_REMOTE_OPENFLOW_INTERVAL:-180}
+ENABLE_SSL=${ENABLE_SSL:-false}
+OVN_SB_ADDR=${OVN_SB_ADDR:-}
+
+echo "OVN_REMOTE_PROBE_INTERVAL is set to $OVN_REMOTE_PROBE_INTERVAL"
+echo "OVN_REMOTE_OPENFLOW_INTERVAL is set to $OVN_REMOTE_OPENFLOW_INTERVAL"
+
+DPDK_TUNNEL_IFACE=${DPDK_TUNNEL_IFACE:-br-phy}
+TUNNEL_TYPE=${TUNNEL_TYPE:-geneve}
+
+OVS_DPDK_CONFIG_FILE=/opt/ovs-config/ovs-dpdk-config
+if ! test -f "$OVS_DPDK_CONFIG_FILE"; then
+    echo "missing ovs dpdk config"
+    exit 1
+fi
+source $OVS_DPDK_CONFIG_FILE
+
+# link sock
+mkdir -p /usr/local/var/run
+
+if [ -L /usr/local/var/run/openvswitch ]
+then
+     echo "sock exist"
+else
+     echo "link sock"
+     ln -s /var/run/openvswitch /usr/local/var/run/openvswitch
+fi
+
+export PATH=$PATH:/usr/share/openvswitch/scripts
+export PATH=$PATH:/usr/share/ovn/scripts
+
+function quit {
+	ovs-ctl stop
+	ovn-ctl stop_controller
+	exit 0
+}
+trap quit EXIT
+
+CONFIG_FILE=/opt/ovs-config/config.cfg
+
+# Check if config file exists, create default one if not
+if ! test -f "$CONFIG_FILE"; then
+	mkdir -p $(dirname ${CONFIG_FILE})
+	printf %s\\n {dpdk-socket-mem=\"1024\",dpdk-init=true,dpdk-hugepage-dir=/dev/hugepages} > $CONFIG_FILE
+fi
+
+# Start ovsdb
+ovs-ctl restart --no-ovs-vswitchd --system-id=random
+
+# Restrict the number of pthreads ovs-vswitchd creates to reduce the
+# amount of RSS it uses on hosts with many cores
+# https://bugzilla.redhat.com/show_bug.cgi?id=1571379
+# https://bugzilla.redhat.com/show_bug.cgi?id=1572797
+if [[ `nproc` -gt 12 ]]; then
+    ovs-vsctl --no-wait set Open_vSwitch . other_config:n-revalidator-threads=4
+    ovs-vsctl --no-wait set Open_vSwitch . other_config:n-handler-threads=10
+fi
+
+# Read the config and setup OVS
+while IFS= read -r config_line
+do
+	if [[ $config_line ]] && [[ $config_line != \#* ]] ; then
+		ovs-vsctl --no-wait set Open_vSwitch . other_config:$config_line
+	fi
+done < "$CONFIG_FILE"
+
+# Start vswitchd
+ovs-ctl restart --no-ovsdb-server --system-id=random
+ovs-ctl --protocol=udp --dport=6081 enable-protocol
+
+
+
+if ! ovs-vsctl br-exists ${DPDK_TUNNEL_IFACE}; then
+ovs-vsctl --may-exist add-br ${DPDK_TUNNEL_IFACE} \
+    -- set Bridge ${DPDK_TUNNEL_IFACE} datapath_type=netdev \
+    -- br-set-external-id ${DPDK_TUNNEL_IFACE} bridge-id ${DPDK_TUNNEL_IFACE} \
+    -- set bridge ${DPDK_TUNNEL_IFACE} fail-mode=standalone
+
+OPTS=""
+IPS=""
+for ((i=0;i< ${#DPDK_DEV[@]};i++));
+do
+   echo ${DPDK_DEV[i]};
+   S=" -- set Interface p$i type=dpdk options:dpdk-devargs=${DPDK_DEV[i]}"
+   OPTS="$OPTS$S"
+   IPS=$IPS" p"$i
+done
+
+case ${BOND_TYPE} in
+  "")
+    ovs-vsctl --timeout 10 add-port ${DPDK_TUNNEL_IFACE} dpdk0 -- set Interface dpdk0 type=dpdk options:dpdk-devargs=${DPDK_DEV[0]}
+    ;;
+  "active-backup"|1)
+    ovs-vsctl --timeout 10 add-bond ${DPDK_TUNNEL_IFACE} dpdk0 ${IPS} ${OPTS}
+    ovs-vsctl set port dpdk0 bond_mode=active-backup
+    ;;
+  "balance-slb"|0)
+    ovs-vsctl --timeout 10 add-bond ${DPDK_TUNNEL_IFACE} dpdk0 ${IPS} ${OPTS}
+    ovs-vsctl set port dpdk0 bond_mode=balance-slb
+    ;;
+  "lacp"|4)
+    ovs-vsctl --timeout 10 add-bond ${DPDK_TUNNEL_IFACE} dpdk0 ${IPS} ${OPTS}
+    ovs-vsctl set port dpdk0 bond_mode=balance-tcp
+    ovs-vsctl set port dpdk0 lacp=active
+    ;;
+  *)
+    echo "wrong ovs dpdk bond_type config"
+    exit 1
+    ;;
+esac
+
+ovs-vsctl set port ${DPDK_TUNNEL_IFACE} tag=${VLAN_TAG}
+
+fi
+
+ip link set ${DPDK_TUNNEL_IFACE} up
+
+ip addr replace ${ENCAP_IP} dev ${DPDK_TUNNEL_IFACE}
+
+ovs-vsctl --may-exist add-br br-int \
+  -- set Bridge br-int datapath_type=netdev \
+  -- br-set-external-id br-int bridge-id br-int \
+  -- set bridge br-int fail-mode=secure
+
+# Set remote ovn-sb for ovn-controller to connect to
+if [[ -n "$OVN_SB_ADDR" ]]; then
+  ovs-vsctl set open . external-ids:ovn-remote="$OVN_SB_ADDR"
+elif [[ "$ENABLE_SSL" == "true" ]]; then
+  ovs-vsctl set open . external-ids:ovn-remote=ssl:"${OVN_SB_SERVICE_HOST}":"${OVN_SB_SERVICE_PORT}"
+else
+  ovs-vsctl set open . external-ids:ovn-remote=tcp:"${OVN_SB_SERVICE_HOST}":"${OVN_SB_SERVICE_PORT}"
+fi
+ovs-vsctl set open . external-ids:ovn-remote-probe-interval="${OVN_REMOTE_PROBE_INTERVAL}"
+ovs-vsctl set open . external-ids:ovn-openflow-probe-interval="${OVN_REMOTE_OPENFLOW_INTERVAL}"
+ovs-vsctl set open . external-ids:ovn-match-northd-version="true"
+ovs-vsctl set open . external-ids:ovn-encap-type="${TUNNEL_TYPE}"
+
+# Start ovn-controller
+if [[ "$ENABLE_SSL" == "true" ]]; then
+  ovn-ctl --ovn-controller-ssl-key=/var/run/tls/key --ovn-controller-ssl-cert=/var/run/tls/cert --ovn-controller-ssl-ca-cert=/var/run/tls/cacert restart_controller
+  bash /kube-ovn/kube-ovn-tls-reload.sh ovs &
+else
+  ovn-ctl restart_controller
+fi
+
+tail --follow=name --retry /var/log/openvswitch/ovs-vswitchd.log

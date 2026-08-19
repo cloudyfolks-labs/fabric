@@ -1,0 +1,227 @@
+package controller
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/klog/v2"
+
+	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	"github.com/kubeovn/kube-ovn/pkg/util"
+)
+
+func vpcLbDeploymentName(vpc string) string {
+	return fmt.Sprintf("vpc-%s-lb", vpc)
+}
+
+func (c *Controller) createVpcLb(vpc *kubeovnv1.Vpc) error {
+	desired, err := c.genVpcLbDeployment(vpc)
+	if desired == nil || err != nil {
+		klog.Errorf("failed to generate vpc lb deployment for %s: %v", vpc.Name, err)
+		return err
+	}
+	deployments := c.config.KubeClient.AppsV1().Deployments(c.config.PodNamespace)
+	existing, err := deployments.Get(context.Background(), desired.Name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		klog.Infof("create vpc lb deployment %s", desired.Name)
+		if _, err = deployments.Create(context.Background(), desired, metav1.CreateOptions{}); err != nil {
+			klog.Errorf("failed to create LB deployment for VPC %s: %v", vpc.Name, err)
+			return err
+		}
+		return nil
+	}
+	if err != nil {
+		klog.Errorf("failed to check LB deployment for VPC %s: %v", vpc.Name, err)
+		return err
+	}
+	if existing.Annotations[util.ServiceCIDRHashAnnotation] == desired.Annotations[util.ServiceCIDRHashAnnotation] {
+		return nil
+	}
+	klog.Infof("update vpc lb deployment %s for ServiceCIDR change", desired.Name)
+	existing.Spec = desired.Spec
+	if existing.Annotations == nil {
+		existing.Annotations = map[string]string{}
+	}
+	existing.Annotations[util.ServiceCIDRHashAnnotation] = desired.Annotations[util.ServiceCIDRHashAnnotation]
+	if _, err = deployments.Update(context.Background(), existing, metav1.UpdateOptions{}); err != nil {
+		klog.Errorf("failed to update LB deployment for VPC %s: %v", vpc.Name, err)
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) deleteVpcLb(vpc *kubeovnv1.Vpc) error {
+	name := vpcLbDeploymentName(vpc.Name)
+	_, err := c.config.KubeClient.AppsV1().Deployments(c.config.PodNamespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		klog.Errorf("failed to check LB deployment for VPC %s: %v", vpc.Name, err)
+		return err
+	}
+
+	klog.Infof("delete vpc lb deployment for %s", name)
+	if err = c.config.KubeClient.AppsV1().Deployments(c.config.PodNamespace).Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
+		klog.Errorf("failed to delete LB deployment of VPC %s: %v", vpc.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *Controller) genVpcLbDeployment(vpc *kubeovnv1.Vpc) (*v1.Deployment, error) {
+	if len(vpc.Status.Subnets) == 0 {
+		return nil, nil
+	}
+
+	defaultSubnet, err := c.subnetsLister.Get(vpc.Status.DefaultLogicalSwitch)
+	if err != nil {
+		return nil, err
+	}
+
+	subnets, err := c.subnetsLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	var gateway string
+	provider := fmt.Sprintf("%s.%s", util.VpcLbNetworkAttachment, c.config.PodNamespace)
+	for _, subnet := range subnets {
+		if subnet.Spec.Provider == provider {
+			gateway = subnet.Spec.Gateway
+			break
+		}
+	}
+
+	if gateway == "" {
+		return nil, fmt.Errorf("failed to get gateway for provider %s", provider)
+	}
+
+	replicas := int32(1)
+	name := vpcLbDeploymentName(vpc.Name)
+	appLabel := util.NormalizeLabelValue(name)
+	allowPrivilegeEscalation := true
+	privileged := true
+	labels := map[string]string{
+		"app":           appLabel,
+		util.VpcLbLabel: "true",
+	}
+
+	podAnnotations := map[string]string{
+		util.VpcAnnotation:           vpc.Name,
+		util.LogicalSwitchAnnotation: defaultSubnet.Name,
+		nadv1.NetworkAttachmentAnnot: fmt.Sprintf(`[{"name": "%s", "default-route": ["%s"]}]`, util.VpcLbNetworkAttachment, strings.ReplaceAll(gateway, ",", `" ,"`)),
+	}
+
+	deployment := &v1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				util.VpcNameLabel: vpc.Name,
+				util.VpcLbLabel:   "true",
+			},
+		},
+		Spec: v1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      labels,
+					Annotations: podAnnotations,
+				},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{},
+					Containers: []corev1.Container{
+						{
+							Name:            "vpc-lb",
+							Image:           vpcNatImage,
+							Command:         []string{"bash"},
+							Args:            []string{"-c", "sleep infinity"},
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							SecurityContext: &corev1.SecurityContext{
+								Privileged:               &privileged,
+								AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+							},
+						},
+					},
+					TerminationGracePeriodSeconds: new(int64(0)),
+				},
+			},
+			Strategy: v1.DeploymentStrategy{
+				Type: v1.RecreateDeploymentStrategyType,
+			},
+		},
+	}
+
+	v4Gw, v6Gw := util.SplitStringIP(defaultSubnet.Spec.Gateway)
+	deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers,
+		vpcLbInitContainers(4, v4Gw, vpcNatImage, c.serviceCIDRStore.V4CIDRs(), &privileged, &allowPrivilegeEscalation)...,
+	)
+	deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers,
+		vpcLbInitContainers(6, v6Gw, vpcNatImage, c.serviceCIDRStore.V6CIDRs(), &privileged, &allowPrivilegeEscalation)...,
+	)
+
+	if deployment.Annotations == nil {
+		deployment.Annotations = map[string]string{}
+	}
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = map[string]string{}
+	}
+	hash := c.serviceCIDRStore.Hash()
+	deployment.Annotations[util.ServiceCIDRHashAnnotation] = hash
+	deployment.Spec.Template.Annotations[util.ServiceCIDRHashAnnotation] = hash
+
+	return deployment, nil
+}
+
+// vpcLbInitContainers returns the route + MASQUERADE init containers for one
+// IP family. The container names embed the family and CIDR index so that
+// adding/removing ServiceCIDRs translates into a stable, deterministic name
+// list that the Deployment controller can diff cleanly.
+func vpcLbInitContainers(family int, gateway, image string, cidrs []string, privileged, allowPrivEsc *bool) []corev1.Container {
+	if gateway == "" || len(cidrs) == 0 {
+		return nil
+	}
+	iptablesCmd := "iptables"
+	if family == 6 {
+		iptablesCmd = "ip6tables"
+	}
+	out := make([]corev1.Container, 0, len(cidrs)*2)
+	for i, cidr := range cidrs {
+		out = append(out,
+			corev1.Container{
+				Name:            fmt.Sprintf("init-ipv%d-route-%d", family, i),
+				Image:           image,
+				Command:         []string{"ip"},
+				Args:            strings.Fields(fmt.Sprintf("-%d route replace %s via %s", family, cidr, gateway)),
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               privileged,
+					AllowPrivilegeEscalation: allowPrivEsc,
+				},
+			},
+			corev1.Container{
+				Name:            fmt.Sprintf("init-ipv%d-iptables-%d", family, i),
+				Image:           image,
+				Command:         []string{iptablesCmd},
+				Args:            strings.Fields(fmt.Sprintf("-t nat -I POSTROUTING -d %s -j MASQUERADE", cidr)),
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               privileged,
+					AllowPrivilegeEscalation: allowPrivEsc,
+				},
+			},
+		)
+	}
+	return out
+}

@@ -1,0 +1,827 @@
+package controller
+
+import (
+	"context"
+	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/set"
+
+	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	kubeovnv1lister "github.com/kubeovn/kube-ovn/pkg/client/listers/kubeovn/v1"
+	"github.com/kubeovn/kube-ovn/pkg/ovs"
+	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
+	"github.com/kubeovn/kube-ovn/pkg/util"
+)
+
+func TestGenGatewayBFDDContainer(t *testing.T) {
+	image := "kube-ovn/kube-ovn:v1.12.0"
+	bfdIP := "10.0.1.1,fd00::1"
+	minTX := int32(100)
+	minRX := int32(200)
+	multiplier := int32(3)
+
+	container := genGatewayBFDDContainer(image, bfdIP, minTX, minRX, multiplier)
+
+	assert.Equal(t, "bfdd", container.Name)
+	assert.Equal(t, image, container.Image)
+	assert.Equal(t, corev1.PullIfNotPresent, container.ImagePullPolicy)
+	assert.Equal(t, []string{"bash", "/kube-ovn/start-bfdd.sh"}, container.Command)
+
+	envMap := make(map[string]string)
+	for _, env := range container.Env {
+		envMap[env.Name] = env.Value
+	}
+	assert.Equal(t, bfdIP, envMap["BFD_PEER_IPS"])
+	assert.Equal(t, "100", envMap["BFD_MIN_TX"])
+	assert.Equal(t, "200", envMap["BFD_MIN_RX"])
+	assert.Equal(t, "3", envMap["BFD_MULTI"])
+
+	assert.NotNil(t, container.StartupProbe)
+	assert.NotNil(t, container.LivenessProbe)
+	assert.NotNil(t, container.ReadinessProbe)
+	assert.Equal(t, []string{"bash", "/kube-ovn/bfdd-healthcheck.sh"}, container.LivenessProbe.Exec.Command)
+	assert.Equal(t, int32(1), container.LivenessProbe.InitialDelaySeconds)
+	assert.Equal(t, int32(5), container.LivenessProbe.PeriodSeconds)
+	assert.Equal(t, int32(10), container.LivenessProbe.TimeoutSeconds, "liveness probe must terminate blocked bfdd-control calls")
+	assert.Equal(t, []string{"bfdd-control", "status"}, container.ReadinessProbe.Exec.Command)
+	assert.Equal(t, int32(3), container.ReadinessProbe.InitialDelaySeconds)
+	assert.Equal(t, int32(3), container.ReadinessProbe.PeriodSeconds)
+	assert.Equal(t, int32(10), container.ReadinessProbe.TimeoutSeconds, "readiness probe must allow bfdd-control enough time to respond")
+	assert.Equal(t, int32(1), container.ReadinessProbe.FailureThreshold)
+
+	assert.Equal(t, gwBFDDResourceCPU, container.Resources.Requests[corev1.ResourceCPU])
+	assert.Equal(t, gwBFDDResourceMemory, container.Resources.Requests[corev1.ResourceMemory])
+	assert.Equal(t, gwResourceEphemeralStorage, container.Resources.Limits[corev1.ResourceEphemeralStorage])
+
+	assert.False(t, *container.SecurityContext.Privileged)
+	assert.Equal(t, int64(65534), *container.SecurityContext.RunAsUser)
+}
+
+func TestOpenBFDDControlHardeningPatch(t *testing.T) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("failed to get current filename")
+	}
+	imagesDir := filepath.Join(filepath.Dir(filename), "..", "..", "dist", "images")
+
+	startScript, err := os.ReadFile(filepath.Join(imagesDir, "start-bfdd.sh"))
+	if assert.NoError(t, err) {
+		assert.NotContains(t, string(startScript), "trap '' PIPE", "SIGPIPE handling must be limited to OpenBFDD control replies")
+	}
+
+	patchName := "OpenBFDD-control-hardening.patch"
+	patchContent, err := os.ReadFile(filepath.Join(imagesDir, patchName))
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(patchContent), "ControlCommandTimeoutMs = 500")
+		assert.Contains(t, string(patchContent), "ControlRequestTimeoutMs = 5000")
+		assert.Contains(t, string(patchContent), "ControlOperationTimeoutMs = 4000")
+		assert.Contains(t, string(patchContent), "connectedSocket.SetBlocking(false)")
+		assert.Contains(t, string(patchContent), "m_replySocket.SendStream")
+		assert.Contains(t, string(patchContent), "MSG_DONTWAIT | MSG_NOSIGNAL")
+		assert.Contains(t, string(patchContent), "m_replyFailed")
+		assert.Contains(t, string(patchContent), "m_operations.pop_back()")
+		assert.Contains(t, string(patchContent), "waitCondition(NULL)")
+		assert.Contains(t, string(patchContent), "TimeSpec::MonoNow() >= m_requestDeadline")
+		assert.Contains(t, string(patchContent), "TimeSpec::MonoNow() >= deadline")
+		assert.Contains(t, string(patchContent), "struct StatusOperation")
+		assert.Contains(t, string(patchContent), "references(2)")
+		assert.Contains(t, string(patchContent), "condition(true, true)")
+		assert.Contains(t, string(patchContent), "pthread_condattr_setclock(&attributes, CLOCK_MONOTONIC)")
+		assert.Contains(t, string(patchContent), "runStatusOperation")
+		assert.Contains(t, string(patchContent), `failurePrefix = "Unable to complete "`)
+		assert.Contains(t, string(patchContent), "operation_timeout")
+		assert.Contains(t, string(patchContent), "without a reply")
+		assert.Contains(t, string(patchContent), "Slow or failed control request")
+	}
+
+	dockerfile, err := os.ReadFile(filepath.Join(imagesDir, "Dockerfile.base"))
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(dockerfile), "git apply /usr/src/OpenBFDD-compile.patch")
+		assert.NotContains(t, string(dockerfile), "git apply --no-apply /usr/src/OpenBFDD-compile.patch")
+		assert.Contains(t, string(dockerfile), "ADD "+patchName+" /usr/src/")
+		assert.Contains(t, string(dockerfile), "git apply --unidiff-zero /usr/src/"+patchName)
+		assert.NotContains(t, string(dockerfile), "git apply --no-apply /usr/src/"+patchName)
+	}
+}
+
+func TestBFDDPodMonitorUsesSupervisorMetricsPort(t *testing.T) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("failed to get current filename")
+	}
+	monitorPath := filepath.Join(filepath.Dir(filename), "..", "..", "dist", "monitoring", "bfdd-monitor.yaml")
+	content, err := os.ReadFile(monitorPath)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(content), "port: "+vegBFDDMetricsPort)
+	}
+}
+
+func TestBFDDHealthcheck(t *testing.T) {
+	bash, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash is required to test the BFD health check")
+	}
+
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("failed to get current filename")
+	}
+	healthcheckPath := filepath.Join(filepath.Dir(filename), "..", "..", "dist", "images", "bfdd-healthcheck.sh")
+
+	tests := []struct {
+		name           string
+		statusOutput   string
+		statusExitCode string
+		wantHealthy    bool
+		wantAllowed    []string
+	}{
+		{
+			name:         "existing session is healthy",
+			statusOutput: "There are 1 sessions:",
+			wantHealthy:  true,
+		},
+		{
+			name:         "zero sessions fails without mutating peer configuration",
+			statusOutput: "There are 0 sessions:",
+		},
+		{
+			name:           "status failure fails without mutating peer configuration",
+			statusOutput:   "control socket unavailable",
+			statusExitCode: "2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testDir := t.TempDir()
+			binDir := filepath.Join(testDir, "bin")
+			if err := os.Mkdir(binDir, 0o755); err != nil {
+				t.Fatalf("failed to create mock binary directory: %v", err)
+			}
+
+			allowLog := filepath.Join(testDir, "allow.log")
+			mockControl := filepath.Join(binDir, "bfdd-control")
+			mockScript := `#!/usr/bin/env bash
+set -euo pipefail
+
+case "${1:-}" in
+  status)
+    printf '%s\n' "${STATUS_OUTPUT:-}"
+    exit "${STATUS_EXIT_CODE:-0}"
+    ;;
+  allow)
+    printf '%s\n' "${2:-}" >> "${ALLOW_LOG}"
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+`
+			if err := os.WriteFile(mockControl, []byte(mockScript), 0o755); err != nil {
+				t.Fatalf("failed to create mock bfdd-control: %v", err)
+			}
+
+			cmd := exec.Command(bash, healthcheckPath) // #nosec G204 -- path is derived from the test source location
+			cmd.Env = append(os.Environ(),
+				"PATH="+binDir+":"+os.Getenv("PATH"),
+				"STATUS_OUTPUT="+tt.statusOutput,
+				"STATUS_EXIT_CODE="+tt.statusExitCode,
+				"ALLOW_LOG="+allowLog,
+				"BFD_PEER_IPS=10.0.0.1,fd00::1",
+			)
+			output, err := cmd.CombinedOutput()
+			if tt.wantHealthy {
+				assert.NoError(t, err, "health check output: %s", output)
+			} else {
+				assert.Error(t, err, "health check output: %s", output)
+			}
+
+			var allowed []string
+			content, err := os.ReadFile(allowLog)
+			switch {
+			case err == nil:
+				allowed = strings.Fields(string(content))
+			case os.IsNotExist(err):
+			default:
+				t.Fatalf("failed to read allowed peer log: %v", err)
+			}
+			assert.Equal(t, tt.wantAllowed, allowed)
+		})
+	}
+}
+
+func TestGenGatewaySleepContainer(t *testing.T) {
+	image := "kube-ovn/kube-ovn:v1.12.0"
+	container := genGatewaySleepContainer(image)
+
+	assert.Equal(t, "gateway", container.Name)
+	assert.Equal(t, image, container.Image)
+	assert.Equal(t, []string{"sleep", "infinity"}, container.Command)
+	assert.Equal(t, gwSleepResourceCPU, container.Resources.Requests[corev1.ResourceCPU])
+	assert.Equal(t, gwSleepResourceMemory, container.Resources.Requests[corev1.ResourceMemory])
+}
+
+func TestGenGatewayPodAntiAffinity(t *testing.T) {
+	labels := map[string]string{"app": "vpc-nat-gw", "vpc": "test-vpc"}
+	tests := []struct {
+		name      string
+		mode      string
+		required  bool
+		preferred bool
+	}{
+		{name: "empty defaults to required", required: true},
+		{name: "required", mode: kubeovnv1.PodAntiAffinityRequired, required: true},
+		{name: "preferred", mode: kubeovnv1.PodAntiAffinityPreferred, preferred: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			affinity := genGatewayPodAntiAffinity(labels, tt.mode)
+			assert.NotNil(t, affinity.PodAntiAffinity)
+			if tt.required {
+				terms := affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+				assert.Len(t, terms, 1)
+				assert.Equal(t, labels, terms[0].LabelSelector.MatchLabels)
+				assert.Equal(t, corev1.LabelHostname, terms[0].TopologyKey)
+				assert.Empty(t, affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)
+			}
+			if tt.preferred {
+				terms := affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+				assert.Len(t, terms, 1)
+				assert.Equal(t, int32(100), terms[0].Weight)
+				assert.Equal(t, labels, terms[0].PodAffinityTerm.LabelSelector.MatchLabels)
+				assert.Equal(t, corev1.LabelHostname, terms[0].PodAffinityTerm.TopologyKey)
+				assert.Empty(t, affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
+			}
+		})
+	}
+}
+
+func TestGenGatewayDeploymentStrategy(t *testing.T) {
+	strategy := genGatewayDeploymentStrategy()
+
+	assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, strategy.Type)
+	assert.NotNil(t, strategy.RollingUpdate)
+	assert.Equal(t, intstr.FromInt(1), *strategy.RollingUpdate.MaxUnavailable)
+	assert.Equal(t, intstr.FromInt(0), *strategy.RollingUpdate.MaxSurge)
+}
+
+func TestMergeGatewayAffinity(t *testing.T) {
+	aff1 := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key:      "kubernetes.io/hostname",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"node1"},
+					}},
+				}},
+			},
+		},
+	}
+	aff2 := &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": "test"},
+				},
+				TopologyKey: corev1.LabelHostname,
+			}},
+		},
+	}
+	aff3 := &corev1.Affinity{
+		PodAffinity: &corev1.PodAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app2": "test2"},
+				},
+				TopologyKey: corev1.LabelHostname,
+			}},
+		},
+	}
+
+	merged := mergeGatewayAffinity(aff1, aff2, aff3, nil)
+	assert.NotNil(t, merged.NodeAffinity)
+	assert.NotNil(t, merged.PodAntiAffinity)
+	assert.NotNil(t, merged.PodAffinity)
+
+	// Test precedence
+	aff4 := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key:      "kubernetes.io/hostname",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"node2"},
+					}},
+				}},
+			},
+		},
+	}
+	merged2 := mergeGatewayAffinity(aff1, aff4)
+	assert.Equal(t, aff4.NodeAffinity, merged2.NodeAffinity)
+}
+
+type mockOvnNbClient struct {
+	ovs.NbClient
+	mock.Mock
+}
+
+func (m *mockOvnNbClient) FindBFD(externalIDs map[string]string) ([]ovnnb.BFD, error) {
+	args := m.Called(externalIDs)
+	return args.Get(0).([]ovnnb.BFD), args.Error(1)
+}
+
+func (m *mockOvnNbClient) CreateBFD(lrp, dstIP string, minRX, minTX, detectMult int, externalIDs map[string]string) (*ovnnb.BFD, error) {
+	args := m.Called(lrp, dstIP, minRX, minTX, detectMult, externalIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ovnnb.BFD), args.Error(1)
+}
+
+func (m *mockOvnNbClient) DeleteBFD(uuid string) error {
+	args := m.Called(uuid)
+	return args.Error(0)
+}
+
+func (m *mockOvnNbClient) DeleteLogicalRouterStaticRoute(lrName string, routeTable, policy *string, ipPrefix, nextHop string) error {
+	args := m.Called(lrName, routeTable, policy, ipPrefix, nextHop)
+	return args.Error(0)
+}
+
+func (m *mockOvnNbClient) ListLogicalRouterPolicies(lrName string, priority int, externalIDs map[string]string, ignoreExtIDEmptyValue bool) ([]*ovnnb.LogicalRouterPolicy, error) {
+	args := m.Called(lrName, priority, externalIDs, ignoreExtIDEmptyValue)
+	return args.Get(0).([]*ovnnb.LogicalRouterPolicy), args.Error(1)
+}
+
+func (m *mockOvnNbClient) UpdateLogicalRouterPolicy(policy *ovnnb.LogicalRouterPolicy, fields ...any) error {
+	args := m.Called(policy, fields)
+	return args.Error(0)
+}
+
+func (m *mockOvnNbClient) DeleteLogicalRouterPolicyByUUID(lrName, uuid string) error {
+	args := m.Called(lrName, uuid)
+	return args.Error(0)
+}
+
+func (m *mockOvnNbClient) AddLogicalRouterPolicy(lrName string, priority int, match, action string, nextHops, bfdSessions []string, externalIDs map[string]string) error {
+	args := m.Called(lrName, priority, match, action, nextHops, bfdSessions, externalIDs)
+	return args.Error(0)
+}
+
+func (m *mockOvnNbClient) DeleteLogicalRouterPolicies(lrName string, priority int, externalIDs map[string]string) error {
+	args := m.Called(lrName, priority, externalIDs)
+	return args.Error(0)
+}
+
+func (m *mockOvnNbClient) ListLogicalRouterStaticRoutes(lrName string, routeTable, policy *string, ipPrefix string, externalIDs map[string]string) ([]*ovnnb.LogicalRouterStaticRoute, error) {
+	args := m.Called(lrName, routeTable, policy, ipPrefix, externalIDs)
+	return args.Get(0).([]*ovnnb.LogicalRouterStaticRoute), args.Error(1)
+}
+
+func (m *mockOvnNbClient) AddLogicalRouterStaticRoute(lrName, routeTable, policy, ipPrefix string, bfdID *string, externalIDs map[string]string, nexthops ...string) error {
+	args := m.Called(lrName, routeTable, policy, ipPrefix, bfdID, externalIDs, nexthops)
+	return args.Error(0)
+}
+
+func (m *mockOvnNbClient) DeleteLogicalRouterStaticRouteByExternalIDs(lrName string, externalIDs map[string]string) error {
+	args := m.Called(lrName, externalIDs)
+	return args.Error(0)
+}
+
+func TestReconcileGatewayBFD(t *testing.T) {
+	lrpName := "test-lrp"
+	externalIDs := map[string]string{"vpc": "test-vpc"}
+	minTX, minRX, multiplier := int32(100), int32(200), int32(3)
+	bfdIP := "10.0.1.1"
+
+	t.Run("no existing BFD sessions, create new", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		nextHops := set.New("10.0.1.10", "10.0.1.11")
+
+		m.On("FindBFD", externalIDs).Return([]ovnnb.BFD{}, nil)
+		m.On("CreateBFD", lrpName, "10.0.1.10", int(minTX), int(minRX), int(multiplier), externalIDs).Return(&ovnnb.BFD{UUID: "uuid-1", DstIP: "10.0.1.10"}, nil)
+		m.On("CreateBFD", lrpName, "10.0.1.11", int(minTX), int(minRX), int(multiplier), externalIDs).Return(&ovnnb.BFD{UUID: "uuid-2", DstIP: "10.0.1.11"}, nil)
+
+		bfdIDs, bfdMap, staleBFDIDs, err := reconcileGatewayBFD(m, bfdIP, lrpName, nextHops, minTX, minRX, multiplier, externalIDs)
+
+		assert.NoError(t, err)
+		assert.True(t, bfdIDs.Equal(set.New("uuid-1", "uuid-2")))
+		assert.Equal(t, map[string]string{"10.0.1.10": "uuid-1", "10.0.1.11": "uuid-2"}, bfdMap)
+		assert.Equal(t, 0, staleBFDIDs.Len())
+		m.AssertExpectations(t)
+	})
+
+	t.Run("existing valid and stale BFD sessions", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		nextHops := set.New("10.0.1.10")
+		existingBFDs := []ovnnb.BFD{
+			{UUID: "uuid-valid", DstIP: "10.0.1.10", LogicalPort: lrpName},
+			{UUID: "uuid-stale-ip", DstIP: "10.0.1.11", LogicalPort: lrpName},
+			{UUID: "uuid-stale-port", DstIP: "10.0.1.10", LogicalPort: "other-port"},
+		}
+
+		m.On("FindBFD", externalIDs).Return(existingBFDs, nil)
+
+		bfdIDs, bfdMap, staleBFDIDs, err := reconcileGatewayBFD(m, bfdIP, lrpName, nextHops, minTX, minRX, multiplier, externalIDs)
+
+		assert.NoError(t, err)
+		assert.True(t, bfdIDs.Equal(set.New("uuid-valid")))
+		assert.Equal(t, map[string]string{"10.0.1.10": "uuid-valid"}, bfdMap)
+		assert.True(t, staleBFDIDs.Equal(set.New("uuid-stale-ip", "uuid-stale-port")))
+		m.AssertExpectations(t)
+	})
+
+	t.Run("bfdIP is empty, disable BFD", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		nextHops := set.New("10.0.1.10")
+		existingBFDs := []ovnnb.BFD{
+			{UUID: "uuid-any", DstIP: "10.0.1.10", LogicalPort: lrpName},
+		}
+
+		m.On("FindBFD", externalIDs).Return(existingBFDs, nil)
+
+		bfdIDs, bfdMap, staleBFDIDs, err := reconcileGatewayBFD(m, "", lrpName, nextHops, minTX, minRX, multiplier, externalIDs)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 0, bfdIDs.Len())
+		assert.Equal(t, 0, len(bfdMap))
+		assert.True(t, staleBFDIDs.Equal(set.New("uuid-any")))
+		m.AssertExpectations(t)
+	})
+
+	t.Run("FindBFD error", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		m.On("FindBFD", externalIDs).Return([]ovnnb.BFD{}, errors.New("find error"))
+
+		_, _, _, err := reconcileGatewayBFD(m, bfdIP, lrpName, nil, minTX, minRX, multiplier, externalIDs)
+		assert.Error(t, err)
+	})
+}
+
+func TestCleanupStaleBFD(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		staleIDs := set.New("uuid-1", "uuid-2")
+
+		m.On("DeleteBFD", "uuid-1").Return(nil)
+		m.On("DeleteBFD", "uuid-2").Return(nil)
+
+		err := cleanupStaleBFD(m, staleIDs)
+		assert.NoError(t, err)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("delete error", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		staleIDs := set.New("uuid-1")
+		m.On("DeleteBFD", "uuid-1").Return(errors.New("delete error"))
+
+		err := cleanupStaleBFD(m, staleIDs)
+		assert.Error(t, err)
+	})
+}
+
+func TestGetWorkloadNodes(t *testing.T) {
+	t.Parallel()
+
+	namespace := "test-ns"
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{"app": "test-app"},
+	}
+
+	pods := []corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod1",
+				Namespace: namespace,
+				Labels:    map[string]string{"app": "test-app"},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node1",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod2",
+				Namespace: namespace,
+				Labels:    map[string]string{"app": "test-app"},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node2",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod3",
+				Namespace: namespace,
+				Labels:    map[string]string{"app": "other-app"},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "node3",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod4",
+				Namespace: namespace,
+				Labels:    map[string]string{"app": "test-app"},
+			},
+			Spec: corev1.PodSpec{
+				NodeName: "", // No node assigned
+			},
+		},
+	}
+
+	client := fake.NewSimpleClientset()
+	for _, pod := range pods {
+		_, err := client.CoreV1().Pods(namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
+		assert.NoError(t, err)
+	}
+
+	informerFactory := informers.NewSharedInformerFactory(client, 0)
+	podLister := informerFactory.Core().V1().Pods().Lister()
+
+	// Fill the cache
+	_ = informerFactory.Core().V1().Pods().Informer()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	informerFactory.Start(stopCh)
+	informerFactory.WaitForCacheSync(stopCh)
+
+	nodes, err := getWorkloadNodes(podLister, namespace, selector)
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"node1", "node2"}, nodes)
+}
+
+func TestUpdateNatGwWorkloadStatus(t *testing.T) {
+	namespace := "test-ns"
+	gwName := "test-gw"
+	workloadName := util.GenNatGwName(gwName)
+
+	t.Run("HA mode (Deployment)", func(t *testing.T) {
+		gw := &kubeovnv1.VpcNatGateway{
+			ObjectMeta: metav1.ObjectMeta{Name: gwName},
+			Spec:       kubeovnv1.VpcNatGatewaySpec{Replicas: 2},
+		}
+
+		deploy := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      workloadName,
+				Namespace: namespace,
+			},
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": workloadName},
+				},
+			},
+		}
+
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod-1",
+				Namespace: namespace,
+				Labels:    map[string]string{"app": workloadName},
+			},
+			Spec: corev1.PodSpec{NodeName: "node-1"},
+		}
+
+		client := fake.NewSimpleClientset(deploy, pod)
+		informerFactory := informers.NewSharedInformerFactory(client, 0)
+		podLister := informerFactory.Core().V1().Pods().Lister()
+		deployLister := informerFactory.Apps().V1().Deployments().Lister()
+
+		// Start informers and wait for sync
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		changed := updateNatGwWorkloadStatus(gw, podLister, deployLister, client, namespace)
+		assert.True(t, changed)
+		assert.Equal(t, util.KindDeployment, gw.Status.Workload.Kind)
+		assert.Equal(t, "apps/v1", gw.Status.Workload.APIVersion)
+		assert.Equal(t, workloadName, gw.Status.Workload.Name)
+		assert.Equal(t, []string{"node-1"}, gw.Status.Workload.Nodes)
+
+		// Test no change
+		changed = updateNatGwWorkloadStatus(gw, podLister, deployLister, client, namespace)
+		assert.False(t, changed)
+	})
+
+	t.Run("Legacy mode (StatefulSet)", func(t *testing.T) {
+		gw := &kubeovnv1.VpcNatGateway{
+			ObjectMeta: metav1.ObjectMeta{Name: gwName},
+			Spec:       kubeovnv1.VpcNatGatewaySpec{Replicas: 1},
+		}
+
+		sts := &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      workloadName,
+				Namespace: namespace,
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": workloadName},
+				},
+			},
+		}
+
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      workloadName + "-0",
+				Namespace: namespace,
+				Labels:    map[string]string{"app": workloadName},
+			},
+			Spec: corev1.PodSpec{NodeName: "node-1"},
+		}
+
+		client := fake.NewSimpleClientset(sts, pod)
+		informerFactory := informers.NewSharedInformerFactory(client, 0)
+		podLister := informerFactory.Core().V1().Pods().Lister()
+		deployLister := informerFactory.Apps().V1().Deployments().Lister()
+
+		// Start informers and wait for sync
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		changed := updateNatGwWorkloadStatus(gw, podLister, deployLister, client, namespace)
+		assert.True(t, changed)
+		assert.Equal(t, util.KindStatefulSet, gw.Status.Workload.Kind)
+		assert.Equal(t, "apps/v1", gw.Status.Workload.APIVersion)
+		assert.Equal(t, workloadName, gw.Status.Workload.Name)
+		assert.Equal(t, []string{"node-1"}, gw.Status.Workload.Nodes)
+	})
+}
+
+func TestResolveInternalCIDRs(t *testing.T) {
+	subnets := []*kubeovnv1.Subnet{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "subnet1"},
+			Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.0.1.0/24"},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "subnet2"},
+			Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.0.2.0/24,fd00:10:16::/64"},
+		},
+	}
+
+	fakeSubnetLister := &mockSubnetLister{subnets: subnets}
+
+	t.Run("resolve subnets and direct CIDRs", func(t *testing.T) {
+		subnetNames := []string{"subnet1", "subnet2", "non-existent"}
+		directCIDRs := []string{"192.168.1.0/24"}
+
+		result := resolveInternalCIDRs(fakeSubnetLister, subnetNames, directCIDRs)
+
+		expected := []string{"10.0.1.0/24", "10.0.2.0/24", "fd00:10:16::/64", "192.168.1.0/24"}
+		assert.ElementsMatch(t, expected, result)
+	})
+}
+
+type mockSubnetLister struct {
+	kubeovnv1lister.SubnetLister
+	subnets []*kubeovnv1.Subnet
+}
+
+func (m *mockSubnetLister) List(selector labels.Selector) (ret []*kubeovnv1.Subnet, err error) {
+	_ = selector
+	return m.subnets, nil
+}
+
+func (m *mockSubnetLister) Get(name string) (*kubeovnv1.Subnet, error) {
+	for _, s := range m.subnets {
+		if s.Name == name {
+			return s, nil
+		}
+	}
+	return nil, errors.New("not found")
+}
+
+func TestReconcileNatGatewayPolicies(t *testing.T) {
+	m := new(mockOvnNbClient)
+
+	gwName := "test-gw"
+	lrName := "test-lr"
+	af := 4
+	externalIDs := map[string]string{"vendor": "kube-ovn", "af": "4"}
+	internalCIDRs := []string{"10.0.1.0/24"}
+	nextHops := map[string]string{"node1": "10.0.1.10"}
+	bfdIDs := set.New("bfd-uuid-1")
+
+	t.Run("create new policy", func(t *testing.T) {
+		m.On("ListLogicalRouterPolicies", lrName, util.NatGatewayPolicyPriority, externalIDs, false).Return([]*ovnnb.LogicalRouterPolicy{}, nil).Once()
+		m.On("AddLogicalRouterPolicy", lrName, util.NatGatewayPolicyPriority, "ip4.src == 10.0.1.0/24", ovnnb.LogicalRouterPolicyActionReroute, mock.Anything, []string{"bfd-uuid-1"}, externalIDs).Return(nil).Once()
+		m.On("DeleteLogicalRouterPolicies", lrName, util.NatGatewayDropPolicyPriority, externalIDs).Return(nil).Once()
+
+		err := reconcileNatGatewayPolicies(m, gwName, lrName, af, false, bfdIDs, internalCIDRs, nextHops, externalIDs)
+		assert.NoError(t, err)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("update existing policy", func(t *testing.T) {
+		existing := []*ovnnb.LogicalRouterPolicy{
+			{
+				UUID:        "policy-uuid",
+				Priority:    util.NatGatewayPolicyPriority,
+				Match:       "ip4.src == 10.0.1.0/24",
+				Action:      ovnnb.LogicalRouterPolicyActionReroute,
+				Nexthops:    []string{"10.0.1.11"}, // Old nexthop
+				BFDSessions: []string{"old-bfd"},
+			},
+		}
+		m.On("ListLogicalRouterPolicies", lrName, util.NatGatewayPolicyPriority, externalIDs, false).Return(existing, nil).Once()
+		m.On("UpdateLogicalRouterPolicy", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		m.On("DeleteLogicalRouterPolicies", lrName, util.NatGatewayDropPolicyPriority, externalIDs).Return(nil).Once()
+
+		err := reconcileNatGatewayPolicies(m, gwName, lrName, af, false, bfdIDs, internalCIDRs, nextHops, externalIDs)
+		assert.NoError(t, err)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("cleanup stale policy", func(t *testing.T) {
+		existing := []*ovnnb.LogicalRouterPolicy{
+			{
+				UUID:     "stale-uuid",
+				Priority: util.NatGatewayPolicyPriority,
+				Match:    "ip4.src == 10.0.2.0/24",
+			},
+		}
+		m.On("ListLogicalRouterPolicies", lrName, util.NatGatewayPolicyPriority, externalIDs, false).Return(existing, nil).Once()
+		m.On("DeleteLogicalRouterPolicyByUUID", lrName, "stale-uuid").Return(nil).Once()
+		m.On("AddLogicalRouterPolicy", lrName, util.NatGatewayPolicyPriority, "ip4.src == 10.0.1.0/24", ovnnb.LogicalRouterPolicyActionReroute, mock.Anything, []string{"bfd-uuid-1"}, externalIDs).Return(nil).Once()
+		m.On("DeleteLogicalRouterPolicies", lrName, util.NatGatewayDropPolicyPriority, externalIDs).Return(nil).Once()
+
+		err := reconcileNatGatewayPolicies(m, gwName, lrName, af, false, bfdIDs, internalCIDRs, nextHops, externalIDs)
+		assert.NoError(t, err)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("no internalCIDRs", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		m.On("DeleteLogicalRouterPolicies", lrName, util.NatGatewayPolicyPriority, externalIDs).Return(nil).Once()
+		m.On("DeleteLogicalRouterPolicies", lrName, util.NatGatewayDropPolicyPriority, externalIDs).Return(nil).Once()
+
+		err := reconcileNatGatewayPolicies(m, gwName, lrName, af, false, nil, nil, nil, externalIDs)
+		assert.NoError(t, err)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("no nextHops", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		m.On("DeleteLogicalRouterPolicies", lrName, util.NatGatewayPolicyPriority, externalIDs).Return(nil).Once()
+		m.On("DeleteLogicalRouterPolicies", lrName, util.NatGatewayDropPolicyPriority, externalIDs).Return(nil).Once()
+
+		err := reconcileNatGatewayPolicies(m, gwName, lrName, af, false, nil, internalCIDRs, nil, externalIDs)
+		assert.NoError(t, err)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("bfd enabled, remove stale drop rules", func(t *testing.T) {
+		m := new(mockOvnNbClient)
+		staleDropPolicy := &ovnnb.LogicalRouterPolicy{
+			UUID:     "stale-drop-uuid",
+			Priority: util.NatGatewayDropPolicyPriority,
+			Match:    "ip4.src == 10.0.2.0/24",
+			Action:   ovnnb.LogicalRouterPolicyActionDrop,
+		}
+		validDropPolicy := &ovnnb.LogicalRouterPolicy{
+			UUID:     "valid-drop-uuid",
+			Priority: util.NatGatewayDropPolicyPriority,
+			Match:    "ip4.src == 10.0.1.0/24",
+			Action:   ovnnb.LogicalRouterPolicyActionDrop,
+		}
+
+		// Main policies
+		m.On("ListLogicalRouterPolicies", lrName, util.NatGatewayPolicyPriority, externalIDs, false).Return([]*ovnnb.LogicalRouterPolicy{}, nil).Once()
+		m.On("AddLogicalRouterPolicy", lrName, util.NatGatewayPolicyPriority, "ip4.src == 10.0.1.0/24", ovnnb.LogicalRouterPolicyActionReroute, mock.Anything, []string{"bfd-uuid-1"}, externalIDs).Return(nil).Once()
+
+		// Drop policies
+		m.On("ListLogicalRouterPolicies", lrName, util.NatGatewayDropPolicyPriority, externalIDs, false).Return([]*ovnnb.LogicalRouterPolicy{staleDropPolicy, validDropPolicy}, nil).Once()
+		m.On("DeleteLogicalRouterPolicyByUUID", lrName, "stale-drop-uuid").Return(nil).Once()
+
+		err := reconcileNatGatewayPolicies(m, gwName, lrName, af, true, bfdIDs, internalCIDRs, nextHops, externalIDs)
+		assert.NoError(t, err)
+		m.AssertExpectations(t)
+	})
+}

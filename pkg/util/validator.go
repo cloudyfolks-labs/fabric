@@ -1,0 +1,616 @@
+package util
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog/v2"
+
+	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+)
+
+func ValidateSubnet(subnet kubeovnv1.Subnet) error {
+	// Allow underlay subnets (with vlan) to be created without a CIDRBlock.
+	// Such subnets only allocate a MAC address and rely on an external DHCP
+	// server (BYO-DHCP) for IP assignment.
+	isUnderlayWithoutCIDR := subnet.Spec.Vlan != "" && subnet.Spec.CIDRBlock == ""
+
+	if isUnderlayWithoutCIDR {
+		if err := validateMacOnlySubnet(subnet); err != nil {
+			return err
+		}
+	} else if err := validateSubnetCIDR(subnet); err != nil {
+		return err
+	}
+
+	excludeIps := subnet.Spec.ExcludeIps
+	for _, ipr := range excludeIps {
+		// v6 ip address can not use upper case
+		if ContainsUppercase(ipr) {
+			err := fmt.Errorf("subnet exclude ip %s can not contain upper case", ipr)
+			return err
+		}
+		ips := strings.Split(ipr, "..")
+		if len(ips) > 2 {
+			return fmt.Errorf("%s in excludeIps is not a valid ip range", ipr)
+		}
+
+		if len(ips) == 1 {
+			if net.ParseIP(ips[0]) == nil {
+				return fmt.Errorf("ip %s in excludeIps is not a valid address", ips[0])
+			}
+		}
+
+		if len(ips) == 2 {
+			for _, ip := range ips {
+				if net.ParseIP(ip) == nil {
+					return fmt.Errorf("ip %s in excludeIps is not a valid address", ip)
+				}
+			}
+			if IP2BigInt(ips[0]).Cmp(IP2BigInt(ips[1])) == 1 {
+				return fmt.Errorf("%s in excludeIps is not a valid ip range", ipr)
+			}
+		}
+	}
+
+	if !isUnderlayWithoutCIDR {
+		if err := validateSubnetCIDRBlocks(subnet); err != nil {
+			return err
+		}
+	}
+
+	allow := subnet.Spec.AllowSubnets
+	for _, cidr := range allow {
+		// v6 ip address can not use upper case
+		if ContainsUppercase(cidr) {
+			err := fmt.Errorf("subnet %s allow subnet %s v6 ip address can not contain upper case", subnet.Name, cidr)
+			klog.Error(err)
+			return err
+		}
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("%s in allowSubnets is not a valid address", cidr)
+		}
+	}
+
+	gwType := subnet.Spec.GatewayType
+	if gwType != "" && gwType != kubeovnv1.GWDistributedType && gwType != kubeovnv1.GWCentralizedType {
+		return fmt.Errorf("%s is not a valid gateway type", gwType)
+	}
+
+	protocol := subnet.Spec.Protocol
+	if protocol != "" && protocol != kubeovnv1.ProtocolIPv4 &&
+		protocol != kubeovnv1.ProtocolIPv6 &&
+		protocol != kubeovnv1.ProtocolDual &&
+		protocol != kubeovnv1.ProtocolMac {
+		return fmt.Errorf("%s is not a valid protocol type", protocol)
+	}
+
+	// Reject MTU values that would break IPv6 on the subnet. Linux silently
+	// drops IPv6 traffic on interfaces below 1280 (RFC 8200), so the user
+	// cannot tell apart a misconfiguration from a real network outage.
+	if subnet.Spec.Mtu > 0 && subnet.Spec.Mtu < IPv6MinMTU {
+		cidrProtocol := CheckProtocol(subnet.Spec.CIDRBlock)
+		if cidrProtocol == kubeovnv1.ProtocolIPv6 || cidrProtocol == kubeovnv1.ProtocolDual {
+			return fmt.Errorf("subnet %s mtu %d is below the IPv6 minimum %d", subnet.Name, subnet.Spec.Mtu, IPv6MinMTU)
+		}
+	}
+
+	if subnet.Spec.Vpc == subnet.Name {
+		return fmt.Errorf("subnet %s and vpc %s cannot have the same name", subnet.Name, subnet.Spec.Vpc)
+	}
+
+	if !isUnderlayWithoutCIDR && subnet.Spec.Vpc == DefaultVpc {
+		k8sAPIServer := os.Getenv(EnvKubernetesServiceHost)
+		if k8sAPIServer != "" && CIDRContainIP(subnet.Spec.CIDRBlock, k8sAPIServer) {
+			return fmt.Errorf("subnet %s cidr %s conflicts with k8s apiserver svc ip %s", subnet.Name, subnet.Spec.CIDRBlock, k8sAPIServer)
+		}
+	}
+
+	if egw := subnet.Spec.ExternalEgressGateway; egw != "" {
+		if subnet.Spec.NatOutgoing {
+			return errors.New("conflict configuration: natOutgoing and externalEgressGateway")
+		}
+		// v6 ip address can not use upper case
+		if ContainsUppercase(egw) {
+			err := fmt.Errorf("subnet %s external egress gateway %s v6 ip address can not contain upper case", subnet.Name, egw)
+			klog.Error(err)
+			return err
+		}
+		ips := strings.Split(egw, ",")
+		if len(ips) > 2 {
+			return errors.New("invalid external egress gateway configuration")
+		}
+		for _, ip := range ips {
+			if net.ParseIP(ip) == nil {
+				return fmt.Errorf("IP %s in externalEgressGateway is not a valid address", ip)
+			}
+		}
+		egwProtocol, cidrProtocol := CheckProtocol(egw), CheckProtocol(subnet.Spec.CIDRBlock)
+		if !isUnderlayWithoutCIDR && egwProtocol != cidrProtocol && cidrProtocol != kubeovnv1.ProtocolDual {
+			return errors.New("invalid external egress gateway configuration: address family is conflict with CIDR")
+		}
+	}
+
+	if len(subnet.Spec.Vips) != 0 {
+		if isUnderlayWithoutCIDR {
+			return fmt.Errorf("vips are not supported for underlay subnet %s without cidrBlock", subnet.Name)
+		}
+		for _, vip := range subnet.Spec.Vips {
+			// v6 ip address can not use upper case
+			if ContainsUppercase(vip) {
+				err := fmt.Errorf("subnet %s vips %s v6 ip address can not contain upper case", subnet.Name, vip)
+				klog.Error(err)
+				return err
+			}
+			if !CIDRContainIP(subnet.Spec.CIDRBlock, vip) {
+				return fmt.Errorf("vip %s conflicts with subnet %s cidr %s", vip, subnet.Name, subnet.Spec.CIDRBlock)
+			}
+		}
+	}
+
+	if subnet.Spec.LogicalGateway && subnet.Spec.U2OInterconnection {
+		return errors.New("logicalGateway and u2oInterconnection can't be opened at the same time")
+	}
+
+	if subnet.Spec.U2OFeatures.OverlayOnlyRouting {
+		if !subnet.Spec.U2OInterconnection {
+			return errors.New("u2oFeatures.overlayOnlyRouting can only be enabled when u2OInterconnection is true")
+		}
+		if subnet.Spec.Vlan == "" {
+			return errors.New("u2oFeatures.overlayOnlyRouting can only be enabled on underlay subnets (vlan must be set)")
+		}
+	}
+
+	if len(subnet.Spec.NatOutgoingPolicyRules) != 0 {
+		if err := validateNatOutgoingPolicyRules(subnet); err != nil {
+			klog.Error(err)
+			return err
+		}
+	}
+
+	if subnet.Spec.U2OInterconnectionIP != "" {
+		if isUnderlayWithoutCIDR {
+			return fmt.Errorf("u2oInterconnectionIP is not supported for underlay subnet %s without cidrBlock", subnet.Name)
+		}
+		// v6 ip address can not use upper case
+		if ContainsUppercase(subnet.Spec.U2OInterconnectionIP) {
+			err := fmt.Errorf("subnet %s U2O interconnection ip %s v6 ip address can not contain upper case", subnet.Name, subnet.Spec.U2OInterconnectionIP)
+			klog.Error(err)
+			return err
+		}
+		if !CIDRContainIP(subnet.Spec.CIDRBlock, subnet.Spec.U2OInterconnectionIP) {
+			return fmt.Errorf("u2oInterconnectionIP %s is not in subnet %s cidr %s",
+				subnet.Spec.U2OInterconnectionIP,
+				subnet.Name, subnet.Spec.CIDRBlock)
+		}
+		gatewayV4, gatewayV6 := SplitStringIP(subnet.Spec.Gateway)
+		u2oV4, u2oV6 := SplitStringIP(subnet.Spec.U2OInterconnectionIP)
+		gatewayV4IP, gatewayV6IP := net.ParseIP(gatewayV4), net.ParseIP(gatewayV6)
+		u2oV4IP, u2oV6IP := net.ParseIP(u2oV4), net.ParseIP(u2oV6)
+		if (u2oV4IP != nil && gatewayV4IP != nil && u2oV4IP.Equal(gatewayV4IP)) ||
+			(u2oV6IP != nil && gatewayV6IP != nil && u2oV6IP.Equal(gatewayV6IP)) {
+			return fmt.Errorf("u2oInterconnectionIP %s conflicts with subnet gateway %s",
+				subnet.Spec.U2OInterconnectionIP, subnet.Spec.Gateway)
+		}
+	}
+
+	return nil
+}
+
+// validateMacOnlySubnet validates an underlay subnet created without a CIDRBlock
+// (BYO-DHCP / external DHCP). Such a subnet allocates only a MAC address per pod
+// NIC, so address fields that depend on a CIDR must be empty.
+func validateMacOnlySubnet(subnet kubeovnv1.Subnet) error {
+	// For underlay subnets without CIDR, gateway must also be empty
+	if subnet.Spec.Gateway != "" {
+		return fmt.Errorf("gateway must be empty for underlay subnet %s without cidrBlock", subnet.Name)
+	}
+	// excludeIps has no meaning without a CIDR to allocate addresses from
+	if len(subnet.Spec.ExcludeIps) != 0 {
+		return fmt.Errorf("excludeIps must be empty for underlay subnet %s without cidrBlock", subnet.Name)
+	}
+	return nil
+}
+
+// validateSubnetCIDR validates the gateway and CIDRBlock format of a subnet that
+// has a CIDR.
+func validateSubnetCIDR(subnet kubeovnv1.Subnet) error {
+	if subnet.Spec.Gateway != "" {
+		// v6 ip address can not use upper case
+		if ContainsUppercase(subnet.Spec.Gateway) {
+			err := fmt.Errorf("subnet gateway %s v6 ip address can not contain upper case", subnet.Spec.Gateway)
+			klog.Error(err)
+			return err
+		}
+		if !CIDRContainIP(subnet.Spec.CIDRBlock, subnet.Spec.Gateway) {
+			return fmt.Errorf("gateway %s is not in cidr %s", subnet.Spec.Gateway, subnet.Spec.CIDRBlock)
+		}
+		if err := ValidateNetworkBroadcast(subnet.Spec.CIDRBlock, subnet.Spec.Gateway); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("validate gateway %s for cidr %s failed: %w", subnet.Spec.Gateway, subnet.Spec.CIDRBlock, err)
+		}
+	}
+
+	if err := CIDRGlobalUnicast(subnet.Spec.CIDRBlock); err != nil {
+		klog.Error(err)
+		return err
+	}
+	if CheckProtocol(subnet.Spec.CIDRBlock) == "" {
+		return fmt.Errorf("CIDRBlock: %q format error", subnet.Spec.CIDRBlock)
+	}
+	return nil
+}
+
+// validateSubnetCIDRBlocks validates each CIDR block configured on the subnet.
+func validateSubnetCIDRBlocks(subnet kubeovnv1.Subnet) error {
+	for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
+		// v6 ip address can not use upper case
+		if ContainsUppercase(subnet.Spec.CIDRBlock) {
+			err := fmt.Errorf("subnet cidr block %s v6 ip address can not contain upper case", subnet.Spec.CIDRBlock)
+			klog.Error(err)
+			return err
+		}
+		if err := InvalidSpecialCIDR(cidr); err != nil {
+			klog.Errorf("invalid subnet %s cidr %s, %s", subnet.Name, cidr, err)
+			return err
+		}
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			err = fmt.Errorf("subnet %s cidr %s is invalid, due to %w", subnet.Name, cidr, err)
+			klog.Error(err)
+			return err
+		}
+		// check network mask is 32 in ipv4 or 128 in ipv6
+		if err = InvalidNetworkMask(network); err != nil {
+			err = fmt.Errorf("subnet %s cidr %s mask is invalid, due to %w", subnet.Name, cidr, err)
+			klog.Error(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func validateNatOutgoingPolicyRules(subnet kubeovnv1.Subnet) error {
+	for _, rule := range subnet.Spec.NatOutgoingPolicyRules {
+		var srcProtocol, dstProtocol string
+		var err error
+
+		if rule.Match.SrcIPs != "" {
+			if srcProtocol, err = validateNatOutgoingPolicyRuleIPs(rule.Match.SrcIPs); err != nil {
+				klog.Error(err)
+				return fmt.Errorf("validate nat policy rules src ips %s failed with err %w", rule.Match.SrcIPs, err)
+			}
+		}
+		if rule.Match.DstIPs != "" {
+			if dstProtocol, err = validateNatOutgoingPolicyRuleIPs(rule.Match.DstIPs); err != nil {
+				klog.Error(err)
+				return fmt.Errorf("validate nat policy rules dst ips %s failed with err %w", rule.Match.DstIPs, err)
+			}
+		}
+
+		if srcProtocol != "" && dstProtocol != "" && srcProtocol != dstProtocol {
+			return fmt.Errorf("Match.SrcIPS protocol %s not equal to Match.DstIPs protocol %s", srcProtocol, dstProtocol)
+		}
+	}
+	return nil
+}
+
+func validateNatOutgoingPolicyRuleIPs(matchIPStr string) (string, error) {
+	if matchIPStr = strings.TrimSpace(matchIPStr); matchIPStr == "" {
+		return "", errors.New("IPStr should not be empty")
+	}
+
+	ipItems := strings.Split(matchIPStr, ",")
+	lastProtocol := ""
+	checkProtocolConsistent := func(ipCidr string) bool {
+		currentProtocol := CheckProtocol(ipCidr)
+		if lastProtocol != "" && lastProtocol != currentProtocol {
+			return false
+		}
+		lastProtocol = currentProtocol
+		return true
+	}
+
+	for _, ipItem := range ipItems {
+		_, ipCidr, err := net.ParseCIDR(ipItem)
+		if err == nil {
+			if !checkProtocolConsistent(ipCidr.String()) {
+				return "", fmt.Errorf("match ips %s protocol is not consistent", matchIPStr)
+			}
+			continue
+		}
+
+		if IsValidIP(ipItem) {
+			if !checkProtocolConsistent(ipItem) {
+				return "", fmt.Errorf("match ips %s protocol is not consistent", matchIPStr)
+			}
+			continue
+		}
+
+		return "", fmt.Errorf("match ips %s is not ip or ipcidr", matchIPStr)
+	}
+	return lastProtocol, nil
+}
+
+func ValidatePodNetwork(annotations map[string]string) error {
+	errors := []error{}
+
+	for key, family := range annotations {
+		if !isIPFamilyAnnotationKey(key) || family == "" {
+			continue
+		}
+		if family != strings.ToLower(kubeovnv1.ProtocolIPv4) && family != strings.ToLower(kubeovnv1.ProtocolIPv6) {
+			errors = append(errors, fmt.Errorf("%s is not a valid %s", family, key))
+			continue
+		}
+		normalizedFamily := NormalizeIPFamily(family)
+		for _, ipAddress := range ipAddressAnnotationsForIPFamily(annotations, key) {
+			for ip := range strings.SplitSeq(ipAddress, ",") {
+				if CheckProtocol(ip) != normalizedFamily {
+					errors = append(errors, fmt.Errorf("%s does not match %s %s", ip, key, family))
+				}
+			}
+		}
+	}
+
+	if ipAddress := annotations[IPAddressAnnotation]; ipAddress != "" {
+		// The format of IP Annotation in dual-stack is 10.244.0.0/16,fd00:10:244:0:2::/80
+		for ip := range strings.SplitSeq(ipAddress, ",") {
+			if strings.Contains(ip, "/") {
+				if _, _, err := net.ParseCIDR(ip); err != nil {
+					klog.Error(err)
+					errors = append(errors, fmt.Errorf("%s is not a valid %s", ip, IPAddressAnnotation))
+					continue
+				}
+			} else {
+				if net.ParseIP(ip) == nil {
+					errors = append(errors, fmt.Errorf("%s is not a valid %s", ip, IPAddressAnnotation))
+					continue
+				}
+			}
+
+			if cidrStr := annotations[CidrAnnotation]; cidrStr != "" {
+				if err := CheckCidrs(cidrStr); err != nil {
+					klog.Error(err)
+					errors = append(errors, fmt.Errorf("invalid cidr %s", cidrStr))
+					continue
+				}
+
+				if !CIDRContainIP(cidrStr, ip) {
+					errors = append(errors, fmt.Errorf("%s not in cidr %s", ip, cidrStr))
+					continue
+				}
+			}
+		}
+	}
+
+	mac := annotations[MacAddressAnnotation]
+	if mac != "" {
+		if _, err := net.ParseMAC(mac); err != nil {
+			klog.Error(err)
+			errors = append(errors, fmt.Errorf("%s is not a valid %s", mac, MacAddressAnnotation))
+		}
+	}
+
+	ipPool := annotations[IPPoolAnnotation]
+	if ipPool != "" {
+		if strings.ContainsRune(ipPool, ';') || strings.ContainsRune(ipPool, ',') || net.ParseIP(ipPool) != nil {
+			for ips := range strings.SplitSeq(ipPool, ";") {
+				found := false
+				for ip := range strings.SplitSeq(ips, ",") {
+					if net.ParseIP(strings.TrimSpace(ip)) == nil {
+						errors = append(errors, fmt.Errorf("%s in %s is not a valid address", ip, IPPoolAnnotation))
+					}
+
+					// After ns supports multiple subnets, the ippool static addresses can be allocated in any subnets, such as "ovn.kubernetes.io/ip_pool: 11.16.10.14,12.26.11.21"
+					// so if anyone ip is included in cidr, return true
+					if cidrStr := annotations[CidrAnnotation]; cidrStr != "" {
+						if CIDRContainIP(cidrStr, ip) {
+							found = true
+							break
+						}
+					} else {
+						// annotation maybe empty when a pod is new created, do not return err in this situation
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					errors = append(errors, fmt.Errorf("%s not in cidr %s", ips, annotations[CidrAnnotation]))
+					continue
+				}
+			}
+		}
+	}
+
+	// Validate rate and burst annotations across both the unscoped keys
+	// (ovn.kubernetes.io/{ingress,egress}_{rate,burst}) and any
+	// provider-scoped variants used for multus attachment networks
+	// ({provider}.kubernetes.io/{ingress,egress}_{rate,burst}). All forms
+	// share the same suffix, so a single scan covers everything. Rate
+	// annotations historically only validated the unscoped key, leaving
+	// typos on attachment networks silently parsed as 0 and disabling the
+	// limit; treating both rates and bursts uniformly closes that gap.
+	bandwidthSuffixes := []string{
+		".kubernetes.io/ingress_rate",
+		".kubernetes.io/egress_rate",
+		".kubernetes.io/ingress_burst",
+		".kubernetes.io/egress_burst",
+	}
+	for k, v := range annotations {
+		if v == "" {
+			continue
+		}
+		matched := false
+		for _, s := range bandwidthSuffixes {
+			if strings.HasSuffix(k, s) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			errors = append(errors, fmt.Errorf("%s is not a valid %s", v, k))
+		}
+	}
+
+	return utilerrors.NewAggregate(errors)
+}
+
+func isIPFamilyAnnotationKey(key string) bool {
+	return key == IPFamilyAnnotation || strings.HasSuffix(key, ".kubernetes.io/ip_family")
+}
+
+func ipAddressAnnotationKeyForIPFamily(key string) string {
+	if key == IPFamilyAnnotation {
+		return IPAddressAnnotation
+	}
+	return strings.TrimSuffix(key, "/ip_family") + "/ip_address"
+}
+
+func ipAddressAnnotationsForIPFamily(annotations map[string]string, key string) []string {
+	ipAddressKeys := ipAddressAnnotationKeysForIPFamily(key)
+	ipAddresses := []string{}
+	for annotationKey, ipAddress := range annotations {
+		if ipAddress == "" {
+			continue
+		}
+		for _, ipAddressKey := range ipAddressKeys {
+			if annotationKey == ipAddressKey || strings.HasPrefix(annotationKey, ipAddressKey+".") {
+				ipAddresses = append(ipAddresses, ipAddress)
+				break
+			}
+		}
+	}
+	return ipAddresses
+}
+
+// ipAddressAnnotationKeysForIPFamily returns the static IP annotation keys that
+// should be checked for an ip_family key. Same-NAD multi-interface pods use
+// <nad>.<ns>.kubernetes.io/ip_address.<ifName> for static IPs while the family
+// annotation is scoped by provider as <nad>.<ns>.ovn.<ifName>.kubernetes.io/ip_family.
+func ipAddressAnnotationKeysForIPFamily(key string) []string {
+	keys := []string{ipAddressAnnotationKeyForIPFamily(key)}
+	provider, ok := strings.CutSuffix(key, ".kubernetes.io/ip_family")
+	if !ok {
+		return keys
+	}
+	parts := strings.Split(provider, ".")
+	if len(parts) > 3 && parts[2] == OvnProvider {
+		ifName := parts[len(parts)-1]
+		keys = append(keys, fmt.Sprintf("%s.%s.kubernetes.io/ip_address.%s", parts[0], parts[1], ifName))
+	}
+	return keys
+}
+
+func ValidateNetworkBroadcast(cidr, ip string) error {
+	// Skip validation for MAC-only case (empty CIDR / external DHCP)
+	if cidr == "" || ip == "" {
+		return nil
+	}
+	for cidrBlock := range strings.SplitSeq(cidr, ",") {
+		for ipAddr := range strings.SplitSeq(ip, ",") {
+			if CheckProtocol(cidrBlock) != CheckProtocol(ipAddr) {
+				continue
+			}
+			_, network, _ := net.ParseCIDR(cidrBlock)
+			if network == nil {
+				continue
+			}
+			if AddressCountBigInt(network).EqualInt64(1) {
+				return fmt.Errorf("subnet %s is configured with /32 or /128 netmask", cidrBlock)
+			}
+
+			ipStr := IPToString(ipAddr)
+			// IPv6 has no broadcast address (RFC 4291), so the all-ones host
+			// address is a valid unicast IP and must not be rejected here.
+			if CheckProtocol(cidrBlock) == kubeovnv1.ProtocolIPv4 && SubnetBroadcast(cidrBlock) == ipStr {
+				return fmt.Errorf("%s is the broadcast ip in cidr %s", ipStr, cidrBlock)
+			}
+			if SubnetNumber(cidrBlock) == ipStr {
+				return fmt.Errorf("%s is the network number ip in cidr %s", ipStr, cidrBlock)
+			}
+		}
+	}
+	return nil
+}
+
+func ValidateCidrConflict(subnet kubeovnv1.Subnet, subnetList []kubeovnv1.Subnet) error {
+	for _, sub := range subnetList {
+		if sub.Spec.Vpc != subnet.Spec.Vpc || sub.Spec.Vlan != subnet.Spec.Vlan || sub.Name == subnet.Name {
+			continue
+		}
+
+		// Skip CIDR conflict check if either subnet has no CIDR (underlay without CIDR)
+		if subnet.Spec.CIDRBlock != "" && sub.Spec.CIDRBlock != "" {
+			if CIDROverlap(sub.Spec.CIDRBlock, subnet.Spec.CIDRBlock) {
+				err := fmt.Errorf("subnet %s cidr %s is conflict with subnet %s cidr %s", subnet.Name, subnet.Spec.CIDRBlock, sub.Name, sub.Spec.CIDRBlock)
+				return err
+			}
+		}
+
+		if subnet.Spec.ExternalEgressGateway != "" && sub.Spec.ExternalEgressGateway != "" &&
+			subnet.Spec.PolicyRoutingTableID == sub.Spec.PolicyRoutingTableID {
+			err := fmt.Errorf("subnet %s policy routing table ID %d is conflict with subnet %s policy routing table ID %d", subnet.Name, subnet.Spec.PolicyRoutingTableID, sub.Name, sub.Spec.PolicyRoutingTableID)
+			return err
+		}
+	}
+	return nil
+}
+
+func ValidateVpc(vpc *kubeovnv1.Vpc) error {
+	for _, item := range vpc.Spec.StaticRoutes {
+		if item.Policy != "" && item.Policy != kubeovnv1.PolicyDst && item.Policy != kubeovnv1.PolicySrc {
+			return fmt.Errorf("unknown policy type: %s", item.Policy)
+		}
+
+		if strings.Contains(item.CIDR, "/") {
+			if _, _, err := net.ParseCIDR(item.CIDR); err != nil {
+				klog.Error(err)
+				return fmt.Errorf("invalid cidr %s: %w", item.CIDR, err)
+			}
+		} else if ip := net.ParseIP(item.CIDR); ip == nil {
+			return fmt.Errorf("invalid IP %s", item.CIDR)
+		}
+
+		if ip := net.ParseIP(item.NextHopIP); ip == nil {
+			return fmt.Errorf("invalid next hop IP %s", item.NextHopIP)
+		}
+	}
+
+	for _, item := range vpc.Spec.PolicyRoutes {
+		if item.Action != kubeovnv1.PolicyRouteActionReroute &&
+			item.Action != kubeovnv1.PolicyRouteActionAllow &&
+			item.Action != kubeovnv1.PolicyRouteActionDrop {
+			return fmt.Errorf("unknown policy action: %s", item.Action)
+		}
+
+		if item.Action == kubeovnv1.PolicyRouteActionReroute {
+			// ecmp policy route may reroute to multiple next hop ips
+			for ipStr := range strings.SplitSeq(item.NextHopIP, ",") {
+				if ip := net.ParseIP(ipStr); ip == nil {
+					return fmt.Errorf("invalid next hop ips: %s", item.NextHopIP)
+				}
+			}
+		}
+	}
+
+	for _, item := range vpc.Spec.VpcPeerings {
+		if err := CheckCidrs(item.LocalConnectIP); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("invalid cidr %s", item.LocalConnectIP)
+		}
+	}
+
+	return nil
+}

@@ -1,0 +1,570 @@
+package ipam
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+
+	"k8s.io/klog/v2"
+
+	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	"github.com/kubeovn/kube-ovn/pkg/internal"
+	"github.com/kubeovn/kube-ovn/pkg/util"
+)
+
+var (
+	ErrOutOfRange      = errors.New("AddressOutOfRange")
+	ErrConflict        = errors.New("AddressConflict")
+	ErrNoAvailable     = errors.New("NoAvailableAddress")
+	ErrNoSubnet        = errors.New("NoSubnet")
+	ErrInvalidCIDR     = errors.New("CIDRInvalid")
+	ErrInvalidIPFamily = errors.New("InvalidIPFamily")
+)
+
+type IPAM struct {
+	mutex   sync.RWMutex
+	Subnets map[string]*Subnet
+}
+
+type SubnetAddress struct {
+	Subnet *Subnet
+	IP     string
+	Mac    string
+}
+
+func NewIPAM() *IPAM {
+	return &IPAM{
+		mutex:   sync.RWMutex{},
+		Subnets: map[string]*Subnet{},
+	}
+}
+
+func (ipam *IPAM) GetRandomAddress(podName, nicName string, mac *string, subnetName, poolName string, skippedAddrs []string, checkConflict bool) (string, string, string, error) {
+	return ipam.GetRandomAddressWithFamily(podName, nicName, mac, subnetName, poolName, "", skippedAddrs, checkConflict)
+}
+
+func (ipam *IPAM) GetRandomAddressWithFamily(podName, nicName string, mac *string, subnetName, poolName, ipFamily string, skippedAddrs []string, checkConflict bool) (string, string, string, error) {
+	ipFamily = util.NormalizeIPFamily(ipFamily)
+	if err := validateRequestedIPFamily(ipFamily); err != nil {
+		return "", "", "", err
+	}
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+	var v4, v6 string
+	subnet, ok := ipam.Subnets[subnetName]
+	if !ok {
+		return "", "", "", ErrNoSubnet
+	}
+
+	v4IP, v6IP, macStr, err := subnet.GetRandomAddressWithFamily(poolName, podName, nicName, mac, ipFamily, skippedAddrs, checkConflict)
+	if v4IP != nil {
+		v4 = v4IP.String()
+	}
+	if v6IP != nil {
+		v6 = v6IP.String()
+	}
+	if poolName == "" {
+		klog.Infof("allocate v4 %s, v6 %s, mac %s for %s from subnet %s", v4, v6, macStr, podName, subnetName)
+	} else {
+		klog.Infof("allocate v4 %s, v6 %s, mac %s for %s from ippool %s in subnet %s", v4, v6, macStr, podName, poolName, subnetName)
+	}
+	return v4, v6, macStr, err
+}
+
+func (ipam *IPAM) GetStaticAddress(podName, nicName, ip string, mac *string, subnetName string, checkConflict bool) (string, string, string, error) {
+	return ipam.GetStaticAddressWithFamily(podName, nicName, ip, mac, subnetName, "", checkConflict)
+}
+
+func (ipam *IPAM) GetStaticAddressWithFamily(podName, nicName, ip string, mac *string, subnetName, ipFamily string, checkConflict bool) (string, string, string, error) {
+	ipFamily = util.NormalizeIPFamily(ipFamily)
+	if err := validateRequestedIPFamily(ipFamily); err != nil {
+		return "", "", "", err
+	}
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+	var subnet *Subnet
+	var ok bool
+	klog.Infof("allocating static ip %s from subnet %s", ip, subnetName)
+	if subnet, ok = ipam.Subnets[subnetName]; !ok {
+		return "", "", "", ErrNoSubnet
+	}
+
+	// mac-only subnets have no CIDR, so there is no static IP to allocate. When the
+	// caller passes an empty IP (e.g. recovering a mac-only IP CR on init), register
+	// only the MAC so it is tracked in IPAM instead of failing the whole allocation.
+	if ip == "" && subnet.Protocol == kubeovnv1.ProtocolMac {
+		_, _, macStr, err := subnet.GetRandomAddress("", podName, nicName, mac, nil, checkConflict)
+		if err != nil {
+			klog.Errorf("failed to register mac %v for %s from subnet %s: %v", mac, podName, subnetName, err)
+			return "", "", "", err
+		}
+		klog.Infof("register mac %s for %s from mac-only subnet %s", macStr, podName, subnetName)
+		return "", "", macStr, nil
+	}
+
+	var ips []IP
+	var err error
+	var ipAddr IP
+	var v4, v6, macStr string
+	var staticIPs []IP
+	for ipStr := range strings.SplitSeq(ip, ",") {
+		ip, err := NewIP(ipStr)
+		if err != nil {
+			klog.Errorf("failed to parse ip %s", ipStr)
+			return "", "", "", err
+		}
+		if ipFamily != "" && util.CheckProtocol(ip.String()) != ipFamily {
+			klog.Errorf("static ip %s does not match requested ip family %s", ipStr, ipFamily)
+			return "", "", "", ErrInvalidIPFamily
+		}
+		staticIPs = append(staticIPs, ip)
+	}
+
+	for _, ip := range staticIPs {
+		ipAddr, macStr, err = subnet.GetStaticAddress(podName, nicName, ip, mac, false, checkConflict)
+		if err != nil {
+			klog.Errorf("failed to allocate static ip %s for %s", ip.String(), podName)
+			if len(ips) != 0 {
+				// release allocated ips if any
+				subnet.ReleaseAddressWithNicName(podName, nicName)
+			}
+			return "", "", "", err
+		}
+		klog.Infof("allocate static ip %s, mac %s for %s from subnet %s", ip.String(), macStr, podName, subnetName)
+		ips = append(ips, ipAddr)
+	}
+	if ipFamily == "" {
+		ips, err = checkAndAppendIpsForDual(ips, macStr, podName, nicName, subnet, checkConflict)
+		if err != nil {
+			klog.Errorf("failed to append allocate ip %v mac %v for %s", ips, mac, podName)
+			return "", "", "", err
+		}
+	}
+
+	switch subnet.Protocol {
+	case kubeovnv1.ProtocolIPv4:
+		klog.Infof("allocate v4 %s, mac %s for %s from subnet %s", ip, macStr, podName, subnetName)
+		return ip, "", macStr, err
+	case kubeovnv1.ProtocolIPv6:
+		klog.Infof("allocate v6 %s, mac %s for %s from subnet %s", ip, macStr, podName, subnetName)
+		return "", ip, macStr, err
+	case kubeovnv1.ProtocolDual:
+		for _, ip := range ips {
+			switch util.CheckProtocol(ip.String()) {
+			case kubeovnv1.ProtocolIPv4:
+				v4 = ip.String()
+			case kubeovnv1.ProtocolIPv6:
+				v6 = ip.String()
+			}
+		}
+		klog.Infof("allocate v4 %s, v6 %s, mac %s for %s from subnet %s", v4, v6, macStr, podName, subnetName)
+		return v4, v6, macStr, err
+	}
+	return "", "", "", ErrNoAvailable
+}
+
+// validateRequestedIPFamily checks only the request value itself. Subnet
+// compatibility is validated by callers that have subnet context.
+func validateRequestedIPFamily(ipFamily string) error {
+	ipFamily = util.NormalizeIPFamily(ipFamily)
+	if ipFamily == "" || ipFamily == kubeovnv1.ProtocolIPv4 || ipFamily == kubeovnv1.ProtocolIPv6 {
+		return nil
+	}
+	return ErrInvalidIPFamily
+}
+
+func checkAndAppendIpsForDual(ips []IP, mac, podName, nicName string, subnet *Subnet, checkConflict bool) ([]IP, error) {
+	// IP Address for dual-stack should be format of 'IPv4,IPv6'
+	if subnet.Protocol != kubeovnv1.ProtocolDual || len(ips) == 2 {
+		return ips, nil
+	}
+
+	var newIps []IP
+	var ipAddr IP
+	var err error
+	if util.CheckProtocol(ips[0].String()) == kubeovnv1.ProtocolIPv4 {
+		newIps = ips
+		_, ipAddr, _, err = subnet.getV6RandomAddress("", podName, nicName, &mac, nil, checkConflict)
+		newIps = append(newIps, ipAddr)
+	} else if util.CheckProtocol(ips[0].String()) == kubeovnv1.ProtocolIPv6 {
+		ipAddr, _, _, err = subnet.getV4RandomAddress("", podName, nicName, &mac, nil, checkConflict)
+		newIps = append(newIps, ipAddr)
+		newIps = append(newIps, ips...)
+	}
+
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+	return newIps, nil
+}
+
+func (ipam *IPAM) ReleaseAddressByPod(podName, subnetName string) {
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+	if subnetName != "" {
+		if subnet, ok := ipam.Subnets[subnetName]; ok {
+			subnet.ReleaseAddress(podName)
+		}
+	} else {
+		for _, subnet := range ipam.Subnets {
+			subnet.ReleaseAddress(podName)
+		}
+	}
+}
+
+func (ipam *IPAM) ReleaseAddressByNic(podName, nicName, subnetName string) {
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+	if subnetName != "" {
+		if subnet, ok := ipam.Subnets[subnetName]; ok {
+			subnet.ReleaseAddressWithNicName(podName, nicName)
+		}
+	} else {
+		for _, subnet := range ipam.Subnets {
+			subnet.ReleaseAddressWithNicName(podName, nicName)
+		}
+	}
+}
+
+func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []string) error {
+	// A mac-only subnet (underlay without CIDR, BYO-DHCP / external DHCP) has no IP
+	// ranges. Register a lightweight entry so MAC allocations are tracked and the GC
+	// does not treat the subnet's IP/LSP resources as orphaned.
+	if cidrStr == "" {
+		ipam.mutex.Lock()
+		defer ipam.mutex.Unlock()
+		if subnet, ok := ipam.Subnets[name]; ok {
+			// Refuse to strip the CIDR from a subnet that already has one - that is an
+			// invalid transition. Re-registering an existing mac-only subnet is a no-op.
+			if subnet.V4CIDR != nil || subnet.V6CIDR != nil {
+				klog.Errorf("subnet %s already has a cidr, cannot convert it to mac-only", name)
+				return ErrInvalidCIDR
+			}
+			subnet.Protocol = kubeovnv1.ProtocolMac
+			return nil
+		}
+		klog.Infof("adding new mac-only subnet %s", name)
+		ipam.Subnets[name] = NewMacOnlySubnet(name)
+		return nil
+	}
+
+	excludeIps = util.ExpandExcludeIPs(excludeIps, cidrStr)
+
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+
+	var v4cidrStr, v6cidrStr, v4Gw, v6Gw string
+	var cidrs []*net.IPNet
+	for cidrBlock := range strings.SplitSeq(cidrStr, ",") {
+		_, cidr, err := net.ParseCIDR(cidrBlock)
+		if err != nil {
+			klog.Errorf("subnet %s invalid cidr %s: %s", name, cidrStr, err)
+			return ErrInvalidCIDR
+		}
+		cidrs = append(cidrs, cidr)
+	}
+	protocol := util.CheckProtocol(cidrStr)
+	switch protocol {
+	case kubeovnv1.ProtocolDual:
+		v4cidrStr = cidrs[0].String()
+		v6cidrStr = cidrs[1].String()
+		gws := strings.Split(gw, ",")
+		if len(gws) == 2 {
+			v4Gw = gws[0]
+			v6Gw = gws[1]
+		} else {
+			err := fmt.Errorf("dual subnet %s invalid gw %s", name, gw)
+			klog.Error(err)
+			return err
+		}
+	case kubeovnv1.ProtocolIPv4:
+		v4cidrStr = cidrs[0].String()
+		v4Gw = gw
+	case kubeovnv1.ProtocolIPv6:
+		v6cidrStr = cidrs[0].String()
+		v6Gw = gw
+	case "":
+		klog.Errorf("subnet %s invalid cidr %s", name, cidrStr)
+		return ErrInvalidCIDR
+	}
+
+	// subnet.Spec.ExcludeIps contains both v4 and v6 addresses
+	v4ExcludeIps, v6ExcludeIps := util.SplitIpsByProtocol(excludeIps)
+
+	if subnet, ok := ipam.Subnets[name]; ok {
+		subnet.Protocol = protocol
+		v4Reserved, err := NewIPRangeListFrom(v4ExcludeIps...)
+		if err != nil {
+			klog.Errorf("failed to parse v4 exclude ips %v", v4ExcludeIps)
+			return err
+		}
+		v6Reserved, err := NewIPRangeListFrom(v6ExcludeIps...)
+		if err != nil {
+			klog.Errorf("failed to parse v6 exclude ips %v", v6ExcludeIps)
+			return err
+		}
+		if (protocol == kubeovnv1.ProtocolDual || protocol == kubeovnv1.ProtocolIPv4) &&
+			(subnet.V4CIDR.String() != v4cidrStr || subnet.V4Gw != v4Gw || !subnet.V4Reserved.Equal(v4Reserved)) {
+			_, cidr, _ := net.ParseCIDR(v4cidrStr)
+			subnet.V4CIDR = cidr
+			subnet.V4Reserved = v4Reserved
+			firstIP, _ := util.FirstIP(v4cidrStr)
+			lastIP, _ := util.LastIP(v4cidrStr)
+			ips, _ := NewIPRangeListFrom(fmt.Sprintf("%s..%s", firstIP, lastIP))
+			subnet.V4Using = subnet.V4Using.Intersect(ips)
+			subnet.V4Free = ips.Separate(subnet.V4Reserved).Separate(subnet.V4Using)
+			subnet.V4Available = subnet.V4Free.Clone()
+			subnet.V4Gw = v4Gw
+
+			pool := subnet.IPPools[""]
+			pool.V4IPs = ips
+			pool.V4Free = subnet.V4Free.Clone()
+			pool.V4Reserved = subnet.V4Reserved.Clone()
+			pool.V4Released = NewEmptyIPRangeList()
+			pool.V4Using = subnet.V4Using.Clone()
+
+			for name, p := range subnet.IPPools {
+				if name == "" {
+					continue
+				}
+				p.V4Using = p.V4Using.Intersect(ips)
+				p.V4Reserved = subnet.V4Reserved.Intersect(p.V4IPs)
+				p.V4Free = ips.Intersect(p.V4IPs).Separate(p.V4Using).Separate(p.V4Reserved)
+				p.V4Available = p.V4Free.Clone()
+				p.V4Released = NewEmptyIPRangeList()
+				pool.V4IPs = pool.V4IPs.Separate(p.V4IPs)
+				pool.V4Free = pool.V4Free.Separate(p.V4IPs)
+				pool.V4Using = pool.V4Using.Separate(p.V4Using)
+				pool.V4Reserved = pool.V4Reserved.Separate(p.V4Reserved)
+			}
+			pool.V4Available = pool.V4Free.Clone()
+
+			for nicName, ip := range subnet.V4NicToIP {
+				if !ips.Contains(ip) {
+					podName := subnet.V4IPToPod[ip.String()]
+					klog.Errorf("%s address %s not in subnet %s new cidr %s", podName, ip, name, cidrStr)
+					delete(subnet.V4NicToIP, nicName)
+					delete(subnet.V4IPToPod, ip.String())
+				}
+			}
+
+			for nicName, ip := range subnet.V4NicToIP {
+				klog.Infof("already assigned ip %s to nic %s in subnet %s", ip, nicName, name)
+			}
+		}
+		if (protocol == kubeovnv1.ProtocolDual || protocol == kubeovnv1.ProtocolIPv6) &&
+			(subnet.V6CIDR.String() != v6cidrStr || subnet.V6Gw != v6Gw || !subnet.V6Reserved.Equal(v6Reserved)) {
+			_, cidr, _ := net.ParseCIDR(v6cidrStr)
+			subnet.V6CIDR = cidr
+			subnet.V6Reserved = v6Reserved
+			firstIP, _ := util.FirstIP(v6cidrStr)
+			lastIP, _ := util.LastIP(v6cidrStr)
+			ips, _ := NewIPRangeListFrom(fmt.Sprintf("%s..%s", firstIP, lastIP))
+			subnet.V6Using = subnet.V6Using.Intersect(ips)
+			subnet.V6Free = ips.Separate(subnet.V6Reserved).Separate(subnet.V6Using)
+			subnet.V6Available = subnet.V6Free.Clone()
+			subnet.V6Gw = v6Gw
+
+			pool := subnet.IPPools[""]
+			pool.V6IPs = ips
+			pool.V6Free = subnet.V6Free.Clone()
+			pool.V6Reserved = subnet.V6Reserved.Clone()
+			pool.V6Released = NewEmptyIPRangeList()
+			pool.V6Using = subnet.V6Using.Clone()
+
+			for name, p := range subnet.IPPools {
+				if name == "" {
+					continue
+				}
+				p.V6Using = p.V6Using.Intersect(ips)
+				p.V6Reserved = subnet.V6Reserved.Intersect(p.V6IPs)
+				p.V6Free = ips.Intersect(p.V6IPs).Separate(p.V6Using).Separate(p.V6Reserved)
+				p.V6Available = p.V6Free.Clone()
+				p.V6Released = NewEmptyIPRangeList()
+				pool.V6IPs = pool.V6IPs.Separate(p.V6IPs)
+				pool.V6Free = pool.V6Free.Separate(p.V6IPs)
+				pool.V6Using = pool.V6Using.Separate(p.V6Using)
+				pool.V6Reserved = pool.V6Reserved.Separate(p.V6Reserved)
+			}
+			pool.V6Available = pool.V6Free.Clone()
+
+			for nicName, ip := range subnet.V6NicToIP {
+				if !ips.Contains(ip) {
+					podName := subnet.V6IPToPod[ip.String()]
+					klog.Errorf("%s address %s not in subnet %s new cidr %s", podName, ip, name, cidrStr)
+					delete(subnet.V6NicToIP, nicName)
+					delete(subnet.V6IPToPod, ip.String())
+				}
+			}
+
+			for nicName, ip := range subnet.V6NicToIP {
+				klog.Infof("already assigned ip %s to nic %s in subnet %s", ip, nicName, name)
+			}
+		}
+
+		for nicName, mac := range subnet.NicToMac {
+			if subnet.V4NicToIP[nicName] == nil && subnet.V6NicToIP[nicName] == nil {
+				delete(subnet.NicToMac, nicName)
+				delete(subnet.MacToPod, mac)
+			}
+		}
+		return nil
+	}
+
+	subnet, err := NewSubnet(name, cidrStr, excludeIps)
+	if err != nil {
+		klog.Errorf("failed to create subnet %s, %v", name, err)
+		return err
+	}
+	subnet.V4Gw = v4Gw
+	subnet.V6Gw = v6Gw
+	klog.Infof("adding new subnet %s", name)
+	ipam.Subnets[name] = subnet
+	return nil
+}
+
+func (ipam *IPAM) DeleteSubnet(subnetName string) {
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+	klog.Infof("delete subnet %s", subnetName)
+	delete(ipam.Subnets, subnetName)
+}
+
+func (ipam *IPAM) GetPodAddress(podName string) []*SubnetAddress {
+	ipam.mutex.RLock()
+	defer ipam.mutex.RUnlock()
+	addresses := []*SubnetAddress{}
+	for _, subnet := range ipam.Subnets {
+		subnet.Mutex.RLock()
+		for _, nicName := range subnet.PodToNicList[podName] {
+			v4IP, v6IP, mac, protocol := subnet.GetPodAddress(nicName)
+			switch protocol {
+			case kubeovnv1.ProtocolIPv4:
+				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v4IP.String(), Mac: mac})
+			case kubeovnv1.ProtocolIPv6:
+				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v6IP.String(), Mac: mac})
+			case kubeovnv1.ProtocolDual:
+				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v4IP.String(), Mac: mac})
+				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v6IP.String(), Mac: mac})
+			}
+		}
+		subnet.Mutex.RUnlock()
+	}
+	return addresses
+}
+
+func (ipam *IPAM) ContainAddress(address string) bool {
+	// check if pod is using the address in any subnet of ipam
+	ipam.mutex.RLock()
+	defer ipam.mutex.RUnlock()
+	ip, err := NewIP(address)
+	if ip == nil {
+		klog.Error(err)
+		return false
+	}
+
+	for _, subnet := range ipam.Subnets {
+		if subnet.ContainAddress(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ipam *IPAM) IsIPAssignedToOtherPod(ip, subnetName, podName string) (string, bool) {
+	ipam.mutex.RLock()
+	defer ipam.mutex.RUnlock()
+
+	subnet, ok := ipam.Subnets[subnetName]
+	if !ok {
+		klog.Warningf("subnet %q not found", subnetName)
+		return "", false
+	}
+	return subnet.isIPAssignedToOtherPod(ip, podName)
+}
+
+func (ipam *IPAM) GetSubnetV4Mask(subnetName string) (string, error) {
+	ipam.mutex.RLock()
+	defer ipam.mutex.RUnlock()
+
+	subnet, ok := ipam.Subnets[subnetName]
+	if ok {
+		mask, _ := subnet.V4CIDR.Mask.Size()
+		return strconv.Itoa(mask), nil
+	}
+	return "", ErrNoAvailable
+}
+
+func (ipam *IPAM) GetSubnetIPRangeString(subnetName string, excludeIps []string) (string, string, string, string) {
+	ipam.mutex.RLock()
+	defer ipam.mutex.RUnlock()
+
+	// subnet.Spec.ExcludeIps contains both v4 and v6 addresses
+	v4ExcludeIps, v6ExcludeIps := util.SplitIpsByProtocol(excludeIps)
+
+	var v4UsingIPStr, v6UsingIPStr, v4AvailableIPStr, v6AvailableIPStr string
+	if subnet, ok := ipam.Subnets[subnetName]; ok {
+		v4Reserved, _ := NewIPRangeListFrom(v4ExcludeIps...)
+		v6Reserved, _ := NewIPRangeListFrom(v6ExcludeIps...)
+
+		// do not count ips in excludeIPs as available and using IPs
+		v4AvailableIPStr = subnet.V4Available.Separate(v4Reserved).String()
+		v6AvailableIPStr = subnet.V6Available.Separate(v6Reserved).String()
+		v4UsingIPStr = subnet.V4Using.Separate(v4Reserved).String()
+		v6UsingIPStr = subnet.V6Using.Separate(v6Reserved).String()
+	}
+
+	return v4UsingIPStr, v6UsingIPStr, v4AvailableIPStr, v6AvailableIPStr
+}
+
+func (ipam *IPAM) AddOrUpdateIPPool(subnet, ippool string, ips []string) error {
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+
+	s := ipam.Subnets[subnet]
+	if s == nil {
+		return fmt.Errorf("subnet %s does not exist in IPAM", subnet)
+	}
+
+	return s.AddOrUpdateIPPool(ippool, ips)
+}
+
+func (ipam *IPAM) RemoveIPPool(subnet, ippool string) {
+	ipam.mutex.Lock()
+	if s := ipam.Subnets[subnet]; s != nil {
+		s.RemoveIPPool(ippool)
+	}
+	ipam.mutex.Unlock()
+}
+
+func (ipam *IPAM) IPPoolStatistics(subnet, ippool string) (
+	v4Available, v4Using, v6Available, v6Using internal.BigInt,
+	v4AvailableRange, v4UsingRange, v6AvailableRange, v6UsingRange string,
+) {
+	ipam.mutex.RLock()
+	defer ipam.mutex.RUnlock()
+
+	s := ipam.Subnets[subnet]
+	if s == nil {
+		return v4Available, v4Using, v6Available, v6Using, v4AvailableRange, v4UsingRange, v6AvailableRange, v6UsingRange
+	}
+	return s.IPPoolStatistics(ippool)
+}
+
+func (ipam *IPAM) RecordGatewayMAC(subnetName, gatewayMAC string) error {
+	ipam.mutex.Lock()
+	defer ipam.mutex.Unlock()
+
+	subnet, ok := ipam.Subnets[subnetName]
+	if !ok {
+		return fmt.Errorf("subnet %s not found in ipam", subnetName)
+	}
+
+	subnet.GatewayMAC = gatewayMAC
+	klog.Infof("recorded gateway MAC %s for subnet %s", gatewayMAC, subnetName)
+	return nil
+}

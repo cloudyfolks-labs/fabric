@@ -1,0 +1,25 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: kube-ovn-controller
+  namespace: {{ .Values.namespace }}
+  {{- with .Values.controller.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/name: kube-ovn-controller
+    app.kubernetes.io/part-of: kube-ovn
+    {{- with .Values.controller.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    app.kubernetes.io/name: kube-ovn-controller
+    app.kubernetes.io/part-of: kube-ovn
+  ports:
+    - port: {{ .Values.controller.metrics.port }}
+      name: metrics
+  {{- if eq .Values.networking.stack "Dual" }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}

@@ -1,0 +1,2635 @@
+package daemon
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"maps"
+	"net"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/containerd/containerd/v2/pkg/netns"
+	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/k8snetworkplumbingwg/sriovnet"
+	sriovutilfs "github.com/k8snetworkplumbingwg/sriovnet/pkg/utils/filesystem"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
+
+	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	"github.com/kubeovn/kube-ovn/pkg/net/yusur"
+	"github.com/kubeovn/kube-ovn/pkg/ovs"
+	"github.com/kubeovn/kube-ovn/pkg/request"
+	"github.com/kubeovn/kube-ovn/pkg/util"
+)
+
+var pciAddrRegexp = regexp.MustCompile(`\b([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}.\d{1}\S*)`)
+
+func (csh cniServerHandler) configureDpdkNic(podName, podNamespace, provider, netns, containerID, ifName, _ string, _ int, ip, _, ingress, egress, ingressBurst, egressBurst, shortSharedDir, socketName, socketConsumption string) error {
+	sharedDir := filepath.Join("/var", shortSharedDir)
+	hostNicName, _ := generateNicName(containerID, ifName)
+
+	ipStr := util.GetIPWithoutMask(ip)
+	ifaceID := ovs.PodNameToPortName(podName, podNamespace, provider)
+	ovs.CleanDuplicatePort(ifaceID, hostNicName)
+
+	vhostServerPath := path.Join(sharedDir, socketName)
+	if socketConsumption == util.ConsumptionKubevirt {
+		vhostServerPath = path.Join(sharedDir, ifName)
+	}
+
+	// Add vhostuser host end to ovs port
+	output, err := ovs.Exec(ovs.MayExist, "add-port", "br-int", hostNicName, "--",
+		"set", "interface", hostNicName,
+		"type=dpdkvhostuserclient",
+		"options:vhost-server-path="+vhostServerPath,
+		"external_ids:iface-id="+ifaceID,
+		"external_ids:pod_name="+podName,
+		"external_ids:pod_namespace="+podNamespace,
+		"external_ids:ip="+ipStr,
+		"external_ids:pod_netns="+netns)
+	if err != nil {
+		return fmt.Errorf("add nic to ovs failed %w: %q", err, output)
+	}
+	return ovs.SetInterfaceBandwidth(podName, podNamespace, ifaceID, egress, ingress, egressBurst, ingressBurst)
+}
+
+func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns, containerID, vfDriver, ifName, mac string, mtu int, ip, gateway string, isDefaultRoute, vmMigration bool, routes []request.Route, _, _ []string, ingress, egress, ingressBurst, egressBurst, deviceID, latency, limit, loss, jitter string, gwCheckMode int, u2oInterconnectionIP, oldPodName, encapIP, localnetSubnet string, appendIfName bool) ([]request.Route, error) {
+	var err error
+	var hostNicName, containerNicName, pfPci string
+	var vfID int
+	if deviceID == "" {
+		hostNicName, containerNicName, err = setupVethPair(containerID, ifName, mtu)
+		if err != nil {
+			klog.Errorf("failed to create veth pair %v", err)
+			return nil, err
+		}
+		defer func() {
+			if err != nil {
+				if err := rollBackVethPair(hostNicName); err != nil {
+					klog.Errorf("failed to rollback veth pair %s, %v", hostNicName, err)
+					return
+				}
+			}
+		}()
+	} else {
+		hostNicName, containerNicName, pfPci, vfID, err = setupSriovInterface(containerID, deviceID, vfDriver, ifName, mac)
+		if err != nil {
+			klog.Errorf("failed to create sriov interfaces %v", err)
+			return nil, err
+		}
+		defer func() {
+			if err != nil {
+				// Bring the representor back up so the VF is not left blackholed
+				// when configureNic fails before configureHostNic runs.
+				if link, linkErr := netlink.LinkByName(hostNicName); linkErr == nil {
+					if linkErr = netlink.LinkSetUp(link); linkErr != nil {
+						klog.Errorf("failed to bring %s back up during rollback: %v", hostNicName, linkErr)
+					}
+				}
+			}
+		}()
+	}
+
+	ipStr := util.GetIPWithoutMask(ip)
+	ifaceID := ovs.PodNameToPortName(podName, podNamespace, provider)
+	// in case of multiple interfaces the interface name is used to distinguish different interfaces
+	// currently ovs.PodNameToPortName ignores the ifname which results in same port being returned
+	// for default nics the ifname is set to eth0 by the handler, so we can use that to distinguish default nics and non default nics, for non default nics we can append the ifname to the ifaceID to make it unique for ovs port creation and later retrieval, this is required to avoid the issue of same port being returned for multiple interfaces which results in wrong port being configured and attached to the pod, and also results in wrong port being deleted during pod deletion which affects other interfaces attached to the same pod.
+	if appendIfName {
+		ifaceID = fmt.Sprintf("%s.%s", ifaceID, ifName)
+	}
+	ovs.CleanDuplicatePort(ifaceID, hostNicName)
+	if yusur.IsYusurSmartNic(deviceID) {
+		klog.Infof("add Yusur smartnic vfr %s to ovs", hostNicName)
+		// Add yusur ovs port
+		args := []string{
+			ovs.MayExist, "add-port", "br-int", hostNicName, "--",
+			"set", "interface", hostNicName, "type=dpdk",
+			fmt.Sprintf("options:dpdk-devargs=%s,representor=[%d]", pfPci, vfID),
+			fmt.Sprintf("mtu_request=%d", mtu),
+			"external_ids:iface-id=" + ifaceID,
+			"external_ids:vendor=" + util.CniTypeName,
+			"external_ids:pod_name=" + podName,
+			"external_ids:pod_namespace=" + podNamespace,
+			"external_ids:pod_netns=" + netns,
+		}
+		if ip != "" {
+			args = append(args, "external_ids:ip="+ipStr)
+		}
+		if encapIP != "" {
+			args = append(args, "external_ids:encap-ip="+encapIP)
+		}
+		output, err := ovs.Exec(args...)
+		if err != nil {
+			return nil, fmt.Errorf("add nic to ovs failed %w: %q", err, output)
+		}
+	} else {
+		// Add veth pair host end to ovs port
+		args := []string{
+			ovs.MayExist, "add-port", "br-int", hostNicName, "--",
+			"set", "interface", hostNicName, "external_ids:iface-id=" + ifaceID,
+			"external_ids:vendor=" + util.CniTypeName,
+			"external_ids:pod_name=" + podName,
+			"external_ids:pod_namespace=" + podNamespace,
+			"external_ids:pod_netns=" + netns,
+		}
+		if ip != "" {
+			args = append(args, "external_ids:ip="+ipStr)
+		}
+		if encapIP != "" {
+			args = append(args, "external_ids:encap-ip="+encapIP)
+		}
+		output, err := ovs.Exec(args...)
+		if err != nil {
+			return nil, fmt.Errorf("add nic to ovs failed %w: %q", err, output)
+		}
+	}
+	defer func() {
+		if err != nil {
+			if err := csh.rollbackOvsPort(hostNicName); err != nil {
+				klog.Errorf("failed to rollback ovs port %s, %v", hostNicName, err)
+				return
+			}
+		}
+	}()
+
+	// add hostNicName and containerNicName into pod annotations
+	if deviceID != "" {
+		var podNameNew string
+		if podName != oldPodName {
+			podNameNew = oldPodName
+		} else {
+			podNameNew = podName
+		}
+		patch := util.KVPatch{
+			fmt.Sprintf(util.VfRepresentorNameTemplate, provider): hostNicName,
+			fmt.Sprintf(util.VfNameTemplate, provider):            containerNicName,
+			fmt.Sprintf(util.PodNicAnnotationTemplate, provider):  util.SriovNicType,
+		}
+		if err = util.PatchAnnotations(csh.Config.KubeClient.CoreV1().Pods(podNamespace), podNameNew, patch); err != nil {
+			klog.Errorf("failed to patch pod %s/%s: %v", podNamespace, podNameNew, err)
+			return nil, err
+		}
+	}
+
+	// lsp and container nic must use same mac address, otherwise ovn will reject these packets by default
+	macAddr, err := net.ParseMAC(mac)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse mac %q: %w", mac, err)
+	}
+	// For SR-IOV interfaces, set MTU on the representor after it has been added
+	// to OVS to prevent a race with concurrent CmdDel on the same VF.
+	// See: https://github.com/ovn-org/ovn-kubernetes/pull/6106
+	if deviceID != "" && !yusur.IsYusurSmartNic(deviceID) {
+		link, linkErr := netlink.LinkByName(hostNicName)
+		if linkErr != nil {
+			return nil, fmt.Errorf("failed to get host link %s: %w", hostNicName, linkErr)
+		}
+		if linkErr = netlink.LinkSetMTU(link, mtu); linkErr != nil {
+			return nil, fmt.Errorf("failed to set MTU on %s: %w", hostNicName, linkErr)
+		}
+	}
+	if !yusur.IsYusurSmartNic(deviceID) {
+		if err = configureHostNic(hostNicName); err != nil {
+			klog.Error(err)
+			return nil, err
+		}
+	}
+	if err = ovs.SetInterfaceBandwidth(podName, podNamespace, ifaceID, egress, ingress, egressBurst, ingressBurst); err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+
+	if err = ovs.SetNetemQos(podName, podNamespace, ifaceID, latency, limit, loss, jitter); err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+
+	if containerNicName == "" {
+		return nil, nil
+	}
+	isUserspaceDP, err := ovs.IsUserspaceDataPath()
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+	if isUserspaceDP {
+		// turn off tx checksum
+		if err = TurnOffNicTxChecksum(containerNicName); err != nil {
+			klog.Error(err)
+			return nil, err
+		}
+	}
+
+	// wait for the ovs interface to be ready
+	var ready bool
+	ch := make(chan struct{}, 1)
+	timeout := 30 * time.Second
+	deadline := time.Now().Add(timeout)
+	wait.Until(func() {
+		if time.Now().After(deadline) {
+			ch <- struct{}{}
+			return
+		}
+		output, err := ovs.Exec(ovs.IfExists, "get", "interface", hostNicName, "external-ids:ovn-installed")
+		if err != nil {
+			klog.Errorf("failed to get ovn-installed for ovs port %s: %v, %q", hostNicName, err, output)
+			return
+		}
+		if strings.Trim(strings.TrimSpace(output), `"`) == "true" {
+			klog.Infof("ovs interface %s is ready", hostNicName)
+			ch <- struct{}{}
+			ready = true
+		}
+	}, 500*time.Millisecond, ch)
+	if !ready {
+		err = fmt.Errorf("ovs interface %s is not ready after %s", hostNicName, timeout.String())
+		klog.Error(err)
+		return nil, err
+	}
+
+	// For underlay subnets, wait for the localnet patch port to be created by
+	// ovn-controller before configuring the container NIC. This ensures L2
+	// connectivity is established before kernel IPv6 DAD sends Neighbor
+	// Solicitation packets, preventing false DAD success due to NS packets
+	// being black-holed when the patch port does not yet exist.
+	if localnetSubnet != "" {
+		if err := waitForLocalnetPatchPort(localnetSubnet); err != nil {
+			klog.Error(err)
+			return nil, err
+		}
+	}
+
+	podNS, err := ns.GetNS(netns)
+	if err != nil {
+		err = fmt.Errorf("failed to open netns %q: %w", netns, err)
+		klog.Error(err)
+		return nil, err
+	}
+	defer podNS.Close()
+	finalRoutes, err := csh.configureContainerNic(podName, podNamespace, containerNicName, ifName, ip, gateway, isDefaultRoute, vmMigration, routes, macAddr, podNS, mtu, gwCheckMode, u2oInterconnectionIP)
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+	return finalRoutes, nil
+}
+
+func waitForLocalnetPatchPort(subnetName string) error {
+	patchPort := fmt.Sprintf("patch-localnet.%s-to-br-int", subnetName)
+	klog.Infof("waiting for localnet patch port %s to be ready", patchPort)
+	if _, err := ovs.Exec("wait-until", "interface", patchPort, "name="+patchPort); err != nil {
+		return fmt.Errorf("failed waiting for localnet patch port %s: %w", patchPort, err)
+	}
+	klog.Infof("localnet patch port %s is ready", patchPort)
+	return nil
+}
+
+func (csh cniServerHandler) releaseVf(podName, podNamespace, podNetns, ifName, nicType, deviceID string) error {
+	// Only for SRIOV case, we'd need to move the VF from container namespace back to the host namespace
+	if nicType != util.OffloadType || deviceID == "" {
+		return nil
+	}
+	podDesc := fmt.Sprintf("for pod %s/%s", podNamespace, podName)
+	klog.Infof("Tear down interface %s", podDesc)
+	netns, err := ns.GetNS(podNetns)
+	if err != nil {
+		return fmt.Errorf("failed to get container namespace %s: %w", podDesc, err)
+	}
+	defer netns.Close()
+
+	hostNS, err := ns.GetCurrentNS()
+	if err != nil {
+		return fmt.Errorf("failed to get host namespace %s: %w", podDesc, err)
+	}
+	defer hostNS.Close()
+
+	err = netns.Do(func(_ ns.NetNS) error {
+		// container side interface deletion
+		link, err := netlink.LinkByName(ifName)
+		if err != nil {
+			return fmt.Errorf("failed to get container interface %s %s: %w", ifName, podDesc, err)
+		}
+		if err = netlink.LinkSetDown(link); err != nil {
+			return fmt.Errorf("failed to bring down container interface %s %s: %w", ifName, podDesc, err)
+		}
+		// rename VF device back to its original name in the host namespace:
+		vfName := link.Attrs().Alias
+		if err = netlink.LinkSetName(link, vfName); err != nil {
+			return fmt.Errorf("failed to rename container interface %s to %s %s: %w",
+				ifName, vfName, podDesc, err)
+		}
+		// move VF device to host netns
+		fd := int(netns.Fd()) // #nosec G115
+		if err = netlink.LinkSetNsFd(link, fd); err != nil {
+			return fmt.Errorf("failed to move container interface %s back to host namespace %s: %w",
+				ifName, podDesc, err)
+		}
+		return nil
+	})
+	if err != nil {
+		klog.Error(err)
+	}
+
+	return nil
+}
+
+func (csh cniServerHandler) deleteNic(podName, podNamespace, containerID, netns, deviceID, ifName, nicType string) error {
+	if err := csh.releaseVf(podName, podNamespace, netns, ifName, nicType, deviceID); err != nil {
+		return fmt.Errorf("failed to release VF %s assigned to the Pod %s/%s back to the host network namespace: "+
+			"%w", ifName, podName, podNamespace, err)
+	}
+
+	var nicName string
+	if yusur.IsYusurSmartNic(deviceID) {
+		pfPci, err := yusur.GetYusurNicPfPciFromVfPci(deviceID)
+		if err != nil {
+			return fmt.Errorf("failed to get pf pci %w, %s", err, deviceID)
+		}
+
+		pfIndex, err := yusur.GetYusurNicPfIndexByPciAddress(pfPci)
+		if err != nil {
+			return fmt.Errorf("failed to get pf index %w, %s", err, deviceID)
+		}
+
+		vfIndex, err := yusur.GetYusurNicVfIndexByPciAddress(deviceID)
+		if err != nil {
+			return fmt.Errorf("failed to get vf index %w, %s", err, deviceID)
+		}
+
+		nicName = yusur.GetYusurNicVfRepresentor(pfIndex, vfIndex)
+	} else {
+		hostNicName, _ := generateNicName(containerID, ifName)
+		nicName = hostNicName
+	}
+	// For SR-IOV interfaces, bring the representor down before removing from OVS
+	// to prevent a race where a concurrent CmdAdd could have its representor
+	// configuration undone. See: https://github.com/ovn-org/ovn-kubernetes/pull/6106
+	if deviceID != "" {
+		if link, linkErr := netlink.LinkByName(nicName); linkErr == nil {
+			if linkErr = netlink.LinkSetDown(link); linkErr != nil {
+				klog.Warningf("failed to set link %s down: %v", nicName, linkErr)
+			}
+		}
+	}
+	// Remove ovs port
+	output, err := ovs.Exec(ovs.IfExists, "--with-iface", "del-port", "br-int", nicName)
+	if err != nil {
+		return fmt.Errorf("failed to delete ovs port %w, %q", err, output)
+	}
+
+	if err = ovs.ClearPodBandwidth(podName, podNamespace, ""); err != nil {
+		klog.Error(err)
+		return err
+	}
+	if err = ovs.ClearHtbQosQueue(podName, podNamespace, ""); err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	if deviceID == "" {
+		hostLink, err := netlink.LinkByName(nicName)
+		if err != nil {
+			// If link already not exists, return quietly
+			// E.g. Internal port had been deleted by Remove ovs port previously
+			if _, ok := err.(netlink.LinkNotFoundError); ok {
+				return nil
+			}
+			return fmt.Errorf("find host link %s failed %w", nicName, err)
+		}
+
+		hostLinkType := hostLink.Type()
+		// Sometimes no deviceID input for vf nic, avoid delete vf nic.
+		if hostLinkType == "veth" {
+			if err = netlink.LinkDel(hostLink); err != nil {
+				return fmt.Errorf("delete host link %s failed %w", hostLink, err)
+			}
+		}
+	} else if pciAddrRegexp.MatchString(deviceID) && !yusur.IsYusurSmartNic(deviceID) {
+		// Ret VF index from PCI
+		vfIndex, err := sriovnet.GetVfIndexByPciAddress(deviceID)
+		if err != nil {
+			klog.Errorf("failed to get vf %s index, %v", deviceID, err)
+			return err
+		}
+		if err = setVfMac(deviceID, vfIndex, "00:00:00:00:00:00"); err != nil {
+			klog.Error(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (csh cniServerHandler) rollbackOvsPort(hostNicName string) (err error) {
+	output, err := ovs.Exec(ovs.IfExists, "--with-iface", "del-port", "br-int", hostNicName)
+	if err != nil {
+		klog.Warningf("failed to delete down ovs port %v, %q", err, output)
+	}
+	klog.Infof("rollback ovs port success %s", hostNicName)
+	return err
+}
+
+func generateNicName(containerID, ifname string) (string, string) {
+	if ifname == "eth0" {
+		return containerID[0:12] + "_h", containerID[0:12] + "_c"
+	}
+	// The nic name is 14 length and have prefix pod in the Kubevirt v1.0.0
+	if strings.HasPrefix(ifname, "pod") && len(ifname) == 14 {
+		ifname = ifname[3 : len(ifname)-4]
+		return fmt.Sprintf("%s_%s_h", containerID[0:12-len(ifname)], ifname), fmt.Sprintf("%s_%s_c", containerID[0:12-len(ifname)], ifname)
+	}
+	return fmt.Sprintf("%s_%s_h", containerID[0:12-len(ifname)], ifname), fmt.Sprintf("%s_%s_c", containerID[0:12-len(ifname)], ifname)
+}
+
+func configureHostNic(nicName string) error {
+	hostLink, err := netlink.LinkByName(nicName)
+	if err != nil {
+		return fmt.Errorf("can not find host nic %s: %w", nicName, err)
+	}
+
+	if hostLink.Attrs().OperState != netlink.OperUp {
+		if err = netlink.LinkSetUp(hostLink); err != nil {
+			return fmt.Errorf("can not set host nic %s up: %w", nicName, err)
+		}
+	}
+	if err = netlink.LinkSetTxQLen(hostLink, 1000); err != nil {
+		return fmt.Errorf("can not set host nic %s qlen: %w", nicName, err)
+	}
+
+	return nil
+}
+
+func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName, ifName, ipAddr, gateway string, isDefaultRoute, vmMigration bool, routes []request.Route, macAddr net.HardwareAddr, netns ns.NetNS, mtu, gwCheckMode int, u2oInterconnectionIP string) ([]request.Route, error) {
+	containerLink, err := netlink.LinkByName(nicName)
+	if err != nil {
+		return nil, fmt.Errorf("can not find container nic %s: %w", nicName, err)
+	}
+
+	// Set link alias to its origin link name for fastpath to recognize and bypass netfilter
+	if err := netlink.LinkSetAlias(containerLink, nicName); err != nil {
+		klog.Errorf("failed to set link alias for container nic %s: %v", nicName, err)
+		return nil, err
+	}
+
+	fd := int(netns.Fd()) // #nosec G115
+	if err = netlink.LinkSetNsFd(containerLink, fd); err != nil {
+		return nil, fmt.Errorf("failed to move link to netns: %w", err)
+	}
+
+	// do not perform ipv4/ipv6 duplicate address detection during VM live migration
+	ipv6DAD := !vmMigration
+	detectIPv4Conflict := !vmMigration && csh.Config.EnableArpDetectIPConflict
+	var finalRoutes []request.Route
+	err = ns.WithNetNSPath(netns.Path(), func(_ ns.NetNS) error {
+		if err = netlink.LinkSetName(containerLink, ifName); err != nil {
+			klog.Error(err)
+			return err
+		}
+
+		if err = configureNic(ifName, ipAddr, macAddr, mtu, detectIPv4Conflict, ipv6DAD, true, false); err != nil {
+			klog.Error(err)
+			return err
+		}
+
+		// MAC-only mode (BYO-DHCP / external DHCP): no IP address was allocated, so skip
+		// IP route and gateway configuration. The VM obtains its address from an external
+		// DHCP server.
+		if ipAddr == "" {
+			klog.Infof("configured MAC-only interface %s for pod %s/%s, skipping IP routes and gateway checks", ifName, podNamespace, podName)
+			return nil
+		}
+
+		if isDefaultRoute {
+			// Only eth0 requires the default route and gateway
+			containerGw := gateway
+			if u2oInterconnectionIP != "" {
+				containerGw = u2oInterconnectionIP
+			}
+
+			for _, gw := range util.SplitTrimmed(containerGw, ",") {
+				if err = netlink.RouteReplace(&netlink.Route{
+					LinkIndex: containerLink.Attrs().Index,
+					Scope:     netlink.SCOPE_UNIVERSE,
+					Gw:        net.ParseIP(gw),
+				}); err != nil {
+					return fmt.Errorf("failed to configure default gateway %s: %w", gw, err)
+				}
+			}
+		}
+
+		for _, r := range routes {
+			var dst *net.IPNet
+			if r.Destination != "" {
+				if _, dst, err = net.ParseCIDR(r.Destination); err != nil {
+					klog.Errorf("invalid route destination %s: %v", r.Destination, err)
+					continue
+				}
+			}
+
+			var gw net.IP
+			if r.Gateway != "" {
+				if gw = net.ParseIP(r.Gateway); gw == nil {
+					klog.Errorf("invalid route gateway %s", r.Gateway)
+					continue
+				}
+			}
+
+			route := &netlink.Route{
+				Dst:       dst,
+				Gw:        gw,
+				LinkIndex: containerLink.Attrs().Index,
+			}
+			if err = netlink.RouteReplace(route); err != nil {
+				klog.Errorf("failed to add route %+v: %v", r, err)
+			}
+		}
+
+		linkRoutes, err := netlink.RouteList(containerLink, netlink.FAMILY_ALL)
+		if err != nil {
+			return fmt.Errorf("failed to get routes on interface %s: %w", ifName, err)
+		}
+
+		for _, r := range linkRoutes {
+			if r.Family != netlink.FAMILY_V4 && r.Family != netlink.FAMILY_V6 {
+				continue
+			}
+			if r.Dst == nil && r.Gw == nil {
+				continue
+			}
+			if r.Dst != nil && r.Dst.IP.IsLinkLocalUnicast() {
+				if _, bits := r.Dst.Mask.Size(); bits == net.IPv6len*8 {
+					// skip fe80::/10
+					continue
+				}
+			}
+
+			var route request.Route
+			if r.Dst != nil {
+				route.Destination = r.Dst.String()
+			}
+			if r.Gw != nil {
+				route.Gateway = r.Gw.String()
+			}
+			finalRoutes = append(finalRoutes, route)
+		}
+
+		if gwCheckMode != gatewayCheckModeDisabled {
+			if util.CheckProtocol(ipAddr) == kubeovnv1.ProtocolIPv6 || util.CheckProtocol(ipAddr) == kubeovnv1.ProtocolDual {
+				addrsFlags, err := waitIPv6AddressPreferred(ifName, 10, 500*time.Millisecond, ipv6DAD)
+				if err != nil {
+					klog.Error(err)
+					return err
+				}
+				for addr, flags := range addrsFlags {
+					if flags&unix.IFA_F_DADFAILED == 0 {
+						klog.Errorf("address %s on interface %s is not ready, flags: 0x%x", addr, ifName, flags)
+						continue
+					}
+					klog.Errorf("IPv6 DAD of address %s on interface %s failed, flags: 0x%x", addr, ifName, flags)
+					available, mac, err := util.DuplicateAddressDetection(ifName, addr)
+					if err != nil {
+						klog.Errorf("failed to perform IPv6 DAD for address %s on interface %s: %v", addr, ifName, err)
+						return err
+					}
+					if !available && mac != nil {
+						return fmt.Errorf("IP address %s has already been used by host with MAC %s", addr, mac)
+					}
+				}
+				if len(addrsFlags) != 0 {
+					return fmt.Errorf("ip address(es) %s on interface %s are not in preferred state", strings.Join(slices.Collect(maps.Keys(addrsFlags)), ","), ifName)
+				}
+			}
+
+			if u2oInterconnectionIP != "" {
+				if err = csh.checkGatewayReady(podName, podNamespace, gwCheckMode, ifName, ipAddr, u2oInterconnectionIP, true); err != nil {
+					klog.Error(err)
+					return err
+				}
+			}
+			if err = csh.checkGatewayReady(podName, podNamespace, gwCheckMode, ifName, ipAddr, gateway, true); err != nil {
+				klog.Error(err)
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return finalRoutes, err
+}
+
+func (csh cniServerHandler) checkGatewayReady(podName, podNamespace string, gwCheckMode int, intr, ipAddr, gateway string, verbose bool) error {
+	if gwCheckMode == gatewayCheckModeArpingNotConcerned || gwCheckMode == gatewayCheckModePingNotConcerned {
+		// ignore error if disableGatewayCheck=true
+		_ = waitNetworkReady(intr, ipAddr, gateway, true, verbose, 1, nil)
+		return nil
+	}
+
+	done := make(chan struct{}, 1)
+	go func() {
+		interval := 5 * time.Second
+		timer := time.NewTimer(interval)
+		for {
+			select {
+			case <-done:
+				return
+			case <-timer.C:
+			}
+
+			pod, err := csh.KubeClient.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+			if err != nil {
+				if !k8serrors.IsNotFound(err) {
+					klog.Errorf("failed to get pod %s/%s: %v", podNamespace, podName, err)
+					continue
+				}
+				pod = nil
+			}
+			if pod == nil || !pod.DeletionTimestamp.IsZero() {
+				// TODO: check pod UID
+				select {
+				case <-done:
+				case done <- struct{}{}:
+				}
+				return
+			}
+			timer.Reset(interval)
+		}
+	}()
+
+	return waitNetworkReady(intr, ipAddr, gateway, true, verbose, gatewayCheckMaxRetry, done)
+}
+
+func waitNetworkReady(nic, ipAddr, gateway string, preferARP, verbose bool, maxRetry int, done chan struct{}) error {
+	ips := util.SplitTrimmed(ipAddr, ",")
+	gws := util.SplitTrimmed(gateway, ",")
+	if len(ips) != len(gws) {
+		return fmt.Errorf("the count of ip addresses and gateways mismatch: ips %q, gateways %q", ipAddr, gateway)
+	}
+	for i, gw := range gws {
+		src, _, _ := strings.Cut(ips[i], "/")
+		if preferARP && util.CheckProtocol(gw) == kubeovnv1.ProtocolIPv4 {
+			mac, count, err := util.ArpResolve(nic, gw, time.Second, maxRetry, done)
+			cniConnectivityResult.WithLabelValues(nodeName).Add(float64(count))
+			if err != nil {
+				err = fmt.Errorf("network %s with gateway %s is not ready for interface %s after %d checks: %w", ips[i], gw, nic, count, err)
+				klog.Warning(err)
+				return err
+			}
+			if verbose {
+				klog.Infof("MAC address of gateway %s is %s", gw, mac.String())
+				klog.Infof("network %s with gateway %s is ready for interface %s after %d checks", ips[i], gw, nic, count)
+			}
+		} else {
+			_, err := pingGateway(gw, src, verbose, maxRetry, done)
+			if err != nil {
+				klog.Error(err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func configureNodeNic(cs kubernetes.Interface, nodeName, portName, ip, gw, joinCIDR string, macAddr net.HardwareAddr, mtu int, enableNonPrimaryCNI bool) error {
+	ipStr := util.GetIPWithoutMask(ip)
+	raw, err := ovs.Exec(ovs.MayExist, "add-port", "br-int", util.NodeNic, "--",
+		"set", "interface", util.NodeNic, "type=internal", "--",
+		"set", "interface", util.NodeNic, "external_ids:iface-id="+portName,
+		"external_ids:ip="+ipStr)
+	if err != nil {
+		klog.Errorf("failed to configure node nic %s: %v, %q", portName, err, raw)
+		return errors.New(raw)
+	}
+
+	if err = configureNic(util.NodeNic, ip, macAddr, mtu, false, false, false, true); err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	hostLink, err := netlink.LinkByName(util.NodeNic)
+	if err != nil {
+		return fmt.Errorf("can not find nic %s: %w", util.NodeNic, err)
+	}
+
+	actualMac := hostLink.Attrs().HardwareAddr
+	if actualMac.String() != macAddr.String() {
+		err := fmt.Errorf("MAC address mismatch on %s: expected %s, actual %s", util.NodeNic, macAddr.String(), actualMac.String())
+		klog.Error(err)
+		return err
+	}
+	klog.Infof("MAC address %s successfully set on %s", macAddr.String(), util.NodeNic)
+
+	if err = netlink.LinkSetTxQLen(hostLink, 1000); err != nil {
+		return fmt.Errorf("can not set host nic %s qlen: %w", util.NodeNic, err)
+	}
+
+	// check and add default route for ovn0 in case of can not add automatically
+	nodeNicRoutes, err := getNicExistRoutes(hostLink, gw)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	var toAdd []netlink.Route
+	for _, c := range util.SplitTrimmed(joinCIDR, ",") {
+		found := false
+		for _, r := range nodeNicRoutes {
+			if r.Dst.String() == c {
+				found = true
+				break
+			}
+		}
+		if !found {
+			protocol := util.CheckProtocol(c)
+			var src net.IP
+			var priority int
+			if protocol == kubeovnv1.ProtocolIPv4 {
+				for _, ip := range util.SplitTrimmed(ipStr, ",") {
+					if util.CheckProtocol(ip) == protocol {
+						src = net.ParseIP(ip)
+						break
+					}
+				}
+			} else {
+				priority = 256
+			}
+			_, cidr, _ := net.ParseCIDR(c)
+			toAdd = append(toAdd, netlink.Route{
+				Dst:      cidr,
+				Src:      src,
+				Protocol: netlink.RouteProtocol(unix.RTPROT_KERNEL),
+				Scope:    netlink.SCOPE_LINK,
+				Priority: priority,
+			})
+		}
+	}
+	if len(toAdd) > 0 {
+		klog.Infof("routes to be added on nic %s: %v", util.NodeNic, toAdd)
+	}
+
+	for _, r := range toAdd {
+		r.LinkIndex = hostLink.Attrs().Index
+		klog.Infof("adding route %q on %s", r.String(), hostLink.Attrs().Name)
+		if err = netlink.RouteReplace(&r); err != nil && !errors.Is(err, syscall.EEXIST) {
+			klog.Errorf("failed to replace route %v: %v", r, err)
+		}
+	}
+
+	// ping ovn0 gw to activate the flow
+	klog.Infof("wait %s gw ready", util.NodeNic)
+	if err = waitNetworkReady(util.NodeNic, ip, gw, false, true, gatewayCheckMaxRetry, nil); err != nil {
+		klog.Errorf("failed to init %s check: %v", util.NodeNic, err)
+	}
+
+	// Only set NetworkUnavailable condition when running as primary CNI
+	if !enableNonPrimaryCNI {
+		status := corev1.ConditionFalse
+		reason := "JoinSubnetGatewayReachable"
+		message := fmt.Sprintf("ping check to gateway ip %s succeeded", gw)
+		if err != nil {
+			status = corev1.ConditionTrue
+			reason = "JoinSubnetGatewayUnreachable"
+			message = fmt.Sprintf("ping check to gateway ip %s failed", gw)
+		}
+		if setErr := util.SetNodeNetworkUnavailableCondition(cs, nodeName, status, reason, message); setErr != nil {
+			klog.Errorf("failed to set node network unavailable condition: %v", setErr)
+		}
+	} else {
+		klog.Infof("running in non-primary CNI mode, skipping NetworkUnavailable condition update")
+	}
+
+	return err
+}
+
+// If OVS restart, the ovn0 port will down and prevent host to pod network,
+// Restart the kube-ovn-cni when this happens
+func (c *Controller) loopOvn0Check() {
+	// Skip ovn0 check when running as non-primary CNI
+	if c.config.EnableNonPrimaryCNI {
+		return
+	}
+
+	link, err := netlink.LinkByName(util.NodeNic)
+	if err != nil {
+		util.LogFatalAndExit(err, "failed to get node nic %s", util.NodeNic)
+	}
+
+	if link.Attrs().OperState == netlink.OperDown {
+		util.LogFatalAndExit(err, "node nic %s is down", util.NodeNic)
+	}
+
+	node, err := c.nodesLister.Get(c.config.NodeName)
+	if err != nil {
+		klog.Errorf("failed to get node %s: %v", c.config.NodeName, err)
+		return
+	}
+	ip := node.Annotations[util.IPAddressAnnotation]
+	gw := node.Annotations[util.GatewayAnnotation]
+	status := corev1.ConditionFalse
+	reason := "JoinSubnetGatewayReachable"
+	message := fmt.Sprintf("ping check to gateway ip %s succeeded", gw)
+	if err = waitNetworkReady(util.NodeNic, ip, gw, false, false, 5, nil); err != nil {
+		klog.Errorf("failed to init %s check: %v", util.NodeNic, err)
+		status = corev1.ConditionTrue
+		reason = "JoinSubnetGatewayUnreachable"
+		message = fmt.Sprintf("ping check to gateway ip %s failed", gw)
+	}
+
+	var alreadySet bool
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeNetworkUnavailable && condition.Status == status &&
+			condition.Reason == reason && condition.Message == message {
+			alreadySet = true
+			break
+		}
+	}
+	if !alreadySet {
+		if err := util.SetNodeNetworkUnavailableCondition(c.config.KubeClient, c.config.NodeName, status, reason, message); err != nil {
+			klog.Errorf("failed to set node network unavailable condition: %v", err)
+		}
+	}
+
+	if err != nil {
+		util.LogFatalAndExit(err, "failed to ping %s gateway %s", util.NodeNic, gw)
+	}
+}
+
+// This method checks the status of the tunnel interface,
+// If the interface is found to be down, it attempts to bring it up
+func (c *Controller) loopTunnelCheck() {
+	tunnelType := c.config.NetworkType
+	var tunnelNic string
+	switch tunnelType {
+	case "vxlan":
+		tunnelNic = util.VxlanNic
+	case "geneve":
+		tunnelNic = util.GeneveNic
+	case "stt":
+		// TODO: tunnelNic = "stt tunnel nic name"
+		return
+	default:
+		return
+	}
+
+	link, err := netlink.LinkByName(tunnelNic)
+	if err != nil || link == nil {
+		return
+	}
+
+	if link.Attrs().OperState == netlink.OperDown {
+		klog.Errorf("nic: %s is down, attempting to bring it up", tunnelNic)
+		if err := netlink.LinkSetUp(link); err != nil {
+			klog.Errorf("fail to bring up nic: %s, %v", tunnelNic, err)
+		}
+	}
+}
+
+func (c *Controller) checkNodeGwNicInNs(nodeExtIP, ip, gw string, gwNS ns.NetNS) error {
+	exists, err := ovs.PortExists(util.NodeGwNic)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	filters := labels.Set{util.OvnEipTypeLabel: util.OvnEipTypeLRP}
+	ovnEips, err := c.ovnEipsLister.List(labels.SelectorFromSet(filters))
+	if err != nil {
+		klog.Errorf("failed to list ovn eip, %v", err)
+		return err
+	}
+	if len(ovnEips) == 0 {
+		klog.Errorf("failed to get type %s ovn eip, %v", util.OvnEipTypeLRP, err)
+		// node ext gw eip need lrp eip to establish bfd session
+		return nil
+	}
+	if exists {
+		return ns.WithNetNSPath(gwNS.Path(), func(_ ns.NetNS) error {
+			err = waitNetworkReady(util.NodeGwNic, ip, gw, true, true, 3, nil)
+			if err == nil {
+				if output, err := exec.Command("bfdd-control", "status").CombinedOutput(); err != nil {
+					err := fmt.Errorf("failed to get bfdd status, %w, %s", err, output)
+					klog.Error(err)
+					return err
+				}
+				for _, eip := range ovnEips {
+					if eip.Status.Ready {
+						// #nosec G204
+						cmd := exec.Command("bfdd-control", "status", "remote", eip.Spec.V4Ip, "local", nodeExtIP)
+						var outb bytes.Buffer
+						cmd.Stdout = &outb
+						if err := cmd.Run(); err == nil {
+							out := outb.String()
+							klog.V(3).Info(out)
+							if strings.Contains(out, "No session") {
+								// not exist
+								cmd = exec.Command("bfdd-control", "allow", eip.Spec.V4Ip) // #nosec G204
+								if err := cmd.Run(); err != nil {
+									err := fmt.Errorf("failed to add lrp %s ip %s into bfd listening list, %w", eip.Name, eip.Status.V4Ip, err)
+									klog.Error(err)
+									return err
+								}
+							}
+						} else {
+							err := fmt.Errorf("failed to check bfd status remote %s local %s", eip.Spec.V4Ip, nodeExtIP)
+							klog.Error(err)
+							return err
+						}
+					}
+				}
+			}
+			return err
+		})
+	}
+
+	err = errors.New("node external gw not ready")
+	klog.Error(err)
+	return err
+}
+
+func configureNodeGwNic(portName, ip, gw string, macAddr net.HardwareAddr, mtu int, gwNS ns.NetNS) error {
+	ipStr := util.GetIPWithoutMask(ip)
+	output, err := ovs.Exec(ovs.MayExist, "add-port", "br-int", util.NodeGwNic, "--",
+		"set", "interface", util.NodeGwNic, "type=internal", "--",
+		"set", "interface", util.NodeGwNic, "external_ids:iface-id="+portName,
+		"external_ids:ip="+ipStr,
+		"external_ids:pod_netns="+util.NodeGwNsPath)
+	if err != nil {
+		klog.Errorf("failed to configure node external nic %s: %v, %q", portName, err, output)
+		return errors.New(output)
+	}
+	gwLink, err := netlink.LinkByName(util.NodeGwNic)
+	if err == nil {
+		fd := int(gwNS.Fd()) // #nosec G115
+		if err = netlink.LinkSetNsFd(gwLink, fd); err != nil {
+			klog.Errorf("failed to move link into netns: %v", err)
+			return err
+		}
+	} else {
+		klog.V(3).Infof("node external nic %q already in ns %s", util.NodeGwNic, util.NodeGwNsPath)
+	}
+	return ns.WithNetNSPath(gwNS.Path(), func(_ ns.NetNS) error {
+		if err = configureNic(util.NodeGwNic, ip, macAddr, mtu, true, true, false, false); err != nil {
+			klog.Errorf("failed to configure node gw nic %s, %v", util.NodeGwNic, err)
+			return err
+		}
+
+		if err = configureLoNic(); err != nil {
+			klog.Errorf("failed to configure nic %s, %v", util.LoNic, err)
+			return err
+		}
+		gwLink, err = netlink.LinkByName(util.NodeGwNic)
+		if err != nil {
+			klog.Errorf("failed to get link %q, %v", util.NodeGwNic, err)
+			return err
+		}
+		switch util.CheckProtocol(ip) {
+		case kubeovnv1.ProtocolIPv4:
+			_, defaultNet, _ := net.ParseCIDR("0.0.0.0/0")
+			err = netlink.RouteReplace(&netlink.Route{
+				LinkIndex: gwLink.Attrs().Index,
+				Scope:     netlink.SCOPE_UNIVERSE,
+				Dst:       defaultNet,
+				Gw:        net.ParseIP(gw),
+			})
+		case kubeovnv1.ProtocolIPv6:
+			_, defaultNet, _ := net.ParseCIDR("::/0")
+			err = netlink.RouteReplace(&netlink.Route{
+				LinkIndex: gwLink.Attrs().Index,
+				Scope:     netlink.SCOPE_UNIVERSE,
+				Dst:       defaultNet,
+				Gw:        net.ParseIP(gw),
+			})
+		case kubeovnv1.ProtocolDual:
+			gws := strings.Split(gw, ",")
+			_, defaultNet, _ := net.ParseCIDR("0.0.0.0/0")
+			err = netlink.RouteReplace(&netlink.Route{
+				LinkIndex: gwLink.Attrs().Index,
+				Scope:     netlink.SCOPE_UNIVERSE,
+				Dst:       defaultNet,
+				Gw:        net.ParseIP(gws[0]),
+			})
+			if err != nil {
+				return fmt.Errorf("config v4 gateway failed: %w", err)
+			}
+
+			_, defaultNet, _ = net.ParseCIDR("::/0")
+			err = netlink.RouteReplace(&netlink.Route{
+				LinkIndex: gwLink.Attrs().Index,
+				Scope:     netlink.SCOPE_UNIVERSE,
+				Dst:       defaultNet,
+				Gw:        net.ParseIP(gws[1]),
+			})
+		}
+		if err != nil {
+			return fmt.Errorf("failed to configure gateway: %w", err)
+		}
+		cmd := exec.Command("bfdd-beacon", "--listen=0.0.0.0")
+		if err := cmd.Run(); err != nil {
+			err := fmt.Errorf("failed to get start bfd listen, %w", err)
+			klog.Error(err)
+			return err
+		}
+		return waitNetworkReady(util.NodeGwNic, ip, gw, true, true, 3, nil)
+	})
+}
+
+func removeNodeGwNic() error {
+	if _, err := ovs.Exec(ovs.IfExists, "del-port", "br-int", util.NodeGwNic); err != nil {
+		return fmt.Errorf("failed to remove ecmp external port %s from OVS bridge %s: %w", "br-int", util.NodeGwNic, err)
+	}
+	klog.Infof("removed node external gw nic %q", util.NodeGwNic)
+	return nil
+}
+
+func removeNodeGwNs() error {
+	ns := netns.LoadNetNS(util.NodeGwNsPath)
+	ok, err := ns.Closed()
+	if err != nil {
+		return fmt.Errorf("failed to remove node external gw ns %s: %w", util.NodeGwNs, err)
+	}
+	if !ok {
+		if err = ns.Remove(); err != nil {
+			return fmt.Errorf("failed to remove node external gw ns %s: %w", util.NodeGwNs, err)
+		}
+	}
+	klog.Infof("node external gw ns %s removed", util.NodeGwNs)
+	return nil
+}
+
+func (c *Controller) loopOvnExt0Check() {
+	node, err := c.nodesLister.Get(c.config.NodeName)
+	if err != nil {
+		klog.Errorf("failed to get node %s: %v", c.config.NodeName, err)
+		return
+	}
+
+	portName := node.Name
+	needClean := false
+	cachedEip, err := c.ovnEipsLister.Get(portName)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			val, ok := node.Labels[util.NodeExtGwLabel]
+			if !ok {
+				// not gw node before
+				return
+			}
+			if val == "false" {
+				// already clean
+				return
+			}
+			if val == "true" {
+				needClean = true
+			}
+		} else {
+			klog.Errorf("failed to get ecmp gateway ovn eip, %v", err)
+			return
+		}
+	}
+
+	if needClean {
+		if err := removeNodeGwNic(); err != nil {
+			klog.Error(err)
+			return
+		}
+		if err := removeNodeGwNs(); err != nil {
+			klog.Error(err)
+			return
+		}
+		if err = c.patchNodeExternalGwLabel(false); err != nil {
+			klog.Errorf("failed to patch labels of node %s: %v", node.Name, err)
+			return
+		}
+		return
+	}
+
+	if cachedEip.Status.V4Ip == "" {
+		klog.Errorf("ecmp gateway ovn eip still has no ip")
+		return
+	}
+	ips := util.GetStringIP(cachedEip.Status.V4Ip, cachedEip.Status.V6Ip)
+	cachedSubnet, err := c.subnetsLister.Get(cachedEip.Spec.ExternalSubnet)
+	if err != nil {
+		klog.Errorf("failed to get external subnet %s, %v", cachedEip.Spec.ExternalSubnet, err)
+		return
+	}
+	gw := cachedSubnet.Spec.Gateway
+	mac, err := net.ParseMAC(cachedEip.Status.MacAddress)
+	if err != nil {
+		klog.Errorf("failed to parse mac %s, %v", cachedEip.Status.MacAddress, err)
+		return
+	}
+	gwNS, err := ns.GetNS(util.NodeGwNsPath)
+	if err != nil {
+		if _, ok := err.(ns.NSPathNotExistErr); !ok {
+			klog.Errorf("failed to get netns from path %s: %v", util.NodeGwNsPath, err)
+			return
+		}
+		if err = newNetNS(util.NodeGwNsPath); err != nil {
+			klog.Error(fmt.Errorf("failed to create gw ns %s: %w", util.NodeGwNs, err))
+			return
+		}
+		if gwNS, err = ns.GetNS(util.NodeGwNsPath); err != nil {
+			klog.Errorf("failed to get netns from path %s: %v", util.NodeGwNsPath, err)
+			return
+		}
+	}
+	defer gwNS.Close()
+	nodeExtIP := cachedEip.Spec.V4Ip
+	ipAddr, err := util.GetIPAddrWithMask(ips, cachedSubnet.Spec.CIDRBlock)
+	if err != nil {
+		klog.Errorf("failed to get ip addr with mask %s, %v", ips, err)
+		return
+	}
+	if err := c.checkNodeGwNicInNs(nodeExtIP, ipAddr, gw, gwNS); err == nil {
+		// add all lrp ip in bfd listening list
+		return
+	}
+	klog.Infof("setup nic ovnext0 ip %s, mac %v, mtu %d", ipAddr, mac, c.config.MTU)
+	if err := configureNodeGwNic(portName, ipAddr, gw, mac, c.config.MTU, gwNS); err != nil {
+		klog.Errorf("failed to setup ovnext0, %v", err)
+		return
+	}
+	if err = c.patchNodeExternalGwLabel(true); err != nil {
+		klog.Errorf("failed to patch labels of node %s: %v", node.Name, err)
+		return
+	}
+	if err = c.patchOvnEipStatus(portName, true); err != nil {
+		klog.Errorf("failed to patch status for eip %s, %v", portName, err)
+		return
+	}
+}
+
+func (c *Controller) patchOvnEipStatus(key string, ready bool) error {
+	cachedOvnEip, err := c.ovnEipsLister.Get(key)
+	if err != nil {
+		klog.Errorf("failed to get cached ovn eip '%s', %v", key, err)
+		return err
+	}
+	ovnEip := cachedOvnEip.DeepCopy()
+	changed := false
+	if ovnEip.Status.Ready != ready {
+		ovnEip.Status.Ready = ready
+		changed = true
+	}
+	if changed {
+		bytes, err := ovnEip.Status.Bytes()
+		if err != nil {
+			klog.Errorf("failed to marshal ovn eip status '%s', %v", key, err)
+			return err
+		}
+		if _, err = c.config.KubeOvnClient.KubeovnV1().OvnEips().Patch(context.Background(), ovnEip.Name,
+			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+			klog.Errorf("failed to patch status for ovn eip '%s', %v", key, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Controller) patchNodeExternalGwLabel(enabled bool) error {
+	node, err := c.nodesLister.Get(c.config.NodeName)
+	if err != nil {
+		klog.Errorf("failed to get node %s: %v", c.config.NodeName, err)
+		return err
+	}
+
+	patch := util.KVPatch{util.NodeExtGwLabel: strconv.FormatBool(enabled)}
+	if err = util.PatchLabels(c.config.KubeClient.CoreV1().Nodes(), node.Name, patch); err != nil {
+		klog.Errorf("failed to patch labels of node %s: %v", node.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+func configureMirrorLink(portName string, _ int) error {
+	mirrorLink, err := netlink.LinkByName(portName)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("can not find mirror nic %s: %w", portName, err)
+	}
+
+	if mirrorLink.Attrs().OperState != netlink.OperUp {
+		if err = netlink.LinkSetUp(mirrorLink); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("can not set mirror nic %s up: %w", portName, err)
+		}
+	}
+
+	return nil
+}
+
+// Convert MAC address to EUI-64 and generate link-local IPv6 address
+func macToLinkLocalIPv6(mac net.HardwareAddr) (net.IP, error) {
+	if len(mac) != 6 {
+		return nil, errors.New("invalid MAC address length")
+	}
+
+	// Create EUI-64 format
+	eui64 := make([]byte, 8)
+	copy(eui64[0:3], mac[0:3]) // Copy the first 3 bytes
+	eui64[3] = 0xff            // Insert ff
+	eui64[4] = 0xfe            // Insert fe
+	copy(eui64[5:], mac[3:])   // Copy the last 3 bytes
+
+	// Flip the 7th bit of the first byte
+	eui64[0] ^= 0x02
+
+	// Prepend the link-local prefix
+	linkLocalIPv6 := net.IP{0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	copy(linkLocalIPv6[8:], eui64)
+
+	return linkLocalIPv6, nil
+}
+
+func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4Conflict, ipv6DAD, setUfoOff, ipv6LinkLocalOn bool) error {
+	nodeLink, err := netlink.LinkByName(link)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("can not find nic %s: %w", link, err)
+	}
+
+	if err = netlink.LinkSetHardwareAddr(nodeLink, macAddr); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("can not set mac address to nic %s: %w", link, err)
+	}
+
+	if mtu > 0 {
+		if nodeLink.Type() == "openvswitch" {
+			_, err = ovs.Exec("set", "interface", link, fmt.Sprintf(`mtu_request=%d`, mtu))
+		} else {
+			err = netlink.LinkSetMTU(nodeLink, mtu)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to set nic %s mtu: %w", link, err)
+		}
+	}
+
+	if nodeLink.Attrs().OperState != netlink.OperUp {
+		if err = netlink.LinkSetUp(nodeLink); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("can not set node nic %s up: %w", link, err)
+		}
+	}
+
+	// List existing addresses up front so stale non-link-local IPs can be flushed. This runs
+	// even in MAC-only mode (BYO-DHCP / external DHCP) where no IP is assigned, so leftover
+	// addresses from a previous (or partial) configuration don't cause unintended routing/ARP
+	// behavior.
+	ipDelMap := make(map[string]netlink.Addr)
+	ipAddMap := make(map[string]netlink.Addr)
+	ipAddrs, err := util.AddrList(nodeLink, unix.AF_UNSPEC)
+	if err != nil {
+		err = fmt.Errorf("failed to list addresses on link %s: %w", link, err)
+		klog.Error(err)
+		return err
+	}
+
+	isIPv6LinkLocalExist := false
+	for _, ipAddr := range ipAddrs {
+		if ipAddr.IP.IsLinkLocalUnicast() {
+			// skip 169.254.0.0/16 and fe80::/10
+			if util.CheckProtocol(ipAddr.IP.String()) == kubeovnv1.ProtocolIPv6 {
+				isIPv6LinkLocalExist = true
+			}
+			continue
+		}
+		ipDelMap[ipAddr.IPNet.String()] = ipAddr
+	}
+
+	// MAC-only mode (BYO-DHCP / external DHCP): skip assigning any IP when none was allocated.
+	// The interface keeps only its MAC and the VM gets its address from DHCP. Stale addresses
+	// collected above are still flushed below.
+	if ip != "" {
+		if ipv6LinkLocalOn && !isIPv6LinkLocalExist && (util.CheckProtocol(ip) == kubeovnv1.ProtocolIPv6 || util.CheckProtocol(ip) == kubeovnv1.ProtocolDual) {
+			linkLocal, err := macToLinkLocalIPv6(macAddr)
+			if err != nil {
+				return fmt.Errorf("failed to generate link-local address: %w", err)
+			}
+			ipAddMap[linkLocal.String()] = netlink.Addr{
+				IPNet: &net.IPNet{
+					IP:   linkLocal,
+					Mask: net.CIDRMask(64, 128),
+				},
+			}
+		}
+
+		for ipStr := range strings.SplitSeq(ip, ",") {
+			// Do not reassign same address for link
+			if _, ok := ipDelMap[ipStr]; ok {
+				delete(ipDelMap, ipStr)
+				continue
+			}
+
+			ipAddr, err := netlink.ParseAddr(ipStr)
+			if err != nil {
+				return fmt.Errorf("can not parse address %s: %w", ipStr, err)
+			}
+			ipAddMap[ipStr] = *ipAddr
+		}
+	}
+
+	for ip, addr := range ipDelMap {
+		klog.Infof("delete ip address %s on %s", ip, link)
+		if err = netlink.AddrDel(nodeLink, &addr); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("delete address %s: %w", addr, err)
+		}
+	}
+	for ip, addr := range ipAddMap {
+		if addr.IP.To4() != nil {
+			if detectIPv4Conflict {
+				ip := addr.IP.String()
+				mac, err := util.ArpDetectIPConflict(link, ip, macAddr)
+				if err != nil {
+					err = fmt.Errorf("failed to detect address conflict for %s on link %s: %w", ip, link, err)
+					klog.Error(err)
+					return err
+				}
+				if mac != nil {
+					return fmt.Errorf("IP address %s has already been used by host with MAC %s", ip, mac)
+				}
+			} else {
+				// when detectIPConflict is true, free arp is already broadcast in the step of announcement
+				if err := util.AnnounceArpAddress(link, addr.IP.String(), macAddr, 1, 1*time.Second); err != nil {
+					klog.Warningf("failed to broadcast free arp with err %v", err)
+				}
+			}
+		} else if !ipv6DAD {
+			addr.Flags |= unix.IFA_F_NODAD
+		}
+
+		klog.Infof("add ip address %s to %s", ip, link)
+		if err = netlink.AddrAdd(nodeLink, &addr); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("can not add address %s to nic %s: %w", addr, link, err)
+		}
+		if addr.IP.To4() == nil && !addr.IP.IsLinkLocalUnicast() {
+			if err := util.AnnounceNDPAddress(link, addr.IP.String(), macAddr, 1, time.Second); err != nil {
+				klog.Warningf("failed to send unsolicited neighbor advertisement: %v", err)
+			}
+		}
+	}
+
+	if setUfoOff {
+		// Probe is best-effort: some kernels/devices reject `ethtool -k` (e.g. restricted netns,
+		// certain veth setups). Treat probe failure or absence of the udp-fragmentation-offload
+		// feature as "nothing to disable" and continue, matching the previous shell behavior.
+		probe, probeErr := exec.Command("ethtool", "-k", link).CombinedOutput() // #nosec G204
+		if probeErr != nil {
+			klog.Warningf("failed to query offload features of device %s, skip disabling ufo: %v, %s", link, probeErr, probe)
+		} else {
+			var hasUFO bool
+			for line := range strings.SplitSeq(string(probe), "\n") {
+				if strings.HasPrefix(strings.TrimSpace(line), "udp-fragmentation-offload") {
+					hasUFO = true
+					break
+				}
+			}
+			if hasUFO {
+				if output, err := exec.Command("ethtool", "-K", link, "ufo", "off").CombinedOutput(); err != nil { // #nosec G204
+					klog.Error(err)
+					return fmt.Errorf("failed to disable udp-fragmentation-offload feature of device %s to off: %w, %s", link, err, output)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func configureLoNic() error {
+	loLink, err := netlink.LinkByName(util.LoNic)
+	if err != nil {
+		err := fmt.Errorf("can not find nic %s, %w", util.LoNic, err)
+		klog.Error(err)
+		return err
+	}
+
+	if loLink.Attrs().OperState != netlink.OperUp {
+		if err = netlink.LinkSetUp(loLink); err != nil {
+			err := fmt.Errorf("failed to set up nic %s, %w", util.LoNic, err)
+			klog.Error(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExistent bool) (int, error) {
+	nic, err := netlink.LinkByName(nicName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get nic by name %s: %w", nicName, err)
+	}
+	bridge, err := netlink.LinkByName(brName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get bridge by name %s: %w", brName, err)
+	}
+
+	addrs, err := util.AddrList(nic, netlink.FAMILY_ALL)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get addresses on nic %s: %w", nicName, err)
+	}
+	routes, err := netlink.RouteList(nic, netlink.FAMILY_ALL)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get routes on nic %s: %w", nicName, err)
+	}
+
+	brAddrs, err := util.AddrList(bridge, netlink.FAMILY_ALL)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get addresses on OVS bridge %s: %w", brName, err)
+	}
+
+	var delAddrs []netlink.Addr
+	if delNonExistent {
+		for _, addr := range brAddrs {
+			if addr.IP.IsLinkLocalUnicast() {
+				// skip 169.254.0.0/16 and fe80::/10
+				continue
+			}
+
+			var found bool
+			for _, v := range addrs {
+				if v.Equal(addr) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				delAddrs = append(delAddrs, addr)
+			}
+		}
+	}
+
+	// set link unmanaged by NetworkManager
+	if err = c.nmSyncer.SetManaged(nicName, false); err != nil {
+		klog.Errorf("failed to set device %s unmanaged by NetworkManager: %v", nicName, err)
+		return 0, err
+	}
+	if err = c.nmSyncer.AddDevice(nicName, brName); err != nil {
+		klog.Errorf("failed to monitor NetworkManager event for device %s: %v", nicName, err)
+		return 0, err
+	}
+
+	var count int
+	for _, addr := range addrs {
+		if addr.IP.IsLinkLocalUnicast() {
+			// skip 169.254.0.0/16 and fe80::/10
+			continue
+		}
+		count++
+
+		if err = netlink.AddrDel(nic, &addr); err != nil {
+			errMsg := fmt.Errorf("failed to delete address %q on nic %s: %w", addr.String(), nicName, err)
+			klog.Error(errMsg)
+			return 0, errMsg
+		}
+		klog.Infof("address %q has been removed from link %s", addr.String(), nicName)
+
+		addr.Label = ""
+		addr.PreferedLft, addr.ValidLft = 0, 0
+		if err = netlink.AddrReplace(bridge, &addr); err != nil {
+			return 0, fmt.Errorf("failed to replace address %q on OVS bridge %s: %w", addr.String(), brName, err)
+		}
+		klog.Infof("address %q has been added/replaced to link %s", addr.String(), brName)
+	}
+
+	if count != 0 {
+		for _, addr := range delAddrs {
+			if err = netlink.AddrDel(bridge, &addr); err != nil {
+				errMsg := fmt.Errorf("failed to delete address %q on OVS bridge %s: %w", addr.String(), brName, err)
+				klog.Error(errMsg)
+				return 0, errMsg
+			}
+			klog.Infof("address %q has been removed from OVS bridge %s", addr.String(), brName)
+		}
+	}
+
+	// keep mac address the same with the provider nic,
+	// unless the provider nic is a bond in mode 6, or a vlan interface of a bond in mode 6
+	albBond, err := linkIsAlbBond(nic)
+	if err != nil {
+		return 0, err
+	}
+	if !albBond {
+		if _, err = ovs.Exec("set", "bridge", brName, fmt.Sprintf(`other-config:hwaddr="%s"`, nic.Attrs().HardwareAddr.String())); err != nil {
+			return 0, fmt.Errorf("failed to set MAC address of OVS bridge %s: %w", brName, err)
+		}
+	}
+
+	if err = netlink.LinkSetUp(bridge); err != nil {
+		return 0, fmt.Errorf("failed to set OVS bridge %s up: %w", brName, err)
+	}
+
+	for _, scope := range routeScopeOrders {
+		for _, route := range routes {
+			if route.Gw == nil && route.Dst != nil && route.Dst.IP.IsLinkLocalUnicast() {
+				// skip 169.254.0.0/16 and fe80::/10
+				continue
+			}
+			if route.Scope == scope {
+				route.LinkIndex = bridge.Attrs().Index
+				if err = netlink.RouteReplace(&route); err != nil {
+					return 0, fmt.Errorf("failed to add/replace route %s to OVS bridge %s: %w", route.String(), brName, err)
+				}
+				klog.Infof("route %q has been added/replaced to OVS bridge %s", route.String(), brName)
+			}
+		}
+	}
+
+	brRoutes, err := netlink.RouteList(bridge, netlink.FAMILY_ALL)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get routes on OVS bridge %s: %w", brName, err)
+	}
+
+	var delRoutes []netlink.Route
+	if delNonExistent && count != 0 {
+		for _, route := range brRoutes {
+			if route.Gw == nil && route.Dst != nil && route.Dst.IP.IsLinkLocalUnicast() {
+				// skip 169.254.0.0/16 and fe80::/10
+				continue
+			}
+
+			var found bool
+			for _, v := range routes {
+				v.LinkIndex = route.LinkIndex
+				v.ILinkIndex = route.ILinkIndex
+				if v.Equal(route) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				delRoutes = append(delRoutes, route)
+			}
+		}
+	}
+
+	for i := len(routeScopeOrders) - 1; i >= 0; i-- {
+		for _, route := range delRoutes {
+			if route.Scope == routeScopeOrders[i] {
+				if err = netlink.RouteDel(&route); err != nil {
+					return 0, fmt.Errorf("failed to delete route %s from OVS bridge %s: %w", route.String(), brName, err)
+				}
+				klog.Infof("route %q has been deleted from OVS bridge %s", route.String(), brName)
+			}
+		}
+	}
+
+	if err = netlink.LinkSetUp(nic); err != nil {
+		return 0, fmt.Errorf("failed to set link %s up: %w", nicName, err)
+	}
+
+	return nic.Attrs().MTU, nil
+}
+
+// Add host nic to external bridge
+// Mac address, MTU, IP addresses & routes will be copied/transferred to the external bridge
+func (c *Controller) configProviderNic(nicName, brName string, trunks []string) (int, error) {
+	isUserspaceDP, err := ovs.IsUserspaceDataPath()
+	if err != nil {
+		klog.Error(err)
+		return 0, err
+	}
+
+	var mtu int
+	if !isUserspaceDP {
+		mtu, err = c.transferAddrsAndRoutes(nicName, brName, false)
+		if err != nil {
+			klog.Errorf("failed to transfer addresses and routes from %s to %s: %v", nicName, brName, err)
+			return 0, err
+		}
+
+		if _, err = ovs.Exec(ovs.MayExist, "add-port", brName, nicName,
+			"--", "set", "port", nicName, "trunks="+strings.Join(trunks, ","), "external_ids:vendor="+util.CniTypeName); err != nil {
+			klog.Errorf("failed to add %s to OVS bridge %s: %v", nicName, brName, err)
+			return 0, err
+		}
+		klog.V(3).Infof("ovs port %s has been added to bridge %s", nicName, brName)
+	} else {
+		mtu = c.config.MTU
+	}
+
+	return mtu, nil
+}
+
+func linkIsAlbBond(link netlink.Link) (bool, error) {
+	check := func(link netlink.Link) bool {
+		bond, ok := link.(*netlink.Bond)
+		return ok && bond.Mode == netlink.BOND_MODE_BALANCE_ALB
+	}
+
+	if check(link) {
+		return true, nil
+	}
+
+	vlan, ok := link.(*netlink.Vlan)
+	if !ok {
+		return false, nil
+	}
+	parent, err := netlink.LinkByIndex(vlan.ParentIndex)
+	if err != nil {
+		klog.Errorf("failed to get link by index %d: %v", vlan.ParentIndex, err)
+		return false, err
+	}
+
+	return check(parent), nil
+}
+
+// Remove host nic from external bridge
+// IP addresses & routes will be transferred to the host nic
+func (c *Controller) removeProviderNic(nicName, brName string) error {
+	c.nmSyncer.RemoveDevice(nicName)
+
+	nic, err := netlink.LinkByName(nicName)
+	if err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); !ok {
+			return fmt.Errorf("failed to get nic by name %s: %w", nicName, err)
+		}
+		klog.Warningf("nic %s not found, will still clean up addresses and routes on bridge %s", nicName, brName)
+	}
+
+	bridge, err := netlink.LinkByName(brName)
+	if err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			klog.Warningf("bridge %s not found, skip cleanup", brName)
+			return nil
+		}
+		return fmt.Errorf("failed to get bridge by name %s: %w", brName, err)
+	}
+
+	addrs, err := util.AddrList(bridge, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("failed to get addresses on bridge %s: %w", brName, err)
+	}
+	routes, err := netlink.RouteList(bridge, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("failed to get routes on bridge %s: %w", brName, err)
+	}
+
+	if _, err = ovs.Exec(ovs.IfExists, "del-port", brName, nicName); err != nil {
+		return fmt.Errorf("failed to remove %s from OVS bridge %s: %w", nicName, brName, err)
+	}
+	klog.V(3).Infof("ovs port %s has been removed from bridge %s", nicName, brName)
+
+	for _, addr := range addrs {
+		if addr.IP.IsLinkLocalUnicast() {
+			// skip 169.254.0.0/16 and fe80::/10
+			continue
+		}
+
+		if err = netlink.AddrDel(bridge, &addr); err != nil {
+			errMsg := fmt.Errorf("failed to delete address %q on OVS bridge %s: %w", addr.String(), brName, err)
+			klog.Error(errMsg)
+			return errMsg
+		}
+		klog.Infof("address %q has been deleted from link %s", addr.String(), brName)
+
+		if nic != nil {
+			addr.Label = ""
+			if err = netlink.AddrReplace(nic, &addr); err != nil {
+				return fmt.Errorf("failed to replace address %q on nic %s: %w", addr.String(), nicName, err)
+			}
+			klog.Infof("address %q has been added/replaced to link %s", addr.String(), nicName)
+		}
+	}
+
+	if nic != nil {
+		if err = netlink.LinkSetUp(nic); err != nil {
+			klog.Errorf("failed to set link %s up: %v", nicName, err)
+			return err
+		}
+	}
+
+	for _, scope := range routeScopeOrders {
+		for _, route := range routes {
+			if route.Gw == nil && route.Dst != nil && route.Dst.IP.IsLinkLocalUnicast() {
+				// skip 169.254.0.0/16 and fe80::/10
+				continue
+			}
+			if route.Scope == scope {
+				if nic != nil {
+					route.LinkIndex = nic.Attrs().Index
+					if err = netlink.RouteReplace(&route); err != nil {
+						return fmt.Errorf("failed to add/replace route %s: %w", route.String(), err)
+					}
+					klog.Infof("route %q has been added/replaced to link %s", route.String(), nicName)
+				} else {
+					if err = netlink.RouteDel(&route); err != nil {
+						return fmt.Errorf("failed to delete route %s from bridge %s: %w", route.String(), brName, err)
+					}
+					klog.Infof("route %q has been deleted from link %s (nic %s not found)", route.String(), brName, nicName)
+				}
+			}
+		}
+	}
+
+	if err = netlink.LinkSetDown(bridge); err != nil {
+		return fmt.Errorf("failed to set OVS bridge %s down: %w", brName, err)
+	}
+	klog.V(3).Infof("link %s has been set down", brName)
+
+	return nil
+}
+
+func setupVethPair(containerID, ifName string, mtu int) (string, string, error) {
+	var err error
+	hostNicName, containerNicName := generateNicName(containerID, ifName)
+	// Create a veth pair, put one end to container ,the other to ovs port
+	// NOTE: DO NOT use ovs internal type interface for container.
+	// Kubernetes will detect 'eth0' nic in pod, so the nic name in pod must be 'eth0'.
+	// When renaming internal interface to 'eth0', ovs will delete and recreate this interface.
+	veth := netlink.Veth{LinkAttrs: netlink.LinkAttrs{Name: hostNicName}, PeerName: containerNicName}
+	if mtu > 0 {
+		veth.MTU = mtu
+	}
+	if err = netlink.LinkAdd(&veth); err != nil {
+		if err := netlink.LinkDel(&veth); err != nil {
+			klog.Errorf("failed to delete veth %v", err)
+			return "", "", err
+		}
+		return "", "", fmt.Errorf("failed to create veth for %w", err)
+	}
+	return hostNicName, containerNicName, nil
+}
+
+// Setup sriov interface in the pod
+// https://github.com/ovn-org/ovn-kubernetes/commit/6c96467d0d3e58cab05641293d1c1b75e5914795
+func setupSriovInterface(containerID, deviceID, vfDriver, ifName, mac string) (string, string, string, int, error) {
+	isVfioPciDriver := false
+	if vfDriver == "vfio-pci" {
+		matches, err := filepath.Glob(filepath.Join(util.VfioSysDir, "*"))
+		if err != nil {
+			return "", "", "", -1, fmt.Errorf("failed to check %s 'vfio-pci' driver path, %w", deviceID, err)
+		}
+
+		for _, match := range matches {
+			tmp, err := os.Readlink(match)
+			if err != nil {
+				continue
+			}
+			if strings.Contains(tmp, deviceID) {
+				isVfioPciDriver = true
+				break
+			}
+		}
+
+		if !isVfioPciDriver {
+			return "", "", "", -1, fmt.Errorf("driver of device %s is not 'vfio-pci'", deviceID)
+		}
+	}
+
+	var vfNetdevice string
+	if !isVfioPciDriver {
+		// 1. get VF netdevice from PCI
+		vfNetdevices, err := sriovnet.GetNetDevicesFromPci(deviceID)
+		if err != nil {
+			klog.Errorf("failed to get vf netdevice %s, %v", deviceID, err)
+			return "", "", "", -1, err
+		}
+
+		// Make sure we have 1 netdevice per pci address
+		if len(vfNetdevices) != 1 {
+			return "", "", "", -1, fmt.Errorf("failed to get one netdevice interface per %s", deviceID)
+		}
+		vfNetdevice = vfNetdevices[0]
+	}
+
+	if yusur.IsYusurSmartNic(deviceID) {
+		// 2. get PF PCI
+		pfPci, err := yusur.GetYusurNicPfPciFromVfPci(deviceID)
+		if err != nil {
+			return "", "", "", -1, err
+		}
+
+		// 3. get PF index from Pci
+		pfIndex, err := yusur.GetYusurNicPfIndexByPciAddress(pfPci)
+		if err != nil {
+			klog.Errorf("failed to get up %s link device, %v", deviceID, err)
+			return "", "", "", -1, err
+		}
+
+		// 4. get VF index from PCI
+		vfIndex, err := yusur.GetYusurNicVfIndexByPciAddress(deviceID)
+		if err != nil {
+			return "", "", "", -1, err
+		}
+
+		// 5. get vf representor
+		rep := yusur.GetYusurNicVfRepresentor(pfIndex, vfIndex)
+
+		_, err = netlink.LinkByName(rep)
+		if err != nil {
+			klog.Infof("vfr not exist %s", rep)
+		}
+
+		return rep, vfNetdevice, pfPci, vfIndex, nil
+	}
+
+	// 2. get Uplink netdevice
+	uplink, err := sriovnet.GetUplinkRepresentor(deviceID)
+	if err != nil {
+		klog.Errorf("failed to get up %s link device, %v", deviceID, err)
+		return "", "", "", -1, err
+	}
+
+	// 3. get VF index from PCI
+	vfIndex, err := sriovnet.GetVfIndexByPciAddress(deviceID)
+	if err != nil {
+		klog.Errorf("failed to get vf %s index, %v", deviceID, err)
+		return "", "", "", -1, err
+	}
+
+	// 4. lookup representor
+	rep, err := sriovnet.GetVfRepresentor(uplink, vfIndex)
+	if err != nil {
+		klog.Errorf("failed to get vf %d representor, %v", vfIndex, err)
+		return "", "", "", -1, err
+	}
+	oldHostRepName := rep
+
+	// 5. rename the host VF representor
+	hostNicName, _ := generateNicName(containerID, ifName)
+	if err = renameLink(oldHostRepName, hostNicName); err != nil {
+		return "", "", "", -1, fmt.Errorf("failed to rename %s to %s: %w", oldHostRepName, hostNicName, err)
+	}
+
+	// 6. set MAC address to VF
+	// Note: MTU and LinkSetUp on the representor are deferred to configureNic,
+	// after OVS add-port, to prevent a CmdAdd/CmdDel race on the same VF.
+	// See: https://github.com/ovn-org/ovn-kubernetes/pull/6106
+	if err = setVfMac(deviceID, vfIndex, mac); err != nil {
+		return "", "", "", -1, err
+	}
+
+	return hostNicName, vfNetdevice, "", -1, nil
+}
+
+func renameLink(curName, newName string) error {
+	link, err := netlink.LinkByName(curName)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+
+	if err := netlink.LinkSetDown(link); err != nil {
+		klog.Error(err)
+		return err
+	}
+	if err := netlink.LinkSetName(link, newName); err != nil {
+		klog.Error(err)
+		return err
+	}
+	// Do not bring the link up here. The representor will be brought up by
+	// configureHostNic after it has been added to OVS, to prevent a race where
+	// a concurrent CmdDel on the same VF could interfere with the representor
+	// before it is attached to br-int.
+	// See: https://github.com/ovn-org/ovn-kubernetes/pull/6106
+	return nil
+}
+
+func (csh cniServerHandler) removeDefaultRoute(netns string, ipv4, ipv6 bool) error {
+	podNS, err := ns.GetNS(netns)
+	if err != nil {
+		return fmt.Errorf("failed to open netns %q: %w", netns, err)
+	}
+	defer podNS.Close()
+
+	return ns.WithNetNSPath(podNS.Path(), func(_ ns.NetNS) error {
+		if ipv4 {
+			if err := deleteDefaultRoutes(netlink.FAMILY_V4); err != nil {
+				return err
+			}
+		}
+		if ipv6 {
+			if err := deleteDefaultRoutes(netlink.FAMILY_V6); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func deleteDefaultRoutes(family int) error {
+	var defaultDst *net.IPNet
+	switch family {
+	case netlink.FAMILY_V4:
+		defaultDst = &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)}
+	case netlink.FAMILY_V6:
+		defaultDst = &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)}
+	}
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: defaultDst}, netlink.RT_FILTER_DST)
+	if err != nil {
+		return fmt.Errorf("failed to get default routes: %w", err)
+	}
+	for _, r := range routes {
+		klog.Infof("deleting default route %+v", r)
+		if err = netlink.RouteDel(&r); err != nil {
+			return fmt.Errorf("failed to delete route %+v: %w", r, err)
+		}
+	}
+	return nil
+}
+
+func setVfMac(deviceID string, vfIndex int, mac string) error {
+	macAddr, err := net.ParseMAC(mac)
+	if err != nil {
+		return fmt.Errorf("failed to parse mac %s %w", macAddr, err)
+	}
+
+	pfPci, err := sriovnet.GetPfPciFromVfPci(deviceID)
+	if err != nil {
+		return fmt.Errorf("failed to get pf of device %s %w", deviceID, err)
+	}
+
+	netDevs, err := sriovnet.GetNetDevicesFromPci(pfPci)
+	if err != nil {
+		return fmt.Errorf("failed to get pf of device %s %w", deviceID, err)
+	}
+
+	// get real pf
+	var pfName string
+	for _, dev := range netDevs {
+		devicePortNameFile := filepath.Join(util.NetSysDir, dev, "phys_port_name")
+		physPortName, err := sriovutilfs.Fs.ReadFile(devicePortNameFile)
+		if err != nil {
+			continue
+		}
+
+		if !strings.Contains(strings.TrimSpace(string(physPortName)), "vf") {
+			pfName = dev
+			break
+		}
+	}
+	if pfName == "" {
+		return fmt.Errorf("the PF device was not found in the device list, %v", netDevs)
+	}
+
+	pfLink, err := netlink.LinkByName(pfName)
+	if err != nil {
+		return fmt.Errorf("failed to lookup pf %s: %w", pfName, err)
+	}
+	if err := netlink.LinkSetVfHardwareAddr(pfLink, vfIndex, macAddr); err != nil {
+		return fmt.Errorf("can not set mac address to vf nic:%s vf:%d %w", pfName, vfIndex, err)
+	}
+	return nil
+}
+
+func TurnOffNicTxChecksum(nicName string) error {
+	start := time.Now()
+	args := []string{"-K", nicName, "tx", "off"}
+	output, err := exec.Command("ethtool", args...).CombinedOutput() // #nosec G204
+	elapsed := float64((time.Since(start)) / time.Millisecond)
+	klog.V(4).Infof("command %s %s in %vms", "ethtool", strings.Join(args, " "), elapsed)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("failed to turn off nic tx checksum, output %s, err %s", string(output), err.Error())
+	}
+	return nil
+}
+
+func getShortSharedDir(uid types.UID, volumeName string) string {
+	return filepath.Clean(filepath.Join(util.DefaultHostVhostuserBaseDir, string(uid), volumeName))
+}
+
+func linkExists(name string) (bool, error) {
+	if _, err := netlink.LinkByName(name); err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func rollBackVethPair(nicName string) error {
+	hostLink, err := netlink.LinkByName(nicName)
+	if err != nil {
+		// if link already not exists, return quietly
+		// e.g. Internal port had been deleted by Remove ovs port previously
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			return nil
+		}
+		klog.Error(err)
+		return fmt.Errorf("find host link %s failed %w", nicName, err)
+	}
+
+	hostLinkType := hostLink.Type()
+	// sometimes no deviceID input for vf nic, avoid delete vf nic.
+	if hostLinkType == "veth" {
+		if err = netlink.LinkDel(hostLink); err != nil {
+			klog.Error(err)
+			return fmt.Errorf("delete host link %s failed %w", hostLink, err)
+		}
+	}
+	klog.Infof("rollback veth success %s", nicName)
+	return nil
+}
+
+// return a map of unready IPv6 addresses and their flags
+func waitIPv6AddressPreferred(interfaceName string, maxRetry int, retryInterval time.Duration, checkIPv6DAD bool) (map[string]int, error) {
+	var retry int
+	var ret map[string]int
+	for retry < maxRetry {
+		link, err := netlink.LinkByName(interfaceName)
+		if err != nil {
+			klog.Errorf("failed to get link %s: %v", interfaceName, err)
+			return nil, err
+		}
+
+		addrs, err := util.AddrList(link, netlink.FAMILY_V6)
+		if err != nil {
+			klog.Errorf("failed to get IPv6 addresses on interface %s: %v", interfaceName, err)
+			return nil, err
+		}
+
+		addrsFlags := make(map[string]int, len(addrs))
+		for _, addr := range addrs {
+			// skip ipv4 addresses
+			if addr.IP.To4() != nil {
+				continue
+			}
+			// Check if the address is in a bad state
+			switch {
+			case addr.Flags&unix.IFA_F_DEPRECATED != 0 || addr.Flags&unix.IFA_F_TENTATIVE != 0:
+				addrsFlags[addr.IP.String()] = addr.Flags
+			case addr.Flags&unix.IFA_F_DADFAILED != 0:
+				if !checkIPv6DAD {
+					continue
+				}
+				addrsFlags[addr.IP.String()] = addr.Flags
+			default:
+				klog.V(3).Infof("IPv6 address %s on interface %s is in preferred state", addr.IP.String(), interfaceName)
+			}
+		}
+
+		if len(addrsFlags) == 0 {
+			return nil, nil
+		}
+		ret = addrsFlags
+
+		retry++
+		if retry < maxRetry {
+			time.Sleep(retryInterval)
+		}
+	}
+
+	return ret, nil
+}
+
+func (c *Controller) createVlanSubinterfaces(vlanInterfaces []string, baseInterface, providerName string) error {
+	if baseInterface == "" {
+		return errors.New("base interface is empty")
+	}
+	if !util.CheckInterfaceExists(baseInterface) {
+		return fmt.Errorf("base interface %s does not exist", baseInterface)
+	}
+
+	for _, vlanIfName := range vlanInterfaces {
+		klog.V(3).Infof("Processing VLAN interface creation for %s", vlanIfName)
+
+		parts := strings.SplitN(vlanIfName, ".", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid VLAN interface name format: %s (expected <interface>.<vlanid>)", vlanIfName)
+		}
+		parentIf := parts[0]
+		if parentIf != baseInterface {
+			return fmt.Errorf("vlan interface %s uses parent %s, which does not match default interface %s", vlanIfName, parentIf, baseInterface)
+		}
+
+		vlanID, err := util.ExtractVlanIDFromInterface(vlanIfName)
+		if err != nil {
+			return fmt.Errorf("failed to extract VLAN ID from interface name %s: %w", vlanIfName, err)
+		}
+
+		if util.CheckInterfaceExists(vlanIfName) {
+			klog.Infof("VLAN interface %s already exists, skipping creation", vlanIfName)
+			continue
+		}
+
+		klog.Infof("Creating VLAN interface %s (ID: %d) on %s", vlanIfName, vlanID, baseInterface)
+		output, err := exec.Command("ip", "link", "add", "link", baseInterface, "name", vlanIfName, "type", "vlan", "id", strconv.Itoa(vlanID)).CombinedOutput()
+		if err != nil {
+			klog.Errorf("Failed to create VLAN interface %s: %v, output: %s", vlanIfName, err, string(output))
+			return fmt.Errorf("failed to create VLAN interface %s: %w", vlanIfName, err)
+		}
+
+		if err := util.SetLinkUp(vlanIfName); err != nil {
+			klog.Errorf("Failed to set VLAN interface %s up: %v", vlanIfName, err)
+			if _, delErr := exec.Command("ip", "link", "delete", vlanIfName).CombinedOutput(); delErr != nil {
+				klog.Errorf("Failed to clean up VLAN interface %s: %v", vlanIfName, delErr)
+			}
+			return fmt.Errorf("failed to set VLAN interface %s up: %w", vlanIfName, err)
+		}
+
+		alias := fmt.Sprintf("kube-ovn:%s", providerName)
+		if output, err := exec.Command("ip", "link", "set", vlanIfName, "alias", alias).CombinedOutput(); err != nil {
+			klog.Errorf("Failed to set alias for interface %s: %v, output: %s", vlanIfName, err, string(output))
+			if _, delErr := exec.Command("ip", "link", "delete", vlanIfName).CombinedOutput(); delErr != nil {
+				klog.Errorf("Failed to clean up VLAN interface %s after alias set failure: %v", vlanIfName, delErr)
+			}
+			return fmt.Errorf("failed to set alias for interface %s: %w", vlanIfName, err)
+		}
+		klog.V(3).Infof("Set alias %s for VLAN interface %s", alias, vlanIfName)
+
+		klog.Infof("Successfully created VLAN interface %s (ID: %d) with alias %s", vlanIfName, vlanID, alias)
+	}
+
+	return nil
+}
+
+func (c *Controller) cleanupAutoCreatedVlanInterfaces(providerName, nic string, preservedIfaces map[string]int) error {
+	gcVlanIfaces, err := util.FindKubeOVNAutoCreatedInterfaces(providerName)
+	if err != nil {
+		return fmt.Errorf("failed to find auto-created interfaces for provider %s: %w", providerName, err)
+	}
+
+	inUseVlanIface := ""
+	if strings.Contains(nic, ".") {
+		inUseVlanIface = nic
+	}
+
+	filteredIfaces := make([]string, 0, len(gcVlanIfaces))
+	for _, iface := range gcVlanIfaces {
+		if iface == inUseVlanIface {
+			continue
+		}
+		if preservedIfaces != nil {
+			if _, skip := preservedIfaces[iface]; skip {
+				continue
+			}
+		}
+		if iface == "" {
+			continue
+		}
+		filteredIfaces = append(filteredIfaces, iface)
+	}
+	gcVlanIfaces = filteredIfaces
+	if len(gcVlanIfaces) == 0 {
+		klog.V(3).Infof("No auto-created VLAN interfaces found for provider %s", providerName)
+		return nil
+	}
+
+	klog.Infof("Cleaning %d auto-created VLAN interfaces for provider %s: %v", len(gcVlanIfaces), providerName, gcVlanIfaces)
+
+	for _, ifaceName := range gcVlanIfaces {
+		klog.Infof("Cleaning up auto-created VLAN interface %s", ifaceName)
+		output, err := exec.Command("ip", "link", "delete", ifaceName).CombinedOutput()
+		if err != nil {
+			klog.Warningf("Failed to delete auto-created VLAN interface %s: %v, output: %s", ifaceName, err, string(output))
+		} else {
+			klog.Infof("Successfully deleted auto-created VLAN interface %s", ifaceName)
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) configProviderVlanInterfaces(vlanInterfaceMap map[string]int, brName string) error {
+	for vlanIfName, vlanID := range vlanInterfaceMap {
+		internalPortName := util.VlanInternalPortName(brName, vlanID)
+		portExists, err := ovs.PortExists(internalPortName)
+		if err != nil {
+			return fmt.Errorf("failed to check OVS port %s: %w", internalPortName, err)
+		}
+		state := providerVlanPortSourceState{exists: portExists}
+		if portExists {
+			state.owned, err = ovs.ValidatePortVendor(internalPortName)
+			if err != nil {
+				return fmt.Errorf("failed to check vendor of OVS port %s: %w", internalPortName, err)
+			}
+			state.recorded, err = ovs.Get("Port", internalPortName, "external_ids", providerVlanInterfaceExternalID, true)
+			if err != nil {
+				return fmt.Errorf("failed to get source VLAN interface for OVS port %s: %w", internalPortName, err)
+			}
+			if state.owned && !hasRecordedProviderVlanInterface(state.recorded) {
+				state.candidates, state.requestedHasState, err = providerVlanSourceCandidates(vlanID, vlanIfName)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if err := validateProviderVlanPortSource(internalPortName, vlanIfName, state); err != nil {
+			return err
+		}
+	}
+
+	for vlanIfName, vlanID := range vlanInterfaceMap {
+		klog.V(3).Infof("configuring VLAN interface %s (VLAN %d) on bridge %s", vlanIfName, vlanID, brName)
+
+		internalPortName, args := providerVlanPortArgs(brName, vlanIfName, vlanID)
+
+		if _, err := ovs.Exec(args...); err != nil {
+			klog.Errorf("failed to create OVS internal port %s: %v", internalPortName, err)
+			return err
+		}
+
+		if err := util.SetLinkUp(internalPortName); err != nil {
+			klog.Errorf("failed to set OVS internal port %s up: %v", internalPortName, err)
+			return err
+		}
+
+		if err := c.transferVlanAddrsToInternalPort(vlanIfName, internalPortName); err != nil {
+			klog.Errorf("failed to transfer addresses and routes from %s to %s: %v", vlanIfName, internalPortName, err)
+			return err
+		}
+
+		klog.Infof("Successfully configured OVS internal port %s for VLAN %d", internalPortName, vlanID)
+	}
+
+	return nil
+}
+
+func providerVlanSourceCandidates(vlanID int, requested string) ([]string, bool, error) {
+	links, err := netlink.LinkList()
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to list kernel VLAN interfaces for VLAN %d: %w", vlanID, err)
+	}
+	candidates := make([]string, 0, 1)
+	requestedHasState := false
+	for _, link := range links {
+		if vlan, ok := link.(*netlink.Vlan); ok && vlan.VlanId == vlanID {
+			candidates = append(candidates, vlan.Attrs().Name)
+			if vlan.Attrs().Name == requested {
+				requestedHasState, err = providerVlanLinkHasNetworkState(vlan)
+				if err != nil {
+					return nil, false, err
+				}
+			}
+		}
+	}
+	return candidates, requestedHasState, nil
+}
+
+func providerVlanLinkHasNetworkState(link netlink.Link) (bool, error) {
+	addrs, err := util.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		return false, fmt.Errorf("failed to list addresses on candidate source VLAN interface %s: %w", link.Attrs().Name, err)
+	}
+	if slices.ContainsFunc(addrs, func(addr netlink.Addr) bool { return !addr.IP.IsLinkLocalUnicast() }) {
+		return true, nil
+	}
+	routes, err := netlink.RouteList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		return false, fmt.Errorf("failed to list routes on candidate source VLAN interface %s: %w", link.Attrs().Name, err)
+	}
+	return slices.ContainsFunc(routes, func(route netlink.Route) bool {
+		return route.Gw != nil || route.Dst == nil || !route.Dst.IP.IsLinkLocalUnicast()
+	}), nil
+}
+
+type providerVlanPortSourceState struct {
+	exists            bool
+	owned             bool
+	recorded          string
+	candidates        []string
+	requestedHasState bool
+}
+
+func validateProviderVlanPortSource(portName, requestedVlanInterface string, state providerVlanPortSourceState) error {
+	if !state.exists {
+		return nil
+	}
+	if !state.owned {
+		return fmt.Errorf("OVS port %s already exists but is not owned by %s", portName, util.CniTypeName)
+	}
+	if hasRecordedProviderVlanInterface(state.recorded) {
+		if state.recorded == requestedVlanInterface {
+			return nil
+		}
+		return fmt.Errorf("OVS port %s records source VLAN interface %s, refusing to replace it with %s", portName, state.recorded, requestedVlanInterface)
+	}
+	if len(state.candidates) == 1 && state.candidates[0] == requestedVlanInterface && !state.requestedHasState {
+		return nil
+	}
+	return fmt.Errorf("existing OVS port %s has no recorded source VLAN interface; local VLAN candidates are %v, refusing to adopt %s", portName, state.candidates, requestedVlanInterface)
+}
+
+func hasRecordedProviderVlanInterface(value string) bool {
+	return value != "" && value != "[]"
+}
+
+func validateProviderVlanInterfaceMap(vlanInterfaceMap map[string]int) error {
+	interfacesByVlanID := make(map[int]string, len(vlanInterfaceMap))
+	for vlanIfName, vlanID := range vlanInterfaceMap {
+		if existing, ok := interfacesByVlanID[vlanID]; ok && existing != vlanIfName {
+			return fmt.Errorf("vlan interfaces %s and %s use the same VLAN ID %d", existing, vlanIfName, vlanID)
+		}
+		interfacesByVlanID[vlanID] = vlanIfName
+	}
+	return nil
+}
+
+const providerVlanInterfaceExternalID = "provider-vlan-interface"
+
+func providerVlanPortArgs(brName, vlanIfName string, vlanID int) (string, []string) {
+	internalPortName := util.VlanInternalPortName(brName, vlanID)
+	args := []string{
+		ovs.MayExist, "add-port", brName, internalPortName,
+		"--", "set", "interface", internalPortName, "type=internal",
+		"--", "set", "port", internalPortName, fmt.Sprintf("tag=%d", vlanID),
+		"external_ids:vendor=" + util.CniTypeName,
+		"external_ids:" + providerVlanInterfaceExternalID + "=" + vlanIfName,
+	}
+	return internalPortName, args
+}
+
+func (c *Controller) transferVlanAddrsToInternalPort(srcName, dstName string) error {
+	klog.Infof("transferring addresses and routes from %s to %s", srcName, dstName)
+
+	src, err := netlink.LinkByName(srcName)
+	if err != nil {
+		return fmt.Errorf("failed to get source interface %s: %w", srcName, err)
+	}
+	dst, err := netlink.LinkByName(dstName)
+	if err != nil {
+		return fmt.Errorf("failed to get destination interface %s: %w", dstName, err)
+	}
+
+	addrs, err := util.AddrList(src, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("failed to get addresses on source %s: %w", srcName, err)
+	}
+	if err := transferProviderVlanAddresses(src, dst, addrs, netlink.AddrReplace, netlink.AddrDel); err != nil {
+		return err
+	}
+
+	if err = netlink.LinkSetUp(dst); err != nil {
+		return fmt.Errorf("failed to set link %s up: %w", dstName, err)
+	}
+
+	routes, err := netlink.RouteList(src, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("failed to get routes on source %s: %w", srcName, err)
+	}
+	return transferProviderVlanRoutes(dst, routes, netlink.RouteReplace)
+}
+
+func transferProviderVlanRoutes(dst netlink.Link, routes []netlink.Route, routeReplace func(*netlink.Route) error) error {
+	for _, current := range routes {
+		route := current
+		if route.Gw == nil && route.Dst != nil && route.Dst.IP.IsLinkLocalUnicast() {
+			continue
+		}
+		route.LinkIndex = dst.Attrs().Index
+		if err := routeReplace(&route); err != nil {
+			return fmt.Errorf("failed to add/replace route %s on destination %s: %w", route.String(), dst.Attrs().Name, err)
+		}
+		klog.Infof("route %q has been added/replaced to link %s", route.String(), dst.Attrs().Name)
+	}
+	return nil
+}
+
+func transferProviderVlanAddresses(src, dst netlink.Link, addrs []netlink.Addr, addrReplace, addrDelete func(netlink.Link, *netlink.Addr) error) error {
+	for _, current := range addrs {
+		addr := current
+		if addr.IP.IsLinkLocalUnicast() {
+			continue
+		}
+
+		addr.Label = ""
+		addr.PreferedLft, addr.ValidLft = 0, 0
+		if err := addrReplace(dst, &addr); err != nil {
+			return fmt.Errorf("failed to replace address %q on destination %s: %w", addr.String(), dst.Attrs().Name, err)
+		}
+		klog.Infof("address %q has been added/replaced to link %s", addr.String(), dst.Attrs().Name)
+
+		if err := addrDelete(src, &current); err != nil {
+			return fmt.Errorf("failed to delete address %q on source %s after copying it to %s: %w", current.String(), src.Attrs().Name, dst.Attrs().Name, err)
+		}
+		klog.Infof("address %q has been removed from link %s", current.String(), src.Attrs().Name)
+	}
+	return nil
+}
+
+func selectProviderVlanSourceInterface(recordedVlanInterface string, vlanInterfaces []string, vlanID int, interfaceExists func(string) bool) (string, error) {
+	if hasRecordedProviderVlanInterface(recordedVlanInterface) {
+		return recordedVlanInterface, nil
+	}
+
+	candidates := make([]string, 0, 1)
+	seen := make(map[string]struct{}, len(vlanInterfaces))
+	for _, candidate := range vlanInterfaces {
+		if _, ok := seen[candidate]; ok || !interfaceExists(candidate) {
+			continue
+		}
+		seen[candidate] = struct{}{}
+
+		candidateVlanID, err := util.ExtractVlanIDFromInterface(candidate)
+		if err != nil {
+			return "", fmt.Errorf("failed to extract VLAN ID from interface %s: %w", candidate, err)
+		}
+		if candidateVlanID == vlanID {
+			candidates = append(candidates, candidate)
+		}
+	}
+
+	switch len(candidates) {
+	case 0:
+		return "", nil
+	case 1:
+		return candidates[0], nil
+	default:
+		return "", fmt.Errorf("multiple interfaces match VLAN %d: %s", vlanID, strings.Join(candidates, ", "))
+	}
+}
+
+type providerVlanRestoreContext struct {
+	provider       string
+	bridge         string
+	nic            string
+	vlanInterfaces []string
+}
+
+func providerVlanRestoreNames(ctx providerVlanRestoreContext, vlanInterface string, vlanID int) (string, string, error) {
+	vlanName := fmt.Sprintf("%s.%d", ctx.nic, vlanID)
+	if vlanInterface != "" {
+		candidateVlanID, err := util.ExtractVlanIDFromInterface(vlanInterface)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to extract VLAN ID from interface %s: %w", vlanInterface, err)
+		}
+		if candidateVlanID != vlanID {
+			return "", "", fmt.Errorf("vlan interface %s has VLAN ID %d, expected %d", vlanInterface, candidateVlanID, vlanID)
+		}
+		vlanName = vlanInterface
+	}
+
+	parentName, _, _ := strings.Cut(vlanName, ".")
+	if parentName == ctx.nic && ctx.bridge != util.ExternalBridgeName(ctx.provider) {
+		parentName = util.ExternalBridgeName(ctx.provider)
+	}
+	return vlanName, parentName, nil
+}
+
+func ensureProviderVlanInterface(parentName, vlanName string, vlanID int) (netlink.Link, error) {
+	vlanLink, vlanErr := netlink.LinkByName(vlanName)
+	if vlanErr != nil {
+		if _, ok := vlanErr.(netlink.LinkNotFoundError); !ok {
+			return nil, fmt.Errorf("failed to get kernel VLAN interface %s: %w", vlanName, vlanErr)
+		}
+	}
+
+	parentLink, err := netlink.LinkByName(parentName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get parent interface %s for kernel VLAN %s: %w", parentName, vlanName, err)
+	}
+	if vlanErr == nil {
+		if err := prepareProviderVlanLink(vlanLink, parentLink, vlanID); err != nil {
+			return nil, err
+		}
+		klog.Infof("Kernel VLAN interface %s already exists, using existing interface", vlanName)
+		return vlanLink, nil
+	}
+
+	vlan := &netlink.Vlan{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:        vlanName,
+			ParentIndex: parentLink.Attrs().Index,
+		},
+		VlanId: vlanID,
+	}
+	if err := netlink.LinkAdd(vlan); err != nil {
+		return nil, fmt.Errorf("failed to create kernel VLAN interface %s: %w", vlanName, err)
+	}
+	klog.Infof("Created kernel VLAN interface %s", vlanName)
+
+	vlanLink, err = netlink.LinkByName(vlanName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kernel VLAN interface %s: %w", vlanName, err)
+	}
+	if err := prepareProviderVlanLink(vlanLink, parentLink, vlanID); err != nil {
+		return nil, err
+	}
+	return vlanLink, nil
+}
+
+func prepareProviderVlanLink(vlanLink, parentLink netlink.Link, vlanID int) error {
+	if err := validateProviderVlanLink(vlanLink, parentLink, vlanID); err != nil {
+		return err
+	}
+	if err := netlink.LinkSetUp(vlanLink); err != nil {
+		return fmt.Errorf("failed to set kernel VLAN interface %s up: %w", vlanLink.Attrs().Name, err)
+	}
+	return nil
+}
+
+func validateProviderVlanLink(vlanLink, parentLink netlink.Link, vlanID int) error {
+	vlan, ok := vlanLink.(*netlink.Vlan)
+	if !ok {
+		return fmt.Errorf("restore target %s is a %s link, expected VLAN", vlanLink.Attrs().Name, vlanLink.Type())
+	}
+	if vlan.VlanId != vlanID {
+		return fmt.Errorf("restore target %s has VLAN ID %d, expected %d", vlan.Attrs().Name, vlan.VlanId, vlanID)
+	}
+	if vlan.ParentIndex != parentLink.Attrs().Index {
+		return fmt.Errorf("restore target %s has parent index %d, expected %d for %s", vlan.Attrs().Name, vlan.ParentIndex, parentLink.Attrs().Index, parentLink.Attrs().Name)
+	}
+	return nil
+}
+
+func restoreProviderVlanNetworkState(vlanLink netlink.Link, addrs []netlink.Addr, routes []netlink.Route, addrReplace func(netlink.Link, *netlink.Addr) error, routeReplace func(*netlink.Route) error) error {
+	for _, current := range addrs {
+		if current.IP.IsLinkLocalUnicast() {
+			continue
+		}
+
+		addr := current
+		addr.Label = ""
+		if err := addrReplace(vlanLink, &addr); err != nil {
+			return fmt.Errorf("failed to restore address %s to kernel VLAN %s: %w", addr.String(), vlanLink.Attrs().Name, err)
+		}
+		klog.Infof("Restored address %s to kernel VLAN interface %s", addr.String(), vlanLink.Attrs().Name)
+	}
+
+	for _, scope := range routeScopeOrders {
+		for _, current := range routes {
+			if current.Gw == nil && current.Dst != nil && current.Dst.IP.IsLinkLocalUnicast() {
+				continue
+			}
+			if current.Scope != scope {
+				continue
+			}
+
+			route := current
+			route.LinkIndex = vlanLink.Attrs().Index
+			if err := routeReplace(&route); err != nil {
+				return fmt.Errorf("failed to restore route %s to kernel VLAN %s: %w", route.String(), vlanLink.Attrs().Name, err)
+			}
+			klog.Infof("Restored route %s to kernel VLAN interface %s", route.String(), vlanLink.Attrs().Name)
+		}
+	}
+	return nil
+}
+
+func (c *Controller) removeProviderVlanInterface(internalPortName string, ctx providerVlanRestoreContext, vlanID int) error {
+	klog.Infof("Cleaning up VLAN internal port %s (VLAN %d) from bridge %s", internalPortName, vlanID, ctx.bridge)
+
+	internalPort, err := netlink.LinkByName(internalPortName)
+	if err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			klog.Warningf("VLAN internal port %s not found, removing any stale OVS row", internalPortName)
+			if _, err = ovs.Exec(ovs.IfExists, "del-port", ctx.bridge, internalPortName); err != nil {
+				return fmt.Errorf("failed to remove stale VLAN internal port %s from OVS bridge %s: %w", internalPortName, ctx.bridge, err)
+			}
+			return nil
+		}
+		return fmt.Errorf("failed to get VLAN internal port %s: %w", internalPortName, err)
+	}
+
+	addrs, err := util.AddrList(internalPort, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("failed to get addresses on VLAN internal port %s: %w", internalPortName, err)
+	}
+
+	routes, err := netlink.RouteList(internalPort, netlink.FAMILY_ALL)
+	if err != nil {
+		return fmt.Errorf("failed to get routes on VLAN internal port %s: %w", internalPortName, err)
+	}
+
+	if len(addrs) > 0 || len(routes) > 0 {
+		recordedVlanInterface, err := ovs.Get("Port", internalPortName, "external_ids", providerVlanInterfaceExternalID, true)
+		if err != nil {
+			return fmt.Errorf("failed to get source VLAN interface for OVS port %s: %w", internalPortName, err)
+		}
+		vlanInterface, err := selectProviderVlanSourceInterface(recordedVlanInterface, ctx.vlanInterfaces, vlanID, util.CheckInterfaceExists)
+		if err != nil {
+			return fmt.Errorf("failed to select source interface for VLAN internal port %s: %w", internalPortName, err)
+		}
+		kernelVlanName, baseInterfaceName, err := providerVlanRestoreNames(ctx, vlanInterface, vlanID)
+		if err != nil {
+			return fmt.Errorf("failed to determine restore target for VLAN internal port %s: %w", internalPortName, err)
+		}
+		vlanLink, err := ensureProviderVlanInterface(baseInterfaceName, kernelVlanName, vlanID)
+		if err != nil {
+			return err
+		}
+		if err := restoreProviderVlanNetworkState(vlanLink, addrs, routes, netlink.AddrReplace, netlink.RouteReplace); err != nil {
+			return err
+		}
+	}
+
+	if _, err = ovs.Exec(ovs.IfExists, "del-port", ctx.bridge, internalPortName); err != nil {
+		return fmt.Errorf("failed to remove VLAN internal port %s from OVS bridge %s: %w", internalPortName, ctx.bridge, err)
+	}
+	klog.Infof("VLAN internal port %s has been removed from bridge %s", internalPortName, ctx.bridge)
+
+	return nil
+}

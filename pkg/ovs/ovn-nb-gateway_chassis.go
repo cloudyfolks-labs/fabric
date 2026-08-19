@@ -1,0 +1,173 @@
+package ovs
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/ovn-kubernetes/libovsdb/client"
+	"github.com/ovn-kubernetes/libovsdb/model"
+	"github.com/ovn-kubernetes/libovsdb/ovsdb"
+	"k8s.io/klog/v2"
+
+	ovsclient "github.com/kubeovn/kube-ovn/pkg/ovsdb/client"
+	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
+)
+
+// CreateGatewayChassises create multiple gateway chassis once
+func (c *OVNNbClient) CreateGatewayChassises(lrpName string, chassises ...string) error {
+	op, err := c.CreateGatewayChassisesOp(lrpName, chassises)
+	if err != nil {
+		err := fmt.Errorf("generate operations for creating gateway chassis %w", err)
+		klog.Error(err)
+		return err
+	}
+
+	if err = c.Transact("gateway-chassises-add", op); err != nil {
+		err := fmt.Errorf("create gateway chassis %v for logical router port %s: %w", chassises, lrpName, err)
+		klog.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+// UpdateGatewayChassis update gateway chassis
+func (c *OVNNbClient) UpdateGatewayChassis(gwChassis *ovnnb.GatewayChassis, fields ...any) error {
+	op, err := c.ovsDbClient.Where(gwChassis).Update(gwChassis, fields...)
+	if err != nil {
+		err := fmt.Errorf("failed to generate operations for gateway chassis %s with fields %v: %w", gwChassis.ChassisName, fields, err)
+		klog.Error(err)
+		return err
+	}
+	if err = c.Transact("gateway-chassis-update", op); err != nil {
+		err := fmt.Errorf("failed to update gateway chassis %s: %w", gwChassis.ChassisName, err)
+		klog.Error(err)
+		return err
+	}
+	return nil
+}
+
+// ListGatewayChassisByLogicalRouterPort get gateway chassis by lrp name
+func (c *OVNNbClient) ListGatewayChassisByLogicalRouterPort(lrpName string, ignoreNotFound bool) ([]ovnnb.GatewayChassis, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+
+	gwChassisList := make([]ovnnb.GatewayChassis, 0)
+	if err := c.ovsDbClient.WhereCache(func(gwChassis *ovnnb.GatewayChassis) bool {
+		if gwChassis.ExternalIDs != nil && gwChassis.ExternalIDs["lrp"] == lrpName {
+			return true
+		}
+		return false
+	}).List(ctx, &gwChassisList); err != nil {
+		if ignoreNotFound && errors.Is(err, client.ErrNotFound) {
+			return nil, nil
+		}
+		err = fmt.Errorf("failed to list gw chassis for lrp %s: %w", lrpName, err)
+		klog.Error(err)
+		return nil, err
+	}
+
+	return gwChassisList, nil
+}
+
+// GetGatewayChassis get gateway chassis by name
+func (c *OVNNbClient) GetGatewayChassis(name string, ignoreNotFound bool) (*ovnnb.GatewayChassis, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+	defer cancel()
+
+	gwChassis := &ovnnb.GatewayChassis{Name: name}
+	if err := c.Get(ctx, gwChassis); err != nil {
+		if ignoreNotFound && errors.Is(err, client.ErrNotFound) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("get gateway chassis %s: %w", name, err)
+	}
+
+	return gwChassis, nil
+}
+
+func (c *OVNNbClient) GatewayChassisExist(name string) (bool, error) {
+	gwChassis, err := c.GetGatewayChassis(name, true)
+	return gwChassis != nil, err
+}
+
+// newGatewayChassis return gateway chassis with basic information
+func (c *OVNNbClient) newGatewayChassis(lrpName, chassisName string, priority int) (*ovnnb.GatewayChassis, error) {
+	gwChassisName := lrpName + "-" + chassisName
+	exists, err := c.GatewayChassisExist(gwChassisName)
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+
+	// found, skip
+	if exists {
+		return nil, nil
+	}
+
+	gwChassis := &ovnnb.GatewayChassis{
+		UUID:        ovsclient.NamedUUID(),
+		Name:        gwChassisName,
+		ChassisName: chassisName,
+		Priority:    priority,
+		ExternalIDs: map[string]string{
+			"lrp": lrpName,
+		},
+	}
+
+	return gwChassis, nil
+}
+
+// CreateGatewayChassisesOp create operation which create gateway chassises
+func (c *OVNNbClient) CreateGatewayChassisesOp(lrpName string, chassises []string) ([]ovsdb.Operation, error) {
+	if len(chassises) == 0 {
+		return nil, nil
+	}
+
+	models := make([]model.Model, 0, len(chassises))
+	uuids := make([]string, 0, len(chassises))
+
+	for i, chassisName := range chassises {
+		gwChassisName := lrpName + "-" + chassisName
+		gwChassis, err := c.GetGatewayChassis(gwChassisName, true)
+		if err != nil {
+			klog.Error(err)
+			return nil, err
+		}
+		if gwChassis != nil {
+			continue
+		}
+		gwChassis, err = c.newGatewayChassis(lrpName, chassisName, 100-i)
+		if err != nil {
+			klog.Error(err)
+			return nil, err
+		}
+
+		// found, skip
+		if gwChassis != nil {
+			models = append(models, model.Model(gwChassis))
+			uuids = append(uuids, gwChassis.UUID)
+		}
+	}
+
+	gwChassisCreateop, err := c.Create(models...)
+	if err != nil {
+		klog.Error(err)
+		return nil, fmt.Errorf("generate operations for creating gateway chassis %w", err)
+	}
+
+	/* add gateway chassis to logical router port */
+	gwChassisAddOp, err := c.LogicalRouterPortUpdateGatewayChassisOp(lrpName, uuids, ovsdb.MutateOperationInsert)
+	if err != nil {
+		klog.Error(err)
+		return nil, err
+	}
+
+	ops := make([]ovsdb.Operation, 0, len(gwChassisCreateop)+len(gwChassisAddOp))
+	ops = append(ops, gwChassisCreateop...)
+	ops = append(ops, gwChassisAddOp...)
+
+	return ops, nil
+}

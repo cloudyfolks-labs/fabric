@@ -1,0 +1,259 @@
+package webhook
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"strings"
+
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
+	kubevirtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	ovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	"github.com/kubeovn/kube-ovn/pkg/util"
+)
+
+var (
+	deploymentGVK  = appsv1.SchemeGroupVersion.WithKind(util.KindDeployment)
+	statefulSetGVK = appsv1.SchemeGroupVersion.WithKind(util.KindStatefulSet)
+	daemonSetGVK   = appsv1.SchemeGroupVersion.WithKind(util.KindDaemonSet)
+	jobGVK         = batchv1.SchemeGroupVersion.WithKind(util.KindJob)
+	cronJobGVK     = batchv1.SchemeGroupVersion.WithKind(util.KindCronJob)
+	podGVK         = corev1.SchemeGroupVersion.WithKind(util.KindPod)
+	subnetGVK      = ovnv1.SchemeGroupVersion.WithKind(util.KindSubnet)
+	vpcGVK         = ovnv1.SchemeGroupVersion.WithKind(util.KindVpc)
+)
+
+func (v *ValidatingHook) DeploymentCreateHook(ctx context.Context, req admission.Request) admission.Response {
+	o := appsv1.Deployment{}
+	if err := v.decoder.Decode(req, &o); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	// Get pod template static ips
+	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
+	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
+	if staticIPSAnno == "" {
+		return ctrlwebhook.Allowed("bypass")
+	}
+	return v.validateIP(ctx, o.Spec.Template.GetAnnotations(), o.Kind, o.GetName(), o.GetNamespace())
+}
+
+func (v *ValidatingHook) StatefulSetCreateHook(ctx context.Context, req admission.Request) admission.Response {
+	o := appsv1.StatefulSet{}
+	if err := v.decoder.Decode(req, &o); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	// Get pod template static ips
+	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
+	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
+	if staticIPSAnno == "" {
+		return ctrlwebhook.Allowed("bypass")
+	}
+	return v.validateIP(ctx, o.Spec.Template.GetAnnotations(), o.Kind, o.GetName(), o.GetNamespace())
+}
+
+func (v *ValidatingHook) DaemonSetCreateHook(ctx context.Context, req admission.Request) admission.Response {
+	o := appsv1.DaemonSet{}
+	if err := v.decoder.Decode(req, &o); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	// Get pod template static ips
+	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
+	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
+	if staticIPSAnno == "" {
+		return ctrlwebhook.Allowed("bypass")
+	}
+	return v.validateIP(ctx, o.Spec.Template.GetAnnotations(), o.Kind, o.GetName(), o.GetNamespace())
+}
+
+func (v *ValidatingHook) JobCreateHook(ctx context.Context, req admission.Request) admission.Response {
+	o := batchv1.Job{}
+	if err := v.decoder.Decode(req, &o); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	// Get pod template static ips
+	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
+	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
+	if staticIPSAnno == "" {
+		return ctrlwebhook.Allowed("bypass")
+	}
+	return v.validateIP(ctx, o.Spec.Template.GetAnnotations(), o.Kind, o.GetName(), o.GetNamespace())
+}
+
+func (v *ValidatingHook) CronJobCreateHook(ctx context.Context, req admission.Request) admission.Response {
+	o := batchv1.CronJob{}
+	if err := v.decoder.Decode(req, &o); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	// Get pod template static ips
+	staticIPSAnno := o.Spec.JobTemplate.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
+	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
+	if staticIPSAnno == "" {
+		return ctrlwebhook.Allowed("bypass")
+	}
+	return v.validateIP(ctx, o.Spec.JobTemplate.Spec.Template.GetAnnotations(), o.Kind, o.GetName(), o.GetNamespace())
+}
+
+func (v *ValidatingHook) PodCreateHook(ctx context.Context, req admission.Request) admission.Response {
+	o := corev1.Pod{}
+	if err := v.decoder.Decode(req, &o); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	poolAnno := o.GetAnnotations()[util.IPPoolAnnotation]
+	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), poolAnno)
+
+	staticIP := o.GetAnnotations()[util.IPAddressAnnotation]
+	klog.V(3).Infof("%s %s@%s, ip_address: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIP)
+	if staticIP == "" && poolAnno == "" {
+		return ctrlwebhook.Allowed("bypass")
+	}
+	if v.allowLiveMigration(o.GetAnnotations()) {
+		return ctrlwebhook.Allowed("bypass")
+	}
+	name := o.GetName()
+	// If the pod is created by a VM, we need to get the VM name from owner references
+	for _, owner := range o.GetOwnerReferences() {
+		if owner.Kind == util.KindVirtualMachineInstance &&
+			strings.HasPrefix(owner.APIVersion, kubevirtv1.SchemeGroupVersion.Group+"/") {
+			name = owner.Name
+			klog.V(3).Infof("pod %s is created by vm %s", o.GetName(), name)
+			break
+		}
+	}
+	return v.validateIP(ctx, o.GetAnnotations(), o.Kind, name, o.GetNamespace())
+}
+
+func (v *ValidatingHook) allowLiveMigration(annotations map[string]string) bool {
+	if _, ok := annotations[kubevirtv1.MigrationJobNameAnnotation]; ok {
+		return true
+	}
+	return false
+}
+
+func (v *ValidatingHook) validateIP(ctx context.Context, annotations map[string]string, kind, name, namespace string) admission.Response {
+	if err := util.ValidatePodNetwork(annotations); err != nil {
+		klog.Errorf("validate %s %s/%s failed: %v", kind, namespace, name, err)
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+
+	ipList := &ovnv1.IPList{}
+	if err := v.cache.List(ctx, ipList); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	if err := v.validateIPConflict(ctx, annotations, name, ipList.Items); err != nil {
+		return ctrlwebhook.Denied(err.Error())
+	}
+
+	return ctrlwebhook.Allowed("bypass")
+}
+
+func (v *ValidatingHook) validateIPConflict(ctx context.Context, annotations map[string]string, name string, ipList []ovnv1.IP) error {
+	annoSubnet := annotations[util.LogicalSwitchAnnotation]
+	if annotations[util.LogicalSwitchAnnotation] == "" {
+		annoSubnet = util.DefaultSubnet
+	}
+
+	if ipAddress := annotations[util.IPAddressAnnotation]; ipAddress != "" {
+		if err := checkIPAddressFamilyUniqueness(ipAddress); err != nil {
+			return err
+		}
+		if err := v.checkIPConflict(ipAddress, annoSubnet, name, ipList); err != nil {
+			return err
+		}
+	}
+
+	ipPool := annotations[util.IPPoolAnnotation]
+	if ipPool != "" {
+		if !strings.ContainsRune(ipPool, ',') && net.ParseIP(ipPool) == nil {
+			pool := &ovnv1.IPPool{}
+			if err := v.cache.Get(ctx, client.ObjectKey{Name: ipPool}, pool); err != nil {
+				return fmt.Errorf("ippool %q not found", ipPool)
+			}
+		} else if err := v.checkIPConflict(ipPool, annoSubnet, name, ipList); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkIPAddressFamilyUniqueness rejects ip_address annotation values that
+// carry more than one address of the same IP family. The annotation is a
+// single static address per family (optionally one IPv4 + one IPv6 for
+// dual-stack), so values like "10.0.0.1,10.0.0.2" are ambiguous and would
+// silently corrupt IPAM accounting and dual-stack auto-completion downstream.
+func checkIPAddressFamilyUniqueness(ipAddress string) error {
+	var v4Count, v6Count int
+	for ip := range strings.SplitSeq(ipAddress, ",") {
+		ip = strings.TrimSpace(ip)
+		var ipAddr net.IP
+		if strings.Contains(ip, "/") {
+			ipAddr, _, _ = net.ParseCIDR(ip)
+		} else {
+			ipAddr = net.ParseIP(ip)
+		}
+		if ipAddr == nil {
+			// Leave the invalid-IP error to checkIPConflict so the wording
+			// stays consistent across callers.
+			return nil
+		}
+		if ipAddr.To4() != nil {
+			v4Count++
+		} else {
+			v6Count++
+		}
+	}
+	if v4Count > 1 {
+		return fmt.Errorf("multiple IPv4 addresses in ip_address annotation %q", ipAddress)
+	}
+	if v6Count > 1 {
+		return fmt.Errorf("multiple IPv6 addresses in ip_address annotation %q", ipAddress)
+	}
+	return nil
+}
+
+func (v *ValidatingHook) checkIPConflict(ipAddress, annoSubnet, name string, ipList []ovnv1.IP) error {
+	var ipAddr net.IP
+	for ip := range strings.SplitSeq(ipAddress, ",") {
+		if strings.Contains(ip, "/") {
+			ipAddr, _, _ = net.ParseCIDR(ip)
+		} else {
+			ipAddr = net.ParseIP(strings.TrimSpace(ip))
+		}
+		if ipAddr == nil {
+			return fmt.Errorf("invalid static ip/ippool annotation value: %s", ipAddress)
+		}
+
+		for _, ipCR := range ipList {
+			if annoSubnet != "" && ipCR.Spec.Subnet != annoSubnet {
+				continue
+			}
+
+			v4IP, v6IP := util.SplitStringIP(ipCR.Spec.IPAddress)
+			// v6 ip address can not use upper case
+			if util.ContainsUppercase(v6IP) {
+				err := fmt.Errorf("v6 ip address %s can not contain upper case", v6IP)
+				klog.Error(err)
+				return err
+			}
+			if ipAddr.String() == v4IP || ipAddr.String() == v6IP {
+				// The IP's spec podName does not equal the Pod name in the request;
+				// The two names have a containment relationship.
+				if name == ipCR.Spec.PodName {
+					klog.Infof("get same ip crd for %s", name)
+				} else {
+					err := fmt.Errorf("annotation static-ip %s is conflict with ip crd %s, ip %s", ipAddr.String(), ipCR.Name, ipCR.Spec.IPAddress)
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
