@@ -791,7 +791,6 @@ class E2EControlTest(unittest.TestCase):
                 self.assertIn("github.event_name != 'workflow_dispatch'", block)
                 self.assertIn("inputs.headSHA || github.sha", block)
                 self.assertIn("persist-credentials: false", block)
-        self.assertIn("github.event_name != 'workflow_dispatch'", blocks["push"])
 
     def testKindPullUsesAnonymousGhcrWhenTokenIsAbsent(self):
         makefile = (repoRoot / "makefiles/kind.mk").read_text()
