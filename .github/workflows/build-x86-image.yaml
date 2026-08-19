@@ -621,10 +621,8 @@ jobs:
                 echo "COPY $bin /$f" >> "$dockerfile"
                 ;;
               gobgp)
-                version=`go list -m -f '{{.Version}}' github.com/osrg/gobgp/v4`
-                echo "Building $bin@$version from source..."
-                $GO_INSTALL github.com/osrg/gobgp/v4/cmd/$bin
-                echo "COPY $bin /$f" >> "$dockerfile"
+                echo "Removing $bin from the image..."
+                echo "RUN rm -f /$f" >> "$dockerfile"
                 ;;
               *)
                 ;;

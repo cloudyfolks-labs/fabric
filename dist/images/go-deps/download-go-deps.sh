@@ -5,7 +5,6 @@ set -e
 ARCH=${ARCH:-amd64}
 CNI_PLUGINS_VERSION=${CNI_PLUGINS_VERSION:-v1.9.1}
 KUBECTL_VERSION=${KUBECTL_VERSION:-v1.36.1}
-GOBGP_VERSION=${GOBGP_VERSION:-4.5.0}
 
 
 DEPS_DIR=/godeps
@@ -18,8 +17,6 @@ curl -sSf -L --retry 5 https://github.com/containernetworking/plugins/releases/d
 curl -sSf -L --retry 5 https://dl.k8s.io/${KUBECTL_VERSION}/kubernetes-client-linux-${ARCH}.tar.gz | \
     tar -xz -C "$DEPS_DIR" --strip-components=3 kubernetes/client/bin/kubectl
 
-curl -sSf -L --retry 5 https://github.com/osrg/gobgp/releases/download/v${GOBGP_VERSION}/gobgp_${GOBGP_VERSION}_linux_${ARCH}.tar.gz | \
-    tar -xz -C "$DEPS_DIR" gobgp
 
 ls -lh "$DEPS_DIR"
 
@@ -38,9 +35,6 @@ jq -r '.Results[] | select((.Type=="gobinary") and (.Vulnerabilities!=null)) | .
             ;;
         kubectl)
             echo "$name@$KUBECTL_VERSION" >> "$TARGETS_FILE"
-            ;;
-        gobgp)
-            echo "$name@v$GOBGP_VERSION" >> "$TARGETS_FILE"
             ;;
         *)
             echo "Unknown go binary: $f"

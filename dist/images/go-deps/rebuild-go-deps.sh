@@ -58,9 +58,6 @@ for t in $(cat "$TRIVY_DIR/trivy-targets.txt"); do
             $GO_INSTALL -ldflags="${goldflags}" k8s.io/kubernetes/cmd/kubectl
             cd -
             ;;
-        gobgp)
-            $GO_INSTALL github.com/osrg/gobgp/v4/cmd/$name@$version
-            ;;
         *)
             echo "Unknown go binary: $name"
             exit 1
