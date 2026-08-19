@@ -1,73 +1,68 @@
-<img src="https://raw.githubusercontent.com/cncf/artwork/main/projects/kube-ovn/horizontal/color/kube-ovn-horizontal-color.svg" alt="kube_ovn_logo" width="500"/>
+# fabric
 
-[![Our](https://img.shields.io/static/v1?label=Our&message=Website&color=blue)](https://kube-ovn.io/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/kubeovn/kube-ovn/blob/master/LICENSE)
-[![latest-release](https://img.shields.io/github/release/kubeovn/kube-ovn.svg)](https://github.com/kubeovn/kube-ovn/releases)
-[![Docker Tag](https://img.shields.io/docker/pulls/kubeovn/kube-ovn)](https://img.shields.io/docker/pulls/kubeovn/kube-ovn)
-![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/kubeovn/kube-ovn?sort=date)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kubeovn/kube-ovn)](https://goreportcard.com/report/github.com/kubeovn/kube-ovn)
+fabric is a Kubernetes network fabric for multi-tenant clouds. It gives
+each tenant a real VPC with its own router, its own address space, and a
+BGP path to the physical network.
 
-Kube-OVN, a [CNCF Sandbox Project](https://www.cncf.io/sandbox-projects/), integrates OVN-based Network Virtualization with Kubernetes. It provides enhanced support for KubeVirt and unique Multi-Tenancy capabilities.
+fabric is a fork of [kube-ovn](https://github.com/kubeovn/kube-ovn), a
+CNCF Sandbox Project. The OVN substrate, the CNI, and most of the
+features come from kube-ovn. See [UPSTREAM.md](UPSTREAM.md) for the fork
+base and how we sync upstream changes.
 
-## Network Topology
+## Direction
 
-![topology](docs/ovn-network-topology.png "kube-ovn network topology")
+fabric builds on two layers:
 
-## Features
+1. **OVN below.** VPCs, routing, and NAT stay as OVN logical flows. The
+   datapath is OpenFlow plus kernel conntrack. It has no iptables rules
+   on the pod path, and it can offload to hardware.
+2. **BGP at the edge.** A per-node FRR agent advertises VPC routes,
+   external IPs, and gateway state to the top-of-rack switches. Dynamic
+   routing replaces static plumbing between the cluster and the network.
 
-- **VPC Support**: Multi-tenant network with independent address spaces, where each tenant has its own network infrastructure such as eips, nat gateways, security groups and loadbalancers.
-- **Namespaced Subnets**: Each Namespace can have a unique Subnet (backed by a Logical Switch). Pods within the Namespace will have IP addresses allocated from the Subnet. It's also possible for multiple Namespaces to share a Subnet.
-- **Vlan/Underlay Support**: In addition to overlay network, Kube-OVN also supports underlay and vlan mode network for better performance and direct connectivity with physical network.
-- **Static IP Addresses for Workloads**: Allocate random or static IP addresses to workloads.
-- **Seamless VM LiveMigration**: Live migrate KubeVirt vm without network interruption.
-- **Non-Primary CNI Mode**: Kube-OVN can work as a secondary CNI alongside other primary CNIs (Cilium, Calico, etc.), providing additional network interfaces and advanced networking features via Network Attachment Definitions (NADs).
-- **Multi-Cluster Network**: Connect different Kubernetes/Openstack clusters into one L3 network.
-- **TroubleShooting Tools**: Handy tools to diagnose, trace, monitor and dump container network traffic to help troubleshoot complicate network issues.
-- **Prometheus & Grafana Integration**: Exposing network quality metrics like pod/node/service/dns connectivity/latency in Prometheus format.
-- **ARM Support**: Kube-OVN can run on x86_64 and arm64 platforms.
-- **Subnet Isolation**: Can configure a Subnet to deny any traffic from source IP addresses not within the same Subnet. Can whitelist specific IP addresses and IP ranges.
-- **Network Policy**: Implementing networking.k8s.io/NetworkPolicy API by high performance ovn ACL.
-- **DualStack IP Support**: Pod can run in IPv4-Only/IPv6-Only/DualStack mode.
-- **Pod NAT and EIP**: Manage the pod external traffic and external ip like tradition VM.
-- **IPAM for Multi NIC**: A cluster-wide IPAM for CNI plugins other than Kube-OVN, such as macvlan/vlan/host-device to take advantage of subnet and static ip allocation functions in Kube-OVN.
-- **Dynamic QoS**: Configure Pod/Gateway Ingress/Egress traffic rate/priority/loss/latency on the fly.
-- **Embedded Load Balancers**: Replace kube-proxy with the OVN embedded high performance distributed L2 Load Balancer.
-- **Distributed Gateways**: Every Node can act as a Gateway to provide external network connectivity.
-- **Namespaced Gateways**: Every Namespace can have a dedicated Gateway for Egress traffic.
-- **Direct External Connectivity**: Pod IP can be exposed to external network directly.
-- **BGP Support**: Pod/Subnet IP can be exposed to external by BGP router protocol.
-- **Traffic Mirror**: Duplicated container network traffic for monitoring, diagnosing and replay.
-- **Hardware Offload**: Boost network performance and save CPU resource by offloading OVS flow table to hardware.
+On this base we plan an eBPF layer that reads the tenant identity OVN
+already encodes on the wire: flow logs, per-EIP DDoS protection, and
+identity-based security groups.
 
-## Quick Start
+## What is different from kube-ovn
 
-Kube-OVN is easy to install, please refer to the [Installation Guide](https://kubeovn.github.io/docs/stable/en/start/one-step-install/).
+Added:
 
-## Documents
+- **VPC dynamic routing**: the `BgpConf` CRD and the `kube-ovn-frr`
+  per-node agent. VPC subnets, OVN EIPs, and BFD state advertise to the
+  top-of-rack switches through FRR.
 
-- [CNI Selection Recommendations](https://kubeovn.github.io/docs/stable/en/#cni-selection-recommendations)
-- [Getting Start](https://kubeovn.github.io/docs/stable/en/start/prepare/)
-- [KubeVirt Usage](https://kubeovn.github.io/docs/stable/en/kubevirt/static-ip/)
-- [VPC Network](https://kubeovn.github.io/docs/stable/en/vpc/vpc/)
-- [User Guide](https://kubeovn.github.io/docs/stable/en/guide/setup-options/)
-- [Operations](https://kubeovn.github.io/docs/stable/en/ops/kubectl-ko/)
-- [Advanced Usage](https://kubeovn.github.io/docs/stable/en/advance/multi-nic/)
-- [Reference](https://kubeovn.github.io/docs/stable/en/reference/architecture/)
+Removed, with the replacement in parentheses:
 
-## Contribution
+- BGP speaker (the FRR agent)
+- VpcNatGateway, IptablesEIP/FIP/DnatRule/SnatRule, and QoSPolicy
+  (OVN-native `OvnEip`/`OvnFip`/`OvnSnatRule`/`OvnDnatRule`)
+- VpcEgressGateway BGP/EVPN announcer (the FRR agent; the egress
+  gateway itself remains)
+- Kernel fastpath module (the OVN datapath does not need it)
 
-We are looking forward to your PR!
+Everything else from kube-ovn remains: subnets, underlay/VLAN, security
+groups, switch and router load balancers, KubeVirt live migration,
+multi-cluster interconnect, and the rest.
 
-- [Development Guide](https://kubeovn.github.io/docs/en/reference/dev-env/)
-- [Architecture Guide](https://kubeovn.github.io/docs/en/reference/architecture/)
+## Documentation
 
-## Community
+The [kube-ovn documentation](https://kubeovn.github.io/docs/stable/en/)
+applies to all inherited features. Documentation for the fabric-specific
+features lives in this repository.
 
-The Kube-OVN community is waiting for your participation!
+## Install
 
-- 🔗 Follow us on [Linkedin](https://www.linkedin.com/company/kube-ovn/)
-- 💬 Chat with us on [Slack](https://cloud-native.slack.com/archives/C0AQMHUDX39)
+Helm charts and container images will publish under
+`ghcr.io/cloudyfolks-labs` with the first release. Until then, build
+from source:
 
-## Adopters
+```
+make image-kube-ovn
+make kind-init kind-install
+```
 
-A list of adopters and use cases can be found in [USERS.md](USERS.md)
+## License
+
+Apache-2.0. The imported kube-ovn code keeps its upstream copyright
+headers. See [LICENSE](LICENSE).
