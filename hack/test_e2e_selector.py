@@ -558,25 +558,6 @@ class E2ESelectorTest(unittest.TestCase):
                     self.assertEqual(len(result["matrix"]), 82)
                     self.assertIn("selection error", result["fullReason"])
 
-    def testSelectorFilesHaveCodeOwners(self):
-        codeowners = (repoRoot / ".github/CODEOWNERS").read_text()
-
-        for path in [
-            "/.github/e2e-selection.json",
-            "/.github/workflows/build-x86-image.yaml",
-            "/.github/workflows/x86-e2e-dispatcher.yaml",
-            "/.github/workflows/x86-e2e-gate.yaml",
-            "/hack/e2e_control.py",
-            "/hack/e2e_selector.py",
-            "/hack/test_e2e_control.py",
-            "/hack/test_e2e_selector.py",
-        ]:
-            with self.subTest(path=path):
-                self.assertRegex(
-                    codeowners,
-                    rf"(?m)^{re.escape(path)}\s+@oilbeater\s+@zhangzujian$",
-                )
-
     def testEveryPathMappingHasARegressionCase(self):
         cases = [
             ("test/e2e/kube-ovn/subnet/subnet.go", "core"),

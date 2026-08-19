@@ -296,10 +296,6 @@ clean:
 	$(RM) kubectl-ko-log.tar.gz
 	$(RM) -r kubectl-ko-log/
 
-.PHONY: changelog
-changelog:
-	./hack/changelog.sh > CHANGELOG.md
-
 .PHONY: local-dev
 local-dev:
 	@DEBUG=1 $(MAKE) build-go
