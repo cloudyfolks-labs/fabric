@@ -19,11 +19,6 @@ func (c *Controller) enqueueAddDeployment(obj any) {
 				c.addOrUpdateVpcEgressGatewayQueue.Add(key)
 				return
 			}
-			if ref.Kind == util.KindVpcNatGateway {
-				klog.V(3).Infof("enqueue update vpc-nat-gw %s", ref.Name)
-				c.addOrUpdateVpcNatGatewayQueue.Add(ref.Name)
-				return
-			}
 		}
 	}
 }

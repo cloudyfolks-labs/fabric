@@ -41,14 +41,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IPList{},
 		&IPPool{},
 		&IPPoolList{},
-		&IptablesDnatRule{},
-		&IptablesDnatRuleList{},
-		&IptablesEIP{},
-		&IptablesEIPList{},
-		&IptablesFIPRule{},
-		&IptablesFIPRuleList{},
-		&IptablesSnatRule{},
-		&IptablesSnatRuleList{},
 		&OvnDnatRule{},
 		&OvnDnatRuleList{},
 		&OvnEip{},
@@ -59,8 +51,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&OvnSnatRuleList{},
 		&ProviderNetwork{},
 		&ProviderNetworkList{},
-		&QoSPolicy{},
-		&QoSPolicyList{},
 		&SecurityGroup{},
 		&SecurityGroupList{},
 		&Subnet{},
@@ -79,8 +69,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VpcDnsList{},
 		&VpcEgressGateway{},
 		&VpcEgressGatewayList{},
-		&VpcNatGateway{},
-		&VpcNatGatewayList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

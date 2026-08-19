@@ -48,7 +48,7 @@ func (c *Controller) tryStartNetAttachInformer(ctx context.Context) bool {
 }
 
 // StartNetAttachInformerFactory starts the network attachment definition (NAD) informer.
-// This MUST be called before other informers that depend on NAD cache (Pod, Subnet, VpcNatGateway, etc.)
+// This MUST be called before other informers that depend on NAD cache (Pod, Subnet, etc.)
 //
 // The NAD CRD is optional - if installed, we start the informer synchronously and wait for
 // cache sync before returning. This ensures NAD cache is ready when other controllers start

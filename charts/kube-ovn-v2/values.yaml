@@ -233,9 +233,6 @@ features:
   # -- Enable OVN interconnections
   # @section -- Opt-in/out Features
   enableOvnInterconnections: false
-  # -- Enable NAT gateways
-  # @section -- Opt-in/out Features
-  enableNatGateways: true
   # -- Enable IPSEC
   # @section -- Opt-in/out Features
   enableOvnIpsec: false
@@ -406,54 +403,11 @@ grafanaDashboards:
   # @section -- Grafana dashboards configuration
   annotations: {}
 
-# -- Configuration for the NAT gateways.
-# @section -- NAT gateways configuration
-# @default -- "{}"
 natGw:
-  # -- Prefix appended to the name of the NAT gateways when generating the Pods.
-  # If this value is changed after NAT GWs have been provisioned, every NAT gateway will need to be
-  # manually destroyed and recreated.
-  # @section -- NAT gateways configuration
-  namePrefix: "vpc-nat-gw"
-  # -- Image used by the NAT gateway.
-  # @section -- NAT gateways configuration
-  # @default -- "{}"
   image:
-    # -- Image repository.
-    # @section -- NAT gateways configuration
     repository: docker.io/kubeovn/vpc-nat-gateway
-    # -- Image tag.
-    # @section -- NAT gateways configuration
     tag: v1.17.0
-    # -- Image pull policy.
-    # @section -- NAT gateways configuration
-    pullPolicy: IfNotPresent
-  # -- Configuration of the BGP sidecar for when a NAT gateway is running in BGP mode.
-  # @section -- NAT gateways configuration
-  # @default -- "{}"
-  bgpSpeaker:
-    # -- Image used by the NAT gateway sidecar.
-    # @section -- NAT gateways configuration
-    # @default -- "{}"
-    image:
-      # -- Image repository.
-      # @section -- NAT gateways configuration
-      repository: docker.io/kubeovn/kube-ovn
-      # -- Image tag.
-      # @section -- NAT gateways configuration
-      tag: v1.17.0
-      # -- Image pull policy.
-      # @section -- NAT gateways configuration
-      pullPolicy: IfNotPresent
-    # -- Network attachment definition used to reach the API server when running on BGP mode.
-    # By default, equals the value set at ".apiNad.provider", you will need to set ".apiNad.enabled" to true.
-    # See https://kubeovn.github.io/docs/stable/en/advance/with-bgp/
-    # @section -- NAT gateways configuration
-    apiNadProvider: "{{ .Values.apiNad.name }}.{{ .Values.namespace }}.ovn"
 
-# -- Configuration for network policies
-# @section -- Network Policies
-# @default -- "{}"
 networkPolicies:
   # -- Enforcement level of network policies when they get applied (can be: standard, lax).
   # Enforcement "standard" blocks everything except what is allowed by the network policies.

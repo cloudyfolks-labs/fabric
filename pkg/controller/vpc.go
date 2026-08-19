@@ -204,16 +204,6 @@ func (c *Controller) handleUpdateVpcStatus(key string) error {
 		}
 	}
 
-	natGws, err := c.vpcNatGatewayLister.List(labels.Everything())
-	if err != nil {
-		klog.Error(err)
-		return err
-	}
-	for _, gw := range natGws {
-		if key == gw.Spec.Vpc {
-			c.updateVpcSubnetQueue.Add(gw.Name)
-		}
-	}
 	return nil
 }
 

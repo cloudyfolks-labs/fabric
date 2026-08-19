@@ -1128,7 +1128,6 @@ false
   "enableLiveMigrationOptimization": true,
   "enableLoadbalancer": true,
   "enableLoadbalancerService": false,
-  "enableNatGateways": true,
   "enableNetworkPolicies": true,
   "enableOvnInterconnections": false,
   "enableOvnIpsec": false,
@@ -1202,15 +1201,6 @@ false
 </pre>
 </td>
 			<td>Enable Kube-OVN loadbalancer services</td>
-		</tr>
-		<tr>
-			<td>features.enableNatGateways</td>
-			<td>bool</td>
-			<td><pre lang="json">
-true
-</pre>
-</td>
-			<td>Enable NAT gateways</td>
 		</tr>
 		<tr>
 			<td>features.enableNetworkPolicies</td>
@@ -1563,125 +1553,6 @@ false
 </pre>
 </td>
 			<td>Enable the deployment of the ServiceMonitor for the kube-ovn-monitor.</td>
-		</tr>
-	</tbody>
-</table>
-<h3>NAT gateways configuration</h3>
-<table>
-	<thead>
-		<th>Key</th>
-		<th>Type</th>
-		<th>Default</th>
-		<th>Description</th>
-	</thead>
-	<tbody>
-		<tr>
-			<td>natGw</td>
-			<td>object</td>
-			<td><pre lang="">
-"{}"
-</pre>
-</td>
-			<td>Configuration for the NAT gateways.</td>
-		</tr>
-		<tr>
-			<td>natGw.bgpSpeaker</td>
-			<td>object</td>
-			<td><pre lang="">
-"{}"
-</pre>
-</td>
-			<td>Configuration of the BGP sidecar for when a NAT gateway is running in BGP mode.</td>
-		</tr>
-		<tr>
-			<td>natGw.bgpSpeaker.apiNadProvider</td>
-			<td>string</td>
-			<td><pre lang="json">
-"{{ .Values.apiNad.name }}.{{ .Values.namespace }}.ovn"
-</pre>
-</td>
-			<td>Network attachment definition used to reach the API server when running on BGP mode. By default, equals the value set at ".apiNad.provider", you will need to set ".apiNad.enabled" to true. See https://kubeovn.github.io/docs/stable/en/advance/with-bgp/</td>
-		</tr>
-		<tr>
-			<td>natGw.bgpSpeaker.image</td>
-			<td>object</td>
-			<td><pre lang="">
-"{}"
-</pre>
-</td>
-			<td>Image used by the NAT gateway sidecar.</td>
-		</tr>
-		<tr>
-			<td>natGw.bgpSpeaker.image.pullPolicy</td>
-			<td>string</td>
-			<td><pre lang="json">
-"IfNotPresent"
-</pre>
-</td>
-			<td>Image pull policy.</td>
-		</tr>
-		<tr>
-			<td>natGw.bgpSpeaker.image.repository</td>
-			<td>string</td>
-			<td><pre lang="json">
-"docker.io/kubeovn/kube-ovn"
-</pre>
-</td>
-			<td>Image repository.</td>
-		</tr>
-		<tr>
-			<td>natGw.bgpSpeaker.image.tag</td>
-			<td>string</td>
-			<td><pre lang="json">
-"v1.17.0"
-</pre>
-</td>
-			<td>Image tag.</td>
-		</tr>
-		<tr>
-			<td>natGw.image</td>
-			<td>object</td>
-			<td><pre lang="">
-"{}"
-</pre>
-</td>
-			<td>Image used by the NAT gateway.</td>
-		</tr>
-		<tr>
-			<td>natGw.image.pullPolicy</td>
-			<td>string</td>
-			<td><pre lang="json">
-"IfNotPresent"
-</pre>
-</td>
-			<td>Image pull policy.</td>
-		</tr>
-		<tr>
-			<td>natGw.image.repository</td>
-			<td>string</td>
-			<td><pre lang="json">
-"docker.io/kubeovn/vpc-nat-gateway"
-</pre>
-</td>
-			<td>Image repository.</td>
-		</tr>
-		<tr>
-			<td>natGw.image.tag</td>
-			<td>string</td>
-			<td><pre lang="json">
-"v1.17.0"
-</pre>
-</td>
-			<td>Image tag.</td>
-		</tr>
-		<tr>
-			<td>natGw.namePrefix</td>
-			<td>string</td>
-			<td><pre lang="json">
-"vpc-nat-gw"
-</pre>
-</td>
-			<td>Prefix appended to the name of the NAT gateways when generating the Pods. If this value is changed after NAT GWs have been provisioned, every NAT gateway will need to be manually destroyed and recreated.</td>
 		</tr>
 	</tbody>
 </table>

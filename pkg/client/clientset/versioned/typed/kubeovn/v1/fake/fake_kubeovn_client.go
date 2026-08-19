@@ -48,22 +48,6 @@ func (c *FakeKubeovnV1) IPPools() v1.IPPoolInterface {
 	return newFakeIPPools(c)
 }
 
-func (c *FakeKubeovnV1) IptablesDnatRules() v1.IptablesDnatRuleInterface {
-	return newFakeIptablesDnatRules(c)
-}
-
-func (c *FakeKubeovnV1) IptablesEIPs() v1.IptablesEIPInterface {
-	return newFakeIptablesEIPs(c)
-}
-
-func (c *FakeKubeovnV1) IptablesFIPRules() v1.IptablesFIPRuleInterface {
-	return newFakeIptablesFIPRules(c)
-}
-
-func (c *FakeKubeovnV1) IptablesSnatRules() v1.IptablesSnatRuleInterface {
-	return newFakeIptablesSnatRules(c)
-}
-
 func (c *FakeKubeovnV1) OvnDnatRules() v1.OvnDnatRuleInterface {
 	return newFakeOvnDnatRules(c)
 }
@@ -82,10 +66,6 @@ func (c *FakeKubeovnV1) OvnSnatRules() v1.OvnSnatRuleInterface {
 
 func (c *FakeKubeovnV1) ProviderNetworks() v1.ProviderNetworkInterface {
 	return newFakeProviderNetworks(c)
-}
-
-func (c *FakeKubeovnV1) QoSPolicies() v1.QoSPolicyInterface {
-	return newFakeQoSPolicies(c)
 }
 
 func (c *FakeKubeovnV1) RouterLBRules() v1.RouterLBRuleInterface {
@@ -122,10 +102,6 @@ func (c *FakeKubeovnV1) VpcDnses() v1.VpcDnsInterface {
 
 func (c *FakeKubeovnV1) VpcEgressGateways(namespace string) v1.VpcEgressGatewayInterface {
 	return newFakeVpcEgressGateways(c, namespace)
-}
-
-func (c *FakeKubeovnV1) VpcNatGateways() v1.VpcNatGatewayInterface {
-	return newFakeVpcNatGateways(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

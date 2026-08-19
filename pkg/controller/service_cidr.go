@@ -113,11 +113,6 @@ func (c *Controller) onServiceCIDRDelete(obj any) {
 // reconcileForServiceCIDRChange enqueues every object whose data-plane artifact
 // embeds a Service CIDR so that its existing reconciler rebuilds the artifact
 // against the freshly merged set.
-//
-// VpcNatGateways are deliberately skipped: handleAddOrUpdateVpcNatGw only diffs
-// Spec, and handleInitVpcNatGw bails on VpcNatGatewayInitAnnotation. Existing
-// NAT GWs need pod recreation to pick up new routes; new ones already render
-// against the current store.
 func (c *Controller) reconcileForServiceCIDRChange() {
 	subnets, err := c.subnetsLister.List(labels.Everything())
 	if err != nil {

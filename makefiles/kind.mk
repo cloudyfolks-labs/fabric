@@ -538,12 +538,6 @@ kind-install-metallb-pool-from-underlay-dual: kind-load-image
 .PHONY: kind-install-metallb-pool-from-underlay
 kind-install-metallb-pool-from-underlay: kind-install-metallb-pool-from-underlay-ipv4
 
-.PHONY: kind-install-vpc-nat-gw
-kind-install-vpc-nat-gw:
-	@$(MAKE) kind-load-image-vpc-nat-gateway
-	@$(MAKE) ENABLE_NAT_GW=true CNI_CONFIG_PRIORITY=10 kind-install
-	@$(MAKE) kind-install-multus
-
 .PHONY: kind-install-kubevirt
 kind-install-kubevirt:
 	$(call kind_load_image,kube-ovn,$(KUBEVIRT_OPERATOR_IMAGE),1)

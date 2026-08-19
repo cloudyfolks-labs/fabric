@@ -84,7 +84,7 @@ func removeFinalizers(configStage string) {
 	ginkgo.By(fmt.Sprintf("Removing finalizers from config-stage=%s resources", configStage))
 
 	// Get all resources with the specific config-stage label
-	cmd := fmt.Sprintf("kubectl get all,vpc,subnet,networkattachmentdefinitions,iptableseip,iptablessnatrule,iptablesdnatrule,vpcnatgateway,providernet,vlan -l config-stage=%s -o custom-columns=KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers 2>/dev/null || true", configStage)
+	cmd := fmt.Sprintf("kubectl get all,vpc,subnet,networkattachmentdefinitions,providernet,vlan -l config-stage=%s -o custom-columns=KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers 2>/dev/null || true", configStage)
 	output, _ := runBashCommand(cmd)
 
 	if strings.TrimSpace(output) == "" {
@@ -155,7 +155,7 @@ func generateExcludeIPs(_, gateway string) string {
 }
 
 // processConfigWithKindBridge dynamically updates YAML configuration with KIND bridge network
-func processConfigWithKindBridge(vpcNatGatewayImage, yamlPath string, kindNetwork *KindBridgeNetwork) string {
+func processConfigWithKindBridge(yamlPath string, kindNetwork *KindBridgeNetwork) string {
 	ginkgo.GinkgoHelper()
 
 	ginkgo.By(fmt.Sprintf("Processing config file %s with KIND bridge network", yamlPath))
@@ -176,16 +176,11 @@ func processConfigWithKindBridge(vpcNatGatewayImage, yamlPath string, kindNetwor
 	}
 
 	templateReplacements := map[string]string{
-		"<cidrBlock01>":                          kindNetwork.CIDR,
-		"<gateway01>":                            kindNetwork.Gateway,
-		"<00-lnet-simple-subnet1-cidr>":          kindNetwork.CIDR,
-		"<00-lnet-simple-subnet1-gateway>":       kindNetwork.Gateway,
-		"<00-vnet-nat-gw-ext-subnet-exclude-ip>": generateExcludeIPs(kindNetwork.CIDR, kindNetwork.Gateway),
-		"<00-lnet-simple-subnet1-exclude-ip>":    generateExcludeIPs(kindNetwork.CIDR, kindNetwork.Gateway),
-		"<vpc-nat-gw-ext-cidr>":                  kindNetwork.CIDR,
-		"<vpc-nat-gw-ext-gateway>":               kindNetwork.Gateway,
-		"<vpc-nat-gw-ext-exclude-ip>":            generateExcludeIPs(kindNetwork.CIDR, kindNetwork.Gateway),
-		"<kube-ovn-vpc-nat-image-name>":          vpcNatGatewayImage,
+		"<cidrBlock01>":                       kindNetwork.CIDR,
+		"<gateway01>":                         kindNetwork.Gateway,
+		"<00-lnet-simple-subnet1-cidr>":       kindNetwork.CIDR,
+		"<00-lnet-simple-subnet1-gateway>":    kindNetwork.Gateway,
+		"<00-lnet-simple-subnet1-exclude-ip>": generateExcludeIPs(kindNetwork.CIDR, kindNetwork.Gateway),
 	}
 
 	for placeholder, value := range templateReplacements {
@@ -299,217 +294,6 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 	})
 })
 
-// VPC NAT Gateway Test
-var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
-	f := framework.NewDefaultFramework("non-primary-cni-vpc-nat-gw")
-
-	ginkgo.Context("VPC NAT Gateway", ginkgo.Label("Feature:VPC-NAT-Gateway"), func() {
-		namespaceName := "vpc-nat-gw-ns"
-		eipNames := []string{"vpc-nat-gw-eip1", "vpc-nat-gw-eip2"}
-		snatNames := []string{"vpc-nat-gw-snat01", "vpc-nat-gw-snat02"}
-		dnatNames := []string{"vpc-nat-gw-dnat01", "vpc-nat-gw-dnat02"}
-		natGwName := "vpc-nat-gw-gateway"
-		podNames := []string{"vpc-nat-gw-pod1", "vpc-nat-gw-pod2"}
-		originalYamlFile := getTestConfigFile("VPC/01-vpc-nat-gw.yaml")
-		var yamlFile string
-		var ipTablesEipClient *framework.IptablesEIPClient
-		var ipTablesSnatRuleClient *framework.IptablesSnatClient
-		var ipTablesDnatRuleClient *framework.IptablesDnatClient
-		var natGwClient *framework.VpcNatGatewayClient
-		var podClient *framework.PodClient
-		var eipObjs []*kubeovnv1.IptablesEIP
-		var snatObjs []*kubeovnv1.IptablesSnatRule
-		var dnatObjs []*kubeovnv1.IptablesDnatRule
-		var podObjs []*corev1.Pod
-
-		ginkgo.BeforeEach(func() {
-			ginkgo.By("Initialize clients")
-			podClient = f.PodClientNS(namespaceName)
-			ipTablesEipClient = f.IptablesEIPClient()
-			ipTablesSnatRuleClient = f.IptablesSnatClient()
-			ipTablesDnatRuleClient = f.IptablesDnatClient()
-			natGwClient = f.VpcNatGatewayClient()
-
-			ginkgo.By("Detect KIND bridge network and generate dynamic config")
-			kindNetwork := detectKindBridgeNetwork()
-			yamlFile = processConfigWithKindBridge(f.VpcNatGatewayImage(), originalYamlFile, kindNetwork)
-			ginkgo.DeferCleanup(func() {
-				if yamlFile != originalYamlFile {
-					os.Remove(yamlFile)
-				}
-			})
-
-			stages := []struct {
-				stage int
-				sleep time.Duration
-			}{
-				{0, 5 * time.Second}, {1, 10 * time.Second}, {2, 0}, {3, 0},
-			}
-			for _, s := range stages {
-				ginkgo.By(fmt.Sprintf("Apply YAML with config-stage=%d", s.stage))
-				cmd := fmt.Sprintf("kubectl apply -f %s --prune -l config-stage=%d", yamlFile, s.stage)
-				output, err := runBashCommand(cmd)
-				framework.ExpectNoError(err, "Failed to apply stage %d config: %s", s.stage, output)
-				if s.sleep > 0 {
-					time.Sleep(s.sleep)
-				}
-			}
-		})
-
-		ginkgo.AfterEach(func() {
-			ginkgo.By("Cleanup resources")
-			for stage := 3; stage >= 0; stage-- {
-				removeFinalizers(strconv.Itoa(stage))
-				cmd := fmt.Sprintf("kubectl delete -f %s --ignore-not-found=true -l config-stage=%d --timeout=30s", yamlFile, stage)
-				_, _ = runBashCommand(cmd)
-			}
-		})
-
-		ginkgo.It("Should create VPC NAT Gateway and test SNAT/DNAT", func() {
-			ginkgo.By("Verify NAT Gateway is ready")
-			natGw := natGwClient.Get(natGwName)
-			framework.ExpectNotNil(natGw, "NAT Gateway should exist")
-
-			ginkgo.By("Verify EIPs are created")
-			for _, eipName := range eipNames {
-				waitForResourceReady(eipName,
-					func(name string) any { return ipTablesEipClient.Get(name) },
-					func(r any) bool {
-						if eip, ok := r.(*kubeovnv1.IptablesEIP); ok {
-							return eip.Status.Ready && eip.Status.IP != ""
-						}
-						return false
-					})
-				eip := ipTablesEipClient.Get(eipName)
-				eipObjs = append(eipObjs, eip)
-			}
-
-			ginkgo.By("Apply pods with config-stage=2")
-			cmd := fmt.Sprintf("kubectl apply -f %s --prune -l config-stage=2", yamlFile)
-			output, err := runBashCommand(cmd)
-			framework.ExpectNoError(err, "Failed to apply pods: %s", output)
-
-			ginkgo.By("Wait for pods to be ready")
-			for _, podName := range podNames {
-				pod := podClient.GetPod(podName)
-				podClient.WaitForRunning(pod.Name)
-				podObjs = append(podObjs, pod)
-			}
-
-			ginkgo.By("Verify SNAT rules")
-			for _, snatName := range snatNames {
-				waitForResourceReady(snatName,
-					func(name string) any { return ipTablesSnatRuleClient.Get(name) },
-					func(r any) bool {
-						if snat, ok := r.(*kubeovnv1.IptablesSnatRule); ok {
-							return snat.Status.Ready
-						}
-						return false
-					})
-				snat := ipTablesSnatRuleClient.Get(snatName)
-				snatObjs = append(snatObjs, snat)
-			}
-			snatList, err := ipTablesSnatRuleClient.List(context.Background(), metav1.ListOptions{})
-			if err != nil {
-				framework.Failf("Failed to list SNAT rules: %v", err)
-			}
-			for i, snatRule := range snatList.Items {
-				ginkgo.By(fmt.Sprintf("Testing SNAT rule %s", snatRule.Name))
-
-				// Get the EIP associated with this SNAT rule
-				var snatEip *kubeovnv1.IptablesEIP
-				for _, eip := range eipObjs {
-					if eip.Name == snatRule.Spec.EIP {
-						snatEip = eip
-						break
-					}
-				}
-				framework.ExpectNotEmpty(snatEip.Status.IP, "EIP should have an IP address for SNAT testing")
-
-				// Get source pod IP for SNAT
-				sourcePodIPs := getPodIPs(podObjs[i])
-				sourcePodIP := strings.Join(sourcePodIPs, ",")
-				framework.ExpectNotEmpty(sourcePodIPs, "Source pod should have an IP address for SNAT testing")
-
-				ginkgo.By(fmt.Sprintf("Verifying SNAT mapping from pod %s (%s) to EIP %s",
-					podObjs[i].Name, sourcePodIP, snatEip.Status.IP))
-				// We do not test the actual packet forwarding here, just the rule configuration
-				// The actual packet forwarding is not tested since it needs done from outside the cluster
-				// Use helper function to verify SNAT rule configuration
-				verifySNATRule(&snatRule, sourcePodIP, snatEip)
-				ginkgo.By(fmt.Sprintf("SNAT rule %s properly configured: Internal=%s -> EIP=%s",
-					snatRule.Name, snatRule.Spec.InternalCIDR, snatRule.Spec.EIP))
-			}
-			ginkgo.By("Verify DNAT rules")
-			for _, dnatName := range dnatNames {
-				waitForResourceReady(dnatName,
-					func(name string) any { return ipTablesDnatRuleClient.Get(name) },
-					func(r any) bool {
-						if dnat, ok := r.(*kubeovnv1.IptablesDnatRule); ok {
-							return dnat.Status.Ready
-						}
-						return false
-					})
-				dnat := ipTablesDnatRuleClient.Get(dnatName)
-				dnatObjs = append(dnatObjs, dnat)
-			}
-			dnatList, err := ipTablesDnatRuleClient.List(context.Background(), metav1.ListOptions{})
-			framework.ExpectNoError(err, "Failed to list DNAT rules")
-			for i, dnatRule := range dnatList.Items {
-				ginkgo.By(fmt.Sprintf("Testing DNAT rule %s", dnatRule.Name))
-
-				// Get the EIP associated with this SNAT rule
-				var dnatEip *kubeovnv1.IptablesEIP
-				for _, eip := range eipObjs {
-					if eip.Name == dnatRule.Spec.EIP {
-						dnatEip = eip
-						break
-					}
-				}
-				framework.ExpectNotEmpty(dnatEip.Status.IP, "EIP should have an IP address for DNAT testing")
-
-				// Get target pod IP for DNAT
-				targetPodIPs := getPodIPs(podObjs[i])
-				framework.ExpectNotEmpty(targetPodIPs, "Target pod should have an IP address for DNAT testing")
-
-				for _, targetPodIP := range targetPodIPs {
-					if util.CheckProtocol(targetPodIP) != util.CheckProtocol(dnatEip.Status.IP) {
-						continue
-					}
-					ginkgo.By(fmt.Sprintf("Verifying DNAT mapping from EIP %s to pod %s (%s)",
-						dnatEip.Status.IP, podObjs[i].Name, targetPodIP))
-					// We do not test the actual packet forwarding here, just the rule configuration
-					// The actual packet forwarding is not tested since it needs done from outside the cluster
-					// Use helper function to verify DNAT rule configuration
-					verifyDNATRule(&dnatRule, targetPodIP, dnatEip)
-					ginkgo.By(fmt.Sprintf("DNAT rule %s properly configured: EIP=%s -> Internal=%s",
-						dnatRule.Name, dnatRule.Spec.EIP, dnatRule.Spec.InternalIP))
-				}
-			}
-
-			ginkgo.By("Test pod-to-pod connectivity within VPC")
-			// Test connectivity between pods in the same VPC
-			if len(podObjs) >= 2 {
-				pod1 := podObjs[0]
-				pod2 := podObjs[1]
-
-				pod1IPs := getPodIPs(pod1)
-				pod2IPs := getPodIPs(pod2)
-
-				framework.ExpectNotEmpty(pod1IPs, "Pod1 should have at least one IP address")
-				framework.ExpectNotEmpty(pod2IPs, "Pod2 should have at least one IP address")
-
-				pod1IP := strings.Join(pod1IPs, ",")
-				pod2IP := strings.Join(pod2IPs, ",")
-				description := fmt.Sprintf("pod-to-pod within VPC from %s (%s) to %s (%s)",
-					pod1.Name, pod1IP, pod2.Name, pod2IP)
-				err = testPodConnectivity(pod1, pod2IP, description)
-				framework.ExpectNoError(err, "Pods should be able to communicate within VPC")
-			}
-		})
-	})
-})
-
 // Logical Network Simple Test
 var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 	f := framework.NewDefaultFramework("non-primary-cni-lnet-simple")
@@ -538,7 +322,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 
 			ginkgo.By("Detect KIND bridge network and generate dynamic config")
 			kindNetwork := detectKindBridgeNetwork()
-			yamlFile = processConfigWithKindBridge(f.VpcNatGatewayImage(), originalYamlFile, kindNetwork)
+			yamlFile = processConfigWithKindBridge(originalYamlFile, kindNetwork)
 			ginkgo.DeferCleanup(func() {
 				if yamlFile != originalYamlFile {
 					os.Remove(yamlFile)
@@ -632,35 +416,6 @@ func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 	}
 
 	return nil
-}
-
-// Helper function to verify DNAT rule configuration
-func verifyDNATRule(dnatRule *kubeovnv1.IptablesDnatRule, expectedInternalIP string, expectedEIP *kubeovnv1.IptablesEIP) {
-	framework.ExpectEqual(dnatRule.Status.Ready, true, "DNAT rule %s should be ready", dnatRule.Name)
-	framework.ExpectNotEmpty(dnatRule.Spec.EIP, "DNAT rule %s should specify an EIP", dnatRule.Name)
-	framework.ExpectNotEmpty(dnatRule.Spec.InternalIP, "DNAT rule %s should specify internal IP", dnatRule.Name)
-
-	if expectedEIP != nil {
-		framework.ExpectEqual(dnatRule.Spec.EIP, expectedEIP.Name, "DNAT rule %s should map correct EIP", dnatRule.Name)
-	}
-	if expectedInternalIP != "" {
-		framework.ExpectEqual(dnatRule.Spec.InternalIP, expectedInternalIP, "DNAT rule %s should map to correct internal IP", dnatRule.Name)
-	}
-}
-
-// Helper function to verify SNAT rule configuration
-func verifySNATRule(snatRule *kubeovnv1.IptablesSnatRule, expectedPodIP string, expectedEIP *kubeovnv1.IptablesEIP) {
-	framework.ExpectEqual(snatRule.Status.Ready, true, "SNAT rule %s should be ready", snatRule.Name)
-	framework.ExpectNotEmpty(snatRule.Spec.InternalCIDR, "SNAT rule %s should specify an internal CIDR", snatRule.Name)
-	framework.ExpectNotEmpty(snatRule.Spec.EIP, "SNAT rule %s should specify an EIP", snatRule.Name)
-
-	if expectedPodIP != "" {
-		internalIP, _, _ := strings.Cut(snatRule.Spec.InternalCIDR, "/")
-		framework.ExpectEqual(internalIP, expectedPodIP, "SNAT rule %s should map correct internal CIDR", snatRule.Name)
-	}
-	if expectedEIP != nil {
-		framework.ExpectEqual(snatRule.Spec.EIP, expectedEIP.Name, "SNAT rule %s should map to correct EIP", snatRule.Name)
-	}
 }
 
 // Helper function to test network connectivity with proper interface handling

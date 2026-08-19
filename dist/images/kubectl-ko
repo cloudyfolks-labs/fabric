@@ -647,7 +647,6 @@ getTestNodePortServiceIPPorts() {
 diagnose(){
   gcCommands=()
   kubectl get crd vpcs.kubeovn.io
-  kubectl get crd vpc-nat-gateways.kubeovn.io
   kubectl get crd vpc-egress-gateways.kubeovn.io
   kubectl get crd subnets.kubeovn.io
   kubectl get crd ips.kubeovn.io
@@ -662,10 +661,6 @@ diagnose(){
   kubectl get crd ovn-fips.kubeovn.io
   kubectl get crd ovn-dnat-rules.kubeovn.io
   kubectl get crd ovn-snat-rules.kubeovn.io
-  kubectl get crd iptables-eips.kubeovn.io
-  kubectl get crd iptables-fip-rules.kubeovn.io
-  kubectl get crd iptables-snat-rules.kubeovn.io
-  kubectl get crd iptables-dnat-rules.kubeovn.io
 
   set +eu
   if ! kubectl get svc kube-dns -n kube-system ; then

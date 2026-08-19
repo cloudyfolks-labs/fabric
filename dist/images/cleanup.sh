@@ -11,32 +11,12 @@ while :; do
   sleep 1
 done
 
-for gw in $(kubectl get vpc-nat-gateways.kubeovn.io -o name); do
-  kubectl delete --ignore-not-found $gw
-done
-
 for vd in $(kubectl  get vpc-dnses.kubeovn.io -o name); do
   kubectl delete --ignore-not-found $vd
 done
 
 for vip in $(kubectl get vips.kubeovn.io -o name); do
    kubectl delete --ignore-not-found $vip
-done
-
-for snat in $(kubectl get iptables-snat-rules.kubeovn.io -o name); do
-   kubectl delete --ignore-not-found $snat
-done
-
-for dnat in $(kubectl get iptables-dnat-rules.kubeovn.io -o name); do
-   kubectl delete --ignore-not-found $dnat
-done
-
-for fip in $(kubectl get iptables-fip-rules.kubeovn.io -o name); do
-   kubectl delete --ignore-not-found $fip
-done
-
-for eip in $(kubectl get iptables-eips.kubeovn.io -o name); do
-   kubectl delete --ignore-not-found $eip
 done
 
 for odnat in $(kubectl get ovn-dnat-rules.kubeovn.io -o name); do
@@ -74,7 +54,7 @@ done
 # Delete Kube-OVN components
 kubectl delete --ignore-not-found -n kube-system deploy kube-ovn-monitor
 kubectl delete --ignore-not-found -n kube-system cm ovn-config ovn-ic-config \
-  ovn-external-gw-config ovn-vpc-nat-config ovn-vpc-nat-gw-config
+  ovn-external-gw-config ovn-vpc-nat-config
 kubectl delete --ignore-not-found -n kube-system svc kube-ovn-pinger kube-ovn-controller kube-ovn-cni kube-ovn-monitor
 kubectl delete --ignore-not-found -n kube-system deploy kube-ovn-controller
 kubectl delete --ignore-not-found -n kube-system deploy ovn-ic-controller
@@ -119,14 +99,9 @@ done
 kubectl delete --ignore-not-found crd \
   security-groups.kubeovn.io \
   ippools.kubeovn.io \
-  vpc-nat-gateways.kubeovn.io \
   vpc-egress-gateways.kubeovn.io \
   vlans.kubeovn.io \
   provider-networks.kubeovn.io \
-  iptables-dnat-rules.kubeovn.io \
-  iptables-snat-rules.kubeovn.io \
-  iptables-fip-rules.kubeovn.io \
-  iptables-eips.kubeovn.io \
   vips.kubeovn.io \
   switch-lb-rules.kubeovn.io \
   vpc-dnses.kubeovn.io \
@@ -134,7 +109,6 @@ kubectl delete --ignore-not-found crd \
   ovn-snat-rules.kubeovn.io \
   ovn-fips.kubeovn.io \
   ovn-eips.kubeovn.io \
-  qos-policies.kubeovn.io \
   subnets.kubeovn.io \
   vpcs.kubeovn.io \
   ips.kubeovn.io

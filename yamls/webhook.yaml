@@ -155,11 +155,6 @@ webhooks:
         - subnets
         - vpcs
         - vips
-        - vpc-nat-gateways
-        - iptables-eips
-        - iptables-dnat-rules
-        - iptables-snat-rules
-        - iptables-fip-rules
   objectSelector:
     matchExpressions:
       - key: app

@@ -33,16 +33,11 @@ type KubeovnV1Interface interface {
 	EvpnConvesGetter
 	IPsGetter
 	IPPoolsGetter
-	IptablesDnatRulesGetter
-	IptablesEIPsGetter
-	IptablesFIPRulesGetter
-	IptablesSnatRulesGetter
 	OvnDnatRulesGetter
 	OvnEipsGetter
 	OvnFipsGetter
 	OvnSnatRulesGetter
 	ProviderNetworksGetter
-	QoSPoliciesGetter
 	RouterLBRulesGetter
 	SecurityGroupsGetter
 	SubnetsGetter
@@ -52,7 +47,6 @@ type KubeovnV1Interface interface {
 	VpcsGetter
 	VpcDnsesGetter
 	VpcEgressGatewaysGetter
-	VpcNatGatewaysGetter
 }
 
 // KubeovnV1Client is used to interact with features provided by the kubeovn.io group.
@@ -80,22 +74,6 @@ func (c *KubeovnV1Client) IPPools() IPPoolInterface {
 	return newIPPools(c)
 }
 
-func (c *KubeovnV1Client) IptablesDnatRules() IptablesDnatRuleInterface {
-	return newIptablesDnatRules(c)
-}
-
-func (c *KubeovnV1Client) IptablesEIPs() IptablesEIPInterface {
-	return newIptablesEIPs(c)
-}
-
-func (c *KubeovnV1Client) IptablesFIPRules() IptablesFIPRuleInterface {
-	return newIptablesFIPRules(c)
-}
-
-func (c *KubeovnV1Client) IptablesSnatRules() IptablesSnatRuleInterface {
-	return newIptablesSnatRules(c)
-}
-
 func (c *KubeovnV1Client) OvnDnatRules() OvnDnatRuleInterface {
 	return newOvnDnatRules(c)
 }
@@ -114,10 +92,6 @@ func (c *KubeovnV1Client) OvnSnatRules() OvnSnatRuleInterface {
 
 func (c *KubeovnV1Client) ProviderNetworks() ProviderNetworkInterface {
 	return newProviderNetworks(c)
-}
-
-func (c *KubeovnV1Client) QoSPolicies() QoSPolicyInterface {
-	return newQoSPolicies(c)
 }
 
 func (c *KubeovnV1Client) RouterLBRules() RouterLBRuleInterface {
@@ -154,10 +128,6 @@ func (c *KubeovnV1Client) VpcDnses() VpcDnsInterface {
 
 func (c *KubeovnV1Client) VpcEgressGateways(namespace string) VpcEgressGatewayInterface {
 	return newVpcEgressGateways(c, namespace)
-}
-
-func (c *KubeovnV1Client) VpcNatGateways() VpcNatGatewayInterface {
-	return newVpcNatGateways(c)
 }
 
 // NewForConfig creates a new KubeovnV1Client for the given config.

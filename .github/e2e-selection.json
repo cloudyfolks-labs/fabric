@@ -123,13 +123,13 @@
       "reason": "OVN interconnection reconciliation"
     },
     {
-      "patterns": ["test/e2e/vpc-egress-gateway/**", "test/e2e/iptables-vpc-nat-gw/**", "test/e2e/ovn-vpc-nat-gw/**", "test/e2e/iptables-eip-qos/**", "test/e2e/vip/**"],
+      "patterns": ["test/e2e/vpc-egress-gateway/**", "test/e2e/ovn-vpc-nat-gw/**", "test/e2e/vip/**"],
       "groups": ["nat-egress"],
       "owner": "networking-e2e",
       "reason": "NAT and egress gateway suites"
     },
     {
-      "patterns": ["pkg/controller/vpc_egress_gateway*.go", "pkg/controller/vpc_nat_gateway*.go", "pkg/controller/ovn_*nat*.go", "pkg/controller/iptables_*.go", "pkg/controller/ovn_eip.go", "pkg/controller/ovn_fip.go", "pkg/controller/ovn_snat.go", "pkg/controller/ovn_dnat.go"],
+      "patterns": ["pkg/controller/vpc_egress_gateway*.go", "pkg/controller/ovn_*nat*.go", "pkg/controller/ovn_eip.go", "pkg/controller/ovn_fip.go", "pkg/controller/ovn_snat.go", "pkg/controller/ovn_dnat.go"],
       "groups": ["nat-egress"],
       "owner": "networking-e2e",
       "reason": "NAT and egress gateway reconciliation"
@@ -215,7 +215,6 @@
     "nat-egress": {
       "jobs": [
         {"id": "vpc-egress-gateway-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
-        {"id": "iptables-vpc-nat-gw-conformance-e2e"},
         {"id": "ovn-vpc-nat-gw-conformance-e2e"}
       ]
     },

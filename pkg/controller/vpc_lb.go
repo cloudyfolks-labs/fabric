@@ -17,6 +17,24 @@ import (
 	"github.com/kubeovn/kube-ovn/pkg/util"
 )
 
+var vpcNatImage = ""
+
+func (c *Controller) resyncVpcNatConfig() {
+	cm, err := c.configMapsLister.ConfigMaps(c.config.PodNamespace).Get(util.VpcNatConfig)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			klog.Errorf("failed to get %s, %v", util.VpcNatConfig, err)
+		}
+		return
+	}
+	image, exist := cm.Data["image"]
+	if !exist {
+		klog.Errorf("%s should have image field", util.VpcNatConfig)
+		return
+	}
+	vpcNatImage = image
+}
+
 func vpcLbDeploymentName(vpc string) string {
 	return fmt.Sprintf("vpc-%s-lb", vpc)
 }

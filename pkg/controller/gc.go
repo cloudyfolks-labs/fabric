@@ -44,7 +44,6 @@ func (c *Controller) gc() error {
 		c.gcAddressSet,
 		c.gcRoutePolicy,
 		c.gcStaticRoute,
-		c.gcVpcNatGateway,
 		c.gcLogicalRouterPort,
 		c.gcIP,
 		c.gcVip,
@@ -83,50 +82,6 @@ func (c *Controller) gcLogicalRouterPort() error {
 		return err
 	}
 	klog.Infof("finish to gc logical router port")
-	return nil
-}
-
-func (c *Controller) gcVpcNatGateway() error {
-	klog.Infof("start to gc vpc nat gateway")
-	gws, err := c.vpcNatGatewayLister.List(labels.Everything())
-	if err != nil {
-		klog.Errorf("failed to list vpc nat gateway, %v", err)
-		return err
-	}
-
-	var gwStsNames []string
-	for _, gw := range gws {
-		_, err = c.vpcsLister.Get(gw.Spec.Vpc)
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				klog.Errorf("failed to get vpc, %v", err)
-				return err
-			}
-			if err = c.config.KubeOvnClient.KubeovnV1().VpcNatGateways().Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
-				klog.Errorf("failed to delete vpc nat gateway, %v", err)
-				return err
-			}
-		}
-		gwStsNames = append(gwStsNames, util.GenNatGwName(gw.Name))
-	}
-
-	stss, err := c.config.KubeClient.AppsV1().StatefulSets(c.config.PodNamespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: labels.Set{util.VpcNatGatewayLabel: "true"}.AsSelector().String(),
-	})
-	if err != nil {
-		klog.Errorf("failed to list vpc nat gateway statefulset, %v", err)
-		return err
-	}
-	for _, sts := range stss.Items {
-		if !slices.Contains(gwStsNames, sts.Name) {
-			err = c.config.KubeClient.AppsV1().StatefulSets(c.config.PodNamespace).Delete(context.Background(), sts.Name, metav1.DeleteOptions{})
-			if err != nil {
-				klog.Errorf("failed to delete vpc nat gateway statefulset, %v", err)
-				return err
-			}
-		}
-	}
-	klog.Infof("finish to gc vpc nat gateway")
 	return nil
 }
 
@@ -333,7 +288,7 @@ func (c *Controller) checkIPOwnerExists(ip *kubeovnv1.IP) (bool, error) {
 	// Check if StatefulSet exists
 	if ip.Spec.PodType == util.KindStatefulSet {
 		// Extract StatefulSet name from pod name by removing the last part after '-'
-		// e.g., "vpc-nat-gw-rg-f6d4e7973976430-default-sto-1-0" -> "vpc-nat-gw-rg-f6d4e7973976430-default-sto-1"
+		// e.g., "my-sts-1-0" -> "my-sts-1"
 		stsName := ip.Spec.PodName
 		if lastDash := strings.LastIndex(stsName, "-"); lastDash != -1 {
 			stsName = stsName[:lastDash]

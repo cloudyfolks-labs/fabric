@@ -44,8 +44,6 @@ rules:
         resources:
           - vpcs
           - vpcs/status
-          - vpc-nat-gateways
-          - vpc-nat-gateways/status
           - vpc-egress-gateways
           - vpc-egress-gateways/status
           - vpc-dnses
@@ -63,14 +61,6 @@ rules:
           - provider-networks/status
           - security-groups
           - security-groups/status
-          - iptables-eips
-          - iptables-eips/status
-          - iptables-fip-rules
-          - iptables-fip-rules/status
-          - iptables-dnat-rules
-          - iptables-dnat-rules/status
-          - iptables-snat-rules
-          - iptables-snat-rules/status
           - ovn-eips
           - ovn-eips/status
           - ovn-fips
@@ -83,8 +73,6 @@ rules:
           - switch-lb-rules/status
           - router-lb-rules
           - router-lb-rules/status
-          - qos-policies
-          - qos-policies/status
     verbs:
       - create
       - patch

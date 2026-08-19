@@ -537,19 +537,6 @@ func (c *Controller) InitIPAM() error {
 		}
 	}
 
-	klog.Infof("Init IPAM from iptables EIP CR")
-	eips, err := c.iptablesEipsLister.List(labels.Everything())
-	if err != nil {
-		klog.Errorf("failed to list EIPs: %v", err)
-		return err
-	}
-	for _, eip := range eips {
-		externalNetwork := util.GetExternalNetwork(eip.Spec.ExternalSubnet)
-		if _, _, _, err = c.ipam.GetStaticAddress(eip.Name, eip.Name, eip.Status.IP, &eip.Spec.MacAddress, externalNetwork, true); err != nil {
-			klog.Errorf("failed to init ipam from iptables eip cr %s: %v", eip.Name, err)
-		}
-	}
-
 	klog.Infof("Init IPAM from ovn EIP CR")
 	oeips, err := c.ovnEipsLister.List(labels.Everything())
 	if err != nil {
@@ -799,51 +786,6 @@ func (c *Controller) syncSubnetCR() error {
 	return nil
 }
 
-func (c *Controller) syncVpcNatGatewayCR() error {
-	klog.Info("start to sync crd vpc nat gw")
-	gws, err := c.vpcNatGatewayLister.List(labels.Everything())
-	if err != nil {
-		klog.Errorf("failed to list vpc nat gateway, %v", err)
-		return err
-	}
-	if len(gws) == 0 {
-		return nil
-	}
-	// get vpc nat gateway enable state
-	cm, err := c.configMapsLister.ConfigMaps(c.config.PodNamespace).Get(util.VpcNatGatewayConfig)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		klog.Errorf("failed to get config map %s, %v", util.VpcNatGatewayConfig, err)
-		return err
-	}
-	if k8serrors.IsNotFound(err) || cm.Data["enable-vpc-nat-gw"] == "false" {
-		return nil
-	}
-	// get vpc nat gateway image
-	cm, err = c.configMapsLister.ConfigMaps(c.config.PodNamespace).Get(util.VpcNatConfig)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			klog.Errorf("should set config map for vpc-nat-gateway %s, %v", util.VpcNatConfig, err)
-			return err
-		}
-		klog.Errorf("failed to get config map %s, %v", util.VpcNatConfig, err)
-		return err
-	}
-
-	if cm.Data["image"] == "" {
-		err = errors.New("should set image for vpc-nat-gateway pod")
-		klog.Error(err)
-		return err
-	}
-
-	for _, gw := range gws {
-		if err := c.updateCrdNatGwLabels(gw.Name, ""); err != nil {
-			klog.Errorf("failed to update nat gw %s: %v", gw.Name, err)
-			return err
-		}
-	}
-	return nil
-}
-
 func (c *Controller) syncVlanCR() error {
 	klog.Info("start to sync vlans")
 	vlans, err := c.vlansLister.List(labels.Everything())
@@ -1064,32 +1006,12 @@ func (c *Controller) syncFinalizers() error {
 		klog.Errorf("failed to sync ovn snat finalizer: %v", err)
 		return err
 	}
-	if err := c.syncQoSPolicyFinalizer(cl); err != nil {
-		klog.Errorf("failed to sync qos policy finalizer: %v", err)
-		return err
-	}
 	if err := c.syncSubnetFinalizer(cl); err != nil {
 		klog.Errorf("failed to sync subnet finalizer: %v", err)
 		return err
 	}
 	if err := c.syncVipFinalizer(cl); err != nil {
 		klog.Errorf("failed to sync vip finalizer: %v", err)
-		return err
-	}
-	if err := c.syncIptablesEipFinalizer(cl); err != nil {
-		klog.Errorf("failed to sync iptables eip finalizer: %v", err)
-		return err
-	}
-	if err := c.syncIptablesFipFinalizer(cl); err != nil {
-		klog.Errorf("failed to sync iptables fip finalizer: %v", err)
-		return err
-	}
-	if err := c.syncIptablesDnatFinalizer(cl); err != nil {
-		klog.Errorf("failed to sync iptables dnat finalizer: %v", err)
-		return err
-	}
-	if err := c.syncIptablesSnatFinalizer(cl); err != nil {
-		klog.Errorf("failed to sync iptables snat finalizer: %v", err)
 		return err
 	}
 	klog.Info("sync finalizers done")

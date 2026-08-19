@@ -38,22 +38,6 @@ type IPListerExpansion interface{}
 // IPPoolLister.
 type IPPoolListerExpansion interface{}
 
-// IptablesDnatRuleListerExpansion allows custom methods to be added to
-// IptablesDnatRuleLister.
-type IptablesDnatRuleListerExpansion interface{}
-
-// IptablesEIPListerExpansion allows custom methods to be added to
-// IptablesEIPLister.
-type IptablesEIPListerExpansion interface{}
-
-// IptablesFIPRuleListerExpansion allows custom methods to be added to
-// IptablesFIPRuleLister.
-type IptablesFIPRuleListerExpansion interface{}
-
-// IptablesSnatRuleListerExpansion allows custom methods to be added to
-// IptablesSnatRuleLister.
-type IptablesSnatRuleListerExpansion interface{}
-
 // OvnDnatRuleListerExpansion allows custom methods to be added to
 // OvnDnatRuleLister.
 type OvnDnatRuleListerExpansion interface{}
@@ -73,10 +57,6 @@ type OvnSnatRuleListerExpansion interface{}
 // ProviderNetworkListerExpansion allows custom methods to be added to
 // ProviderNetworkLister.
 type ProviderNetworkListerExpansion interface{}
-
-// QoSPolicyListerExpansion allows custom methods to be added to
-// QoSPolicyLister.
-type QoSPolicyListerExpansion interface{}
 
 // RouterLBRuleListerExpansion allows custom methods to be added to
 // RouterLBRuleLister.
@@ -117,7 +97,3 @@ type VpcEgressGatewayListerExpansion interface{}
 // VpcEgressGatewayNamespaceListerExpansion allows custom methods to be added to
 // VpcEgressGatewayNamespaceLister.
 type VpcEgressGatewayNamespaceListerExpansion interface{}
-
-// VpcNatGatewayListerExpansion allows custom methods to be added to
-// VpcNatGatewayLister.
-type VpcNatGatewayListerExpansion interface{}

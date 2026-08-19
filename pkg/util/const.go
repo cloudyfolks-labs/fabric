@@ -36,24 +36,14 @@ const (
 	VMAnnotation                 = "ovn.kubernetes.io/virtualmachine"
 	ActivationStrategyAnnotation = "ovn.kubernetes.io/activation_strategy"
 
-	VpcNatGatewayAnnotation                 = "ovn.kubernetes.io/vpc_nat_gw"
-	VpcNatGatewayInitAnnotation             = "ovn.kubernetes.io/vpc_nat_gw_init"
-	VpcNatGatewayContainerRestartAnnotation = "ovn.kubernetes.io/vpc_nat_gw_container_restarted"
-	VpcNatGatewayActivatedAnnotation        = "ovn.kubernetes.io/vpc_nat_gw_activated"
-	VpcEipsAnnotation                       = "ovn.kubernetes.io/vpc_eips"
-	VpcFloatingIPMd5Annotation              = "ovn.kubernetes.io/vpc_floating_ips"
-	VpcDnatMd5Annotation                    = "ovn.kubernetes.io/vpc_dnat_md5"
-	VpcSnatMd5Annotation                    = "ovn.kubernetes.io/vpc_snat_md5"
-	VpcCIDRsAnnotation                      = "ovn.kubernetes.io/vpc_cidrs"
-	VpcCIDRsAnnotationTemplate              = "%s.kubernetes.io/vpc_cidrs"
-	VpcLbAnnotation                         = "ovn.kubernetes.io/vpc_lb"
-	VpcExternalLabel                        = "ovn.kubernetes.io/vpc_external"
-	VpcEipAnnotation                        = "ovn.kubernetes.io/vpc_eip"
-	VpcDnatEPortLabel                       = "ovn.kubernetes.io/vpc_dnat_eport"
-	VpcNatAnnotation                        = "ovn.kubernetes.io/vpc_nat"
-	OvnEipTypeLabel                         = "ovn.kubernetes.io/ovn_eip_type"
-	EipV4IpLabel                            = "ovn.kubernetes.io/eip_v4_ip"
-	EipV6IpLabel                            = "ovn.kubernetes.io/eip_v6_ip"
+	VpcLbAnnotation   = "ovn.kubernetes.io/vpc_lb"
+	VpcExternalLabel  = "ovn.kubernetes.io/vpc_external"
+	VpcEipAnnotation  = "ovn.kubernetes.io/vpc_eip"
+	VpcDnatEPortLabel = "ovn.kubernetes.io/vpc_dnat_eport"
+	VpcNatAnnotation  = "ovn.kubernetes.io/vpc_nat"
+	OvnEipTypeLabel   = "ovn.kubernetes.io/ovn_eip_type"
+	EipV4IpLabel      = "ovn.kubernetes.io/eip_v4_ip"
+	EipV6IpLabel      = "ovn.kubernetes.io/eip_v6_ip"
 
 	RouterLBRuleVipsAnnotation = "ovn.kubernetes.io/router_lb_vip"
 	SwitchLBRuleVipsAnnotation = "ovn.kubernetes.io/switch_lb_vip"
@@ -126,12 +116,9 @@ const (
 	ICGatewayLabel                     = "ovn.kubernetes.io/ic-gw"
 	ExGatewayLabel                     = "ovn.kubernetes.io/external-gw"
 	NodeExtGwLabel                     = "ovn.kubernetes.io/node-ext-gw"
-	VpcNatGatewayLabel                 = "ovn.kubernetes.io/vpc-nat-gw"
 	IPReservedLabel                    = "ovn.kubernetes.io/ip_reserved"
-	VpcNatGatewayNameLabel             = "ovn.kubernetes.io/vpc-nat-gw-name"
 	VpcLbLabel                         = "ovn.kubernetes.io/vpc_lb"
 	VpcDNSNameLabel                    = "ovn.kubernetes.io/vpc-dns"
-	QoSLabel                           = "ovn.kubernetes.io/qos"
 	NodeNameLabel                      = "ovn.kubernetes.io/node-name"
 	NetworkPolicyLogAnnotation         = "ovn.kubernetes.io/enable_log"
 	NetworkPolicyEnforcementAnnotation = "ovn.kubernetes.io/network_policy_enforcement"
@@ -231,7 +218,6 @@ const (
 	ExternalGatewayConfig  = "ovn-external-gw-config"
 	InterconnectionSwitch  = "ts"
 	ExternalGatewaySwitch  = "ovn-external"
-	VpcNatGatewayConfig    = "ovn-vpc-nat-gw-config"
 	VpcLbNetworkAttachment = "ovn-vpc-lb"
 	VpcDNSConfig           = "vpc-dns-config"
 	VpcDNSDepTemplate      = "vpc-dns-dep"
@@ -256,15 +242,12 @@ const (
 	SnatUsingEip = "snat"
 	DnatUsingEip = "dnat"
 
-	OvnFip      = "ovn"
-	IptablesFip = "iptables"
+	OvnFip = "ovn"
 
 	GatewayRouterPolicyPriority      = 29000
 	EgressGatewayDropPolicyPriority  = 29090
 	EgressGatewayPolicyPriority      = 29100
 	EgressGatewayLocalPolicyPriority = 29150
-	NatGatewayDropPolicyPriority     = 29190
-	NatGatewayPolicyPriority         = 29200
 	NorthGatewayRoutePolicyPriority  = 29250
 	U2OSubnetPolicyPriority          = 29400
 	OvnICPolicyPriority              = 29500
@@ -430,10 +413,6 @@ var (
 	KindCronJob     = ObjectKind[*batchv1.CronJob]()
 
 	KindIP               = ObjectKind[*kubeovnv1.IP]()
-	KindIptablesEIP      = ObjectKind[*kubeovnv1.IptablesEIP]()
-	KindIptablesDnatRule = ObjectKind[*kubeovnv1.IptablesDnatRule]()
-	KindIptablesSnatRule = ObjectKind[*kubeovnv1.IptablesSnatRule]()
-	KindIptablesFIPRule  = ObjectKind[*kubeovnv1.IptablesFIPRule]()
 	KindOvnEip           = ObjectKind[*kubeovnv1.OvnEip]()
 	KindOvnFip           = ObjectKind[*kubeovnv1.OvnFip]()
 	KindOvnDnatRule      = ObjectKind[*kubeovnv1.OvnDnatRule]()
@@ -442,7 +421,6 @@ var (
 	KindVip              = ObjectKind[*kubeovnv1.Vip]()
 	KindVpc              = ObjectKind[*kubeovnv1.Vpc]()
 	KindVpcEgressGateway = ObjectKind[*kubeovnv1.VpcEgressGateway]()
-	KindVpcNatGateway    = ObjectKind[*kubeovnv1.VpcNatGateway]()
 
 	KindVirtualMachine                  = ObjectKind[*kubevirtv1.VirtualMachine]()
 	KindVirtualMachineInstance          = ObjectKind[*kubevirtv1.VirtualMachineInstance]()

@@ -294,16 +294,9 @@ func (f *Framework) SkipVersionPriorTo(major, minor uint, reason string) {
 }
 
 // Image returns the image reference with the specified name.
-// e.g. Image("vpc-nat-gateway") returns "docker.io/kubeovn/vpc-nat-gateway:v1.16.0"
 func (f *Framework) Image(name string) string {
 	repo := path.Clean(path.Join(path.Dir(f.KubeOVNImageRepo), name))
 	return fmt.Sprintf("%s/%s:%s", f.KubeOVNImageDomain, repo, f.KubeOVNImageTag)
-}
-
-// VpcNatGatewayImage returns the VPC NAT gateway image reference.
-// e.g. "docker.io/kubeovn/vpc-nat-gateway:v1.16.0"
-func (f *Framework) VpcNatGatewayImage() string {
-	return f.Image("vpc-nat-gateway")
 }
 
 func (f *Framework) ValidateFinalizers(obj metav1.Object) {

@@ -300,9 +300,8 @@ func TrimManagedFields(obj any) (any, error) {
 //   - Spec.Containers[].Name and .Ports (named-port policy lookup)
 //   - Spec.InitContainers[].Name, .Ports, .RestartPolicy (restartable sidecars)
 //   - Status.Phase, .PodIP, .PodIPs, .HostIP, .Reason
-//   - Status.ContainerStatuses[].{Name, RestartCount, State} (vpc-nat-gw
-//     restart detection and the FIP/DNAT/SNAT/EIP redo path which reads
-//     State.Running.StartedAt)
+//   - Status.ContainerStatuses[].{Name, RestartCount, State} (restart
+//     detection paths which read State.Running.StartedAt)
 //   - Status.Conditions[].{Type, Status, LastTransitionTime}
 //
 // Non-pod objects fall through to TrimManagedFields.

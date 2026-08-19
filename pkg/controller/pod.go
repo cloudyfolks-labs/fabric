@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -553,15 +552,6 @@ func (c *Controller) handleAddOrUpdatePod(key string) (err error) {
 		}
 	}
 
-	isVpcNatGw, vpcGwName := c.checkIsPodVpcNatGw(pod)
-	if isVpcNatGw {
-		c.enqueueAddOrUpdateVpcNatGwByName(vpcGwName, "natgw-pod-update")
-		if needRestartNatGatewayPod(pod) {
-			klog.Infof("restarting vpc nat gateway %s", vpcGwName)
-			c.addOrUpdateVpcNatGatewayQueue.Add(vpcGwName)
-		}
-	}
-
 	// Reconcile per-port DHCP options for pods that carry DHCP annotations.
 	// This handles annotation add/change on already-running pods without requiring a pod restart.
 	if err = c.reconcilePodDHCPOptions(pod, podNets); err != nil {
@@ -873,14 +863,6 @@ func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets [
 	// Called after pod re-fetch so getPodKubeovnNets sees current annotations.
 	if isVMPod && c.config.EnableKeepVMIP {
 		c.cleanStaleVMAttachmentIPs(pod, podName)
-	}
-
-	// Check if pod is a vpc nat gateway. Annotation set will have subnet provider name as prefix
-	isVpcNatGw, vpcGwName := c.checkIsPodVpcNatGw(pod)
-	if isVpcNatGw {
-		c.enqueueAddOrUpdateVpcNatGwByName(vpcGwName, "natgw-pod-update")
-		klog.Infof("init vpc nat gateway pod %s/%s with name %s", namespace, name, vpcGwName)
-		c.initVpcNatGatewayQueue.Add(vpcGwName)
 	}
 
 	return pod, nil
@@ -1890,18 +1872,6 @@ func needAllocateSubnets(pod *v1.Pod, nets []*kubeovnNet) []*kubeovnNet {
 		}
 	}
 	return result
-}
-
-func needRestartNatGatewayPod(pod *v1.Pod) bool {
-	for _, psc := range pod.Status.ContainerStatuses {
-		if psc.Name != "vpc-nat-gw" {
-			continue
-		}
-		if psc.RestartCount > 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *Controller) podNeedSync(pod *v1.Pod) (bool, error) {
@@ -3231,124 +3201,6 @@ func (c *Controller) getVirtualIPs(pod *v1.Pod, podNets []*kubeovnNet) map[strin
 		vipsMap[key] = strings.Join(vipsList, ",")
 	}
 	return vipsMap
-}
-
-// Check if pod is a VPC NAT gateway using pod annotations
-func (c *Controller) checkIsPodVpcNatGw(pod *v1.Pod) (bool, string) {
-	if pod == nil {
-		return false, ""
-	}
-	if pod.Annotations == nil {
-		return false, ""
-	}
-	vpcGwName, isVpcNatGw := pod.Annotations[util.VpcNatGatewayAnnotation]
-	if isVpcNatGw {
-		if vpcGwName == "" {
-			klog.Errorf("pod %s is vpc nat gateway but name is empty", pod.Name)
-			return false, ""
-		}
-		klog.Infof("pod %s is vpc nat gateway %s", pod.Name, vpcGwName)
-	}
-	return isVpcNatGw, vpcGwName
-}
-
-func natGwNameFromStatefulSetOwner(pod *v1.Pod) string {
-	isStsPod, stsName, _ := isStatefulSetPod(pod)
-	if !isStsPod {
-		return ""
-	}
-
-	prefix := util.VpcNatGwNamePrefix + "-"
-	if !strings.HasPrefix(stsName, prefix) {
-		return ""
-	}
-	return strings.TrimPrefix(stsName, prefix)
-}
-
-func (c *Controller) backfillVpcNatGwLanIPFromPod(pod *v1.Pod, gwName string) error {
-	if pod == nil {
-		return nil
-	}
-
-	ownerGwName := natGwNameFromStatefulSetOwner(pod)
-	if ownerGwName == "" {
-		return nil
-	}
-	if gwName == "" {
-		gwName = ownerGwName
-	}
-	// Use owner reference as a guard to avoid patching unrelated pods carrying a stale annotation.
-	if ownerGwName != gwName {
-		klog.Warningf("skip backfill for pod %s/%s: gw annotation %q does not match owner statefulset %q",
-			pod.Namespace, pod.Name, gwName, ownerGwName)
-		return nil
-	}
-
-	var (
-		gw  *kubeovnv1.VpcNatGateway
-		err error
-	)
-	if c.vpcNatGatewayLister != nil {
-		gw, err = c.vpcNatGatewayLister.Get(gwName)
-	} else {
-		gw, err = c.config.KubeOvnClient.KubeovnV1().VpcNatGateways().Get(context.Background(), gwName, metav1.GetOptions{})
-	}
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	if gw.Spec.LanIP != "" || gw.Spec.Replicas > 1 {
-		return nil
-	}
-
-	subnet, err := c.subnetsLister.Get(gw.Spec.Subnet)
-	if err != nil {
-		return fmt.Errorf("failed to get subnet %s: %w", gw.Spec.Subnet, err)
-	}
-	if !isOvnSubnet(subnet) {
-		return fmt.Errorf("subnet %s is not an OVN subnet", gw.Spec.Subnet)
-	}
-	provider := subnet.Spec.Provider
-
-	lanIP := pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, provider)]
-	v4IP, v6IP := util.SplitStringIP(lanIP)
-	switch subnet.Spec.Protocol {
-	case kubeovnv1.ProtocolIPv6:
-		lanIP = v6IP
-	case kubeovnv1.ProtocolIPv4:
-		lanIP = v4IP
-	case kubeovnv1.ProtocolDual:
-		if v4IP != "" {
-			lanIP = v4IP
-		} else {
-			lanIP = v6IP
-		}
-	default:
-		lanIP = v4IP
-	}
-	if lanIP == "" || net.ParseIP(lanIP) == nil {
-		return nil
-	}
-
-	patchPayload := map[string]any{
-		"spec": map[string]string{
-			"lanIp": lanIP,
-		},
-	}
-	raw, err := json.Marshal(patchPayload)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.config.KubeOvnClient.KubeovnV1().VpcNatGateways().Patch(context.Background(),
-		gw.Name, types.MergePatchType, raw, metav1.PatchOptions{})
-	if err != nil {
-		return err
-	}
-	klog.Infof("backfilled vpc nat gateway %s spec.lanIP with pod %s/%s ip %s", gw.Name, pod.Namespace, pod.Name, lanIP)
-	return nil
 }
 
 func perInterfaceIPAnnotationKey(nadName, nadNamespace, ifaceName string) string {

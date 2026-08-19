@@ -96,7 +96,6 @@ e2e-build:
 	$(GINKGO_E2E_BUILD) ./test/e2e/vip
 	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-egress-gateway
 	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-dynamic-routing
-	$(GINKGO_E2E_BUILD) ./test/e2e/iptables-vpc-nat-gw
 	$(GINKGO_E2E_BUILD) ./test/e2e/ovn-vpc-nat-gw
 	$(GINKGO_E2E_BUILD) ./test/e2e/ha
 	$(GINKGO_E2E_BUILD) ./test/e2e/security
@@ -224,27 +223,6 @@ vpc-dynamic-routing-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m \
 		--focus=CNI:Kube-OVN ./test/e2e/vpc-dynamic-routing/vpc-dynamic-routing.test -- $(TEST_BIN_ARGS)
-
-.PHONY: iptables-eip-conformance-e2e
-iptables-eip-conformance-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/iptables-vpc-nat-gw
-	E2E_BRANCH=$(E2E_BRANCH) \
-	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
-	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/iptables-vpc-nat-gw/iptables-vpc-nat-gw.test -- $(TEST_BIN_ARGS)
-
-.PHONY: iptables-eip-qos-conformance-e2e
-iptables-eip-qos-conformance-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/iptables-eip-qos
-	E2E_BRANCH=$(E2E_BRANCH) \
-	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
-	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/iptables-eip-qos/iptables-eip-qos.test -- $(TEST_BIN_ARGS)
-
-.PHONY: iptables-vpc-nat-gw-conformance-e2e
-iptables-vpc-nat-gw-conformance-e2e: iptables-eip-conformance-e2e iptables-eip-qos-conformance-e2e
 
 .PHONY: ovn-vpc-nat-gw-conformance-e2e
 ovn-vpc-nat-gw-conformance-e2e:

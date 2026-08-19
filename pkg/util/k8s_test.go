@@ -1076,7 +1076,7 @@ func TestTrimPodForController(t *testing.T) {
 	require.Equal(t, corev1.ContainerRestartPolicyAlways, *trimmed.Spec.InitContainers[0].RestartPolicy)
 	require.Equal(t, "sidecar-http", trimmed.Spec.InitContainers[0].Ports[0].Name)
 
-	// status fields required for pod alive / vpc-nat-gw restart checks
+	// status fields required for pod alive / restart checks
 	require.Equal(t, corev1.PodRunning, trimmed.Status.Phase)
 	require.Equal(t, "10.244.0.5", trimmed.Status.PodIP)
 	require.Equal(t, []corev1.PodIP{{IP: "10.244.0.5"}}, trimmed.Status.PodIPs)
@@ -1129,7 +1129,7 @@ func TestTrimPodForController(t *testing.T) {
 	require.Nil(t, ic0.LivenessProbe)
 	require.Nil(t, ic0.SecurityContext)
 
-	// container status: State preserved (vpc-nat-gw redo path reads
+	// container status: State preserved (restart detection paths read
 	// State.Running.StartedAt); other heavy fields trimmed.
 	cs0 := trimmed.Status.ContainerStatuses[0]
 	require.NotNil(t, cs0.State.Running)

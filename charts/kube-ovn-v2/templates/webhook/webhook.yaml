@@ -54,12 +54,7 @@ webhooks:
           - subnets
           - vpcs
           - vips
-          - vpc-nat-gateways
-          - iptables-eips
-          - iptables-dnat-rules
-          - iptables-snat-rules
-          - iptables-fip-rules
-    objectSelector:
+              objectSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: NotIn
