@@ -3902,7 +3902,9 @@ jobs:
 
   vpc-dynamic-routing-e2e:
     name: VPC Dynamic Routing E2E
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'vpc-dynamic-routing-e2e')
     needs:
+      - e2e-selection
       - build-kube-ovn
       - build-e2e-binaries
     runs-on: ubuntu-24.04
@@ -3919,6 +3921,9 @@ jobs:
           swap-storage: false
 
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.headSHA || github.sha }}
+          persist-credentials: false
 
       - name: Create the default branch directory
         if: (github.base_ref || github.ref_name) != github.event.repository.default_branch
@@ -3931,6 +3936,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 1
           path: test/e2e/source
+          persist-credentials: false
 
       - name: Export E2E directory
         run: |
@@ -4917,6 +4923,7 @@ jobs:
       - router-lb-rule-e2e
       - talos-installation-test
       - underlay-logical-gateway-installation-test
+      - vpc-dynamic-routing-e2e
       - vpc-egress-gateway-e2e
       - webhook-e2e
     runs-on: ubuntu-24.04
