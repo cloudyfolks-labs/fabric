@@ -188,7 +188,11 @@ install-chart:
 	@timeout 120 bash -c 'until kubectl get node -l node-role.kubernetes.io/control-plane -o name 2>/dev/null | grep -q .; do echo "Waiting for control-plane nodes to be labeled..."; sleep 2; done'
 	kubectl label node --overwrite -l node-role.kubernetes.io/control-plane kube-ovn/role=master
 	helm install kubeovn ./charts/fabric --wait \
+		--set global.registry.address=$(REGISTRY) \
+		--set global.images.kubeovn.repository=kube-ovn \
 		--set global.images.kubeovn.tag=$(VERSION) \
+		--set natGw.image.repository=$(REGISTRY)/vpc-nat-gateway \
+		--set natGw.image.tag=$(VERSION) \
 		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
 		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
 		$(HELM_OVN_DB_TLS_ARGS) \
@@ -198,7 +202,11 @@ install-chart:
 .PHONY: upgrade-chart
 upgrade-chart:
 	helm upgrade kubeovn ./charts/fabric --wait \
+		--set global.registry.address=$(REGISTRY) \
+		--set global.images.kubeovn.repository=kube-ovn \
 		--set global.images.kubeovn.tag=$(VERSION) \
+		--set natGw.image.repository=$(REGISTRY)/vpc-nat-gateway \
+		--set natGw.image.tag=$(VERSION) \
 		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
 		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
 		$(HELM_OVN_DB_TLS_ARGS) \
