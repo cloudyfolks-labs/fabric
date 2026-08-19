@@ -200,17 +200,6 @@ func processConfigWithKindBridge(yamlPath string, kindNetwork *KindBridgeNetwork
 	return tmpFile.Name()
 }
 
-// Helper function to wait for resource to be ready with Eventually
-func waitForResourceReady(name string, getFunc func(string) any, readyFunc func(any) bool) {
-	gomega.Eventually(func() bool {
-		resource := getFunc(name)
-		if resource == nil {
-			return false
-		}
-		return readyFunc(resource)
-	}, 60*time.Second, time.Second).Should(gomega.BeTrue(), fmt.Sprintf("Resource %s should be ready", name))
-}
-
 // Helper function to get pod IPs (primary or non-primary)
 func getPodIPs(pod *corev1.Pod) []string {
 	ginkgo.GinkgoHelper()
