@@ -30,7 +30,6 @@ type KubeovnV1Interface interface {
 	RESTClient() rest.Interface
 	BgpConvesGetter
 	DNSNameResolversGetter
-	EvpnConvesGetter
 	IPsGetter
 	IPPoolsGetter
 	OvnDnatRulesGetter
@@ -60,10 +59,6 @@ func (c *KubeovnV1Client) BgpConves() BgpConfInterface {
 
 func (c *KubeovnV1Client) DNSNameResolvers() DNSNameResolverInterface {
 	return newDNSNameResolvers(c)
-}
-
-func (c *KubeovnV1Client) EvpnConves() EvpnConfInterface {
-	return newEvpnConves(c)
 }
 
 func (c *KubeovnV1Client) IPs() IPInterface {

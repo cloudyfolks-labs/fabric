@@ -60,10 +60,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kubeovnv1.DNSNameResolverSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DNSNameResolverStatus"):
 		return &kubeovnv1.DNSNameResolverStatusApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("EvpnConf"):
-		return &kubeovnv1.EvpnConfApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("EvpnConfSpec"):
-		return &kubeovnv1.EvpnConfSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IP"):
 		return &kubeovnv1.IPApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPPool"):

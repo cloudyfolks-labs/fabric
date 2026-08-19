@@ -108,15 +108,6 @@ type Controller struct {
 	restartableInitContainersMu      sync.Mutex
 	restartableInitContainerSupport  restartableInitContainerSupport
 
-	// bgpConfLister/evpnConfLister are published asynchronously by the
-	// optional-CRD background poller (StartBgpEvpnConfInformerFactory), but
-	// read by VEG worker goroutines. Atomic pointers keep the read/write
-	// race-free without locking the hot reconcile path.
-	bgpConfLister  atomic.Pointer[kubeovnlister.BgpConfLister]
-	bgpConfSynced  cache.InformerSynced
-	evpnConfLister atomic.Pointer[kubeovnlister.EvpnConfLister]
-	evpnConfSynced cache.InformerSynced
-
 	routerLBRuleLister      kubeovnlister.RouterLBRuleLister
 	routerLBRuleSynced      cache.InformerSynced
 	addRouterLBRuleQueue    workqueue.TypedRateLimitingInterface[string]
@@ -398,8 +389,6 @@ func Run(ctx context.Context, config *Configuration) {
 
 	vpcInformer := kubeovnInformerFactory.Kubeovn().V1().Vpcs()
 	vpcEgressGatewayInformer := kubeovnInformerFactory.Kubeovn().V1().VpcEgressGateways()
-	// BgpConf/EvpnConf informers are started lazily via StartBgpEvpnConfInformerFactory
-	// because their CRDs are optional on clusters that don't use vpc-egress-gateway BGP/EVPN.
 	subnetInformer := kubeovnInformerFactory.Kubeovn().V1().Subnets()
 	ippoolInformer := kubeovnInformerFactory.Kubeovn().V1().IPPools()
 	ipInformer := kubeovnInformerFactory.Kubeovn().V1().IPs()
@@ -450,9 +439,6 @@ func Run(ctx context.Context, config *Configuration) {
 		addOrUpdateVpcEgressGatewayQueue: newTypedRateLimitingQueue("AddOrUpdateVpcEgressGateway", custCrdRateLimiter),
 		delVpcEgressGatewayQueue:         newTypedRateLimitingQueue("DeleteVpcEgressGateway", custCrdRateLimiter),
 		vpcEgressGatewayKeyMutex:         keymutex.NewHashed(numKeyLocks),
-
-		// bgpConfLister/bgpConfSynced/evpnConfLister/evpnConfSynced are populated lazily
-		// in startBgpEvpnConfInformer once the matching CRDs are detected.
 
 		subnetsLister:           subnetInformer.Lister(),
 		subnetSynced:            subnetInformer.Informer().HasSynced,
@@ -713,11 +699,6 @@ func Run(ctx context.Context, config *Configuration) {
 	// ServiceCIDR (networking.k8s.io/v1) is GA in K8s 1.33; older clusters
 	// don't have the API at all. Best-effort start with periodic retry.
 	controller.StartServiceCIDRInformerFactory(ctx)
-
-	// BgpConf/EvpnConf are optional CRDs (v1.16.0+, used by vpc-egress-gateway BGP/EVPN).
-	// They may be missing on clusters upgraded from <v1.16 via Helm, which does not
-	// re-apply the `crds/` directory on `helm upgrade`. Best-effort start with periodic retry.
-	controller.StartBgpEvpnConfInformerFactory(ctx)
 
 	// MetalLB is optional. When its ServiceL2Status API is available, use it to
 	// identify the chassis announcing each underlay LoadBalancer VIP.

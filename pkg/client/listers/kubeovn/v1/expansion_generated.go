@@ -26,10 +26,6 @@ type BgpConfListerExpansion interface{}
 // DNSNameResolverLister.
 type DNSNameResolverListerExpansion interface{}
 
-// EvpnConfListerExpansion allows custom methods to be added to
-// EvpnConfLister.
-type EvpnConfListerExpansion interface{}
-
 // IPListerExpansion allows custom methods to be added to
 // IPLister.
 type IPListerExpansion interface{}

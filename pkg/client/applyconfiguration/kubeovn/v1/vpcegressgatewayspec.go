@@ -28,12 +28,6 @@ type VpcEgressGatewaySpecApplyConfiguration struct {
 	// optional VPC name
 	// if not specified, the default VPC will be used
 	VPC *string `json:"vpc,omitempty"`
-	// optional BGP configuration name
-	// it references a cluster-scoped BgpConf resource
-	BgpConf *string `json:"bgpConf,omitempty"`
-	// optional EVPN configuration name
-	// it references a cluster-scoped EvpnConf resource
-	EvpnConf *string `json:"evpnConf,omitempty"`
 	// workload replicas
 	Replicas *int32 `json:"replicas,omitempty"`
 	// optional name prefix used to generate the workload
@@ -95,22 +89,6 @@ func VpcEgressGatewaySpec() *VpcEgressGatewaySpecApplyConfiguration {
 // If called multiple times, the VPC field is set to the value of the last call.
 func (b *VpcEgressGatewaySpecApplyConfiguration) WithVPC(value string) *VpcEgressGatewaySpecApplyConfiguration {
 	b.VPC = &value
-	return b
-}
-
-// WithBgpConf sets the BgpConf field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the BgpConf field is set to the value of the last call.
-func (b *VpcEgressGatewaySpecApplyConfiguration) WithBgpConf(value string) *VpcEgressGatewaySpecApplyConfiguration {
-	b.BgpConf = &value
-	return b
-}
-
-// WithEvpnConf sets the EvpnConf field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the EvpnConf field is set to the value of the last call.
-func (b *VpcEgressGatewaySpecApplyConfiguration) WithEvpnConf(value string) *VpcEgressGatewaySpecApplyConfiguration {
-	b.EvpnConf = &value
 	return b
 }
 

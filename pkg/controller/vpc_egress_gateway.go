@@ -638,36 +638,6 @@ func (c *Controller) reconcileVpcEgressGatewayWorkload(gw *kubeovnv1.VpcEgressGa
 	}
 	initEnv = append(initEnv, ipv6Env...)
 
-	var evpnConf *kubeovnv1.EvpnConf
-	if gw.Spec.BgpConf != "" {
-		initEnv = append(initEnv, corev1.EnvVar{
-			Name:  "ENABLE_BGP",
-			Value: "true",
-		})
-
-		if gw.Spec.EvpnConf != "" {
-			evpnLister := c.evpnConfLister.Load()
-			if evpnLister == nil {
-				err = fmt.Errorf("EvpnConf CRD is not installed on the cluster, cannot configure EVPN for vpc-egress-gateway %s/%s", gw.Namespace, gw.Name)
-				klog.Error(err)
-				return attachmentNetworkName, nil, nil, nil, err
-			}
-			evpnConf, err = (*evpnLister).Get(gw.Spec.EvpnConf)
-			if err != nil {
-				err = fmt.Errorf("failed to get EvpnConf %s: %w", gw.Spec.EvpnConf, err)
-				klog.Error(err)
-				return attachmentNetworkName, nil, nil, nil, err
-			}
-			initEnv = append(initEnv, corev1.EnvVar{
-				Name:  "ENABLE_EVPN",
-				Value: "true",
-			}, corev1.EnvVar{
-				Name:  "VNI",
-				Value: strconv.FormatUint(uint64(evpnConf.Spec.VNI), 10),
-			})
-		}
-	}
-
 	// generate workload
 	labels := vegWorkloadLabels(gw.Name)
 	observerState := c.reconcileVpcEgressGatewayObservability(gw, attachmentNetworkName, labels)
@@ -757,35 +727,6 @@ func (c *Controller) reconcileVpcEgressGatewayWorkload(gw *kubeovnv1.VpcEgressGa
 		}
 	}
 
-	// add FRR container if bgpConf is specified
-	if gw.Spec.BgpConf != "" {
-		bgpLister := c.bgpConfLister.Load()
-		if bgpLister == nil {
-			err = fmt.Errorf("BgpConf CRD is not installed on the cluster, cannot configure BGP for vpc-egress-gateway %s/%s", gw.Namespace, gw.Name)
-			klog.Error(err)
-			return attachmentNetworkName, nil, nil, nil, err
-		}
-		bgpConf, err := (*bgpLister).Get(gw.Spec.BgpConf)
-		if err != nil {
-			err = fmt.Errorf("failed to get BgpConf %s: %w", gw.Spec.BgpConf, err)
-			klog.Error(err)
-			return attachmentNetworkName, nil, nil, nil, err
-		}
-
-		frrInitContainer := vpcEgressGatewayInitContainerFRRConfig(c.config.Image, bgpConf, evpnConf)
-		deploy.Spec.Template.Spec.InitContainers = append(deploy.Spec.Template.Spec.InitContainers, frrInitContainer)
-
-		frrContainer := vpcEgressGatewayContainerFRR(c.config.FRRImage)
-		deploy.Spec.Template.Spec.Containers = append(deploy.Spec.Template.Spec.Containers, frrContainer)
-
-		frrVolume := corev1.Volume{
-			Name: "frr-config",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		}
-		deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, frrVolume)
-	}
 	addVpcEgressGatewayObserver(&deploy.Spec.Template.Spec, image, gw.Spec.Observability, observerState)
 
 	// generate hash for the workload to determine whether to update the existing workload or not
@@ -1235,122 +1176,6 @@ func setVpcEgressGatewayWorkloadResources(deploy *appsv1.Deployment, resources c
 	}
 	containers[containerIndex].Resources = resources
 	return nil
-}
-
-func vpcEgressGatewayInitContainerFRRConfig(image string, bgpConf *kubeovnv1.BgpConf, evpnConf *kubeovnv1.EvpnConf) corev1.Container {
-	env := []corev1.EnvVar{
-		{
-			Name:  "LOCAL_ASN",
-			Value: strconv.FormatUint(uint64(bgpConf.Spec.LocalASN), 10),
-		},
-		{
-			Name:  "PEER_ASN",
-			Value: strconv.FormatUint(uint64(bgpConf.Spec.PeerASN), 10),
-		},
-		{
-			Name:  "ROUTER_ID",
-			Value: bgpConf.Spec.RouterID,
-		},
-		{
-			Name:  "NEIGHBOURS",
-			Value: strings.Join(bgpConf.Spec.Neighbours, ","),
-		},
-	}
-
-	if bgpConf.Spec.Password != "" {
-		env = append(env, corev1.EnvVar{
-			Name:  "BGP_PASSWORD",
-			Value: bgpConf.Spec.Password,
-		})
-	}
-
-	if bgpConf.Spec.HoldTime != (metav1.Duration{}) {
-		env = append(env, corev1.EnvVar{
-			Name:  "BGP_HOLD_TIME",
-			Value: formatDurationToSeconds(bgpConf.Spec.HoldTime),
-		})
-	}
-
-	if bgpConf.Spec.KeepaliveTime != (metav1.Duration{}) {
-		env = append(env, corev1.EnvVar{
-			Name:  "BGP_KEEPALIVE_TIME",
-			Value: formatDurationToSeconds(bgpConf.Spec.KeepaliveTime),
-		})
-	}
-
-	if bgpConf.Spec.ConnectTime != (metav1.Duration{}) {
-		env = append(env, corev1.EnvVar{
-			Name:  "BGP_CONNECT_TIME",
-			Value: formatDurationToSeconds(bgpConf.Spec.ConnectTime),
-		})
-	}
-
-	if bgpConf.Spec.EbgpMultiHop {
-		env = append(env, corev1.EnvVar{
-			Name:  "BGP_EBGP_MULTIHOP",
-			Value: "true",
-		})
-	}
-
-	if evpnConf != nil {
-		env = append(
-			env,
-			corev1.EnvVar{
-				Name:  "VNI",
-				Value: strconv.FormatUint(uint64(evpnConf.Spec.VNI), 10),
-			},
-			corev1.EnvVar{
-				Name:  "ROUTE_TARGETS",
-				Value: strings.Join(evpnConf.Spec.RouteTargets, ","),
-			},
-		)
-	}
-
-	return corev1.Container{
-		Name:            "frr-config",
-		Image:           image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command: []string{
-			"/kube-ovn/kube-ovn-cmd",
-			"frr-render",
-		},
-		Env: env,
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "frr-config",
-				MountPath: "/etc/frr",
-			},
-		},
-	}
-}
-
-func formatDurationToSeconds(d metav1.Duration) string {
-	seconds := min(max(int64(d.Seconds()), 0), 65535)
-	return fmt.Sprintf("%ds", seconds)
-}
-
-func vpcEgressGatewayContainerFRR(image string) corev1.Container {
-	return corev1.Container{
-		Name:            "frr",
-		Image:           image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command: []string{
-			"bash",
-			"-c",
-			"/usr/lib/frr/docker-start & until [[ -f /etc/frr/frr.log ]]; do sleep 1; done; tail -f /etc/frr/frr.log",
-		},
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{"NET_ADMIN", "NET_RAW", "NET_BIND_SERVICE", "SYS_ADMIN"},
-			},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "frr-config",
-				MountPath: "/etc/frr",
-			},
-		},
-	}
 }
 
 func (c *Controller) handleDelVpcEgressGateway(key string) error {

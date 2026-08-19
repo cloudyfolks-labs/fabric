@@ -22,8 +22,6 @@ type BgpConfExpansion interface{}
 
 type DNSNameResolverExpansion interface{}
 
-type EvpnConfExpansion interface{}
-
 type IPExpansion interface{}
 
 type IPPoolExpansion interface{}

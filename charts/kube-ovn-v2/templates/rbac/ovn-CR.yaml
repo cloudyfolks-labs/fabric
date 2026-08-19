@@ -43,7 +43,6 @@ rules:
       - dnsnameresolvers
       - dnsnameresolvers/status
       - bgp-confs
-      - evpn-confs
     verbs:
       - create
       - get

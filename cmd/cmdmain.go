@@ -22,11 +22,6 @@ const (
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "frr-render" {
-		frr.CmdMain()
-		return
-	}
-
 	cmd := filepath.Base(os.Args[0])
 	switch cmd {
 	case CmdMonitor:
