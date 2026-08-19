@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "expectedRunnerJobs": 81,
+  "expectedRunnerJobs": 75,
   "forceFull": false,
   "fullThreshold": 3,
   "productionPrefixes": ["cmd/", "pkg/", "versions/"],
@@ -105,7 +105,7 @@
       "reason": "service and load balancer reconciliation"
     },
     {
-      "patterns": ["charts/**", "makefiles/talos.mk", "talos/**"],
+      "patterns": ["charts/**"],
       "groups": ["install-platform"],
       "owner": "networking-e2e",
       "reason": "chart and platform installation coverage"
@@ -200,8 +200,7 @@
     "install-platform": {
       "jobs": [
         {"id": "chart-test", "matrix": {"ssl": ["true", "false"]}},
-        {"id": "installation-compatibility-test", "matrix": {"k8s-version": ["v1.29.14"]}},
-        {"id": "talos-installation-test", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]}}
+        {"id": "installation-compatibility-test", "matrix": {"k8s-version": ["v1.29.14"]}}
       ]
     },
     "ha-hosted": {

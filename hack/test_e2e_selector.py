@@ -39,7 +39,7 @@ class E2ESelectorTest(unittest.TestCase):
           - ipv4
           - ipv6
           - dual
-        mode:""",
+        np-enforcement:""",
             """        ip-family:
           - ipv4
           - ipv6
@@ -57,11 +57,11 @@ class E2ESelectorTest(unittest.TestCase):
         drifted = workflow.replace(
             """          - ipv6
           - dual
-        mode:""",
+        np-enforcement:""",
             """          - ipv6
           - dual
           - dual
-        mode:""",
+        np-enforcement:""",
             1,
         )
         self.assertNotEqual(workflow, drifted)
@@ -128,7 +128,7 @@ class E2ESelectorTest(unittest.TestCase):
         )
 
         self.assertTrue(plan["full"])
-        self.assertEqual(len(plan["matrix"]), 81)
+        self.assertEqual(len(plan["matrix"]), 75)
         self.assertIn("file list is incomplete", plan["fullReason"])
 
     def testPathsLabelsAndRequestsAreUnioned(self):
@@ -162,14 +162,14 @@ class E2ESelectorTest(unittest.TestCase):
         )
 
         self.assertTrue(plan["full"])
-        self.assertEqual(len(plan["matrix"]), 81)
+        self.assertEqual(len(plan["matrix"]), 75)
         self.assertIn("matched 3 test groups", plan["fullReason"])
 
     def testUnknownProductionPathPromotesToFull(self):
         plan = self.select(["pkg/new-component/new_feature.go"])
 
         self.assertTrue(plan["full"])
-        self.assertEqual(len(plan["matrix"]), 81)
+        self.assertEqual(len(plan["matrix"]), 75)
         self.assertIn("unclassified production path", plan["fullReason"])
 
     def testCommonPathPromotesToFull(self):
@@ -192,7 +192,7 @@ class E2ESelectorTest(unittest.TestCase):
             with self.subTest(path=path):
                 plan = self.select([path])
                 self.assertTrue(plan["full"])
-                self.assertEqual(len(plan["matrix"]), 81)
+                self.assertEqual(len(plan["matrix"]), 75)
                 self.assertIn("shared path", plan["fullReason"])
 
     def testInstallationBuildAndCodegenPathsPromoteToFull(self):
@@ -207,7 +207,7 @@ class E2ESelectorTest(unittest.TestCase):
             with self.subTest(path=path):
                 plan = self.select([path])
                 self.assertTrue(plan["full"])
-                self.assertEqual(len(plan["matrix"]), 81)
+                self.assertEqual(len(plan["matrix"]), 75)
                 self.assertIn("shared path", plan["fullReason"])
 
     def testSharedE2ESourcesSelectEveryExecutingGroup(self):
@@ -272,7 +272,7 @@ class E2ESelectorTest(unittest.TestCase):
             with self.subTest(script=script):
                 plan = self.select([script])
                 self.assertTrue(plan["full"])
-                self.assertEqual(len(plan["matrix"]), 81)
+                self.assertEqual(len(plan["matrix"]), 75)
 
     def testSharedE2EMakeScriptsPromoteToFull(self):
         workflow = (repoRoot / ".github/workflows/build-x86-image.yaml").read_text()
@@ -299,13 +299,13 @@ class E2ESelectorTest(unittest.TestCase):
             with self.subTest(script=script):
                 plan = self.select([script])
                 self.assertTrue(plan["full"])
-                self.assertEqual(len(plan["matrix"]), 81)
+                self.assertEqual(len(plan["matrix"]), 75)
 
     def testForceFullLabelPromotesToFull(self):
         plan = self.select(["docs/design.md"], labels=["e2e:full"])
 
         self.assertTrue(plan["full"])
-        self.assertEqual(len(plan["matrix"]), 81)
+        self.assertEqual(len(plan["matrix"]), 75)
         self.assertEqual(plan["fullReason"], "label e2e:full requested the full suite")
 
     def testInvalidRequestedGroupFails(self):
@@ -367,7 +367,7 @@ class E2ESelectorTest(unittest.TestCase):
                     )
                     result = json.loads(plan.read_text())
                     self.assertTrue(result["full"])
-                    self.assertEqual(len(result["matrix"]), 81)
+                    self.assertEqual(len(result["matrix"]), 75)
                     self.assertIn("selection error", result["fullReason"])
 
     def testPlanIsJsonSerializableAndBoundToHead(self):
@@ -488,7 +488,7 @@ class E2ESelectorTest(unittest.TestCase):
                     result = json.loads(plan.read_text())
                     self.assertTrue(result["full"])
                     self.assertEqual(result["headSHA"], "0123456789abcdef")
-                    self.assertEqual(len(result["matrix"]), 81)
+                    self.assertEqual(len(result["matrix"]), 75)
                     self.assertIn("catalog error", result["fullReason"])
                     self.assertIn("Full suite: `yes`", summary.read_text())
 
@@ -499,7 +499,7 @@ class E2ESelectorTest(unittest.TestCase):
           - ipv4
           - ipv6
           - dual
-        mode:""",
+        np-enforcement:""",
             """        ip-family: [ipv4, ipv6, dual]
         mode:""",
             1,
@@ -512,7 +512,7 @@ class E2ESelectorTest(unittest.TestCase):
             inlineWorkflow,
             "catalog",
         )
-        self.assertEqual(len(plan["matrix"]), 81)
+        self.assertEqual(len(plan["matrix"]), 75)
 
     def testInvalidEventPayloadFallsBackToFullThroughCLI(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -555,7 +555,7 @@ class E2ESelectorTest(unittest.TestCase):
                     )
                     result = json.loads(plan.read_text())
                     self.assertTrue(result["full"])
-                    self.assertEqual(len(result["matrix"]), 81)
+                    self.assertEqual(len(result["matrix"]), 75)
                     self.assertIn("selection error", result["fullReason"])
 
     def testEveryPathMappingHasARegressionCase(self):
@@ -612,7 +612,7 @@ class E2ESelectorTest(unittest.TestCase):
         plan = self.select(["test/e2e/framework/pod.go"])
 
         self.assertTrue(plan["full"])
-        self.assertEqual(len(plan["matrix"]), 81)
+        self.assertEqual(len(plan["matrix"]), 75)
 
 
 if __name__ == "__main__":
