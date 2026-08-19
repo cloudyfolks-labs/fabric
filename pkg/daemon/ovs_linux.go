@@ -483,7 +483,7 @@ func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName
 		return nil, fmt.Errorf("can not find container nic %s: %w", nicName, err)
 	}
 
-	// Set link alias to its origin link name for fastpath to recognize and bypass netfilter
+	// Set link alias to its origin link name so teardown can rename the device back
 	if err := netlink.LinkSetAlias(containerLink, nicName); err != nil {
 		klog.Errorf("failed to set link alias for container nic %s: %v", nicName, err)
 		return nil, err

@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `cmd/` entrypoints for CNI plugin, controller, daemon, and helpers; binaries land in `dist/images/` via Make targets.  
-- `pkg/` shared Go libraries; `fastpath/` and `versions/` hold data-plane helpers and release metadata.  
+- `pkg/` shared Go libraries; `versions/` holds release metadata.  
 - `charts/` Helm chart, `yamls/` and top-level `*-sa.yaml` manifest examples; `docs/` product docs.  
 - `hack/` CI/dev scripts; `makefiles/` split build/test logic; `test/` contains `unittest`, `e2e`, `performance`, and fixtures.  
 

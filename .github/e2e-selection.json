@@ -3,7 +3,7 @@
   "expectedRunnerJobs": 82,
   "forceFull": false,
   "fullThreshold": 3,
-  "productionPrefixes": ["cmd/", "fastpath/", "pkg/", "versions/"],
+  "productionPrefixes": ["cmd/", "pkg/", "versions/"],
   "smoke": [
     {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
     {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},
