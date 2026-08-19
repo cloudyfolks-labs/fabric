@@ -1,0 +1,136 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/cloudyfolks-labs
+
+jobs:
+  build-images:
+    name: Build and push images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set release tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "TAG=dev-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          fi
+          echo "BASE_TAG=$(cat VERSION)" >> "$GITHUB_ENV"
+
+      - name: Build amd64 binaries
+        run: make build-go
+
+      - name: Build and push amd64 image
+        run: |
+          docker buildx build --platform linux/amd64 --push \
+            -t "$REGISTRY/fabric:$TAG-amd64" \
+            --build-arg VERSION="$TAG" --build-arg BASE_TAG="$BASE_TAG" \
+            -f dist/images/Dockerfile dist/images/
+
+      - name: Build arm64 binaries
+        run: make build-go-arm
+
+      - name: Build and push arm64 image
+        run: |
+          docker buildx build --platform linux/arm64 --push \
+            -t "$REGISTRY/fabric:$TAG-arm64" \
+            --build-arg VERSION="$TAG" --build-arg BASE_TAG="$BASE_TAG" \
+            -f dist/images/Dockerfile dist/images/
+
+      - name: Create multi-arch manifest
+        run: |
+          docker buildx imagetools create -t "$REGISTRY/fabric:$TAG" \
+            "$REGISTRY/fabric:$TAG-amd64" "$REGISTRY/fabric:$TAG-arm64"
+
+      - name: Build and push lb-svc gateway image
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 --push \
+            -t "$REGISTRY/vpc-nat-gateway:$TAG" \
+            -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
+
+  publish-chart:
+    name: Publish helm chart
+    needs: build-images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set release tag
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "TAG=dev-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Login to ghcr
+        run: |
+          helm registry login ghcr.io \
+            --username "${{ github.actor }}" \
+            --password "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Package and push chart
+        run: |
+          CHART_VERSION=$(sed -n 's/^version: //p' charts/fabric/Chart.yaml)
+          if [ "${{ github.event_name }}" = "push" ] && [ "v$CHART_VERSION" != "$TAG" ]; then
+            echo "chart version $CHART_VERSION does not match tag $TAG, run hack/release.sh first"
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" != "push" ]; then
+            CHART_VERSION="0.0.0-$TAG"
+            helm package charts/fabric --version "$CHART_VERSION" --app-version "$TAG"
+          else
+            helm package charts/fabric
+          fi
+          helm push "fabric-$CHART_VERSION.tgz" "oci://$REGISTRY/charts"
+
+  github-release:
+    name: Create GitHub release
+    if: github.event_name == 'push'
+    needs:
+      - build-images
+      - publish-chart
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE_SHA=$(sed -n 's/^- Import base: `\(.*\)`.*/\1/p' UPSTREAM.md)
+          SYNC_SHA=$(sed -n 's/^- Last synced: `\(.*\)`.*/\1/p' UPSTREAM.md)
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "fabric is a fork of kube-ovn. Import base: \`$BASE_SHA\`. Last upstream sync: \`$SYNC_SHA\`.
+
+          Images: \`$REGISTRY/fabric:$GITHUB_REF_NAME\`
+          Chart: \`helm install fabric oci://$REGISTRY/charts/fabric --version ${GITHUB_REF_NAME#v}\`"
