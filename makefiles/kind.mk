@@ -768,8 +768,11 @@ kind-ghcr-pull:
 	@if [ -n "$${GHCR_TOKEN:-}" ]; then \
 		printf '%s' "$${GHCR_TOKEN}" | docker login ghcr.io -u github-actions --password-stdin; \
 	fi
-	docker pull ghcr.io/kubeovn/kindest-node:$(K8S_VERSION)
-	docker tag ghcr.io/kubeovn/kindest-node:$(K8S_VERSION) kindest/node:$(K8S_VERSION)
+	@if docker pull ghcr.io/kubeovn/kindest-node:$(K8S_VERSION); then \
+		docker tag ghcr.io/kubeovn/kindest-node:$(K8S_VERSION) kindest/node:$(K8S_VERSION); \
+	else \
+		docker pull kindest/node:$(K8S_VERSION); \
+	fi
 
 .PHONY: kind-install-multus-cilium-kubeovn-non-primary
 kind-install-multus-cilium-kubeovn-non-primary: kind-install-multus-cilium-kubeovn-non-primary-ipv4
