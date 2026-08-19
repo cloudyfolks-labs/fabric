@@ -196,10 +196,6 @@ func (c *Controller) desiredConfig() (string, error) {
 		return Render(RenderInput{NodeName: c.config.NodeName}), nil
 	}
 
-	if err = c.checkSpeakerConflict(conf); err != nil {
-		return "", err
-	}
-
 	routerID := conf.Spec.RouterID
 	if routerID == "" {
 		routerID, _ = util.GetNodeInternalIP(*node)
@@ -345,42 +341,4 @@ func lrpAddress(eips []*kubeovnv1.OvnEip, vpcName string) string {
 	}
 	sort.Strings(names)
 	return byName[names[0]]
-}
-
-func (c *Controller) checkSpeakerConflict(conf *kubeovnv1.BgpConf) error {
-	pods, err := c.podLister.List(labels.Everything())
-	if err != nil {
-		return fmt.Errorf("failed to list pods on node: %w", err)
-	}
-
-	neighbors := make(map[string]struct{}, len(conf.Spec.Neighbours)+len(conf.Spec.Peers))
-	for _, addr := range conf.Spec.Neighbours {
-		neighbors[addr] = struct{}{}
-	}
-	for _, n := range conf.Spec.Peers {
-		neighbors[n.Address] = struct{}{}
-	}
-
-	for _, pod := range pods {
-		if pod.Labels["app"] != "kube-ovn-speaker" && pod.Labels["app.kubernetes.io/name"] != "kube-ovn-speaker" {
-			continue
-		}
-		for _, container := range pod.Spec.Containers {
-			for _, arg := range container.Args {
-				if strings.HasPrefix(arg, "--passivemode") && !strings.HasSuffix(arg, "=false") {
-					return fmt.Errorf("kube-ovn-speaker pod %s runs in passive mode on this node and would conflict with FRR on port 179", pod.Name)
-				}
-				for _, flagName := range []string{"--neighbor-address=", "--neighbor-ipv6-address="} {
-					if addrs, ok := strings.CutPrefix(arg, flagName); ok {
-						for addr := range strings.SplitSeq(addrs, ",") {
-							if _, found := neighbors[strings.TrimSpace(addr)]; found {
-								return fmt.Errorf("kube-ovn-speaker pod %s already peers with %s from this node", pod.Name, strings.TrimSpace(addr))
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return nil
 }

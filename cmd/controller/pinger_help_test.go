@@ -19,7 +19,6 @@ func TestCommandHelpDescriptions(t *testing.T) {
 		CmdPinger,
 		"kube-ovn-daemon",
 		"kube-ovn-monitor",
-		"kube-ovn-speaker",
 		"kube-ovn-webhook",
 		"kube-ovn-leader-checker",
 		"kube-ovn-ic-controller",
@@ -46,9 +45,6 @@ func TestCommandHelpDescriptions(t *testing.T) {
 			"the node tunnel interface annotation and DPDK mode take precedence",
 			"when set to 0, it is derived from the selected interface MTU based on the network type and IP family",
 		},
-		"kube-ovn-speaker": {
-			"when empty, the IPv4 address from POD_IPS is used; if POD_IPS is empty, POD_IP is used; if no IPv4 address is available, 0.0.0.0 is used",
-		},
 	} {
 		help := runHelp(t, bins[name], name)
 		normalizedHelp := strings.ToLower(help)
@@ -72,7 +68,6 @@ func buildCommandBinaries(t *testing.T, tmpDir string) map[string]string {
 		CmdPinger:                 linkCommand(t, tmpDir, controllerBin, CmdPinger),
 		"kube-ovn-daemon":         daemonBin,
 		"kube-ovn-monitor":        rootBin,
-		"kube-ovn-speaker":        linkCommand(t, tmpDir, rootBin, "kube-ovn-speaker"),
 		"kube-ovn-webhook":        linkCommand(t, tmpDir, rootBin, "kube-ovn-webhook"),
 		"kube-ovn-leader-checker": linkCommand(t, tmpDir, rootBin, "kube-ovn-leader-checker"),
 		"kube-ovn-ic-controller":  linkCommand(t, tmpDir, rootBin, "kube-ovn-ic-controller"),

@@ -1,9 +1,9 @@
 # Standalone openbfdd DaemonSet (hostNetwork)
 #
 # Deploys bfdd-beacon on every BGP ECMP node for BFD sessions with switch gateways.
-# Uses the same whitelist mechanism as kube-ovn-speaker: the init container
-# runs `ip route get` against the switch gateway address, validates the source IP
-# against ALLOWED_SOURCE_ADDRESSES, and fails the pod if it doesn't match.
+# The init container runs `ip route get` against the switch gateway address,
+# validates the source IP against ALLOWED_SOURCE_ADDRESSES, and fails the pod
+# if it does not match.
 #
 # Three containers per pod:
 #   init-peer  - discover local IP via route lookup, validate against whitelist
@@ -14,8 +14,7 @@
 # Environment variables:
 #   GATEWAY_ADDRESS          - Switch gateway address for route lookup (required),
 #                              used by `ip route get` to discover the node's source IP
-#   ALLOWED_SOURCE_ADDRESSES - Comma-separated whitelist of source IPs (required),
-#                              should match speaker's --allowed-source-addresses
+#   ALLOWED_SOURCE_ADDRESSES - Comma-separated whitelist of source IPs (required)
 #   BFD_MIN_TX               - Minimum transmit interval in ms (default: 1000)
 #                              The minimum interval at which the local system sends BFD
 #                              control packets to the peer. Lower values = faster failure
@@ -78,7 +77,6 @@
 # Reference: pkg/daemon/ovs_linux.go:checkNodeGwNicInNs,loopOvnExt0Check
 #            pkg/controller/vpc_egress_gateway.go:reconcileVpcEgressGatewayOVNRoutes
 #            pkg/ovs/ovn-nb-bfd.go (CreateBFD/DeleteBFD/FindBFD/ListBFDs)
-#            pkg/speaker/config.go:resolveWhitelistedNeighborLocalAddress
 #            dist/images/start-bfdd.sh, dist/images/bfdd-prestart.sh
 kind: DaemonSet
 apiVersion: apps/v1
@@ -113,7 +111,7 @@ spec:
         ovn.kubernetes.io/bgp: "true"
       initContainers:
         # Discover source IP via route lookup to switch gateway and validate
-        # against whitelist. Mirrors speaker's resolveWhitelistedNeighborLocalAddress.
+        # against whitelist.
         - name: init-peer
           image: "docker.io/kubeovn/kube-ovn:v1.16.0"
           imagePullPolicy: IfNotPresent

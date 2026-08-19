@@ -211,34 +211,6 @@ kind-init-single: kind-init-single-ipv4
 kind-init-single-%:
 	@single=true $(MAKE) kind-init-$*
 
-.PHONY: kind-init-bgp
-kind-init-bgp: kind-clean-bgp kind-init
-	kube_ovn_version=$(VERSION) frr_image=$(FRR_IMAGE) jinjanate yamls/clab-bgp.yaml.j2 -o yamls/clab-bgp.yaml
-	docker run --rm --privileged \
-		--name kube-ovn-bgp \
-		--network host \
-		--pid host \
-		-v /lib/modules:/lib/modules:ro \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v /var/run/netns:/var/run/netns \
-		-v /var/lib/docker/containers:/var/lib/docker/containers \
-		-v $(CURDIR)/yamls/clab-bgp.yaml:/clab-bgp/clab.yaml \
-		$(CLAB_IMAGE) clab deploy -t /clab-bgp/clab.yaml
-
-.PHONY: kind-init-bgp-ha
-kind-init-bgp-ha: kind-clean-bgp kind-init
-	kube_ovn_version=$(VERSION) frr_image=$(FRR_IMAGE) jinjanate yamls/clab-bgp-ha.yaml.j2 -o yamls/clab-bgp-ha.yaml
-	docker run --rm --privileged \
-		--name kube-ovn-bgp \
-		--network host \
-		--pid host \
-		-v /lib/modules:/lib/modules:ro \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v /var/run/netns:/var/run/netns \
-		-v /var/lib/docker/containers:/var/lib/docker/containers \
-		-v $(CURDIR)/yamls/clab-bgp-ha.yaml:/clab-bgp/clab.yaml \
-		$(CLAB_IMAGE) clab deploy -t /clab-bgp/clab.yaml
-
 .PHONY: kind-load-image
 kind-load-image:
 	$(call kind_load_image,kube-ovn,$(REGISTRY)/kube-ovn:$(VERSION))
@@ -692,33 +664,6 @@ kind-install-cilium-delegate-%:
 	@echo "Waiting for Cilium to be ready..."
 	kubectl -n kube-system rollout status ds cilium --timeout 120s
 
-.PHONY: kind-install-bgp
-kind-install-bgp: kind-install
-	kubectl label node --all ovn.kubernetes.io/bgp=true
-	kubectl annotate subnet ovn-default ovn.kubernetes.io/bgp=local
-	sed -e 's#image: .*#image: $(REGISTRY)/kube-ovn:$(VERSION)#' \
-		-e 's/--neighbor-address=.*/--neighbor-address=10.0.1.1/' \
-		-e 's/--neighbor-as=.*/--neighbor-as=65001/' \
-		-e 's/--cluster-as=.*/--cluster-as=65002/' yamls/speaker.yaml | \
-		kubectl apply -f -
-	kubectl -n kube-system patch ds kube-ovn-speaker --type=json \
-		-p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--announce-cluster-ip=true"}]'
-	kubectl -n kube-system rollout status ds kube-ovn-speaker --timeout 60s
-	docker exec clab-bgp-router vtysh -c "show ip route bgp"
-
-.PHONY: kind-install-bgp-ha
-kind-install-bgp-ha: kind-install
-	kubectl label node --all ovn.kubernetes.io/bgp=true
-	kubectl annotate subnet ovn-default ovn.kubernetes.io/bgp=local
-	sed -e 's#image: .*#image: $(REGISTRY)/kube-ovn:$(VERSION)#' \
-		-e 's/--neighbor-address=.*/--neighbor-address=10.0.1.1,10.0.1.2/' \
-		-e 's/--neighbor-as=.*/--neighbor-as=65001/' \
-		-e 's/--cluster-as=.*/--cluster-as=65002/' yamls/speaker.yaml | \
-		kubectl apply -f -
-	kubectl -n kube-system rollout status ds kube-ovn-speaker --timeout 60s
-	docker exec clab-bgp-router-1 vtysh -c "show ip route bgp"
-	docker exec clab-bgp-router-2 vtysh -c "show ip route bgp"
-
 .PHONY: kind-install-deepflow
 kind-install-deepflow: kind-install
 	helm repo add deepflow $(DEEPFLOW_CHART_REPO)
@@ -829,36 +774,6 @@ kind-clean-ovn-ic: kind-clean
 .PHONY: kind-clean-ovn-submariner
 kind-clean-ovn-submariner: kind-clean
 	kind delete cluster --name=kube-ovn1
-
-.PHONY: kind-clean-bgp
-kind-clean-bgp: kind-clean-bgp-ha
-	kube_ovn_version=$(VERSION) frr_image=$(FRR_IMAGE) jinjanate yamls/clab-bgp.yaml.j2 -o yamls/clab-bgp.yaml
-	docker run --rm --privileged \
-		--name kube-ovn-bgp \
-		--network host \
-		--pid host \
-		-v /lib/modules:/lib/modules:ro \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v /var/run/netns:/var/run/netns \
-		-v /var/lib/docker/containers:/var/lib/docker/containers \
-		-v $(CURDIR)/yamls/clab-bgp.yaml:/clab-bgp/clab.yaml \
-		$(CLAB_IMAGE) clab destroy -t /clab-bgp/clab.yaml
-	@$(MAKE) kind-clean
-
-.PHONY: kind-clean-bgp-ha
-kind-clean-bgp-ha:
-	kube_ovn_version=$(VERSION) frr_image=$(FRR_IMAGE) jinjanate yamls/clab-bgp-ha.yaml.j2 -o yamls/clab-bgp-ha.yaml
-	docker run --rm --privileged \
-		--name kube-ovn-bgp \
-		--network host \
-		--pid host \
-		-v /lib/modules:/lib/modules:ro \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v /var/run/netns:/var/run/netns \
-		-v /var/lib/docker/containers:/var/lib/docker/containers \
-		-v $(CURDIR)/yamls/clab-bgp-ha.yaml:/clab-bgp/clab.yaml \
-		$(CLAB_IMAGE) clab destroy -t /clab-bgp/clab.yaml
-	@$(MAKE) kind-clean
 
 .PHONY: kind-ghcr-pull
 kind-ghcr-pull:

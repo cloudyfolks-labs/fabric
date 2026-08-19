@@ -24,8 +24,6 @@ CONTROL_PLANE_TAINTS = node-role.kubernetes.io/master node-role.kubernetes.io/co
 FRR_VERSION = 9.1.3
 FRR_IMAGE = quay.io/frrouting/frr:$(FRR_VERSION)
 
-CLAB_IMAGE = ghcr.io/srl-labs/clab:0.72.0
-
 # renovate: datasource=github-releases depName=multus packageName=k8snetworkplumbingwg/multus-cni
 MULTUS_VERSION = v4.3.0
 MULTUS_IMAGE = ghcr.io/k8snetworkplumbingwg/multus-cni:$(MULTUS_VERSION)-thick
@@ -290,7 +288,6 @@ kubectl-ko-log:
 clean:
 	$(RM) dist/images/kube-ovn dist/images/kube-ovn-cmd dist/images/kube-ovn-bfdd-supervisor dist/images/vpc-egress-gateway-observer
 	$(RM) yamls/kind.yaml
-	$(RM) yamls/clab-bgp.yaml yamls/clab-bgp-ha.yaml
 	$(RM) ovn.yaml kube-ovn.yaml kube-ovn-crd.yaml
 	$(RM) ovn-ic-config.yaml ovn-ic-0.yaml ovn-ic-1.yaml
 	$(RM) kwok-node.yaml metallb-cr.yaml
