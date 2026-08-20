@@ -384,11 +384,11 @@ func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 	}
 
 	// For Kube-OVN non-primary CNI, the IP is stored in a specific annotation format:
-	// {network-attachment-name}.{namespace}.ovn.kubernetes.io/ip_address
-	// Example: vpc-simple-nad.vpc-simple-ns.ovn.kubernetes.io/ip_address: 10.100.0.2
+	// {network-attachment-name}.{namespace}.fabric.cloudyfolks.io/ip_address
+	// Example: vpc-simple-nad.vpc-simple-ns.fabric.cloudyfolks.io/ip_address: 10.100.0.2
 	// Extract the network attachment definition name from the networks annotation
 	// Format: namespace/nad-name (e.g., "vpc-simple-ns/vpc-simple-nad")
-	// Convert namespace/nad-name to nad-name.namespace.ovn.kubernetes.io/ip_address format
+	// Convert namespace/nad-name to nad-name.namespace.fabric.cloudyfolks.io/ip_address format
 	parts := strings.Split(network, "/")
 	if len(parts) != 2 {
 		return nil

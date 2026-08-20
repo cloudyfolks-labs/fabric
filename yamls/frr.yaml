@@ -70,7 +70,7 @@ spec:
           type: RuntimeDefault
       nodeSelector:
         kubernetes.io/os: "linux"
-        ovn.kubernetes.io/external-gw: "true"
+        fabric.cloudyfolks.io/external-gw: "true"
       initContainers:
         - name: init-frr
           image: "docker.io/kubeovn/kube-ovn:v1.17.0"

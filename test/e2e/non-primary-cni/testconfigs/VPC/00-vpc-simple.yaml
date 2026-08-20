@@ -25,7 +25,7 @@ spec:
       "name": "kube-ovn",
       "type": "kube-ovn",
       "server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-      "provider": "vpc-simple-nad.vpc-simple-ns.ovn"
+      "provider": "vpc-simple-nad.vpc-simple-ns.fabric"
     }
 ---
 # VPC Resource
@@ -54,7 +54,7 @@ spec:
     - 10.100.0.1
   gateway: 10.100.0.1
   protocol: IPv4
-  provider: vpc-simple-nad.vpc-simple-ns.ovn
+  provider: vpc-simple-nad.vpc-simple-ns.fabric
   namespaces:
     - vpc-simple-ns
 ---
@@ -68,7 +68,7 @@ metadata:
     config-stage: "1"
   annotations:
     k8s.v1.cni.cncf.io/networks: vpc-simple-ns/vpc-simple-nad
-    vpc-simple-nad.vpc-simple-ns.ovn/logical_switch: vpc-simple-subnet
+    vpc-simple-nad.vpc-simple-ns.fabric/logical_switch: vpc-simple-subnet
 spec:
   containers:
     - name: vpc-simple-pod1
@@ -84,7 +84,7 @@ metadata:
     config-stage: "1"
   annotations:
     k8s.v1.cni.cncf.io/networks: vpc-simple-ns/vpc-simple-nad
-    vpc-simple-nad.vpc-simple-ns.ovn/logical_switch: vpc-simple-subnet
+    vpc-simple-nad.vpc-simple-ns.fabric/logical_switch: vpc-simple-subnet
 spec:
   containers:
     - name: vpc-simple-pod2
@@ -100,8 +100,8 @@ metadata:
     config-stage: "1"
   annotations:
     k8s.v1.cni.cncf.io/networks: '[{"name": "vpc-simple-nad", "namespace": "vpc-simple-ns", "interface": "net1"}, {"name": "vpc-simple-nad", "namespace": "vpc-simple-ns", "interface": "net2"}]'
-    vpc-simple-nad.vpc-simple-ns.ovn.net1.kubernetes.io/logical_switch: vpc-simple-subnet
-    vpc-simple-nad.vpc-simple-ns.ovn.net2.kubernetes.io/logical_switch: vpc-simple-subnet
+    vpc-simple-nad.vpc-simple-ns.fabric.net1.cloudyfolks.io/logical_switch: vpc-simple-subnet
+    vpc-simple-nad.vpc-simple-ns.fabric.net2.cloudyfolks.io/logical_switch: vpc-simple-subnet
 spec:
   containers:
     - name: vpc-multi-nic-pod

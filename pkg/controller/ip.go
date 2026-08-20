@@ -323,6 +323,7 @@ func (c *Controller) handleDelIPFinalizer(cachedIP *kubeovnv1.IP) error {
 	}
 	newIP := cachedIP.DeepCopy()
 	controllerutil.RemoveFinalizer(newIP, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newIP, util.LegacyControllerFinalizer)
 	controllerutil.RemoveFinalizer(newIP, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedIP, newIP)
 	if err != nil {

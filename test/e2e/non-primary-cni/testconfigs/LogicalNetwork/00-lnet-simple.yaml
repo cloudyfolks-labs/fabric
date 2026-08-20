@@ -47,7 +47,7 @@ spec:
       "name": "kube-ovn",
       "type": "kube-ovn",
       "server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-      "provider": "lnet-simple-pod-nad.lnet-simple-ns.ovn"
+      "provider": "lnet-simple-pod-nad.lnet-simple-ns.fabric"
     }'
 ---
 # Subnet with dynamic KIND bridge network detection
@@ -61,7 +61,7 @@ spec:
   protocol: IPv4
   cidrBlock: <00-lnet-simple-subnet1-cidr>
   gateway: <00-lnet-simple-subnet1-gateway>
-  provider: lnet-simple-pod-nad.lnet-simple-ns.ovn
+  provider: lnet-simple-pod-nad.lnet-simple-ns.fabric
   vlan: lnet-simple-vlan1
   namespaces:
     - lnet-simple-ns

@@ -129,7 +129,7 @@ func newPodQoSTestPod(networkAnnotation string) *v1.Pod {
 	annotations := map[string]string{}
 	if networkAnnotation != "" {
 		annotations[nadv1.NetworkAttachmentAnnot] = networkAnnotation
-		annotations["net1.default.ovn.kubernetes.io/allocated"] = "true"
+		annotations["net1.default.fabric.cloudyfolks.io/allocated"] = "true"
 	}
 	return &v1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:        "pod",
@@ -139,7 +139,7 @@ func newPodQoSTestPod(networkAnnotation string) *v1.Pod {
 }
 
 func TestHandleUpdatePodQoSCallFailuresEmitOneEvent(t *testing.T) {
-	const multusInterface = "pod.default.net1.default.ovn"
+	const multusInterface = "pod.default.net1.default.fabric"
 	failErr := errors.New("injected QoS failure")
 
 	for _, stage := range []string{"bandwidth", "mirror", "netem"} {
@@ -151,7 +151,7 @@ func TestHandleUpdatePodQoSCallFailuresEmitOneEvent(t *testing.T) {
 			require.Contains(t, calls[stage], multusInterface)
 			requirePodEvent(t, recorder,
 				"Warning", "PodQoSUpdateFailed", "stage="+stage,
-				"provider=net1.default.ovn", "interface="+multusInterface,
+				"provider=net1.default.fabric", "interface="+multusInterface,
 				"node=node-a", failErr.Error())
 			requireNoPodEvent(t, recorder)
 		})
@@ -163,34 +163,34 @@ func TestHandleUpdatePodSuccessEmitsOneEventWithProcessedInterfaces(t *testing.T
 	controller, recorder := newPodQoSTestController(t, newPodQoSTestPod("default/net1"))
 
 	require.NoError(t, controller.handleUpdatePod("default/pod"))
-	require.Equal(t, []string{"pod.default", "pod.default.net1.default.ovn"}, calls["netem"])
+	require.Equal(t, []string{"pod.default", "pod.default.net1.default.fabric"}, calls["netem"])
 	requirePodEvent(t, recorder,
 		"Normal", "PodQoSUpdated", "node=node-a",
 		"provider=ovn interface=pod.default",
-		"provider=net1.default.ovn interface=pod.default.net1.default.ovn")
+		"provider=net1.default.fabric interface=pod.default.net1.default.fabric")
 	requireNoPodEvent(t, recorder)
 }
 
 func TestHandleUpdatePodKeepsMultusPodNamesIndependent(t *testing.T) {
 	pod := newPodQoSTestPod("default/net1,default/net2")
-	pod.Annotations["net1.default.ovn.kubernetes.io/virtualmachine"] = "vm-one"
-	pod.Annotations["net2.default.ovn.kubernetes.io/allocated"] = "true"
+	pod.Annotations["net1.default.fabric.cloudyfolks.io/virtualmachine"] = "vm-one"
+	pod.Annotations["net2.default.fabric.cloudyfolks.io/allocated"] = "true"
 	calls := stubPodQoSFunctions(t, "", "", nil)
 	controller, recorder := newPodQoSTestController(t, pod)
 
 	require.NoError(t, controller.handleUpdatePod("default/pod"))
 	expectedInterfaces := []string{
 		"pod.default",
-		"vm-one.default.net1.default.ovn",
-		"pod.default.net2.default.ovn",
+		"vm-one.default.net1.default.fabric",
+		"pod.default.net2.default.fabric",
 	}
 	for _, stage := range []string{"bandwidth", "mirror", "netem"} {
 		require.Equal(t, expectedInterfaces, calls[stage])
 	}
 	requirePodEvent(t, recorder,
 		"Normal", "PodQoSUpdated",
-		"provider=net1.default.ovn interface=vm-one.default.net1.default.ovn",
-		"provider=net2.default.ovn interface=pod.default.net2.default.ovn")
+		"provider=net1.default.fabric interface=vm-one.default.net1.default.fabric",
+		"provider=net2.default.fabric interface=pod.default.net2.default.fabric")
 	requireNoPodEvent(t, recorder)
 }
 
@@ -236,7 +236,7 @@ func TestEnqueueUpdatePodOnlyQueuesRelevantAnnotationChanges(t *testing.T) {
 	basePod.Annotations[util.MirrorControlAnnotation] = "true"
 	basePod.Annotations[util.NetemQosLatencyAnnotation] = "5"
 	basePod.Annotations[util.IPAddressAnnotation] = "10.0.0.2"
-	basePod.Annotations["net1.default.ovn.kubernetes.io/ingress_rate"] = "20"
+	basePod.Annotations["net1.default.fabric.cloudyfolks.io/ingress_rate"] = "20"
 
 	tests := []struct {
 		name       string
@@ -250,7 +250,7 @@ func TestEnqueueUpdatePodOnlyQueuesRelevantAnnotationChanges(t *testing.T) {
 		{name: "default mirror", annotation: util.MirrorControlAnnotation, value: "false", wantQueue: true},
 		{name: "default netem", annotation: util.NetemQosLatencyAnnotation, value: "6", wantQueue: true},
 		{name: "default IP", annotation: util.IPAddressAnnotation, value: "10.0.0.3", wantQueue: true},
-		{name: "multus bandwidth", annotation: "net1.default.ovn.kubernetes.io/ingress_rate", value: "21", wantQueue: true},
+		{name: "multus bandwidth", annotation: "net1.default.fabric.cloudyfolks.io/ingress_rate", value: "21", wantQueue: true},
 	}
 
 	for _, tt := range tests {

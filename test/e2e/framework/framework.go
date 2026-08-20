@@ -306,6 +306,7 @@ func (f *Framework) ValidateFinalizers(obj metav1.Object) {
 	if !f.VersionPriorTo(1, 13) {
 		ExpectContainElement(finalizers, util.KubeOVNControllerFinalizer)
 		ExpectNotContainElement(finalizers, util.DeprecatedFinalizerName)
+		ExpectNotContainElement(finalizers, util.LegacyControllerFinalizer)
 	} else {
 		ExpectContainElement(finalizers, util.DeprecatedFinalizerName)
 	}

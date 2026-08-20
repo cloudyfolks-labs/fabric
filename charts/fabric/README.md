@@ -448,10 +448,10 @@ false
 			<td>apiNad.provider</td>
 			<td>string</td>
 			<td><pre lang="json">
-"{{ .Values.apiNad.name }}.{{ .Values.namespace }}.ovn"
+"{{ .Values.apiNad.name }}.{{ .Values.namespace }}.fabric"
 </pre>
 </td>
-			<td>Name of the provider, must be in the form "nadName.nadNamespace.ovn".</td>
+			<td>Name of the provider, must be in the form "nadName.nadNamespace.fabric".</td>
 		</tr>
 		<tr>
 			<td>apiNad.subnet</td>
@@ -2021,7 +2021,7 @@ false
 			<td><pre lang="json">
 {
   "kubernetes.io/os": "linux",
-  "ovn.kubernetes.io/ovs_dp_type": "userspace"
+  "fabric.cloudyfolks.io/ovs_dp_type": "userspace"
 }
 </pre>
 </td>

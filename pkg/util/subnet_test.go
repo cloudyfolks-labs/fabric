@@ -22,7 +22,7 @@ func TestIsOvnProvider(t *testing.T) {
 		},
 		{
 			name:     "ovn provider with namespace",
-			provider: "namespace.cluster.ovn",
+			provider: "namespace.cluster.fabric",
 			expected: true,
 		},
 		{

@@ -92,7 +92,7 @@ spec:
           type: RuntimeDefault
       nodeSelector:
         kubernetes.io/os: "linux"
-        ovn.kubernetes.io/external-gw: "true"
+        fabric.cloudyfolks.io/external-gw: "true"
         {{- with .Values.frr.nodeSelector }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}

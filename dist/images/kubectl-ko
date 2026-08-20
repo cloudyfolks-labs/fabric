@@ -175,7 +175,7 @@ tcpdump(){
       echo "nic doesn't exist on node $nodeName"
       exit 1
     fi
-    podNicType=$(kubectl get pod "$podName" -n "$namespace" -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/pod_nic_type})
+    podNicType=$(kubectl get pod "$podName" -n "$namespace" -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/pod_nic_type})
     podNetNs=$(kubectl exec "$ovsPod" -n $KUBE_OVN_NS -- ovs-vsctl --data=bare --no-heading get interface "$nicName" external-ids:pod_netns | tr -d '\r' | sed -e 's/^"//' -e 's/"$//')
     ovnCni=$(kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
     if [ -z "$ovnCni" ]; then
@@ -197,7 +197,7 @@ trace(){
   if [[ "$1" =~ .*//.* ]]; then
     node=${1##*/}
     typedName="node/$node"
-    lsp=$(kubectl get $typedName -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/port_name})
+    lsp=$(kubectl get $typedName -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/port_name})
   else
     local namespacedPod="$1"
     namespace=$(echo "$namespacedPod" | cut -d "/" -f1)
@@ -211,7 +211,7 @@ trace(){
     if [ "$hostNetwork" = "true" ]; then
       namespace=""
       typedName="node/$node"
-      lsp=$(kubectl get $typedName -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/port_name})
+      lsp=$(kubectl get $typedName -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/port_name})
     else
       optNamespace="-n $namespace"
       lsp="$podName.$namespace"
@@ -255,7 +255,7 @@ trace(){
     fi
   fi
 
-  local ips=($(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/ip_address} | sed 's/,/ /g'))
+  local ips=($(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/ip_address} | sed 's/,/ /g'))
   if [ ${#ips[@]} -eq 0 ]; then
     echo "Error: $typedName address not ready"
     exit 1
@@ -288,14 +288,14 @@ trace(){
     exit 1
   fi
 
-  local ls=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/logical_switch})
+  local ls=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/logical_switch})
   if [ -z "$ls" ]; then
     echo "Error: $typedName address not ready"
     exit 1
   fi
 
-  local cidr=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/cidr})
-  local mac=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/mac_address})
+  local cidr=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/cidr})
+  local mac=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/mac_address})
 
   if [ "$type" != "arp" -o "$4" = "reply" ]; then
     # need destination mac
@@ -343,7 +343,7 @@ trace(){
           exit 1
         fi
 
-        local podNicType=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/pod_nic_type})
+        local podNicType=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/pod_nic_type})
         local podNetNs=$(kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-vsctl --data=bare --no-heading get interface "$nicName" external-ids:pod_netns | tr -d '\r' | sed -e 's/^"//' -e 's/"$//')
         local nicName= nsenterCmd=
         if [ ! -z $podNetNs ]; then
@@ -385,7 +385,7 @@ trace(){
 
     if [ -z "$dstMac" ]; then
       echo "Using the logical gateway mac address as destination"
-      local lr=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.ovn\\.kubernetes\\.io/logical_router})
+      local lr=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/logical_router})
       if [ -z "$lr" ]; then
         lr=$(kubectl get subnet "$ls" -o jsonpath={.spec.vpc})
       fi
@@ -560,7 +560,7 @@ spec:
   template:
     metadata:
       annotations:
-        ovn.kubernetes.io/logical_switch: $subnetName
+        fabric.cloudyfolks.io/logical_switch: $subnetName
       labels:
         app: $CONN_CHECK_LABEL
     spec:

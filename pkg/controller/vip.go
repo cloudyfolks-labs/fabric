@@ -429,6 +429,7 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 			// preventing a race where WaitToBeReady returns (V4ip is set) before
 			// handleUpdateVirtualIP has a chance to add the finalizer.
 			controllerutil.RemoveFinalizer(vip, util.DeprecatedFinalizerName)
+			controllerutil.RemoveFinalizer(vip, util.LegacyControllerFinalizer)
 			controllerutil.AddFinalizer(vip, util.KubeOVNControllerFinalizer)
 
 			// Update with labels, spec, status, and finalizer in one call
@@ -533,6 +534,7 @@ func (c *Controller) handleAddOrUpdateVipFinalizer(key string) error {
 	}
 	newVip := cachedVip.DeepCopy()
 	controllerutil.RemoveFinalizer(newVip, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newVip, util.LegacyControllerFinalizer)
 	controllerutil.AddFinalizer(newVip, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedVip, newVip)
 	if err != nil {
@@ -569,6 +571,7 @@ func (c *Controller) handleDelVipFinalizer(key string) error {
 	}
 	newVip := cachedVip.DeepCopy()
 	controllerutil.RemoveFinalizer(newVip, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newVip, util.LegacyControllerFinalizer)
 	controllerutil.RemoveFinalizer(newVip, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedVip, newVip)
 	if err != nil {

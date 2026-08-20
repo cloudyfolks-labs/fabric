@@ -204,7 +204,7 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: netpolName,
 				Annotations: map[string]string{
-					util.NetworkPolicyForAnnotation: "ovn",
+					util.NetworkPolicyForAnnotation: "fabric",
 				},
 			},
 			Spec: netv1.NetworkPolicySpec{
@@ -275,7 +275,7 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: netpolName,
 				Annotations: map[string]string{
-					util.NetworkPolicyForAnnotation: "ovn",
+					util.NetworkPolicyForAnnotation: "fabric",
 				},
 			},
 			Spec: netv1.NetworkPolicySpec{

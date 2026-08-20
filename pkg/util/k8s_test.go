@@ -948,7 +948,7 @@ func fullyPopulatedPod() *corev1.Pod {
 			Namespace:   "default",
 			Labels:      map[string]string{"app": "demo"},
 			Annotations: map[string]string{"foo": "bar"},
-			Finalizers:  []string{"kubeovn.io/controller"},
+			Finalizers:  []string{"fabric.cloudyfolks.io/controller"},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion: "apps/v1",
 				Kind:       "StatefulSet",
@@ -1059,7 +1059,7 @@ func TestTrimPodForController(t *testing.T) {
 	require.Equal(t, map[string]string{"foo": "bar"}, trimmed.Annotations)
 	require.Len(t, trimmed.OwnerReferences, 1)
 	require.Equal(t, "StatefulSet", trimmed.OwnerReferences[0].Kind)
-	require.Equal(t, []string{"kubeovn.io/controller"}, trimmed.Finalizers)
+	require.Equal(t, []string{"fabric.cloudyfolks.io/controller"}, trimmed.Finalizers)
 	require.Nil(t, trimmed.ManagedFields)
 	require.Equal(t, "node-1", trimmed.Spec.NodeName)
 	require.Equal(t, corev1.RestartPolicyAlways, trimmed.Spec.RestartPolicy)

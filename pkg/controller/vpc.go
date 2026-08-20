@@ -1186,6 +1186,7 @@ func (c *Controller) formatVpc(vpc *kubeovnv1.Vpc) (*kubeovnv1.Vpc, error) {
 	}
 
 	if !vpc.DeletionTimestamp.IsZero() && len(vpc.Status.Subnets) == 0 {
+		controllerutil.RemoveFinalizer(vpc, util.LegacyControllerFinalizer)
 		controllerutil.RemoveFinalizer(vpc, util.KubeOVNControllerFinalizer)
 		changed = true
 	}

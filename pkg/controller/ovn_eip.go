@@ -546,6 +546,7 @@ func (c *Controller) handleAddOrUpdateOvnEipFinalizer(cachedEip *kubeovnv1.OvnEi
 	}
 	newEip := cachedEip.DeepCopy()
 	controllerutil.RemoveFinalizer(newEip, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newEip, util.LegacyControllerFinalizer)
 	controllerutil.AddFinalizer(newEip, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedEip, newEip)
 	if err != nil {
@@ -586,6 +587,7 @@ func (c *Controller) handleDelOvnEipFinalizer(cachedEip *kubeovnv1.OvnEip) error
 	}
 	newEip := cachedEip.DeepCopy()
 	controllerutil.RemoveFinalizer(newEip, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newEip, util.LegacyControllerFinalizer)
 	controllerutil.RemoveFinalizer(newEip, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedEip, newEip)
 	if err != nil {

@@ -108,7 +108,7 @@ spec:
           effect: NoSchedule
       nodeSelector:
         kubernetes.io/os: "linux"
-        ovn.kubernetes.io/bgp: "true"
+        fabric.cloudyfolks.io/bgp: "true"
       initContainers:
         # Discover source IP via route lookup to switch gateway and validate
         # against whitelist.

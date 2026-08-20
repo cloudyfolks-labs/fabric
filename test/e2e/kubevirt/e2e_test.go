@@ -390,7 +390,7 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 	})
 
 	framework.ConformanceIt("should keep attachment network ip after vm pod is deleted", func() {
-		providerA := fmt.Sprintf("%s.%s.ovn", nadNameA, namespaceName)
+		providerA := fmt.Sprintf("%s.%s.fabric", nadNameA, namespaceName)
 
 		ginkgo.By("Creating subnet " + subnetNameA)
 		cidrA := framework.RandomCIDR(f.ClusterIPFamily)
@@ -438,8 +438,8 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 	// during new pod creation (cleanStaleVMAttachmentIPs in reconcileAllocateSubnets).
 	framework.ConformanceIt("should release old attachment ip and allocate new one when VM NAD is changed", func() {
 		f.SkipVersionPriorTo(1, 16, "This feature was introduced in v1.16.")
-		providerA := fmt.Sprintf("%s.%s.ovn", nadNameA, namespaceName)
-		providerB := fmt.Sprintf("%s.%s.ovn", nadNameB, namespaceName)
+		providerA := fmt.Sprintf("%s.%s.fabric", nadNameA, namespaceName)
+		providerB := fmt.Sprintf("%s.%s.fabric", nadNameB, namespaceName)
 
 		ginkgo.By("Creating subnets")
 		cidrA := framework.RandomCIDR(f.ClusterIPFamily)

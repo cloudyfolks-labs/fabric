@@ -35,7 +35,7 @@ ENABLE_METRICS=${ENABLE_METRICS:-true}
 NODE_LOCAL_DNS_IP=${NODE_LOCAL_DNS_IP:-}
 # comma-separated list of destination IP CIDRs that should skip conntrack processing
 SKIP_CONNTRACK_DST_CIDRS=${SKIP_CONNTRACK_DST_CIDRS:-}
-ENABLE_IC=${ENABLE_IC:-$(kubectl get node --show-labels | grep -qw "ovn.kubernetes.io/ic-gw" && echo true || echo false)}
+ENABLE_IC=${ENABLE_IC:-$(kubectl get node --show-labels | grep -qw "fabric.cloudyfolks.io/ic-gw" && echo true || echo false)}
 # exchange link names of OVS bridge and the provider nic
 # in the default provider-network
 EXCHANGE_LINK_NAME=${EXCHANGE_LINK_NAME:-false}
@@ -5722,7 +5722,7 @@ spec:
               ephemeral-storage: 1Gi
       nodeSelector:
         kubernetes.io/os: "linux"
-        ovn.kubernetes.io/ovs_dp_type: "userspace"
+        fabric.cloudyfolks.io/ovs_dp_type: "userspace"
       volumes:
         - name: host-config-ovs
           hostPath:
@@ -5824,7 +5824,7 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
           - preference:
               matchExpressions:
-              - key: "ovn.kubernetes.io/ic-gw"
+              - key: "fabric.cloudyfolks.io/ic-gw"
                 operator: NotIn
                 values:
                 - "true"

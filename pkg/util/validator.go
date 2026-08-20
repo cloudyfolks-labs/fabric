@@ -408,7 +408,7 @@ func ValidatePodNetwork(annotations map[string]string) error {
 						errors = append(errors, fmt.Errorf("%s in %s is not a valid address", ip, IPPoolAnnotation))
 					}
 
-					// After ns supports multiple subnets, the ippool static addresses can be allocated in any subnets, such as "ovn.kubernetes.io/ip_pool: 11.16.10.14,12.26.11.21"
+					// After ns supports multiple subnets, the ippool static addresses can be allocated in any subnets, such as "fabric.cloudyfolks.io/ip_pool: 11.16.10.14,12.26.11.21"
 					// so if anyone ip is included in cidr, return true
 					if cidrStr := annotations[CidrAnnotation]; cidrStr != "" {
 						if CIDRContainIP(cidrStr, ip) {
@@ -431,7 +431,7 @@ func ValidatePodNetwork(annotations map[string]string) error {
 	}
 
 	// Validate rate and burst annotations across both the unscoped keys
-	// (ovn.kubernetes.io/{ingress,egress}_{rate,burst}) and any
+	// (fabric.cloudyfolks.io/{ingress,egress}_{rate,burst}) and any
 	// provider-scoped variants used for multus attachment networks
 	// ({provider}.kubernetes.io/{ingress,egress}_{rate,burst}). All forms
 	// share the same suffix, so a single scan covers everything. Rate
@@ -498,7 +498,7 @@ func ipAddressAnnotationsForIPFamily(annotations map[string]string, key string) 
 // ipAddressAnnotationKeysForIPFamily returns the static IP annotation keys that
 // should be checked for an ip_family key. Same-NAD multi-interface pods use
 // <nad>.<ns>.kubernetes.io/ip_address.<ifName> for static IPs while the family
-// annotation is scoped by provider as <nad>.<ns>.ovn.<ifName>.kubernetes.io/ip_family.
+// annotation is scoped by provider as <nad>.<ns>.fabric.<ifName>.cloudyfolks.io/ip_family.
 func ipAddressAnnotationKeysForIPFamily(key string) []string {
 	keys := []string{ipAddressAnnotationKeyForIPFamily(key)}
 	provider, ok := strings.CutSuffix(key, ".kubernetes.io/ip_family")

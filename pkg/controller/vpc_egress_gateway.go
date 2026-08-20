@@ -1205,7 +1205,8 @@ func (c *Controller) handleDelVpcEgressGateway(key string) error {
 	}
 
 	gw := cachedGateway.DeepCopy()
-	if controllerutil.RemoveFinalizer(gw, util.KubeOVNControllerFinalizer) {
+	legacyRemoved := controllerutil.RemoveFinalizer(gw, util.LegacyControllerFinalizer)
+	if controllerutil.RemoveFinalizer(gw, util.KubeOVNControllerFinalizer) || legacyRemoved {
 		if _, err = c.config.KubeOvnClient.FabricV1().VpcEgressGateways(gw.Namespace).
 			Update(context.Background(), gw, metav1.UpdateOptions{}); err != nil {
 			err = fmt.Errorf("failed to remove finalizer from vpc-egress-gateway %s: %w", key, err)

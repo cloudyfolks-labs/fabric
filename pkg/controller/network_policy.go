@@ -565,7 +565,7 @@ func parsePolicyFor(np *netv1.NetworkPolicy) set.Set[string] {
 	}
 
 	providers := set.New[string]()
-	invalidMsg := `ignore invalid network_policy_for annotation %q for netpol %s/%s, expect "ovn" or "<namespace>/<net-attach-def>"`
+	invalidMsg := `ignore invalid network_policy_for annotation %q for netpol %s/%s, expect "fabric" or "<namespace>/<net-attach-def>"`
 
 	for token := range strings.SplitSeq(raw, ",") {
 		t := strings.TrimSpace(token)
@@ -573,7 +573,7 @@ func parsePolicyFor(np *netv1.NetworkPolicy) set.Set[string] {
 			continue
 		}
 
-		if strings.EqualFold(t, "ovn") {
+		if strings.EqualFold(t, "fabric") {
 			providers.Insert(util.OvnProvider)
 			continue
 		}

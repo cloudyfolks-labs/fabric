@@ -27,15 +27,15 @@ func TestParsePolicyFor(t *testing.T) {
 			wantProviders: nil,
 		},
 		{
-			name:       "ovn only",
-			annotation: new("ovn"),
+			name:       "fabric only",
+			annotation: new("fabric"),
 			wantProviders: set.New(
 				util.OvnProvider,
 			),
 		},
 		{
-			name:       "duplicate ovn",
-			annotation: new("ovn, ovn"),
+			name:       "duplicate fabric",
+			annotation: new("fabric, fabric"),
 			wantProviders: set.New(
 				util.OvnProvider,
 			),
@@ -48,16 +48,16 @@ func TestParsePolicyFor(t *testing.T) {
 			),
 		},
 		{
-			name:       "ovn and secondary",
-			annotation: new(" ovn , ns1/net1 "),
+			name:       "fabric and secondary",
+			annotation: new(" fabric , ns1/net1 "),
 			wantProviders: set.New(
 				util.OvnProvider,
 				"net1.ns1."+util.OvnProvider,
 			),
 		},
 		{
-			name:       "ovn and invalid",
-			annotation: new("ovn, foo"),
+			name:       "fabric and invalid",
+			annotation: new("fabric, foo"),
 			wantProviders: set.New(
 				util.OvnProvider,
 			),
@@ -110,9 +110,9 @@ func TestParsePolicyFor(t *testing.T) {
 
 func TestNetpolAppliesToProvider(t *testing.T) {
 	t.Parallel()
-	providers := set.New("ovn", "net1.ns1.ovn")
-	require.True(t, netpolAppliesToProvider("ovn", providers))
-	require.False(t, netpolAppliesToProvider("net2.ns2.ovn", providers))
-	require.True(t, netpolAppliesToProvider("ovn", nil))
-	require.False(t, netpolAppliesToProvider("ovn", set.New[string]()))
+	providers := set.New("fabric", "net1.ns1.fabric")
+	require.True(t, netpolAppliesToProvider("fabric", providers))
+	require.False(t, netpolAppliesToProvider("net2.ns2.fabric", providers))
+	require.True(t, netpolAppliesToProvider("fabric", nil))
+	require.False(t, netpolAppliesToProvider("fabric", set.New[string]()))
 }

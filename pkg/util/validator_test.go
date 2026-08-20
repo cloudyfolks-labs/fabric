@@ -1156,34 +1156,34 @@ func TestValidatePodNetwork(t *testing.T) {
 		{
 			name: "ProviderScopedIPFamilyMatchesStaticIP",
 			annotations: map[string]string{
-				"net1.ns1.ovn.kubernetes.io/ip_family":  "ipv6",
-				"net1.ns1.ovn.kubernetes.io/ip_address": "fd00::15",
+				"net1.ns1.fabric.cloudyfolks.io/ip_family":  "ipv6",
+				"net1.ns1.fabric.cloudyfolks.io/ip_address": "fd00::15",
 			},
 			err: "",
 		},
 		{
 			name: "ProviderScopedIPFamilyMismatchesStaticIP",
 			annotations: map[string]string{
-				"net1.ns1.ovn.kubernetes.io/ip_family":  "ipv4",
-				"net1.ns1.ovn.kubernetes.io/ip_address": "fd00::15",
+				"net1.ns1.fabric.cloudyfolks.io/ip_family":  "ipv4",
+				"net1.ns1.fabric.cloudyfolks.io/ip_address": "fd00::15",
 			},
-			err: "fd00::15 does not match net1.ns1.ovn.kubernetes.io/ip_family ipv4",
+			err: "fd00::15 does not match net1.ns1.fabric.cloudyfolks.io/ip_family ipv4",
 		},
 		{
 			name: "ProviderScopedIPFamilyMatchesPerInterfaceStaticIP",
 			annotations: map[string]string{
-				"net1.ns1.ovn.net1.kubernetes.io/ip_family": "ipv6",
-				"net1.ns1.kubernetes.io/ip_address.net1":    "fd00::15",
+				"net1.ns1.fabric.net1.cloudyfolks.io/ip_family": "ipv6",
+				"net1.ns1.kubernetes.io/ip_address.net1":        "fd00::15",
 			},
 			err: "",
 		},
 		{
 			name: "ProviderScopedIPFamilyMismatchesPerInterfaceStaticIP",
 			annotations: map[string]string{
-				"net1.ns1.ovn.net1.kubernetes.io/ip_family": "ipv4",
-				"net1.ns1.kubernetes.io/ip_address.net1":    "fd00::15",
+				"net1.ns1.fabric.net1.cloudyfolks.io/ip_family": "ipv4",
+				"net1.ns1.kubernetes.io/ip_address.net1":        "fd00::15",
 			},
-			err: "fd00::15 does not match net1.ns1.ovn.net1.kubernetes.io/ip_family ipv4",
+			err: "fd00::15 does not match net1.ns1.fabric.net1.cloudyfolks.io/ip_family ipv4",
 		},
 	}
 	for _, tt := range tests {

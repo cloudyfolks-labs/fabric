@@ -186,7 +186,7 @@ var _ = framework.Describe("[group:kamaji]", func() {
 		gomega.Expect(pod.Annotations[util.AllocatedAnnotation]).To(gomega.Equal("true"),
 			"pod should be annotated by kube-ovn-controller via the external OVN DB")
 		gomega.Expect(pod.Annotations[util.IPAddressAnnotation]).NotTo(gomega.BeEmpty(),
-			"pod should carry an ovn.kubernetes.io/ip_address annotation")
+			"pod should carry an fabric.cloudyfolks.io/ip_address annotation")
 		gomega.Expect(pod.Status.PodIP).NotTo(gomega.BeEmpty(),
 			"pod IP should be set by kubelet from the kube-ovn CNI")
 		wantIPv4, wantIPv6, err := requiredPodAddressFamilies(os.Getenv("E2E_IP_FAMILY"))

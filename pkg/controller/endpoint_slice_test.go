@@ -491,9 +491,9 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 							// Network attachment annotation to indicate this pod uses net1
 							nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
 							// Kube-OVN annotations for net1 provider
-							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.ovn"): "net1-subnet",
-							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.ovn"): "net1-vpc",
-							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.ovn"):     "192.168.1.10",
+							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
+							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
+							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -513,7 +513,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 							"name": "net1",
 							"type": "kube-ovn",
 							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-							"provider": "net1.default.ovn"
+							"provider": "net1.default.fabric"
 						}`,
 					},
 				},
@@ -525,7 +525,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 					Spec: kubeovnv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
-						Provider:  "net1.default.ovn",
+						Provider:  "net1.default.fabric",
 					},
 				},
 				{
@@ -572,9 +572,9 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 							// Network attachment annotation to indicate this pod uses net1
 							nadv1.NetworkAttachmentAnnot: "default/net1",
 							// Kube-OVN annotations for net1 provider
-							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.ovn"): "net1-subnet",
-							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.ovn"): "net1-vpc",
-							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.ovn"):     "192.168.1.10",
+							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
+							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
+							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -594,7 +594,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 							"name": "net1",
 							"type": "kube-ovn",
 							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-							"provider": "net1.default.ovn"
+							"provider": "net1.default.fabric"
 						}`,
 					},
 				},
@@ -606,7 +606,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 					Spec: kubeovnv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
-						Provider:  "net1.default.ovn",
+						Provider:  "net1.default.fabric",
 					},
 				},
 				{
@@ -706,13 +706,13 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 							// Network attachment annotation to indicate this pod uses net1, net2
 							nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}, {"name": "net2"}]`,
 							// Kube-OVN annotations for net1 provider
-							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.ovn"): "net1-subnet",
-							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.ovn"): "net1-vpc",
-							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.ovn"):     "192.168.1.10",
+							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
+							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
+							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
 							// Kube-OVN annotations for net2 provider
-							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net2.default.ovn"): "net2-subnet",
-							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net2.default.ovn"): "net2-vpc",
-							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net2.default.ovn"):     "192.168.2.10",
+							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net2.default.fabric"): "net2-subnet",
+							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net2.default.fabric"): "net2-vpc",
+							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net2.default.fabric"):     "192.168.2.10",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -732,7 +732,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 							"name": "net1",
 							"type": "kube-ovn",
 							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-							"provider": "net1.default.ovn"
+							"provider": "net1.default.fabric"
 						}`,
 					},
 				},
@@ -747,7 +747,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 							"name": "net2",
 							"type": "kube-ovn",
 							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-							"provider": "net2.default.ovn"
+							"provider": "net2.default.fabric"
 						}`,
 					},
 				},
@@ -759,7 +759,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 					Spec: kubeovnv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
-						Provider:  "net1.default.ovn",
+						Provider:  "net1.default.fabric",
 					},
 				},
 				{
@@ -768,7 +768,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 					Spec: kubeovnv1.SubnetSpec{
 						CIDRBlock: "192.168.2.0/24",
-						Provider:  "net2.default.ovn",
+						Provider:  "net2.default.fabric",
 					},
 				},
 				{
@@ -781,7 +781,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 				},
 			},
-			// First provider is net1.default.ovn. We expect changes for its IPs
+			// First provider is net1.default.fabric. We expect changes for its IPs
 			expectedChanges: map[string]string{
 				"10.244.0.5": "192.168.1.10",
 			},

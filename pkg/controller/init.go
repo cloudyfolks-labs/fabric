@@ -952,11 +952,13 @@ func migrateFinalizers(c client.Client, list client.ObjectList, getObjectItem fu
 		if cachedObj, patchedObj = getObjectItem(i); cachedObj == nil {
 			break
 		}
-		if !controllerutil.ContainsFinalizer(cachedObj, util.DeprecatedFinalizerName) {
+		if !controllerutil.ContainsFinalizer(cachedObj, util.DeprecatedFinalizerName) &&
+			!controllerutil.ContainsFinalizer(cachedObj, util.LegacyControllerFinalizer) {
 			i++
 			continue
 		}
 		controllerutil.RemoveFinalizer(patchedObj, util.DeprecatedFinalizerName)
+		controllerutil.RemoveFinalizer(patchedObj, util.LegacyControllerFinalizer)
 		if cachedObj.GetDeletionTimestamp() == nil {
 			// if the object is not being deleted, add the new finalizer
 			controllerutil.AddFinalizer(patchedObj, util.KubeOVNControllerFinalizer)

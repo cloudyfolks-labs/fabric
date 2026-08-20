@@ -249,7 +249,7 @@ spec:
       {{ end }}
 
       hostIP: {{ NodeIPWith .spec.nodeName | Quote }}
-      podIP: {{ index .metadata.annotations "ovn.kubernetes.io/ip_address" }}
+      podIP: {{ index .metadata.annotations "fabric.cloudyfolks.io/ip_address" }}
       phase: Running
       startTime: {{ $now | Quote }}
   resourceRef:
@@ -261,7 +261,7 @@ spec:
       operator: DoesNotExist
     - key: .status.podIP
       operator: DoesNotExist
-    - key: .metadata.annotations."ovn.kubernetes.io/routed"
+    - key: .metadata.annotations."fabric.cloudyfolks.io/routed"
       operator: In
       values:
       - "true"

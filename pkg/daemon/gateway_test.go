@@ -90,7 +90,7 @@ func mkTProxyPod(ns, name string, annotations map[string]string, podIPs ...strin
 }
 
 func TestGetPodPrimaryNetworkProvider(t *testing.T) {
-	attachProvider := "macvlan.default.ovn"
+	attachProvider := "macvlan.default.fabric"
 	cases := []struct {
 		name        string
 		annotations map[string]string
@@ -163,7 +163,7 @@ func TestGetPodPrimaryNetworkProvider(t *testing.T) {
 }
 
 func TestGetTProxyConditionPod(t *testing.T) {
-	attachProvider := "macvlan.default.ovn"
+	attachProvider := "macvlan.default.fabric"
 	subnets := []*kubeovnv1.Subnet{{
 		ObjectMeta: metav1.ObjectMeta{Name: "custom-subnet"},
 		Spec:       kubeovnv1.SubnetSpec{Vpc: "custom-vpc"},
@@ -224,7 +224,7 @@ func TestProviderExistsRequiresSubnetForNamedOvnProvider(t *testing.T) {
 		Spec:       kubeovnv1.SubnetSpec{Provider: util.OvnProvider},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{Name: "attach-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{Provider: "attachnet-a.default.ovn"},
+		Spec:       kubeovnv1.SubnetSpec{Provider: "attachnet-a.default.fabric"},
 	}}
 
 	kubeovnClient := kubeovnfake.NewSimpleClientset()
@@ -239,19 +239,19 @@ func TestProviderExistsRequiresSubnetForNamedOvnProvider(t *testing.T) {
 	_, ok := handler.providerExists(util.OvnProvider, "")
 	require.True(t, ok)
 
-	subnet, ok := handler.providerExists("attachnet-a.default.ovn", "")
+	subnet, ok := handler.providerExists("attachnet-a.default.fabric", "")
 	require.True(t, ok)
 	require.NotNil(t, subnet)
 	require.Equal(t, "attach-subnet", subnet.Name)
 
-	_, ok = handler.providerExists("attachnet-b.default.ovn", "")
+	_, ok = handler.providerExists("attachnet-b.default.fabric", "")
 	require.False(t, ok)
 }
 
 func TestProviderExistsAllowsOnSubnetListError(t *testing.T) {
 	handler := cniServerHandler{Controller: &Controller{subnetsLister: errSubnetLister{}}}
 
-	subnet, ok := handler.providerExists("attachnet-a.default.ovn", "")
+	subnet, ok := handler.providerExists("attachnet-a.default.fabric", "")
 	require.True(t, ok)
 	require.Nil(t, subnet)
 }

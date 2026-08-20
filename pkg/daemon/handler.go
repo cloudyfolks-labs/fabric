@@ -137,7 +137,7 @@ func (csh cniServerHandler) providerExists(provider, ifName string) (*kubeovnv1.
 		klog.Errorf("failed to list subnets while checking provider %s: %v", provider, err)
 		return nil, true
 	}
-	// for multi interface attachments the ifname is included in provider, for example, vm-overlay.default.ovn.net1
+	// for multi interface attachments the ifname is included in provider, for example, vm-overlay.default.fabric.net1
 	// as a result if ifname is set, we need to append it to subnet provider when comparing with request provider
 	// else no subnet will be found
 	providerName, _ := strings.CutSuffix(provider, fmt.Sprintf(".%s", ifName))

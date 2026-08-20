@@ -650,6 +650,7 @@ func (c *Controller) handleAddOvnDnatFinalizer(cachedDnat *kubeovnv1.OvnDnatRule
 	)
 
 	controllerutil.RemoveFinalizer(newDnat, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newDnat, util.LegacyControllerFinalizer)
 	controllerutil.AddFinalizer(newDnat, util.KubeOVNControllerFinalizer)
 	if patch, err = util.GenerateMergePatchPayload(cachedDnat, newDnat); err != nil {
 		klog.Errorf("failed to generate patch payload for ovn dnat '%s', %v", cachedDnat.Name, err)
@@ -673,6 +674,7 @@ func (c *Controller) handleDelOvnDnatFinalizer(cachedDnat *kubeovnv1.OvnDnatRule
 	}
 	newDnat := cachedDnat.DeepCopy()
 	controllerutil.RemoveFinalizer(newDnat, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newDnat, util.LegacyControllerFinalizer)
 	controllerutil.RemoveFinalizer(newDnat, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedDnat, newDnat)
 	if err != nil {

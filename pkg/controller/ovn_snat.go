@@ -498,6 +498,7 @@ func (c *Controller) handleAddOvnSnatFinalizer(cachedSnat *kubeovnv1.OvnSnatRule
 	}
 	newSnat := cachedSnat.DeepCopy()
 	controllerutil.RemoveFinalizer(newSnat, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newSnat, util.LegacyControllerFinalizer)
 	controllerutil.AddFinalizer(newSnat, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedSnat, newSnat)
 	if err != nil {
@@ -521,6 +522,7 @@ func (c *Controller) handleDelOvnSnatFinalizer(cachedSnat *kubeovnv1.OvnSnatRule
 	}
 	newSnat := cachedSnat.DeepCopy()
 	controllerutil.RemoveFinalizer(newSnat, util.DeprecatedFinalizerName)
+	controllerutil.RemoveFinalizer(newSnat, util.LegacyControllerFinalizer)
 	controllerutil.RemoveFinalizer(newSnat, util.KubeOVNControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedSnat, newSnat)
 	if err != nil {

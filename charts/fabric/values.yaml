@@ -436,9 +436,9 @@ apiNad:
   # -- Name of the NAD.
   # @section -- API Network Attachment Definition configuration
   name: ovn-kubernetes-api
-  # -- Name of the provider, must be in the form "nadName.nadNamespace.ovn".
+  # -- Name of the provider, must be in the form "nadName.nadNamespace.fabric".
   # @section -- API Network Attachment Definition configuration
-  provider: "{{ .Values.apiNad.name }}.{{ .Values.namespace }}.ovn"
+  provider: "{{ .Values.apiNad.name }}.{{ .Values.namespace }}.fabric"
   # -- Subnet associated with the NAD, it will have full access to the API server.
   # @section -- API Network Attachment Definition configuration
   # @default -- "{}"
@@ -582,7 +582,7 @@ ovsOvn:
     # @section -- OVS/OVN daemons configuration
     nodeSelector:
       kubernetes.io/os: "linux"
-      ovn.kubernetes.io/ovs_dp_type: "userspace"
+      fabric.cloudyfolks.io/ovs_dp_type: "userspace"
     # -- ovs-ovn resource limits & requests when DPDK-hybrid is enabled.
     # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
     # @section -- OVS/OVN daemons configuration

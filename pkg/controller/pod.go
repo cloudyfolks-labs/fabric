@@ -2124,21 +2124,21 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 				// NAD deleted before pod, find subnet for cleanup
 				providerName := fmt.Sprintf("%s.%s.%s", attach.Name, attach.Namespace, util.OvnProvider)
 				// k8s.v1.cni.cncf.io/networks: '[{"name": "vm-overlay", "namespace": "default", "interface": "net1"}, {"name": "vm-overlay", "namespace": "default", "interface": "net2"}]'
-				// will make providerName to be "vm-overlay.default.ovn.net1" and "vm-overlay.default.ovn.net2", but the subnet annotation is "vm-overlay.default.ovn"
+				// will make providerName to be "vm-overlay.default.fabric.net1" and "vm-overlay.default.fabric.net2", but the subnet annotation is "vm-overlay.default.fabric"
 				if nadCounts[nadKey] > 1 && attach.InterfaceRequest != "" {
 					providerName = fmt.Sprintf("%s.%s", providerName, attach.InterfaceRequest)
 				}
 
 				// IPAM-only attachments (e.g. ipvlan/macvlan with ipam.type kube-ovn) bind to a
-				// subnet whose provider is "<nad>.<namespace>" without the ".ovn" suffix, and the
+				// subnet whose provider is "<nad>.<namespace>" without the ".fabric" suffix, and the
 				// add path never appends the interface name to it. Match this form as well so the
 				// IP is released here instead of leaking (the periodic gc does not reclaim it).
 				ipamProviderName := fmt.Sprintf("%s.%s", attach.Name, attach.Namespace)
 
 				// if interface name is provided this means providerName will contain interface name
-				// say vm-overlay.default.ovn.net1 which will not match the `provider` definition in the config object
+				// say vm-overlay.default.fabric.net1 which will not match the `provider` definition in the config object
 				// for each interface then we need annotation
-				// vm-overlay.default.ovn.net1.kubernetes.io/logical_switch = "subnetName" to allow it to identify correct switch to be associated with this interface
+				// vm-overlay.default.fabric.net1.cloudyfolks.io/logical_switch = "subnetName" to allow it to identify correct switch to be associated with this interface
 				// interfaceName is included in the name
 				subnetName := pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, providerName)]
 				if subnetName == "" {
@@ -2201,11 +2201,11 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 
 			// same logic as above we adding ifName in providerName
 
-			// vm-overlay.default.ovn
+			// vm-overlay.default.fabric
 			providerName = fmt.Sprintf("%s.%s.%s", attach.Name, attach.Namespace, util.OvnProvider)
 			if nadCounts[nadKey] > 1 && attach.InterfaceRequest != "" {
 				// due to interface name in request this becomes
-				// vm-overlay.default.ovn.net1
+				// vm-overlay.default.fabric.net1
 				providerName = fmt.Sprintf("%s.%s", providerName, attach.InterfaceRequest)
 			}
 			if pod.Annotations[kubevirtv1.MigrationJobNameAnnotation] != "" {
@@ -2213,7 +2213,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 			}
 
 			// as a result when default subnetName i not provided then it will not match subnet spec.. as a result we find nothing and subnet is set to empty
-			// key is vm-overlay.default.ovn.net1.kubernetes.io/logical_switch: vm-overlay
+			// key is vm-overlay.default.fabric.net1.cloudyfolks.io/logical_switch: vm-overlay
 			subnetName := pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, providerName)]
 
 			// helper function to try and identify correct subnet when interface name is provided in request, this is for the case when multiple attach with same NAD but different interface name and the providerName contains interface name but subnet spec does not contain it
@@ -2392,7 +2392,7 @@ func (c *Controller) acquireMacOnlyAddress(pod *v1.Pod, podNet *kubeovnNet, key,
 }
 
 // podNetRequestedIPFamily reads the family request from the annotation scoped to
-// this provider. The default provider naturally maps to ovn.kubernetes.io/ip_family.
+// this provider. The default provider naturally maps to fabric.cloudyfolks.io/ip_family.
 func podNetRequestedIPFamily(pod *v1.Pod, podNet *kubeovnNet) string {
 	if pod == nil || pod.Annotations == nil {
 		return ""
@@ -2557,8 +2557,8 @@ func (c *Controller) acquireAddress(pod *v1.Pod, podNet *kubeovnNet) (string, st
 		}
 	}
 
-	// will be subnet.namespace.interface.ovn.kubernetes.io/ip_address in case of multiple interfaces with
-	// interface name provided or subnet.namespace.ovn.kubernetes.io/ip_address in case of single interface or multiple interfaces without interface name provided
+	// will be subnet.namespace.interface.fabric.cloudyfolks.io/ip_address in case of multiple interfaces with
+	// interface name provided or subnet.namespace.fabric.cloudyfolks.io/ip_address in case of single interface or multiple interfaces without interface name provided
 	if pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, podNet.ProviderName)] == "" &&
 		ippoolStr == "" {
 		// check new IP annotation

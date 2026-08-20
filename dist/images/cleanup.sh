@@ -114,31 +114,31 @@ kubectl delete --ignore-not-found crd \
   ips.fabric.cloudyfolks.io
 
 # Remove annotations/labels in namespaces and nodes
-kubectl annotate node --all ovn.kubernetes.io/cidr-
-kubectl annotate node --all ovn.kubernetes.io/gateway-
-kubectl annotate node --all ovn.kubernetes.io/ip_address-
-kubectl annotate node --all ovn.kubernetes.io/logical_switch-
-kubectl annotate node --all ovn.kubernetes.io/mac_address-
-kubectl annotate node --all ovn.kubernetes.io/port_name-
-kubectl annotate node --all ovn.kubernetes.io/allocated-
-kubectl annotate node --all ovn.kubernetes.io/chassis- 
+kubectl annotate node --all fabric.cloudyfolks.io/cidr-
+kubectl annotate node --all fabric.cloudyfolks.io/gateway-
+kubectl annotate node --all fabric.cloudyfolks.io/ip_address-
+kubectl annotate node --all fabric.cloudyfolks.io/logical_switch-
+kubectl annotate node --all fabric.cloudyfolks.io/mac_address-
+kubectl annotate node --all fabric.cloudyfolks.io/port_name-
+kubectl annotate node --all fabric.cloudyfolks.io/allocated-
+kubectl annotate node --all fabric.cloudyfolks.io/chassis- 
 kubectl label node --all kube-ovn/role-
 
 kubectl get node -o name | while read node; do
   kubectl get "$node" -o 'go-template={{ range $k, $v := .metadata.labels }}{{ $k }}{{"\n"}}{{ end }}' | while read label; do
-    if echo "$label" | grep -qE '^(.+\.provider-network\.kubernetes\.io/(ready|mtu|interface|exclude))$'; then
+    if echo "$label" | grep -qE '^(.+\.provider-network\.cloudyfolks\.io/(ready|mtu|interface|exclude))$'; then
       kubectl label "$node" "$label-"
     fi
   done
 done
 
-kubectl annotate ns --all ovn.kubernetes.io/cidr-
-kubectl annotate ns --all ovn.kubernetes.io/exclude_ips-
-kubectl annotate ns --all ovn.kubernetes.io/gateway-
-kubectl annotate ns --all ovn.kubernetes.io/logical_switch-
-kubectl annotate ns --all ovn.kubernetes.io/private-
-kubectl annotate ns --all ovn.kubernetes.io/allow-
-kubectl annotate ns --all ovn.kubernetes.io/allocated-
+kubectl annotate ns --all fabric.cloudyfolks.io/cidr-
+kubectl annotate ns --all fabric.cloudyfolks.io/exclude_ips-
+kubectl annotate ns --all fabric.cloudyfolks.io/gateway-
+kubectl annotate ns --all fabric.cloudyfolks.io/logical_switch-
+kubectl annotate ns --all fabric.cloudyfolks.io/private-
+kubectl annotate ns --all fabric.cloudyfolks.io/allow-
+kubectl annotate ns --all fabric.cloudyfolks.io/allocated-
 
 # ensure kube-ovn components have been deleted
 while :; do
@@ -164,15 +164,15 @@ kubectl delete --ignore-not-found -n kube-system secret ovn-ipsec-ca
 # Remove annotations in all pods of all namespaces
 for ns in $(kubectl get ns -o name | awk -F/ '{print $2}'); do
   echo "annotating pods in namespace $ns"
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/cidr-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/gateway-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/ip_address-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/logical_switch-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/mac_address-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/port_name-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/allocated-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/routed-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/vlan_id-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/network_type-
-  kubectl annotate pod --all -n $ns ovn.kubernetes.io/provider_network-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/cidr-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/gateway-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/ip_address-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/logical_switch-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/mac_address-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/port_name-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/allocated-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/routed-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/vlan_id-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/network_type-
+  kubectl annotate pod --all -n $ns fabric.cloudyfolks.io/provider_network-
 done

@@ -33,7 +33,7 @@ func TestHasAllocatedAnnotation(t *testing.T) {
 		{
 			name: "default provider allocated",
 			annotations: map[string]string{
-				"ovn.kubernetes.io/allocated": "true",
+				"fabric.cloudyfolks.io/allocated": "true",
 			},
 			expected: true,
 		},
@@ -47,22 +47,22 @@ func TestHasAllocatedAnnotation(t *testing.T) {
 		{
 			name: "allocated is false",
 			annotations: map[string]string{
-				"ovn.kubernetes.io/allocated": "false",
+				"fabric.cloudyfolks.io/allocated": "false",
 			},
 			expected: false,
 		},
 		{
 			name: "unrelated annotations only",
 			annotations: map[string]string{
-				"app":                          "test",
-				"ovn.kubernetes.io/ip_address": "10.0.0.1",
+				"app":                              "test",
+				"fabric.cloudyfolks.io/ip_address": "10.0.0.1",
 			},
 			expected: false,
 		},
 		{
 			name: "multiple providers with one allocated",
 			annotations: map[string]string{
-				"ovn.kubernetes.io/allocated":         "false",
+				"fabric.cloudyfolks.io/allocated":     "false",
 				"my-provider.kubernetes.io/allocated": "true",
 			},
 			expected: true,

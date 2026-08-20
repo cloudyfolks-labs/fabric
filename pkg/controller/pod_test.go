@@ -55,9 +55,9 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					Annotations: map[string]string{
 						nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
 						// Kube-OVN annotations for net1 provider
-						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.ovn"): "net1-subnet",
-						fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.ovn"): "net1-vpc",
-						fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.ovn"):     "192.168.1.10",
+						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
+						fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
+						fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
 					},
 				},
 			},
@@ -73,7 +73,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 							"name": "net1",
 							"type": "kube-ovn",
 							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-							"provider": "net1.default.ovn"
+							"provider": "net1.default.fabric"
 						}`,
 					},
 				},
@@ -85,7 +85,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					},
 					Spec: kubeovnv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
-						Provider:  "net1.default.ovn",
+						Provider:  "net1.default.fabric",
 					},
 				},
 			},
@@ -103,10 +103,10 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					Annotations: map[string]string{
 						nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
 						// Both custom and default provider annotations
-						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.ovn"): "net1-subnet",
-						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, util.OvnProvider):   "ovn-default",
-						fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.ovn"):     "192.168.1.10",
-						fmt.Sprintf(util.IPAddressAnnotationTemplate, util.OvnProvider):       "10.244.0.5",
+						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
+						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, util.OvnProvider):      "ovn-default",
+						fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
+						fmt.Sprintf(util.IPAddressAnnotationTemplate, util.OvnProvider):          "10.244.0.5",
 					},
 				},
 			},
@@ -122,7 +122,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 							"name": "net1",
 							"type": "kube-ovn",
 							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-							"provider": "net1.default.ovn"
+							"provider": "net1.default.fabric"
 						}`,
 					},
 				},
@@ -134,7 +134,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					},
 					Spec: kubeovnv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
-						Provider:  "net1.default.ovn",
+						Provider:  "net1.default.fabric",
 					},
 				},
 				{
@@ -214,7 +214,7 @@ func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testi
 				"name": "attachnet-a",
 				"type": "kube-ovn",
 				"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
-				"provider": "attachnet-a.default.ovn"
+				"provider": "attachnet-a.default.fabric"
 			}`,
 		},
 	}
@@ -231,7 +231,7 @@ func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testi
 			ObjectMeta: metav1.ObjectMeta{Name: "mismatch-subnet"},
 			Spec: kubeovnv1.SubnetSpec{
 				CIDRBlock: "10.244.0.0/24",
-				Provider:  "attachnet-b.default.ovn",
+				Provider:  "attachnet-b.default.fabric",
 			},
 		},
 	}
@@ -247,7 +247,7 @@ func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testi
 
 	require.Error(t, err)
 	require.Nil(t, nets)
-	require.Contains(t, err.Error(), "provider attachnet-a.default.ovn is not bound to any subnet")
+	require.Contains(t, err.Error(), "provider attachnet-a.default.fabric is not bound to any subnet")
 }
 
 func TestAcquireAddressWithSpecifiedSubnet(t *testing.T) {
@@ -470,7 +470,7 @@ func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
 
 	podNet := &kubeovnNet{
 		Subnet:        testSubnet,
-		ProviderName:  nadName + "." + nadNamespace + ".ovn",
+		ProviderName:  nadName + "." + nadNamespace + ".fabric",
 		NadName:       nadName,
 		NadNamespace:  nadNamespace,
 		InterfaceName: ifaceName,
@@ -564,7 +564,7 @@ func TestAcquireAddressWithIPFamily(t *testing.T) {
 	})
 
 	t.Run("attachment network ipv6 only", func(t *testing.T) {
-		provider := "net1.default.ovn"
+		provider := "net1.default.fabric"
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod-v6",
@@ -647,8 +647,8 @@ func TestAcquireAddressWithIPFamily(t *testing.T) {
 	})
 
 	t.Run("same nad multiple interfaces can request different families", func(t *testing.T) {
-		provider1 := "net1.default.ovn.net1"
-		provider2 := "net1.default.ovn.net2"
+		provider1 := "net1.default.fabric.net1"
+		provider2 := "net1.default.fabric.net2"
 		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pod-multi",
@@ -1044,14 +1044,14 @@ func TestGetPodAttachmentNetDefaultSubnetGone(t *testing.T) {
 				nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
 				// top-level default subnet points at a subnet that no longer exists
 				util.LogicalSwitchAnnotation: "deleted-subnet",
-				// no per-provider net1.default.ovn logical_switch annotation, so the
+				// no per-provider net1.default.fabric logical_switch annotation, so the
 				// attachment cannot resolve a subnet and falls back to the default
 			},
 		},
 	}
 
 	fakeController, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		// NAD is an OVN network but no Subnet has Provider == net1.default.ovn
+		// NAD is an OVN network but no Subnet has Provider == net1.default.fabric
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1077,7 +1077,7 @@ func TestGetPodAttachmentNetDefaultSubnetGone(t *testing.T) {
 // attachment (e.g. ipvlan with ipam.type kube-ovn) is deleted after its NAD has
 // already been removed, the cleanup path must still resolve the attachment to its
 // subnet so the IP is released. The subnet provider is "<nad>.<namespace>" without
-// the ".ovn" suffix, so the returned net must carry that exact provider name so the
+// the ".fabric" suffix, so the returned net must carry that exact provider name so the
 // released IP CR name matches what was allocated.
 func TestGetPodAttachmentNetIPAMOnlyNADGone(t *testing.T) {
 	now := metav1.Now()
@@ -1101,7 +1101,7 @@ func TestGetPodAttachmentNetIPAMOnlyNADGone(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "ipam-net1"},
 				Spec: kubeovnv1.SubnetSpec{
 					CIDRBlock: "10.1.0.0/16",
-					// IPAM-only provider: no ".ovn" suffix
+					// IPAM-only provider: no ".fabric" suffix
 					Provider: "net1.default",
 				},
 			},
@@ -1176,21 +1176,21 @@ func TestPodNetworkEventDetailsIncludesMultipleNetworks(t *testing.T) {
 		Annotations: map[string]string{
 			util.IPAddressAnnotation:  "10.0.0.2",
 			util.MacAddressAnnotation: "00:00:00:00:00:01",
-			fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.ovn"):  "10.1.0.2",
-			fmt.Sprintf(util.MacAddressAnnotationTemplate, "net1.default.ovn"): "00:00:00:00:00:02",
+			fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):  "10.1.0.2",
+			fmt.Sprintf(util.MacAddressAnnotationTemplate, "net1.default.fabric"): "00:00:00:00:00:02",
 		},
 	}}
 	controller := newFakeController(t).fakeController
 	nets := []*kubeovnNet{
 		{ProviderName: util.OvnProvider, Subnet: &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}}},
-		{ProviderName: "net1.default.ovn", Subnet: &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}}},
+		{ProviderName: "net1.default.fabric", Subnet: &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}}},
 	}
 
 	details := controller.podNetworkEventDetails(pod, nets)
 
 	for _, part := range []string{
 		"provider=ovn", "subnet=subnet-a", "ip=10.0.0.2", "mac=00:00:00:00:00:01", "logicalSwitchPort=test-pod.default",
-		"provider=net1.default.ovn", "subnet=subnet-b", "ip=10.1.0.2", "mac=00:00:00:00:00:02", "logicalSwitchPort=test-pod.default.net1.default.ovn",
+		"provider=net1.default.fabric", "subnet=subnet-b", "ip=10.1.0.2", "mac=00:00:00:00:00:02", "logicalSwitchPort=test-pod.default.net1.default.fabric",
 		"; ",
 	} {
 		assert.Contains(t, details, part)
@@ -1236,7 +1236,7 @@ func TestSyncKubeOvnNetReportsNoChange(t *testing.T) {
 
 func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
 	const (
-		provider = "net1.default.ovn"
+		provider = "net1.default.fabric"
 		keepKey  = "example.com/keep"
 	)
 
@@ -1463,7 +1463,7 @@ func TestHandleDeletePodRetriesOrphanedVMPortIPLookupFailure(t *testing.T) {
 		Kind:       util.KindVirtualMachineInstance,
 		Name:       "test-vm",
 	}}
-	portName := ovs.PodNameToPortName("test-vm", pod.Namespace, "old.default.ovn")
+	portName := ovs.PodNameToPortName("test-vm", pod.Namespace, "old.default.fabric")
 	ipCR := &kubeovnv1.IP{ObjectMeta: metav1.ObjectMeta{Name: portName}, Spec: kubeovnv1.IPSpec{
 		PodName: "test-vm", Namespace: pod.Namespace, Subnet: subnet.Name,
 	}}
@@ -1597,7 +1597,7 @@ func TestHandleAddOrUpdatePodRecordsAllocationSuccess(t *testing.T) {
 }
 
 func TestHandleAddOrUpdatePodReportsOnlyAllocatedNetworks(t *testing.T) {
-	const provider = "net1.default.ovn"
+	const provider = "net1.default.fabric"
 	pod, defaultSubnet := podEventFixture()
 	pod.Annotations[util.AllocatedAnnotation] = "true"
 	pod.Annotations[util.RoutedAnnotation] = "true"
@@ -1612,7 +1612,7 @@ func TestHandleAddOrUpdatePodReportsOnlyAllocatedNetworks(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.ovn"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -1633,8 +1633,8 @@ func TestHandleAddOrUpdatePodReportsOnlyAllocatedNetworks(t *testing.T) {
 
 func TestHandleAddOrUpdatePodCombinesAllocatedAndRemovedNetworks(t *testing.T) {
 	const (
-		allocatedProvider = "net1.default.ovn"
-		removedProvider   = "old.default.ovn"
+		allocatedProvider = "net1.default.fabric"
+		removedProvider   = "old.default.fabric"
 	)
 	pod, defaultSubnet := podEventFixture()
 	pod.Annotations[util.AllocatedAnnotation] = "true"
@@ -1652,7 +1652,7 @@ func TestHandleAddOrUpdatePodCombinesAllocatedAndRemovedNetworks(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.ovn"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -1683,7 +1683,7 @@ func TestHandleAddOrUpdatePodCombinesAllocatedAndRemovedNetworks(t *testing.T) {
 }
 
 func TestHandleAddOrUpdatePodReportsOnlyRoutedNetworks(t *testing.T) {
-	const provider = "net1.default.ovn"
+	const provider = "net1.default.fabric"
 	pod, defaultSubnet := podEventFixture()
 	pod.Spec.NodeName = "node-a"
 	pod.Annotations[util.AllocatedAnnotation] = "true"
@@ -1702,7 +1702,7 @@ func TestHandleAddOrUpdatePodReportsOnlyRoutedNetworks(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.ovn"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -1871,7 +1871,7 @@ func TestHandleAddOrUpdatePodReportsActualAllocatedSubnet(t *testing.T) {
 }
 
 func TestHandleAddOrUpdatePodRecordsHotplugUpdate(t *testing.T) {
-	const provider = "net1.default.ovn"
+	const provider = "net1.default.fabric"
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:      "test-pod",
 		Namespace: metav1.NamespaceDefault,
@@ -1891,7 +1891,7 @@ func TestHandleAddOrUpdatePodRecordsHotplugUpdate(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{subnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.ovn"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -1903,11 +1903,11 @@ func TestHandleAddOrUpdatePodRecordsHotplugUpdate(t *testing.T) {
 	err = fc.fakeController.handleAddOrUpdatePod("default/test-pod")
 
 	require.NoError(t, err)
-	assertPodEvent(t, fc.fakeController, "Normal PodNetworkUpdated", "provider=net1.default.ovn", "subnet=subnet-b", "ip=10.1.0.2", "mac=00:00:00:00:00:02", "logicalSwitchPort=test-pod.default.net1.default.ovn")
+	assertPodEvent(t, fc.fakeController, "Normal PodNetworkUpdated", "provider=net1.default.fabric", "subnet=subnet-b", "ip=10.1.0.2", "mac=00:00:00:00:00:02", "logicalSwitchPort=test-pod.default.net1.default.fabric")
 }
 
 func TestHandleAddOrUpdatePodReportsRemovedHotplugNetwork(t *testing.T) {
-	const removedProvider = "old.default.ovn"
+	const removedProvider = "old.default.fabric"
 	pod, subnet := podEventFixture()
 	pod.Annotations[util.AllocatedAnnotation] = "true"
 	pod.Annotations[util.RoutedAnnotation] = "true"
