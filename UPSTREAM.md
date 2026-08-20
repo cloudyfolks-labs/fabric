@@ -53,3 +53,14 @@ them resolve as a delete during a sync:
 
 The `vpc-nat-gateway` container image remains. The lb-svc feature uses it
 as the gateway pod image.
+
+## Renamed identifiers
+
+fabric renamed the user-facing API domains (see `MIGRATION.md` for the
+full table): the CRD group is `fabric.cloudyfolks.io`, annotations and
+finalizers use `fabric.cloudyfolks.io/<key>`, the annotation templates
+use the `.cloudyfolks.io` suffix, and the default provider token is
+`fabric` instead of `ovn`. During a sync, upstream changes to these
+identifiers resolve to the fabric names. Internal OVN/OVS
+`external_ids` (`kube-ovn.io/*`, `vendor=kube-ovn`) are unchanged and
+must stay identical to upstream.

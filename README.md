@@ -48,8 +48,14 @@ multi-cluster interconnect, and the rest.
 ## Documentation
 
 The [kube-ovn documentation](https://kubeovn.github.io/docs/stable/en/)
-applies to all inherited features. Documentation for the fabric-specific
-features lives in this repository.
+applies to all inherited features, with one systematic difference:
+fabric renamed the API domains. Replace `kubeovn.io/v1` with
+`fabric.cloudyfolks.io/v1` and `ovn.kubernetes.io/` annotation keys
+with `fabric.cloudyfolks.io/` — the full table is in
+[MIGRATION.md](MIGRATION.md). Documentation for the fabric-specific
+features lives in this repository; design rules are in
+[DESIGN.md](DESIGN.md) and proposals in
+[docs/proposals/](docs/proposals/).
 
 ## Install
 
