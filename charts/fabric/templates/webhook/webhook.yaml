@@ -47,7 +47,7 @@ webhooks:
           - UPDATE
           - DELETE
         apiGroups:
-          - "kubeovn.io"
+          - "fabric.cloudyfolks.io"
         apiVersions:
           - v1
         resources:

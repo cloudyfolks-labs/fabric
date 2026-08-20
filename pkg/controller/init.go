@@ -97,7 +97,7 @@ func (c *Controller) InitDefaultVpc() error {
 		vpc := &kubeovnv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: c.config.ClusterRouter},
 		}
-		cachedVpc, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		cachedVpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		if err != nil {
 			klog.Errorf("failed to create default vpc %q: %v", c.config.ClusterRouter, err)
 			return err
@@ -114,7 +114,7 @@ func (c *Controller) InitDefaultVpc() error {
 		vpc.Status.Router = c.config.ClusterRouter
 		vpc.Status.DefaultLogicalSwitch = c.config.DefaultLogicalSwitch
 
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update default vpc %q: %v", c.config.ClusterRouter, err)
 			return err
 		}
@@ -174,7 +174,7 @@ func (c *Controller) initDefaultLogicalSwitch() error {
 		defaultSubnet.Spec.U2OInterconnection = c.config.DefaultU2OInterconnection
 	}
 
-	if _, err = c.config.KubeOvnClient.KubeovnV1().Subnets().Create(context.Background(), &defaultSubnet, metav1.CreateOptions{}); err != nil {
+	if _, err = c.config.KubeOvnClient.FabricV1().Subnets().Create(context.Background(), &defaultSubnet, metav1.CreateOptions{}); err != nil {
 		klog.Errorf("failed to create default subnet %q: %v", c.config.DefaultLogicalSwitch, err)
 		return err
 	}
@@ -219,7 +219,7 @@ func (c *Controller) initNodeSwitch() error {
 		},
 	}
 
-	if _, err = c.config.KubeOvnClient.KubeovnV1().Subnets().Create(context.Background(), &nodeSubnet, metav1.CreateOptions{}); err != nil {
+	if _, err = c.config.KubeOvnClient.FabricV1().Subnets().Create(context.Background(), &nodeSubnet, metav1.CreateOptions{}); err != nil {
 		klog.Errorf("failed to create node subnet %q: %v", c.config.NodeSwitch, err)
 		return err
 	}
@@ -353,7 +353,7 @@ func (c *Controller) initLoadBalancer() error {
 			klog.Error(err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Patch(context.Background(), cachedVpc.Name, types.MergePatchType, body, metav1.PatchOptions{}, "status"); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), cachedVpc.Name, types.MergePatchType, body, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Error(err)
 			return err
 		}
@@ -650,7 +650,7 @@ func (c *Controller) initDefaultProviderNetwork() error {
 		}
 	}()
 
-	_, err = c.config.KubeOvnClient.KubeovnV1().ProviderNetworks().Create(context.Background(), &pn, metav1.CreateOptions{})
+	_, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().Create(context.Background(), &pn, metav1.CreateOptions{})
 	if err != nil {
 		klog.Errorf("failed to create provider network %s: %v", c.config.DefaultProviderName, err)
 		return err
@@ -690,7 +690,7 @@ func (c *Controller) initDefaultVlan() error {
 		},
 	}
 
-	_, err = c.config.KubeOvnClient.KubeovnV1().Vlans().Create(context.Background(), &defaultVlan, metav1.CreateOptions{})
+	_, err = c.config.KubeOvnClient.FabricV1().Vlans().Create(context.Background(), &defaultVlan, metav1.CreateOptions{})
 	if err != nil {
 		klog.Errorf("failed to create vlan %s: %v", defaultVlan.Name, err)
 		return err
@@ -735,7 +735,7 @@ func (c *Controller) syncIPCR() error {
 
 		ip.Spec.V4IPAddress = v4IP
 		ip.Spec.V6IPAddress = v6IP
-		_, err := c.config.KubeOvnClient.KubeovnV1().IPs().Update(context.Background(), ip, metav1.UpdateOptions{})
+		_, err := c.config.KubeOvnClient.FabricV1().IPs().Update(context.Background(), ip, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to sync crd ip %s: %v", ip.Spec.IPAddress, err)
 			return err
@@ -777,7 +777,7 @@ func (c *Controller) syncSubnetCR() error {
 			}
 
 			subnet.Spec.EnableEcmp = c.config.EnableEcmp
-			if _, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Update(context.Background(), subnet, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Update(context.Background(), subnet, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("failed to sync subnet spec enableEcmp with kube-ovn-controller config enableEcmp %s: %v", subnet.Name, err)
 				return err
 			}
@@ -814,7 +814,7 @@ func (c *Controller) syncVlanCR() error {
 			needUpdate = true
 		}
 		if needUpdate {
-			if _, err = c.config.KubeOvnClient.KubeovnV1().Vlans().Update(context.Background(), newVlan, metav1.UpdateOptions{}); err != nil {
+			if _, err = c.config.KubeOvnClient.FabricV1().Vlans().Update(context.Background(), newVlan, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("failed to update spec of vlan %s: %v", newVlan.Name, err)
 				return err
 			}

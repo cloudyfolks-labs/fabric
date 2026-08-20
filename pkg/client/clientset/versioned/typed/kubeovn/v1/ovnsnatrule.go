@@ -60,7 +60,7 @@ type ovnSnatRules struct {
 }
 
 // newOvnSnatRules returns a OvnSnatRules
-func newOvnSnatRules(c *KubeovnV1Client) *ovnSnatRules {
+func newOvnSnatRules(c *FabricV1Client) *ovnSnatRules {
 	return &ovnSnatRules{
 		gentype.NewClientWithListAndApply[*kubeovnv1.OvnSnatRule, *kubeovnv1.OvnSnatRuleList, *applyconfigurationkubeovnv1.OvnSnatRuleApplyConfiguration](
 			"ovn-snat-rules",

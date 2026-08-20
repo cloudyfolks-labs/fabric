@@ -190,7 +190,7 @@ func (c *Controller) patchIPPoolStatus(ippool *kubeovnv1.IPPool) error {
 		klog.Errorf("failed to generate json representation for status of ippool %s: %v", ippool.Name, err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.KubeovnV1().IPPools().Patch(context.Background(), ippool.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err = c.config.KubeOvnClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch status of ippool %s: %v", ippool.Name, err)
 		return err
 	}
@@ -223,7 +223,7 @@ func (c *Controller) handleAddIPPoolFinalizer(ippool *kubeovnv1.IPPool) error {
 		klog.Errorf("failed to generate patch payload for ippool %s: %v", ippool.Name, err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.KubeovnV1().IPPools().Patch(context.Background(), ippool.Name,
+	if _, err = c.config.KubeOvnClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -247,7 +247,7 @@ func (c *Controller) handleDelIPPoolFinalizer(ippool *kubeovnv1.IPPool) error {
 		klog.Errorf("failed to generate patch payload for ippool %s: %v", ippool.Name, err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.KubeovnV1().IPPools().Patch(context.Background(), ippool.Name,
+	if _, err = c.config.KubeOvnClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil

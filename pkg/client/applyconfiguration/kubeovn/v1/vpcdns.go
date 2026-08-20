@@ -39,7 +39,7 @@ func VpcDns(name string) *VpcDnsApplyConfiguration {
 	b := &VpcDnsApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("VpcDns")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

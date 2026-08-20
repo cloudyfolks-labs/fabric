@@ -64,7 +64,7 @@ type vpcEgressGateways struct {
 }
 
 // newVpcEgressGateways returns a VpcEgressGateways
-func newVpcEgressGateways(c *KubeovnV1Client, namespace string) *vpcEgressGateways {
+func newVpcEgressGateways(c *FabricV1Client, namespace string) *vpcEgressGateways {
 	return &vpcEgressGateways{
 		gentype.NewClientWithListAndApply[*kubeovnv1.VpcEgressGateway, *kubeovnv1.VpcEgressGatewayList, *applyconfigurationkubeovnv1.VpcEgressGatewayApplyConfiguration](
 			"vpc-egress-gateways",

@@ -470,7 +470,7 @@ func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string,
 	}
 	vpc = cachedVpc.DeepCopy()
 	// make sure custom policies not be deleted
-	_, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
+	_, err = c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Error(err)
 		return err

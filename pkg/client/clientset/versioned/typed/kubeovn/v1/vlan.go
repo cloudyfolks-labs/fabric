@@ -60,7 +60,7 @@ type vlans struct {
 }
 
 // newVlans returns a Vlans
-func newVlans(c *KubeovnV1Client) *vlans {
+func newVlans(c *FabricV1Client) *vlans {
 	return &vlans{
 		gentype.NewClientWithListAndApply[*kubeovnv1.Vlan, *kubeovnv1.VlanList, *applyconfigurationkubeovnv1.VlanApplyConfiguration](
 			"vlans",

@@ -60,7 +60,7 @@ type routerLBRules struct {
 }
 
 // newRouterLBRules returns a RouterLBRules
-func newRouterLBRules(c *KubeovnV1Client) *routerLBRules {
+func newRouterLBRules(c *FabricV1Client) *routerLBRules {
 	return &routerLBRules{
 		gentype.NewClientWithListAndApply[*kubeovnv1.RouterLBRule, *kubeovnv1.RouterLBRuleList, *applyconfigurationkubeovnv1.RouterLBRuleApplyConfiguration](
 			"router-lb-rules",

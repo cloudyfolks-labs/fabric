@@ -412,7 +412,7 @@ func (c *Controller) handleNodeAnnotationsForProviderNetworks(node *v1.Node) err
 		}
 
 		if newPn != nil {
-			if newPn, err = c.config.KubeOvnClient.KubeovnV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
+			if newPn, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("failed to update provider network %s: %v", pn.Name, err)
 				return err
 			}
@@ -434,7 +434,7 @@ func (c *Controller) handleNodeAnnotationsForProviderNetworks(node *v1.Node) err
 			}
 
 			if newPn.Status.EnsureNodeStandardConditions(node.Name) {
-				_, err = c.config.KubeOvnClient.KubeovnV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
+				_, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
 				if err != nil {
 					klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 					return err
@@ -524,7 +524,7 @@ func (c *Controller) deleteNode(key string) error {
 		}
 	}
 	klog.Infof("delete node ip %s", portName)
-	if err = c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), portName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+	if err = c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), portName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
@@ -544,7 +544,7 @@ func (c *Controller) updateProviderNetworkForNodeDeletion(pn *kubeovnv1.Provider
 	}
 	if needUpdate {
 		var err error
-		newPn, err = c.config.KubeOvnClient.KubeovnV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
+		newPn, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 			return err
@@ -574,7 +574,7 @@ func (c *Controller) updateProviderNetworkForNodeDeletion(pn *kubeovnv1.Provider
 		newPn.Spec.CustomInterfaces = customInterfaces
 	}
 	if newPn != nil {
-		if _, err := c.config.KubeOvnClient.KubeovnV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.config.KubeOvnClient.FabricV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update provider network %s: %v", pn.Name, err)
 			return err
 		}

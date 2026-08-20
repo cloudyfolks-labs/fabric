@@ -63,7 +63,7 @@ var _ = framework.Describe("[group:webhook-vip]", func() {
 		ginkgo.By("validating wrong subnet")
 		vip.Spec.Subnet = "abc"
 		_, err = vipClient.VipInterface.Create(context.TODO(), vip, metav1.CreateOptions{})
-		framework.ExpectError(err, `Subnet.kubeovn.io "%s" not found`, vip.Spec.Subnet)
+		framework.ExpectError(err, `Subnet.fabric.cloudyfolks.io "%s" not found`, vip.Spec.Subnet)
 
 		ginkgo.By("Validating vip usage with wrong v4ip")
 		vip.Spec.Subnet = subnetName

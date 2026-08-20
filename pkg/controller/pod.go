@@ -1309,7 +1309,7 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 				if ipCR.Labels[util.IPReservedLabel] != "true" {
 					klog.Infof("delete orphaned vm attachment ip CR %s", ipCR.Name)
 					stage = "deleteIPCR"
-					if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+					if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 						if !k8serrors.IsNotFound(err) {
 							klog.Errorf("failed to delete ip %s: %v", ipCR.Name, err)
 							return err
@@ -1419,7 +1419,7 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 			if ipCR.Labels[util.IPReservedLabel] != "true" {
 				klog.Infof("delete ip CR %s", ipCR.Name)
 				stage = "deleteIPCR"
-				if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+				if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 					if !k8serrors.IsNotFound(err) {
 						klog.Errorf("failed to delete ip %s, %v", ipCR.Name, err)
 						return err
@@ -1647,7 +1647,7 @@ func (c *Controller) syncKubeOvnNet(pod *v1.Pod, podNets []*kubeovnNet) (*v1.Pod
 			klog.Errorf("failed to delete lsp %s, %v", portNeedDel, err)
 			return nil, "", err
 		}
-		if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), portNeedDel, metav1.DeleteOptions{}); err != nil {
+		if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), portNeedDel, metav1.DeleteOptions{}); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				klog.Errorf("failed to delete ip %s, %v", portNeedDel, err)
 				return nil, "", err
@@ -2977,7 +2977,7 @@ func (c *Controller) cleanStaleVMAttachmentIPs(pod *v1.Pod, podName string) {
 		}
 		if ipCR.Labels[util.IPReservedLabel] != "true" {
 			klog.Infof("deleting stale vm attachment ip CR %s", ipCR.Name)
-			if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+			if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 				if !k8serrors.IsNotFound(err) {
 					klog.Errorf("failed to delete ip %s: %v", ipCR.Name, err)
 				}

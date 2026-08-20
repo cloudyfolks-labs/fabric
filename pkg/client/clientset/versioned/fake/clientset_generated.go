@@ -21,8 +21,8 @@ package fake
 import (
 	applyconfiguration "github.com/kubeovn/kube-ovn/pkg/client/applyconfiguration"
 	clientset "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned"
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1"
-	fakekubeovnv1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1/fake"
+	fabricv1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	fakefabricv1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -136,7 +136,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// KubeovnV1 retrieves the KubeovnV1Client
-func (c *Clientset) KubeovnV1() kubeovnv1.KubeovnV1Interface {
-	return &fakekubeovnv1.FakeKubeovnV1{Fake: &c.Fake}
+// FabricV1 retrieves the FabricV1Client
+func (c *Clientset) FabricV1() fabricv1.FabricV1Interface {
+	return &fakefabricv1.FakeFabricV1{Fake: &c.Fake}
 }

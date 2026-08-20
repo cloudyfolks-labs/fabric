@@ -28,10 +28,10 @@ import (
 // fakeOvnDnatRules implements OvnDnatRuleInterface
 type fakeOvnDnatRules struct {
 	*gentype.FakeClientWithListAndApply[*v1.OvnDnatRule, *v1.OvnDnatRuleList, *kubeovnv1.OvnDnatRuleApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeOvnDnatRules(fake *FakeKubeovnV1) typedkubeovnv1.OvnDnatRuleInterface {
+func newFakeOvnDnatRules(fake *FakeFabricV1) typedkubeovnv1.OvnDnatRuleInterface {
 	return &fakeOvnDnatRules{
 		gentype.NewFakeClientWithListAndApply[*v1.OvnDnatRule, *v1.OvnDnatRuleList, *kubeovnv1.OvnDnatRuleApplyConfiguration](
 			fake.Fake,

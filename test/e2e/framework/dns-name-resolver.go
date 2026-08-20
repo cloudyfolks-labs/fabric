@@ -22,7 +22,7 @@ type DNSNameResolverClient struct {
 func (f *Framework) DNSNameResolverClient() *DNSNameResolverClient {
 	return &DNSNameResolverClient{
 		f:                        f,
-		DNSNameResolverInterface: f.KubeOVNClientSet.KubeovnV1().DNSNameResolvers(),
+		DNSNameResolverInterface: f.KubeOVNClientSet.FabricV1().DNSNameResolvers(),
 	}
 }
 

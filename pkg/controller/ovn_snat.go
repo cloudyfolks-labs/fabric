@@ -398,7 +398,7 @@ func (c *Controller) patchOvnSnatStatus(key, vpc, v4Eip, v6Eip, v4IpCidr, v6IpCi
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 		raw, _ := json.Marshal(snat.Labels)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.KubeovnV1().OvnSnatRules().Patch(context.Background(), snat.Name,
+		if _, err := c.config.KubeOvnClient.FabricV1().OvnSnatRules().Patch(context.Background(), snat.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for ovn snat %s, %v", snat.Name, err)
 			return err
@@ -435,7 +435,7 @@ func (c *Controller) patchOvnSnatStatus(key, vpc, v4Eip, v6Eip, v4IpCidr, v6IpCi
 			klog.Errorf("failed to marshal snat status, %v", err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().OvnSnatRules().Patch(context.Background(), snat.Name,
+		if _, err = c.config.KubeOvnClient.FabricV1().OvnSnatRules().Patch(context.Background(), snat.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch snat %s, %v", snat.Name, err)
 			return err
@@ -472,7 +472,7 @@ func (c *Controller) patchOvnSnatAnnotation(key, eipName string) error {
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/annotations", "value": %s }]`
 		raw, _ := json.Marshal(snat.Annotations)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		_, err := c.config.KubeOvnClient.KubeovnV1().OvnSnatRules().Patch(context.Background(), snat.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{})
+		_, err := c.config.KubeOvnClient.FabricV1().OvnSnatRules().Patch(context.Background(), snat.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{})
 		if err != nil {
 			klog.Errorf("failed to patch annotation for ovn snat %s, %v", snat.Name, err)
 			return err
@@ -504,7 +504,7 @@ func (c *Controller) handleAddOvnSnatFinalizer(cachedSnat *kubeovnv1.OvnSnatRule
 		klog.Errorf("failed to generate patch payload for ovn snat '%s', %v", cachedSnat.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().OvnSnatRules().Patch(context.Background(), cachedSnat.Name,
+	if _, err := c.config.KubeOvnClient.FabricV1().OvnSnatRules().Patch(context.Background(), cachedSnat.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -527,7 +527,7 @@ func (c *Controller) handleDelOvnSnatFinalizer(cachedSnat *kubeovnv1.OvnSnatRule
 		klog.Errorf("failed to generate patch payload for ovn snat '%s', %v", cachedSnat.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().OvnSnatRules().Patch(context.Background(), cachedSnat.Name,
+	if _, err := c.config.KubeOvnClient.FabricV1().OvnSnatRules().Patch(context.Background(), cachedSnat.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil

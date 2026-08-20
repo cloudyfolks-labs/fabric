@@ -368,7 +368,7 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Create CR with finalizer, labels and status all at once
-			if _, err := c.config.KubeOvnClient.KubeovnV1().Vips().Create(context.Background(), &kubeovnv1.Vip{
+			if _, err := c.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), &kubeovnv1.Vip{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       key,
 					Namespace:  ns,
@@ -432,7 +432,7 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 			controllerutil.AddFinalizer(vip, util.KubeOVNControllerFinalizer)
 
 			// Update with labels, spec, status, and finalizer in one call
-			if _, err := c.config.KubeOvnClient.KubeovnV1().Vips().Update(context.Background(), vip, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.config.KubeOvnClient.FabricV1().Vips().Update(context.Background(), vip, metav1.UpdateOptions{}); err != nil {
 				err := fmt.Errorf("failed to update vip '%s', %w", key, err)
 				klog.Error(err)
 				return err
@@ -471,7 +471,7 @@ func (c *Controller) podReuseVip(vipName, portName string, keepVIP bool) error {
 	patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 	raw, _ := json.Marshal(vip.Labels)
 	patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-	if _, err = c.config.KubeOvnClient.KubeovnV1().Vips().Patch(context.Background(), vip.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
+	if _, err = c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), vip.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 		klog.Errorf("failed to patch label for vip '%s', %v", vip.Name, err)
 		return err
 	}
@@ -503,7 +503,7 @@ func (c *Controller) releaseVip(key string) error {
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 		raw, _ := json.Marshal(vip.Labels)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.KubeovnV1().Vips().Patch(context.Background(), vip.Name,
+		if _, err := c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), vip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for vip '%s', %v", vip.Name, err)
 			return err
@@ -539,7 +539,7 @@ func (c *Controller) handleAddOrUpdateVipFinalizer(key string) error {
 		klog.Errorf("failed to generate patch payload for ovn eip '%s', %v", cachedVip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().Vips().Patch(context.Background(), cachedVip.Name,
+	if _, err := c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), cachedVip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -575,7 +575,7 @@ func (c *Controller) handleDelVipFinalizer(key string) error {
 		klog.Errorf("failed to generate patch payload for ovn eip '%s', %v", cachedVip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().Vips().Patch(context.Background(), cachedVip.Name,
+	if _, err := c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), cachedVip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil

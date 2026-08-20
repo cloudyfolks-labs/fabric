@@ -34,7 +34,7 @@ func (c *Controller) syncExternalVpc() {
 			for _, ls := range logicalRouters[vpc.Name].LogicalSwitches {
 				vpc.Status.Subnets = append(vpc.Status.Subnets, ls.Name)
 			}
-			_, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{})
+			_, err = c.config.KubeOvnClient.FabricV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Errorf("failed to update vpc %s status: %v", vpc.Name, err)
 				continue
@@ -42,7 +42,7 @@ func (c *Controller) syncExternalVpc() {
 			delete(logicalRouters, vpc.Name)
 		} else {
 			klog.Infof("external vpc %s has no ovn logical router, delete it", vpc.Name)
-			err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Delete(context.Background(), vpc.Name, metav1.DeleteOptions{})
+			err = c.config.KubeOvnClient.FabricV1().Vpcs().Delete(context.Background(), vpc.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Errorf("failed to delete vpc %s: %v", vpc.Name, err)
 				continue
@@ -55,7 +55,7 @@ func (c *Controller) syncExternalVpc() {
 			vpc := &v1.Vpc{}
 			vpc.Name = routerName
 			vpc.Labels = map[string]string{util.VpcExternalLabel: "true"}
-			vpc, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+			vpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 			if err != nil {
 				klog.Errorf("failed init external vpc %s, %v", routerName, err)
 				return
@@ -70,7 +70,7 @@ func (c *Controller) syncExternalVpc() {
 			vpc.Status.Standby = true
 			vpc.Status.Default = false
 
-			_, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{})
+			_, err = c.config.KubeOvnClient.FabricV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Errorf("failed to update vpc %s status, %v", routerName, err)
 				return

@@ -60,7 +60,7 @@ type dNSNameResolvers struct {
 }
 
 // newDNSNameResolvers returns a DNSNameResolvers
-func newDNSNameResolvers(c *KubeovnV1Client) *dNSNameResolvers {
+func newDNSNameResolvers(c *FabricV1Client) *dNSNameResolvers {
 	return &dNSNameResolvers{
 		gentype.NewClientWithListAndApply[*kubeovnv1.DNSNameResolver, *kubeovnv1.DNSNameResolverList, *applyconfigurationkubeovnv1.DNSNameResolverApplyConfiguration](
 			"dnsnameresolvers",

@@ -73,7 +73,7 @@ func (c *Controller) patchSubnetStatus(subnet *kubeovnv1.Subnet, reason, errStr 
 		klog.Error(err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch status for subnet %s, %v", subnet.Name, err)
 		return err
 	}
@@ -276,7 +276,7 @@ func (c *Controller) calcSubnetStatusIP(subnet *kubeovnv1.Subnet) (*kubeovnv1.Su
 		klog.Error(err)
 		return nil, err
 	}
-	newSubnet, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+	newSubnet, err := c.config.KubeOvnClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 	return newSubnet, err
 }
 

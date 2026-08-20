@@ -1,5 +1,5 @@
 package kubeovn
 
 const (
-	GroupName = "kubeovn.io"
+	GroupName = "fabric.cloudyfolks.io"
 )

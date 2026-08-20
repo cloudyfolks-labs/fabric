@@ -25,14 +25,14 @@ type BgpConfClient struct {
 
 func NewBgpConfClient(cs clientset.Interface) *BgpConfClient {
 	return &BgpConfClient{
-		BgpConfInterface: cs.KubeovnV1().BgpConves(),
+		BgpConfInterface: cs.FabricV1().BgpConves(),
 	}
 }
 
 func (f *Framework) BgpConfClient() *BgpConfClient {
 	return &BgpConfClient{
 		f:                f,
-		BgpConfInterface: f.KubeOVNClientSet.KubeovnV1().BgpConves(),
+		BgpConfInterface: f.KubeOVNClientSet.FabricV1().BgpConves(),
 	}
 }
 

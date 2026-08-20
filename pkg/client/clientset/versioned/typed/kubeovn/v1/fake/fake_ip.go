@@ -28,10 +28,10 @@ import (
 // fakeIPs implements IPInterface
 type fakeIPs struct {
 	*gentype.FakeClientWithListAndApply[*v1.IP, *v1.IPList, *kubeovnv1.IPApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeIPs(fake *FakeKubeovnV1) typedkubeovnv1.IPInterface {
+func newFakeIPs(fake *FakeFabricV1) typedkubeovnv1.IPInterface {
 	return &fakeIPs{
 		gentype.NewFakeClientWithListAndApply[*v1.IP, *v1.IPList, *kubeovnv1.IPApplyConfiguration](
 			fake.Fake,

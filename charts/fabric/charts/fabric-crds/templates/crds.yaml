@@ -5,9 +5,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: bgp-confs.kubeovn.io
+  name: bgp-confs.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: BgpConf
     listKind: BgpConfList
@@ -97,9 +97,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: dnsnameresolvers.kubeovn.io
+  name: dnsnameresolvers.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: DNSNameResolver
     listKind: DNSNameResolverList
@@ -311,9 +311,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ippools.kubeovn.io
+  name: ippools.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: IPPool
     listKind: IPPoolList
@@ -468,9 +468,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ips.kubeovn.io
+  name: ips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: IP
     listKind: IPList
@@ -578,9 +578,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-dnat-rules.kubeovn.io
+  name: ovn-dnat-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnDnatRule
     listKind: OvnDnatRuleList
@@ -758,9 +758,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-eips.kubeovn.io
+  name: ovn-eips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnEip
     listKind: OvnEipList
@@ -902,9 +902,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-fips.kubeovn.io
+  name: ovn-fips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnFip
     listKind: OvnFipList
@@ -1061,9 +1061,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-snat-rules.kubeovn.io
+  name: ovn-snat-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnSnatRule
     listKind: OvnSnatRuleList
@@ -1205,9 +1205,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: provider-networks.kubeovn.io
+  name: provider-networks.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: ProviderNetwork
     listKind: ProviderNetworkList
@@ -1412,9 +1412,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: router-lb-rules.kubeovn.io
+  name: router-lb-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: RouterLBRule
     listKind: RouterLBRuleList
@@ -1551,9 +1551,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: security-groups.kubeovn.io
+  name: security-groups.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: SecurityGroup
     listKind: SecurityGroupList
@@ -1711,9 +1711,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: subnets.kubeovn.io
+  name: subnets.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Subnet
     listKind: SubnetList
@@ -2157,9 +2157,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: switch-lb-rules.kubeovn.io
+  name: switch-lb-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: SwitchLBRule
     listKind: SwitchLBRuleList
@@ -2298,9 +2298,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vips.kubeovn.io
+  name: vips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Vip
     listKind: VipList
@@ -2454,9 +2454,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vlans.kubeovn.io
+  name: vlans.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Vlan
     listKind: VlanList
@@ -2580,9 +2580,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vpc-dnses.kubeovn.io
+  name: vpc-dnses.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: VpcDns
     listKind: VpcDnsList
@@ -2701,9 +2701,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vpc-egress-gateways.kubeovn.io
+  name: vpc-egress-gateways.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: VpcEgressGateway
     listKind: VpcEgressGatewayList
@@ -3794,9 +3794,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vpcs.kubeovn.io
+  name: vpcs.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Vpc
     listKind: VpcList

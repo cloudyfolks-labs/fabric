@@ -157,7 +157,7 @@ func (c *Controller) formatSubnet(subnet *kubeovnv1.Subnet) (*kubeovnv1.Subnet, 
 	changed := !reflect.DeepEqual(subnet, newSubnet)
 	klog.Infof("format subnet %v, changed %v", subnet.Name, changed)
 	if changed {
-		ret, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Update(context.Background(), newSubnet, metav1.UpdateOptions{})
+		ret, err := c.config.KubeOvnClient.FabricV1().Subnets().Update(context.Background(), newSubnet, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update subnet %s, %v", subnet.Name, err)
 			return nil, err
@@ -323,7 +323,7 @@ func (c *Controller) handleSubnetFinalizer(subnet *kubeovnv1.Subnet) (*kubeovnv1
 			klog.Errorf("failed to generate patch payload for subnet '%s', %v", subnet.Name, err)
 			return newSubnet, false, err
 		}
-		patchSubnet, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "")
+		patchSubnet, err := c.config.KubeOvnClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "")
 		if err != nil {
 			klog.Errorf("failed to add finalizer to subnet %s, %v", subnet.Name, err)
 			return patchSubnet, false, err
@@ -341,7 +341,7 @@ func (c *Controller) handleSubnetFinalizer(subnet *kubeovnv1.Subnet) (*kubeovnv1
 			klog.Errorf("failed to generate patch payload for subnet '%s', %v", subnet.Name, err)
 			return newSubnet, false, err
 		}
-		if _, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Patch(context.Background(), subnet.Name,
+		if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name,
 			types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 			klog.Errorf("failed to remove finalizer from subnet %s, %v", subnet.Name, err)
 			return newSubnet, false, err
@@ -520,7 +520,7 @@ func (c *Controller) updateSubnetDHCPOption(subnet *kubeovnv1.Subnet, needRouter
 			klog.Error(err)
 			return err
 		}
-		if _, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+		if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("patch subnet %s dhcp options failed: %v", subnet.Name, err)
 			return err
 		}
@@ -867,7 +867,7 @@ func (c *Controller) handleDeleteSubnet(subnet *kubeovnv1.Subnet) error {
 	}
 
 	u2oInterconnName := fmt.Sprintf(util.U2OInterconnName, subnet.Spec.Vpc, subnet.Name)
-	if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), u2oInterconnName, metav1.DeleteOptions{}); err != nil {
+	if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), u2oInterconnName, metav1.DeleteOptions{}); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			klog.Errorf("failed to delete ip %s, %v", u2oInterconnName, err)
 			return err
@@ -942,7 +942,7 @@ func (c *Controller) updateVlanStatusForSubnetDeletion(vlan *kubeovnv1.Vlan, sub
 
 	newVlan := vlan.DeepCopy()
 	newVlan.Status.Subnets = util.RemoveString(newVlan.Status.Subnets, subnet)
-	_, err := c.config.KubeOvnClient.KubeovnV1().Vlans().UpdateStatus(context.Background(), newVlan, metav1.UpdateOptions{})
+	_, err := c.config.KubeOvnClient.FabricV1().Vlans().UpdateStatus(context.Background(), newVlan, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("failed to update status of vlan %s: %v", vlan.Name, err)
 		return err
@@ -1266,7 +1266,7 @@ func (c *Controller) reconcileCustomVpcBfdStaticRoute(vpcName, subnetName string
 		}
 	}
 	if needUpdate {
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update vpc spec static route %s, %v", vpc.Name, err)
 			return err
 		}
@@ -1312,7 +1312,7 @@ func (c *Controller) reconcileCustomVpcDelNormalStaticRoute(vpcName string) erro
 
 	if needUpdate {
 		vpc.Spec.StaticRoutes = routes
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update vpc spec static route %s, %v", vpc.Name, err)
 			return err
 		}
@@ -1335,7 +1335,7 @@ func (c *Controller) reconcileDistributedSubnetRouteInDefaultVpc(subnet *kubeovn
 		}
 
 		subnet.Spec.GatewayNode = ""
-		if _, err := c.config.KubeOvnClient.KubeovnV1().Subnets().Update(context.Background(), subnet, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Update(context.Background(), subnet, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to remove gatewayNode or activateGateway from subnet %s, %v", subnet.Name, err)
 			return err
 		}
@@ -1791,7 +1791,7 @@ func (c *Controller) reconcileVlan(subnet *kubeovnv1.Subnet) error {
 	if !slices.Contains(vlan.Status.Subnets, subnet.Name) {
 		newVlan := vlan.DeepCopy()
 		newVlan.Status.Subnets = append(newVlan.Status.Subnets, subnet.Name)
-		_, err = c.config.KubeOvnClient.KubeovnV1().Vlans().UpdateStatus(context.Background(), newVlan, metav1.UpdateOptions{})
+		_, err = c.config.KubeOvnClient.FabricV1().Vlans().UpdateStatus(context.Background(), newVlan, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update status of vlan %s: %v", vlan.Name, err)
 			return err
@@ -1904,7 +1904,7 @@ func (c *Controller) releaseU2OIP(subnet *kubeovnv1.Subnet, u2oInterconnName str
 	subnet.Status.U2OInterconnectionMAC = ""
 	subnet.Status.U2OInterconnectionVPC = ""
 
-	err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), u2oInterconnName, metav1.DeleteOptions{})
+	err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), u2oInterconnName, metav1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		klog.Errorf("failed to delete ip %s, %v", u2oInterconnName, err)
 		return err
@@ -1961,7 +1961,7 @@ func (c *Controller) releaseMcastQuerierIP(subnet *kubeovnv1.Subnet) (bool, erro
 		subnet.Status.McastQuerierIP = ""
 		subnet.Status.McastQuerierMAC = ""
 
-		if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), mcastQuerierLspName, metav1.DeleteOptions{}); err != nil {
+		if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), mcastQuerierLspName, metav1.DeleteOptions{}); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				klog.Errorf("failed to delete ip %s, %v", mcastQuerierLspName, err)
 				return isMcastQuerierChanged, err

@@ -33,10 +33,10 @@ import (
 // fakeVpcEgressGateways implements VpcEgressGatewayInterface
 type fakeVpcEgressGateways struct {
 	*gentype.FakeClientWithListAndApply[*v1.VpcEgressGateway, *v1.VpcEgressGatewayList, *kubeovnv1.VpcEgressGatewayApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeVpcEgressGateways(fake *FakeKubeovnV1, namespace string) typedkubeovnv1.VpcEgressGatewayInterface {
+func newFakeVpcEgressGateways(fake *FakeFabricV1, namespace string) typedkubeovnv1.VpcEgressGatewayInterface {
 	return &fakeVpcEgressGateways{
 		gentype.NewFakeClientWithListAndApply[*v1.VpcEgressGateway, *v1.VpcEgressGatewayList, *kubeovnv1.VpcEgressGatewayApplyConfiguration](
 			fake.Fake,

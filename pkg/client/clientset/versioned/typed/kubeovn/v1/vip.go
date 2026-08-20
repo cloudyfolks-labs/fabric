@@ -56,7 +56,7 @@ type vips struct {
 }
 
 // newVips returns a Vips
-func newVips(c *KubeovnV1Client) *vips {
+func newVips(c *FabricV1Client) *vips {
 	return &vips{
 		gentype.NewClientWithListAndApply[*kubeovnv1.Vip, *kubeovnv1.VipList, *applyconfigurationkubeovnv1.VipApplyConfiguration](
 			"vips",

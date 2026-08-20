@@ -28,10 +28,10 @@ import (
 // fakeOvnEips implements OvnEipInterface
 type fakeOvnEips struct {
 	*gentype.FakeClientWithListAndApply[*v1.OvnEip, *v1.OvnEipList, *kubeovnv1.OvnEipApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeOvnEips(fake *FakeKubeovnV1) typedkubeovnv1.OvnEipInterface {
+func newFakeOvnEips(fake *FakeFabricV1) typedkubeovnv1.OvnEipInterface {
 	return &fakeOvnEips{
 		gentype.NewFakeClientWithListAndApply[*v1.OvnEip, *v1.OvnEipList, *kubeovnv1.OvnEipApplyConfiguration](
 			fake.Fake,

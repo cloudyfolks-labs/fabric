@@ -28,10 +28,10 @@ import (
 // fakeSecurityGroups implements SecurityGroupInterface
 type fakeSecurityGroups struct {
 	*gentype.FakeClientWithListAndApply[*v1.SecurityGroup, *v1.SecurityGroupList, *kubeovnv1.SecurityGroupApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeSecurityGroups(fake *FakeKubeovnV1) typedkubeovnv1.SecurityGroupInterface {
+func newFakeSecurityGroups(fake *FakeFabricV1) typedkubeovnv1.SecurityGroupInterface {
 	return &fakeSecurityGroups{
 		gentype.NewFakeClientWithListAndApply[*v1.SecurityGroup, *v1.SecurityGroupList, *kubeovnv1.SecurityGroupApplyConfiguration](
 			fake.Fake,

@@ -187,7 +187,7 @@ func (c *Controller) handleUpdateVpcStatus(key string) error {
 		return err
 	}
 
-	vpc, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+	vpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -589,7 +589,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		klog.Error(err)
 		return err
 	}
-	vpc, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+	vpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -645,7 +645,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			Nodes: bfdPortNodes,
 		}
 	}
-	if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().
+	if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().
 		UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		return err
@@ -1191,7 +1191,7 @@ func (c *Controller) formatVpc(vpc *kubeovnv1.Vpc) (*kubeovnv1.Vpc, error) {
 	}
 
 	if changed {
-		newVpc, err := c.config.KubeOvnClient.KubeovnV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
+		newVpc, err := c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update vpc %s: %v", vpc.Name, err)
 			return nil, err
@@ -1475,7 +1475,7 @@ func (c *Controller) handleDeleteVpcStaticRoute(key string) error {
 	// keep routes except bfd ecmp routes
 	if needUpdate {
 		vpc.Spec.StaticRoutes = newStaticRoutes
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update vpc spec static route %s, %v", vpc.Name, err)
 			return err
 		}
@@ -1495,7 +1495,7 @@ func (c *Controller) handleDelVpcExternalSubnet(key, subnet string) error {
 		klog.Errorf("failed to disconnect router '%s' to external, %v", key, err)
 		return err
 	}
-	if err := c.config.KubeOvnClient.KubeovnV1().OvnEips().Delete(context.Background(), lrpName, metav1.DeleteOptions{}); err != nil {
+	if err := c.config.KubeOvnClient.FabricV1().OvnEips().Delete(context.Background(), lrpName, metav1.DeleteOptions{}); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			klog.Errorf("failed to delete ovn eip %s, %v", lrpName, err)
 			return err
@@ -1527,7 +1527,7 @@ func (c *Controller) patchVpcBfdStatus(key string) error {
 			klog.Errorf("failed to marshal vpc status: %v", err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Patch(context.Background(),
+		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(),
 			cachedVpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Error(err)
 			return err
@@ -1566,7 +1566,7 @@ func (c *Controller) updateVpcExternalStatus(key string) error {
 		klog.Errorf("failed to get vpc bytes, %v", err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Patch(context.Background(),
+	if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(),
 		vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch vpc %s, %v", key, err)
 		return err

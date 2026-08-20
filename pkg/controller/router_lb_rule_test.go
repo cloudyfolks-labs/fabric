@@ -625,7 +625,7 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		assert.Equal(t, corev1.ClusterIPNone, svc.Spec.ClusterIP)
 
 		// Status must be updated with service reference.
-		updated, err := fc.fakeController.config.KubeOvnClient.KubeovnV1().
+		updated, err := fc.fakeController.config.KubeOvnClient.FabricV1().
 			RouterLBRules().
 			Get(context.Background(), "rlr1", metav1.GetOptions{})
 		require.NoError(t, err)

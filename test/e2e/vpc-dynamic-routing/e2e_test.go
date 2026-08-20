@@ -871,7 +871,7 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 	role := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: agentName},
 		Rules: []rbacv1.PolicyRule{{
-			APIGroups: []string{"kubeovn.io"},
+			APIGroups: []string{"fabric.cloudyfolks.io"},
 			Resources: []string{"bgp-confs", "vpcs", "ovn-eips"},
 			Verbs:     []string{"get", "list", "watch"},
 		}, {
@@ -913,7 +913,7 @@ func setVpcStaticRoutes(f *framework.Framework, vpcName string, routes []*apiv1.
 
 	vpc := f.VpcClient().Get(vpcName).DeepCopy()
 	vpc.Spec.StaticRoutes = routes
-	_, err := f.KubeOVNClientSet.KubeovnV1().Vpcs().Update(context.TODO(), vpc, metav1.UpdateOptions{})
+	_, err := f.KubeOVNClientSet.FabricV1().Vpcs().Update(context.TODO(), vpc, metav1.UpdateOptions{})
 	framework.ExpectNoError(err, "updating static routes of vpc "+vpcName)
 }
 

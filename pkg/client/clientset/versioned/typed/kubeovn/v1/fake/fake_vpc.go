@@ -28,10 +28,10 @@ import (
 // fakeVpcs implements VpcInterface
 type fakeVpcs struct {
 	*gentype.FakeClientWithListAndApply[*v1.Vpc, *v1.VpcList, *kubeovnv1.VpcApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeVpcs(fake *FakeKubeovnV1) typedkubeovnv1.VpcInterface {
+func newFakeVpcs(fake *FakeFabricV1) typedkubeovnv1.VpcInterface {
 	return &fakeVpcs{
 		gentype.NewFakeClientWithListAndApply[*v1.Vpc, *v1.VpcList, *kubeovnv1.VpcApplyConfiguration](
 			fake.Fake,

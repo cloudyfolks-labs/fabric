@@ -63,7 +63,7 @@ func NewFilteredVipInformer(client versioned.Interface, resyncPeriod time.Durati
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewVipInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
-	gvr := schema.GroupVersionResource{Group: "kubeovn.io", Version: "v1", Resource: "vips"}
+	gvr := schema.GroupVersionResource{Group: "fabric.cloudyfolks.io", Version: "v1", Resource: "vips"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
 	return cache.NewSharedIndexInformerWithOptions(
@@ -72,25 +72,25 @@ func NewVipInformerWithOptions(client versioned.Interface, options internalinter
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().Vips().List(context.Background(), opts)
+				return client.FabricV1().Vips().List(context.Background(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().Vips().Watch(context.Background(), opts)
+				return client.FabricV1().Vips().Watch(context.Background(), opts)
 			},
 			ListWithContextFunc: func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().Vips().List(ctx, opts)
+				return client.FabricV1().Vips().List(ctx, opts)
 			},
 			WatchFuncWithContext: func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().Vips().Watch(ctx, opts)
+				return client.FabricV1().Vips().Watch(ctx, opts)
 			},
 		}, client),
 		&apiskubeovnv1.Vip{},

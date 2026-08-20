@@ -354,7 +354,7 @@ func (c *Controller) gcIP() error {
 		}
 		if !exist {
 			klog.Infof("gc ip %s", ip.Name)
-			if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), ip.Name, metav1.DeleteOptions{}); err != nil {
+			if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ip.Name, metav1.DeleteOptions{}); err != nil {
 				klog.Errorf("failed to gc ip %s, %v", ip.Name, err)
 			}
 		}
@@ -476,7 +476,7 @@ func (c *Controller) markAndCleanLSP() error {
 			klog.Errorf("failed to delete lsp %s: %v", lsp.Name, err)
 			return err
 		}
-		ipCR, err := c.config.KubeOvnClient.KubeovnV1().IPs().Get(context.Background(), lsp.Name, metav1.GetOptions{})
+		ipCR, err := c.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), lsp.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// ip cr not found, skip lsp gc
@@ -487,7 +487,7 @@ func (c *Controller) markAndCleanLSP() error {
 		}
 		if ipCR.Labels[util.IPReservedLabel] != "true" {
 			klog.Infof("gc ip %s", ipCR.Name)
-			if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+			if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 				if k8serrors.IsNotFound(err) {
 					// ip cr not found, skip lsp gc
 					continue
@@ -573,7 +573,7 @@ func (c *Controller) gcLoadBalancer() error {
 				klog.Error(err)
 				return err
 			}
-			_, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+			_, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				klog.Error(err)
 				return err
@@ -765,7 +765,7 @@ func (c *Controller) gcAddressSet() error {
 func (c *Controller) gcSecurityGroup() error {
 	klog.Infof("start to gc security group residual port groups")
 	// get security group
-	sgs, err := c.config.KubeOvnClient.KubeovnV1().SecurityGroups().List(context.Background(), metav1.ListOptions{})
+	sgs, err := c.config.KubeOvnClient.FabricV1().SecurityGroups().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("failed to list security group,%v", err)
 		return err
@@ -1216,7 +1216,7 @@ func (c *Controller) gcVPCDNS() error {
 			}
 		}
 		if !canFind {
-			err := c.config.KubeOvnClient.KubeovnV1().SwitchLBRules().Delete(context.Background(),
+			err := c.config.KubeOvnClient.FabricV1().SwitchLBRules().Delete(context.Background(),
 				slr.Name, metav1.DeleteOptions{})
 			if err != nil {
 				klog.Errorf("failed to delete vpc-dns SwitchLBRule, %s", err)

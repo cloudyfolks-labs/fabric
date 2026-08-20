@@ -60,7 +60,7 @@ type vpcDnses struct {
 }
 
 // newVpcDnses returns a VpcDnses
-func newVpcDnses(c *KubeovnV1Client) *vpcDnses {
+func newVpcDnses(c *FabricV1Client) *vpcDnses {
 	return &vpcDnses{
 		gentype.NewClientWithListAndApply[*kubeovnv1.VpcDns, *kubeovnv1.VpcDnsList, *applyconfigurationkubeovnv1.VpcDnsApplyConfiguration](
 			"vpc-dnses",

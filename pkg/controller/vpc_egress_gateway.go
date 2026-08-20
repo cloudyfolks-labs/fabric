@@ -267,7 +267,7 @@ func (c *Controller) prepareVpcEgressGateway(gw *kubeovnv1.VpcEgressGateway) (*v
 	}
 
 	if controllerutil.AddFinalizer(gw, util.KubeOVNControllerFinalizer) {
-		updatedGateway, err := c.config.KubeOvnClient.KubeovnV1().VpcEgressGateways(gw.Namespace).
+		updatedGateway, err := c.config.KubeOvnClient.FabricV1().VpcEgressGateways(gw.Namespace).
 			Update(context.Background(), gw, metav1.UpdateOptions{})
 		if err != nil {
 			err = fmt.Errorf("failed to add finalizer for vpc-egress-gateway %s/%s: %w", gw.Namespace, gw.Name, err)
@@ -459,7 +459,7 @@ func (c *Controller) updateVpcEgressGatewayStatus(gw *kubeovnv1.VpcEgressGateway
 		gw.Status.Phase = kubeovnv1.PhaseProcessing
 	}
 
-	updateGateway, err := c.config.KubeOvnClient.KubeovnV1().VpcEgressGateways(gw.Namespace).
+	updateGateway, err := c.config.KubeOvnClient.FabricV1().VpcEgressGateways(gw.Namespace).
 		UpdateStatus(context.Background(), gw, metav1.UpdateOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to update status of vpc-egress-gateway %s/%s: %w", gw.Namespace, gw.Name, err)
@@ -1206,7 +1206,7 @@ func (c *Controller) handleDelVpcEgressGateway(key string) error {
 
 	gw := cachedGateway.DeepCopy()
 	if controllerutil.RemoveFinalizer(gw, util.KubeOVNControllerFinalizer) {
-		if _, err = c.config.KubeOvnClient.KubeovnV1().VpcEgressGateways(gw.Namespace).
+		if _, err = c.config.KubeOvnClient.FabricV1().VpcEgressGateways(gw.Namespace).
 			Update(context.Background(), gw, metav1.UpdateOptions{}); err != nil {
 			err = fmt.Errorf("failed to remove finalizer from vpc-egress-gateway %s: %w", key, err)
 			klog.Error(err)

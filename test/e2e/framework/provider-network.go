@@ -31,14 +31,14 @@ type ProviderNetworkClient struct {
 
 func NewProviderNetworkClient(cs clientset.Interface) *ProviderNetworkClient {
 	return &ProviderNetworkClient{
-		ProviderNetworkInterface: cs.KubeovnV1().ProviderNetworks(),
+		ProviderNetworkInterface: cs.FabricV1().ProviderNetworks(),
 	}
 }
 
 func (f *Framework) ProviderNetworkClient() *ProviderNetworkClient {
 	return &ProviderNetworkClient{
 		f:                        f,
-		ProviderNetworkInterface: f.KubeOVNClientSet.KubeovnV1().ProviderNetworks(),
+		ProviderNetworkInterface: f.KubeOVNClientSet.FabricV1().ProviderNetworks(),
 	}
 }
 

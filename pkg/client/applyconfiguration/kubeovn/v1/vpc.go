@@ -39,7 +39,7 @@ func Vpc(name string) *VpcApplyConfiguration {
 	b := &VpcApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("Vpc")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

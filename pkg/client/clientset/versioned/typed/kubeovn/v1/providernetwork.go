@@ -60,7 +60,7 @@ type providerNetworks struct {
 }
 
 // newProviderNetworks returns a ProviderNetworks
-func newProviderNetworks(c *KubeovnV1Client) *providerNetworks {
+func newProviderNetworks(c *FabricV1Client) *providerNetworks {
 	return &providerNetworks{
 		gentype.NewClientWithListAndApply[*kubeovnv1.ProviderNetwork, *kubeovnv1.ProviderNetworkList, *applyconfigurationkubeovnv1.ProviderNetworkApplyConfiguration](
 			"provider-networks",

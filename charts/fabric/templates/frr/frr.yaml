@@ -20,7 +20,7 @@ metadata:
   {{- end }}
 rules:
   - apiGroups:
-      - kubeovn.io
+      - fabric.cloudyfolks.io
     resources:
       - bgp-confs
       - vpcs

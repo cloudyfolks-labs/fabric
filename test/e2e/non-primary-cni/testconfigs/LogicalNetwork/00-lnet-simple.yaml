@@ -13,7 +13,7 @@ metadata:
     config-stage: "0"
 ---
 # Create provider network
-apiVersion: kubeovn.io/v1
+apiVersion: fabric.cloudyfolks.io/v1
 kind: ProviderNetwork
 metadata:
   name: lnet-pn-net1
@@ -23,7 +23,7 @@ spec:
   defaultInterface: eth1
 ---
 # VLAN configuration
-apiVersion: kubeovn.io/v1
+apiVersion: fabric.cloudyfolks.io/v1
 kind: Vlan
 metadata:
   name: lnet-simple-vlan1
@@ -51,7 +51,7 @@ spec:
     }'
 ---
 # Subnet with dynamic KIND bridge network detection
-apiVersion: kubeovn.io/v1
+apiVersion: fabric.cloudyfolks.io/v1
 kind: Subnet
 metadata:
   name: lnet-simple-subnet1

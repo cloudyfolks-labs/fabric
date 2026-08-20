@@ -110,7 +110,7 @@ func (c *Controller) handleAddOrUpdateVPCDNS(key string) error {
 			newVPCDNS.Status.Active = false
 		}
 
-		if _, err = c.config.KubeOvnClient.KubeovnV1().VpcDnses().UpdateStatus(context.Background(),
+		if _, err = c.config.KubeOvnClient.FabricV1().VpcDnses().UpdateStatus(context.Background(),
 			newVPCDNS, metav1.UpdateOptions{}); err != nil {
 			err := fmt.Errorf("failed to update vpc dns status, %w", err)
 			klog.Error(err)
@@ -178,7 +178,7 @@ func (c *Controller) handleDelVpcDNS(key string) error {
 		return err
 	}
 
-	err = c.config.KubeOvnClient.KubeovnV1().SwitchLBRules().Delete(context.Background(), name, metav1.DeleteOptions{})
+	err = c.config.KubeOvnClient.FabricV1().SwitchLBRules().Delete(context.Background(), name, metav1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		err := fmt.Errorf("failed to delete switch lb rule: %w", err)
 		klog.Error(err)
@@ -266,7 +266,7 @@ func (c *Controller) createOrUpdateVpcDNSSlr(vpcDNS *kubeovnv1.VpcDns) error {
 	}
 
 	if needToCreateSlr {
-		_, err := c.config.KubeOvnClient.KubeovnV1().SwitchLBRules().Create(context.Background(), newSlr, metav1.CreateOptions{})
+		_, err := c.config.KubeOvnClient.FabricV1().SwitchLBRules().Create(context.Background(), newSlr, metav1.CreateOptions{})
 		if err != nil {
 			klog.Errorf("failed to create switchLBRules '%s', err: %v", newSlr.Name, err)
 			return err
@@ -277,7 +277,7 @@ func (c *Controller) createOrUpdateVpcDNSSlr(vpcDNS *kubeovnv1.VpcDns) error {
 		}
 
 		newSlr.ResourceVersion = oldSlr.ResourceVersion
-		_, err := c.config.KubeOvnClient.KubeovnV1().SwitchLBRules().Update(context.Background(), newSlr, metav1.UpdateOptions{})
+		_, err := c.config.KubeOvnClient.FabricV1().SwitchLBRules().Update(context.Background(), newSlr, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update switchLBRules '%s', err: %v", newSlr.Name, err)
 			return err
@@ -531,7 +531,7 @@ func (c *Controller) initVpcDNSConfig() error {
 
 func (c *Controller) cleanVpcDNS() error {
 	klog.Infof("clear all vpc-dns")
-	err := c.config.KubeOvnClient.KubeovnV1().VpcDnses().DeleteCollection(context.Background(), metav1.DeleteOptions{},
+	err := c.config.KubeOvnClient.FabricV1().VpcDnses().DeleteCollection(context.Background(), metav1.DeleteOptions{},
 		metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("Failed to clear all vpc-dns %s", err)

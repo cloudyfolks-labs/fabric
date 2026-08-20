@@ -28,10 +28,10 @@ import (
 // fakeSwitchLBRules implements SwitchLBRuleInterface
 type fakeSwitchLBRules struct {
 	*gentype.FakeClientWithListAndApply[*v1.SwitchLBRule, *v1.SwitchLBRuleList, *kubeovnv1.SwitchLBRuleApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeSwitchLBRules(fake *FakeKubeovnV1) typedkubeovnv1.SwitchLBRuleInterface {
+func newFakeSwitchLBRules(fake *FakeFabricV1) typedkubeovnv1.SwitchLBRuleInterface {
 	return &fakeSwitchLBRules{
 		gentype.NewFakeClientWithListAndApply[*v1.SwitchLBRule, *v1.SwitchLBRuleList, *kubeovnv1.SwitchLBRuleApplyConfiguration](
 			fake.Fake,

@@ -177,7 +177,7 @@ func TestGetTProxyConditionPod(t *testing.T) {
 
 	kubeovnClient := kubeovnfake.NewSimpleClientset()
 	informerFactory := kubeovninformerfactory.NewSharedInformerFactory(kubeovnClient, 0)
-	subnetInformer := informerFactory.Kubeovn().V1().Subnets()
+	subnetInformer := informerFactory.Fabric().V1().Subnets()
 	for _, subnet := range subnets {
 		require.NoError(t, subnetInformer.Informer().GetStore().Add(subnet))
 	}
@@ -229,7 +229,7 @@ func TestProviderExistsRequiresSubnetForNamedOvnProvider(t *testing.T) {
 
 	kubeovnClient := kubeovnfake.NewSimpleClientset()
 	informerFactory := kubeovninformerfactory.NewSharedInformerFactory(kubeovnClient, 0)
-	subnetInformer := informerFactory.Kubeovn().V1().Subnets()
+	subnetInformer := informerFactory.Fabric().V1().Subnets()
 	for _, subnet := range subnets {
 		require.NoError(t, subnetInformer.Informer().GetStore().Add(subnet))
 	}

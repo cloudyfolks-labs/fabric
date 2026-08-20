@@ -589,7 +589,7 @@ func (csh cniServerHandler) UpdateIPCR(podRequest request.CniRequest, subnet, ip
 		ipCRName = fmt.Sprintf("%s.%s", ipCRName, podRequest.IfName)
 	}
 	for range 20 {
-		ipCR, err := csh.KubeOvnClient.KubeovnV1().IPs().Get(context.Background(), ipCRName, metav1.GetOptions{})
+		ipCR, err := csh.KubeOvnClient.FabricV1().IPs().Get(context.Background(), ipCRName, metav1.GetOptions{})
 		if err != nil {
 			err = fmt.Errorf("failed to get ip crd for %s, %w", ip, err)
 			// maybe create a backup pod with previous annotations
@@ -605,7 +605,7 @@ func (csh cniServerHandler) UpdateIPCR(podRequest request.CniRequest, subnet, ip
 			ipCR.Labels[util.NodeNameLabel] = csh.Config.NodeName
 			ipCR.Spec.AttachSubnets = []string{}
 			ipCR.Spec.AttachMacs = []string{}
-			if _, err := csh.KubeOvnClient.KubeovnV1().IPs().Update(context.Background(), ipCR, metav1.UpdateOptions{}); err != nil {
+			if _, err := csh.KubeOvnClient.FabricV1().IPs().Update(context.Background(), ipCR, metav1.UpdateOptions{}); err != nil {
 				err = fmt.Errorf("failed to update ip crd for %s, %w", ip, err)
 				klog.Error(err)
 			} else {

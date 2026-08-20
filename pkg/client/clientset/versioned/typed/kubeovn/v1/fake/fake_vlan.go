@@ -28,10 +28,10 @@ import (
 // fakeVlans implements VlanInterface
 type fakeVlans struct {
 	*gentype.FakeClientWithListAndApply[*v1.Vlan, *v1.VlanList, *kubeovnv1.VlanApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeVlans(fake *FakeKubeovnV1) typedkubeovnv1.VlanInterface {
+func newFakeVlans(fake *FakeFabricV1) typedkubeovnv1.VlanInterface {
 	return &fakeVlans{
 		gentype.NewFakeClientWithListAndApply[*v1.Vlan, *v1.VlanList, *kubeovnv1.VlanApplyConfiguration](
 			fake.Fake,

@@ -11,43 +11,43 @@ while :; do
   sleep 1
 done
 
-for vd in $(kubectl  get vpc-dnses.kubeovn.io -o name); do
+for vd in $(kubectl  get vpc-dnses.fabric.cloudyfolks.io -o name); do
   kubectl delete --ignore-not-found $vd
 done
 
-for vip in $(kubectl get vips.kubeovn.io -o name); do
+for vip in $(kubectl get vips.fabric.cloudyfolks.io -o name); do
    kubectl delete --ignore-not-found $vip
 done
 
-for odnat in $(kubectl get ovn-dnat-rules.kubeovn.io -o name); do
+for odnat in $(kubectl get ovn-dnat-rules.fabric.cloudyfolks.io -o name); do
    kubectl delete --ignore-not-found $odnat
 done
 
-for osnat in $(kubectl get ovn-snat-rules.kubeovn.io -o name); do
+for osnat in $(kubectl get ovn-snat-rules.fabric.cloudyfolks.io -o name); do
    kubectl delete --ignore-not-found $osnat
 done
 
-for ofip in $(kubectl get ovn-fips.kubeovn.io -o name); do
+for ofip in $(kubectl get ovn-fips.fabric.cloudyfolks.io -o name); do
    kubectl delete --ignore-not-found $ofip
 done
 
-for oeip in $(kubectl get ovn-eips.kubeovn.io -o name); do
+for oeip in $(kubectl get ovn-eips.fabric.cloudyfolks.io -o name); do
    kubectl delete --ignore-not-found $oeip
 done
 
-for slr in $(kubectl get switch-lb-rules.kubeovn.io -o name); do
+for slr in $(kubectl get switch-lb-rules.fabric.cloudyfolks.io -o name); do
    kubectl delete --ignore-not-found $slr
 done
 
-for ippool in $(kubectl get ippools.kubeovn.io -o name); do
+for ippool in $(kubectl get ippools.fabric.cloudyfolks.io -o name); do
   kubectl delete --ignore-not-found $ippool
 done
 
-for vlan in $(kubectl get vlans.kubeovn.io -o name); do
+for vlan in $(kubectl get vlans.fabric.cloudyfolks.io -o name); do
   kubectl delete --ignore-not-found $vlan
 done
 
-for pn in $(kubectl get provider-networks.kubeovn.io -o name); do
+for pn in $(kubectl get provider-networks.fabric.cloudyfolks.io -o name); do
   kubectl delete --ignore-not-found $pn
 done
 
@@ -89,7 +89,7 @@ kubectl delete --ignore-not-found clusterrolebinding vpc-dns
 kubectl delete --ignore-not-found sa vpc-dns -n kube-system
 
 # remove finalizers
-for resource_type in subnets.kubeovn.io vpcs.kubeovn.io ips.kubeovn.io; do
+for resource_type in subnets.fabric.cloudyfolks.io vpcs.fabric.cloudyfolks.io ips.fabric.cloudyfolks.io; do
   for resource in $(kubectl get "$resource_type" -o name); do
     kubectl patch "$resource" --type='json' -p '[{"op": "replace", "path": "/metadata/finalizers", "value": []}]'
   done
@@ -97,21 +97,21 @@ done
 
 # delete CRD
 kubectl delete --ignore-not-found crd \
-  security-groups.kubeovn.io \
-  ippools.kubeovn.io \
-  vpc-egress-gateways.kubeovn.io \
-  vlans.kubeovn.io \
-  provider-networks.kubeovn.io \
-  vips.kubeovn.io \
-  switch-lb-rules.kubeovn.io \
-  vpc-dnses.kubeovn.io \
-  ovn-dnat-rules.kubeovn.io \
-  ovn-snat-rules.kubeovn.io \
-  ovn-fips.kubeovn.io \
-  ovn-eips.kubeovn.io \
-  subnets.kubeovn.io \
-  vpcs.kubeovn.io \
-  ips.kubeovn.io
+  security-groups.fabric.cloudyfolks.io \
+  ippools.fabric.cloudyfolks.io \
+  vpc-egress-gateways.fabric.cloudyfolks.io \
+  vlans.fabric.cloudyfolks.io \
+  provider-networks.fabric.cloudyfolks.io \
+  vips.fabric.cloudyfolks.io \
+  switch-lb-rules.fabric.cloudyfolks.io \
+  vpc-dnses.fabric.cloudyfolks.io \
+  ovn-dnat-rules.fabric.cloudyfolks.io \
+  ovn-snat-rules.fabric.cloudyfolks.io \
+  ovn-fips.fabric.cloudyfolks.io \
+  ovn-eips.fabric.cloudyfolks.io \
+  subnets.fabric.cloudyfolks.io \
+  vpcs.fabric.cloudyfolks.io \
+  ips.fabric.cloudyfolks.io
 
 # Remove annotations/labels in namespaces and nodes
 kubectl annotate node --all ovn.kubernetes.io/cidr-

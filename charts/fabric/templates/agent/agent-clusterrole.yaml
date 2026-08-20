@@ -15,7 +15,7 @@ metadata:
   name: system:kube-ovn-cni
 rules:
   - apiGroups:
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - subnets
       - vlans
@@ -26,7 +26,7 @@ rules:
       - watch
   - apiGroups:
       - ""
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - ovn-eips
       - ovn-eips/status
@@ -40,7 +40,7 @@ rules:
       - patch
       - watch
   - apiGroups:
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - ips
     verbs:

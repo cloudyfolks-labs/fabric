@@ -13,7 +13,7 @@ import (
 
 func newFakeDNSNameResolverController(t *testing.T, enableANP bool, resolvers ...*kubeovnv1.DNSNameResolver) *Controller {
 	informerFactory := kubeovninformerfactory.NewSharedInformerFactory(kubeovnfake.NewSimpleClientset(), 0)
-	informer := informerFactory.Kubeovn().V1().DNSNameResolvers()
+	informer := informerFactory.Fabric().V1().DNSNameResolvers()
 	for _, resolver := range resolvers {
 		require.NoError(t, informer.Informer().GetIndexer().Add(resolver))
 	}

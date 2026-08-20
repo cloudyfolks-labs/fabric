@@ -64,9 +64,9 @@ func NewController(config *Configuration) (*Controller, error) {
 			listOption.AllowWatchBookmarks = true
 		}))
 
-	bgpConfInformer := kubeovnInformerFactory.Kubeovn().V1().BgpConves()
-	vpcInformer := kubeovnInformerFactory.Kubeovn().V1().Vpcs()
-	ovnEipInformer := kubeovnInformerFactory.Kubeovn().V1().OvnEips()
+	bgpConfInformer := kubeovnInformerFactory.Fabric().V1().BgpConves()
+	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
+	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	podInformer := podInformerFactory.Core().V1().Pods()
 

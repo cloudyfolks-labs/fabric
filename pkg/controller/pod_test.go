@@ -1339,7 +1339,7 @@ func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "true", updatedPod.Annotations[providerKey])
 		assert.Equal(t, "true", updatedPod.Annotations[keepKey])
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
 		assert.True(t, k8serrors.IsNotFound(err))
 		assert.Empty(t, fc.fakeController.ipam.GetPodAddress("default/test-pod"))
 		event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkUpdated", "provider=unknown", "subnet="+subnet.Name, "logicalSwitchPort="+portName)
@@ -1512,7 +1512,7 @@ func TestHandleDeletePodRetriesOrphanedVMPortIPLookupFailure(t *testing.T) {
 	assertPodEvent(t, fc.fakeController, "Warning PodNetworkReleaseFailed", "stage=getIPCR", "get ip failed")
 	assertNoPodEvent(t, fc.fakeController)
 	assert.Zero(t, deleteCalls)
-	_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
+	_, err = fc.fakeController.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.NotEmpty(t, fc.fakeController.ipam.GetPodAddress("default/test-vm"))
 
@@ -1520,7 +1520,7 @@ func TestHandleDeletePodRetriesOrphanedVMPortIPLookupFailure(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, deleteCalls)
-	_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
+	_, err = fc.fakeController.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
 	assert.True(t, k8serrors.IsNotFound(err))
 	assert.Empty(t, fc.fakeController.ipam.GetPodAddress("default/test-vm"))
 	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkReleased", "logicalSwitchPort="+portName, "ipCR="+portName, "ipam="+portName)
@@ -1758,7 +1758,7 @@ func TestReconcileAllocateSubnetsSpecificFailureEventsIncludeStage(t *testing.T)
 			Spec:       kubeovnv1.VipSpec{Subnet: subnet.Name},
 			Status:     kubeovnv1.VipStatus{V4ip: "10.0.0.0", Mac: "00:00:00:00:00:01"},
 		}
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
 		require.NoError(t, err)
 		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 		require.NoError(t, indexer.Add(vip))

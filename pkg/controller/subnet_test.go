@@ -783,13 +783,13 @@ func Test_formatSubnet(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := ctrl.config.KubeOvnClient.KubeovnV1().Subnets().Create(context.Background(), tc.input, metav1.CreateOptions{})
+			_, err := ctrl.config.KubeOvnClient.FabricV1().Subnets().Create(context.Background(), tc.input, metav1.CreateOptions{})
 			require.NoError(t, err)
 			formattedSubnet, err := ctrl.formatSubnet(tc.input)
 			require.NoError(t, err)
 			formattedSubnet.SetManagedFields(nil)
 			require.Equal(t, tc.output, formattedSubnet)
-			err = ctrl.config.KubeOvnClient.KubeovnV1().Subnets().Delete(context.Background(), tc.input.Name, metav1.DeleteOptions{})
+			err = ctrl.config.KubeOvnClient.FabricV1().Subnets().Delete(context.Background(), tc.input.Name, metav1.DeleteOptions{})
 			require.NoError(t, err)
 		})
 	}

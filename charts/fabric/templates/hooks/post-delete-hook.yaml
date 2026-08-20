@@ -25,7 +25,7 @@ metadata:
   name: system:kube-ovn-post-delete-hook
 rules:
   - apiGroups:
-      - kubeovn.io
+      - fabric.cloudyfolks.io
     resources:
       - subnets
       - vpcs

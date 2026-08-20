@@ -42,7 +42,7 @@ func VpcEgressGateway(name, namespace string) *VpcEgressGatewayApplyConfiguratio
 	b.WithName(name)
 	b.WithNamespace(namespace)
 	b.WithKind("VpcEgressGateway")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

@@ -60,7 +60,7 @@ type switchLBRules struct {
 }
 
 // newSwitchLBRules returns a SwitchLBRules
-func newSwitchLBRules(c *KubeovnV1Client) *switchLBRules {
+func newSwitchLBRules(c *FabricV1Client) *switchLBRules {
 	return &switchLBRules{
 		gentype.NewClientWithListAndApply[*kubeovnv1.SwitchLBRule, *kubeovnv1.SwitchLBRuleList, *applyconfigurationkubeovnv1.SwitchLBRuleApplyConfiguration](
 			"switch-lb-rules",

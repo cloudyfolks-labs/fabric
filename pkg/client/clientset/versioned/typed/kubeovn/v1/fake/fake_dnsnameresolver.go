@@ -28,10 +28,10 @@ import (
 // fakeDNSNameResolvers implements DNSNameResolverInterface
 type fakeDNSNameResolvers struct {
 	*gentype.FakeClientWithListAndApply[*v1.DNSNameResolver, *v1.DNSNameResolverList, *kubeovnv1.DNSNameResolverApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeDNSNameResolvers(fake *FakeKubeovnV1) typedkubeovnv1.DNSNameResolverInterface {
+func newFakeDNSNameResolvers(fake *FakeFabricV1) typedkubeovnv1.DNSNameResolverInterface {
 	return &fakeDNSNameResolvers{
 		gentype.NewFakeClientWithListAndApply[*v1.DNSNameResolver, *v1.DNSNameResolverList, *kubeovnv1.DNSNameResolverApplyConfiguration](
 			fake.Fake,

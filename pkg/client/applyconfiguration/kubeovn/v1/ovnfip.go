@@ -39,7 +39,7 @@ func OvnFip(name string) *OvnFipApplyConfiguration {
 	b := &OvnFipApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("OvnFip")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

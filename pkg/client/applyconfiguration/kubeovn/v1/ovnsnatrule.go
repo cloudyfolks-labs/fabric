@@ -39,7 +39,7 @@ func OvnSnatRule(name string) *OvnSnatRuleApplyConfiguration {
 	b := &OvnSnatRuleApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("OvnSnatRule")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

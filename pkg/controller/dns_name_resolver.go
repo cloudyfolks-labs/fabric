@@ -224,7 +224,7 @@ func (c *Controller) createOrUpdateDNSNameResolver(anpName, domainName string) e
 
 	if k8serrors.IsNotFound(err) {
 		// Create new DNSNameResolver
-		_, err = c.config.KubeOvnClient.KubeovnV1().DNSNameResolvers().Create(context.TODO(), dnsNameResolver, metav1.CreateOptions{})
+		_, err = c.config.KubeOvnClient.FabricV1().DNSNameResolvers().Create(context.TODO(), dnsNameResolver, metav1.CreateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to create DNSNameResolver %s: %w", dnsNameResolverName, err)
 		}
@@ -232,7 +232,7 @@ func (c *Controller) createOrUpdateDNSNameResolver(anpName, domainName string) e
 	} else if existing.Spec.Name != kubeovnv1.DNSName(domainName) {
 		// Update existing DNSNameResolver if needed
 		dnsNameResolver.ResourceVersion = existing.ResourceVersion
-		_, err = c.config.KubeOvnClient.KubeovnV1().DNSNameResolvers().Update(context.TODO(), dnsNameResolver, metav1.UpdateOptions{})
+		_, err = c.config.KubeOvnClient.FabricV1().DNSNameResolvers().Update(context.TODO(), dnsNameResolver, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update DNSNameResolver %s: %w", dnsNameResolverName, err)
 		}
@@ -246,7 +246,7 @@ func (c *Controller) createOrUpdateDNSNameResolver(anpName, domainName string) e
 func (c *Controller) deleteDNSNameResolver(anpName, domainName string) error {
 	dnsNameResolverName := generateDNSNameResolverName(anpName, domainName)
 
-	err := c.config.KubeOvnClient.KubeovnV1().DNSNameResolvers().Delete(context.TODO(), dnsNameResolverName, metav1.DeleteOptions{})
+	err := c.config.KubeOvnClient.FabricV1().DNSNameResolvers().Delete(context.TODO(), dnsNameResolverName, metav1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete DNSNameResolver %s: %w", dnsNameResolverName, err)
 	}

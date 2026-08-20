@@ -72,7 +72,7 @@ func (c *Controller) handleDeleteVM(key string) error {
 	}
 
 	for _, port := range ports {
-		if err := c.config.KubeOvnClient.KubeovnV1().IPs().Delete(context.Background(), port.Name, metav1.DeleteOptions{}); err != nil {
+		if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), port.Name, metav1.DeleteOptions{}); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				klog.Errorf("failed to delete ip %s, %v", port.Name, err)
 				return err

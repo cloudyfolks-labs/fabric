@@ -38,7 +38,7 @@ func IP(name string) *IPApplyConfiguration {
 	b := &IPApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("IP")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

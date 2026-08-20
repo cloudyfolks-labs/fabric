@@ -477,7 +477,7 @@ func (c *Controller) patchOvnFipAnnotations(key, eipName string) error {
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/annotations", "value": %s }]`
 		raw, _ := json.Marshal(fip.Annotations)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.KubeovnV1().OvnFips().Patch(context.Background(), fip.Name,
+		if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch annotation for ovn fip %s, %v", fip.Name, err)
 			return err
@@ -513,7 +513,7 @@ func (c *Controller) patchOvnFipStatus(key, vpcName, v4Eip, podIP string, ready 
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 		raw, _ := json.Marshal(fip.Labels)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.KubeovnV1().OvnFips().Patch(context.Background(), fip.Name,
+		if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for ovn fip %s, %v", fip.Name, err)
 			return err
@@ -542,7 +542,7 @@ func (c *Controller) patchOvnFipStatus(key, vpcName, v4Eip, podIP string, ready 
 			klog.Error(err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().OvnFips().Patch(context.Background(), fip.Name,
+		if _, err = c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch fip %s, %v", fip.Name, err)
 			return err
@@ -588,7 +588,7 @@ func (c *Controller) handleAddOvnFipFinalizer(cachedFip *kubeovnv1.OvnFip) error
 		klog.Errorf("failed to generate patch payload for ovn fip '%s', %v", cachedFip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().OvnFips().Patch(context.Background(), cachedFip.Name,
+	if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), cachedFip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -612,7 +612,7 @@ func (c *Controller) handleDelOvnFipFinalizer(cachedFip *kubeovnv1.OvnFip) error
 		klog.Errorf("failed to generate patch payload for ovn fip '%s', %v", cachedFip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().OvnFips().Patch(context.Background(), cachedFip.Name,
+	if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), cachedFip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil

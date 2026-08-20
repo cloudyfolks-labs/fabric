@@ -28,10 +28,10 @@ import (
 // fakeOvnFips implements OvnFipInterface
 type fakeOvnFips struct {
 	*gentype.FakeClientWithListAndApply[*v1.OvnFip, *v1.OvnFipList, *kubeovnv1.OvnFipApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeOvnFips(fake *FakeKubeovnV1) typedkubeovnv1.OvnFipInterface {
+func newFakeOvnFips(fake *FakeFabricV1) typedkubeovnv1.OvnFipInterface {
 	return &fakeOvnFips{
 		gentype.NewFakeClientWithListAndApply[*v1.OvnFip, *v1.OvnFipList, *kubeovnv1.OvnFipApplyConfiguration](
 			fake.Fake,

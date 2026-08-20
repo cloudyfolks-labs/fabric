@@ -29,7 +29,7 @@ type VipClient struct {
 func (f *Framework) VipClient() *VipClient {
 	return &VipClient{
 		f:            f,
-		VipInterface: f.KubeOVNClientSet.KubeovnV1().Vips(),
+		VipInterface: f.KubeOVNClientSet.FabricV1().Vips(),
 	}
 }
 

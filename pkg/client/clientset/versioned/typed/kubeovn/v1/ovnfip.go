@@ -60,7 +60,7 @@ type ovnFips struct {
 }
 
 // newOvnFips returns a OvnFips
-func newOvnFips(c *KubeovnV1Client) *ovnFips {
+func newOvnFips(c *FabricV1Client) *ovnFips {
 	return &ovnFips{
 		gentype.NewClientWithListAndApply[*kubeovnv1.OvnFip, *kubeovnv1.OvnFipList, *applyconfigurationkubeovnv1.OvnFipApplyConfiguration](
 			"ovn-fips",

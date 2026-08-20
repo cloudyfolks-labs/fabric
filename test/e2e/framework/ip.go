@@ -29,7 +29,7 @@ type IPClient struct {
 func (f *Framework) IPClient() *IPClient {
 	return &IPClient{
 		f:           f,
-		IPInterface: f.KubeOVNClientSet.KubeovnV1().IPs(),
+		IPInterface: f.KubeOVNClientSet.FabricV1().IPs(),
 	}
 }
 

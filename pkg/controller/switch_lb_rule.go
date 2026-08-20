@@ -199,7 +199,7 @@ func (c *Controller) handleAddOrUpdateSwitchLBRule(key string) error {
 	}
 	newSlr.Status.Ports = strings.TrimPrefix(formatPorts, ",")
 
-	if _, err = c.config.KubeOvnClient.KubeovnV1().SwitchLBRules().UpdateStatus(context.Background(), newSlr, metav1.UpdateOptions{}); err != nil {
+	if _, err = c.config.KubeOvnClient.FabricV1().SwitchLBRules().UpdateStatus(context.Background(), newSlr, metav1.UpdateOptions{}); err != nil {
 		err = fmt.Errorf("failed to update switch lb rule status, %w", err)
 		klog.Error(err)
 		return err
@@ -370,7 +370,7 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 		}
 
 		if len(lbhcs) == 0 {
-			err = c.config.KubeOvnClient.KubeovnV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{})
+			err = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				klog.Errorf("failed to delete vip %s for load balancer health check, err: %v", vip, err)
 				return err

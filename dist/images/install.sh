@@ -415,9 +415,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: bgp-confs.kubeovn.io
+  name: bgp-confs.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: BgpConf
     listKind: BgpConfList
@@ -506,9 +506,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: dnsnameresolvers.kubeovn.io
+  name: dnsnameresolvers.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: DNSNameResolver
     listKind: DNSNameResolverList
@@ -719,9 +719,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ippools.kubeovn.io
+  name: ippools.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: IPPool
     listKind: IPPoolList
@@ -875,9 +875,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ips.kubeovn.io
+  name: ips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: IP
     listKind: IPList
@@ -984,9 +984,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-dnat-rules.kubeovn.io
+  name: ovn-dnat-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnDnatRule
     listKind: OvnDnatRuleList
@@ -1163,9 +1163,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-eips.kubeovn.io
+  name: ovn-eips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnEip
     listKind: OvnEipList
@@ -1306,9 +1306,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-fips.kubeovn.io
+  name: ovn-fips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnFip
     listKind: OvnFipList
@@ -1464,9 +1464,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: ovn-snat-rules.kubeovn.io
+  name: ovn-snat-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: OvnSnatRule
     listKind: OvnSnatRuleList
@@ -1607,9 +1607,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: provider-networks.kubeovn.io
+  name: provider-networks.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: ProviderNetwork
     listKind: ProviderNetworkList
@@ -1813,9 +1813,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: router-lb-rules.kubeovn.io
+  name: router-lb-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: RouterLBRule
     listKind: RouterLBRuleList
@@ -1951,9 +1951,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: security-groups.kubeovn.io
+  name: security-groups.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: SecurityGroup
     listKind: SecurityGroupList
@@ -2110,9 +2110,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: subnets.kubeovn.io
+  name: subnets.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Subnet
     listKind: SubnetList
@@ -2555,9 +2555,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: switch-lb-rules.kubeovn.io
+  name: switch-lb-rules.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: SwitchLBRule
     listKind: SwitchLBRuleList
@@ -2695,9 +2695,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vips.kubeovn.io
+  name: vips.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Vip
     listKind: VipList
@@ -2850,9 +2850,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vlans.kubeovn.io
+  name: vlans.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Vlan
     listKind: VlanList
@@ -2975,9 +2975,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vpc-dnses.kubeovn.io
+  name: vpc-dnses.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: VpcDns
     listKind: VpcDnsList
@@ -3095,9 +3095,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vpc-egress-gateways.kubeovn.io
+  name: vpc-egress-gateways.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: VpcEgressGateway
     listKind: VpcEgressGatewayList
@@ -4187,9 +4187,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: vpcs.kubeovn.io
+  name: vpcs.fabric.cloudyfolks.io
 spec:
-  group: kubeovn.io
+  group: fabric.cloudyfolks.io
   names:
     kind: Vpc
     listKind: VpcList
@@ -4606,7 +4606,7 @@ metadata:
   name: system:ovn
 rules:
   - apiGroups:
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - vpcs
       - vpcs/status
@@ -4872,7 +4872,7 @@ rules:
   - apiGroups:
     - certificates.k8s.io
     resourceNames:
-    - kubeovn.io/signer
+    - fabric.cloudyfolks.io/signer
     resources:
     - signers
     verbs:
@@ -4938,7 +4938,7 @@ metadata:
   name: system:kube-ovn-cni
 rules:
   - apiGroups:
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - subnets
       - vlans
@@ -4949,7 +4949,7 @@ rules:
       - watch
   - apiGroups:
       - ""
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - ovn-eips
       - ovn-eips/status
@@ -4963,7 +4963,7 @@ rules:
       - patch
       - watch
   - apiGroups:
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - ips
     verbs:

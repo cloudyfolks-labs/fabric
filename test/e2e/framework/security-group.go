@@ -29,7 +29,7 @@ type SecurityGroupClient struct {
 func (f *Framework) SecurityGroupClient() *SecurityGroupClient {
 	return &SecurityGroupClient{
 		f:                      f,
-		SecurityGroupInterface: f.KubeOVNClientSet.KubeovnV1().SecurityGroups(),
+		SecurityGroupInterface: f.KubeOVNClientSet.FabricV1().SecurityGroups(),
 	}
 }
 

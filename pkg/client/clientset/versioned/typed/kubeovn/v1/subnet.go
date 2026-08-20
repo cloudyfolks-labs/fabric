@@ -60,7 +60,7 @@ type subnets struct {
 }
 
 // newSubnets returns a Subnets
-func newSubnets(c *KubeovnV1Client) *subnets {
+func newSubnets(c *FabricV1Client) *subnets {
 	return &subnets{
 		gentype.NewClientWithListAndApply[*kubeovnv1.Subnet, *kubeovnv1.SubnetList, *applyconfigurationkubeovnv1.SubnetApplyConfiguration](
 			"subnets",

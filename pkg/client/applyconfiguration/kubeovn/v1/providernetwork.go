@@ -39,7 +39,7 @@ func ProviderNetwork(name string) *ProviderNetworkApplyConfiguration {
 	b := &ProviderNetworkApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("ProviderNetwork")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

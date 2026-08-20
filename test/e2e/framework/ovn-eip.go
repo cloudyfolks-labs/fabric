@@ -30,7 +30,7 @@ type OvnEipClient struct {
 func (f *Framework) OvnEipClient() *OvnEipClient {
 	return &OvnEipClient{
 		f:               f,
-		OvnEipInterface: f.KubeOVNClientSet.KubeovnV1().OvnEips(),
+		OvnEipInterface: f.KubeOVNClientSet.FabricV1().OvnEips(),
 	}
 }
 

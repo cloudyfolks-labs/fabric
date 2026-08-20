@@ -31,7 +31,7 @@ type SubnetClient struct {
 func (f *Framework) SubnetClient() *SubnetClient {
 	return &SubnetClient{
 		f:               f,
-		SubnetInterface: f.KubeOVNClientSet.KubeovnV1().Subnets(),
+		SubnetInterface: f.KubeOVNClientSet.FabricV1().Subnets(),
 	}
 }
 

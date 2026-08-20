@@ -80,7 +80,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
@@ -148,7 +148,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
@@ -201,7 +201,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpcEmpty, metav1.CreateOptions{})
+		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpcEmpty, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpcEmpty)
@@ -262,7 +262,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
@@ -331,7 +331,7 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
@@ -395,7 +395,7 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)

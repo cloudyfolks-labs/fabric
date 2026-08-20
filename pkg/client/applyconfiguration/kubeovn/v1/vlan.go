@@ -39,7 +39,7 @@ func Vlan(name string) *VlanApplyConfiguration {
 	b := &VlanApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("Vlan")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

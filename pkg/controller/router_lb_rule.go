@@ -343,7 +343,7 @@ func (c *Controller) handleAddOrUpdateRouterLBRule(key string) error {
 	}
 	newRlr.Status.Ports = strings.TrimPrefix(formatPorts, ",")
 
-	if _, err = c.config.KubeOvnClient.KubeovnV1().RouterLBRules().UpdateStatus(context.Background(), newRlr, metav1.UpdateOptions{}); err != nil {
+	if _, err = c.config.KubeOvnClient.FabricV1().RouterLBRules().UpdateStatus(context.Background(), newRlr, metav1.UpdateOptions{}); err != nil {
 		err = fmt.Errorf("failed to update RouterLBRule status: %w", err)
 		klog.Error(err)
 		return err
@@ -505,7 +505,7 @@ func (c *Controller) handleDelRouterLBRule(info *RouterLBRuleInfo) error {
 				continue
 			}
 			if len(remaining) == 0 {
-				if e = c.config.KubeOvnClient.KubeovnV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{}); e != nil && !k8serrors.IsNotFound(e) {
+				if e = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{}); e != nil && !k8serrors.IsNotFound(e) {
 					klog.Errorf("failed to delete health-check vip %s for RLR %s: %v", vip, info.Name, e)
 				}
 			}

@@ -35,7 +35,7 @@ func (f *Framework) SwitchLBRuleClient() *SwitchLBRuleClient {
 func (f *Framework) SwitchLBRuleClientNS(namespace string) *SwitchLBRuleClient {
 	return &SwitchLBRuleClient{
 		f:                     f,
-		SwitchLBRuleInterface: f.KubeOVNClientSet.KubeovnV1().SwitchLBRules(),
+		SwitchLBRuleInterface: f.KubeOVNClientSet.FabricV1().SwitchLBRules(),
 		namespace:             namespace,
 	}
 }

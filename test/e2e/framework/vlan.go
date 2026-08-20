@@ -25,14 +25,14 @@ type VlanClient struct {
 
 func NewVlanClient(cs clientset.Interface) *VlanClient {
 	return &VlanClient{
-		VlanInterface: cs.KubeovnV1().Vlans(),
+		VlanInterface: cs.FabricV1().Vlans(),
 	}
 }
 
 func (f *Framework) VlanClient() *VlanClient {
 	return &VlanClient{
 		f:             f,
-		VlanInterface: f.KubeOVNClientSet.KubeovnV1().Vlans(),
+		VlanInterface: f.KubeOVNClientSet.FabricV1().Vlans(),
 	}
 }
 

@@ -30,7 +30,7 @@ type IPPoolClient struct {
 func (f *Framework) IPPoolClient() *IPPoolClient {
 	return &IPPoolClient{
 		f:               f,
-		IPPoolInterface: f.KubeOVNClientSet.KubeovnV1().IPPools(),
+		IPPoolInterface: f.KubeOVNClientSet.FabricV1().IPPools(),
 	}
 }
 

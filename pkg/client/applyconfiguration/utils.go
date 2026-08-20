@@ -31,7 +31,7 @@ import (
 // apply configuration type exists for the given GroupVersionKind.
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
-	// Group=kubeovn.io, Version=v1
+	// Group=fabric.cloudyfolks.io, Version=v1
 	case v1.SchemeGroupVersion.WithKind("ACL"):
 		return &kubeovnv1.ACLApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BandwidthLimit"):

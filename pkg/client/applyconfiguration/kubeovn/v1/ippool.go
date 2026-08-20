@@ -39,7 +39,7 @@ func IPPool(name string) *IPPoolApplyConfiguration {
 	b := &IPPoolApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("IPPool")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

@@ -63,7 +63,7 @@ func NewFilteredProviderNetworkInformer(client versioned.Interface, resyncPeriod
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewProviderNetworkInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
-	gvr := schema.GroupVersionResource{Group: "kubeovn.io", Version: "v1", Resource: "providernetworks"}
+	gvr := schema.GroupVersionResource{Group: "fabric.cloudyfolks.io", Version: "v1", Resource: "providernetworks"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
 	return cache.NewSharedIndexInformerWithOptions(
@@ -72,25 +72,25 @@ func NewProviderNetworkInformerWithOptions(client versioned.Interface, options i
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().ProviderNetworks().List(context.Background(), opts)
+				return client.FabricV1().ProviderNetworks().List(context.Background(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().ProviderNetworks().Watch(context.Background(), opts)
+				return client.FabricV1().ProviderNetworks().Watch(context.Background(), opts)
 			},
 			ListWithContextFunc: func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().ProviderNetworks().List(ctx, opts)
+				return client.FabricV1().ProviderNetworks().List(ctx, opts)
 			},
 			WatchFuncWithContext: func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().ProviderNetworks().Watch(ctx, opts)
+				return client.FabricV1().ProviderNetworks().Watch(ctx, opts)
 			},
 		}, client),
 		&apiskubeovnv1.ProviderNetwork{},

@@ -52,43 +52,43 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=kubeovn.io, Version=v1
+	// Group=fabric.cloudyfolks.io, Version=v1
 	case v1.SchemeGroupVersion.WithResource("bgp-confs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().BgpConves().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().BgpConves().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("dnsnameresolvers"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().DNSNameResolvers().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().DNSNameResolvers().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ips"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().IPs().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().IPs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ippools"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().IPPools().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().IPPools().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ovn-dnat-rules"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().OvnDnatRules().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().OvnDnatRules().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ovn-eips"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().OvnEips().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().OvnEips().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ovn-fips"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().OvnFips().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().OvnFips().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ovn-snat-rules"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().OvnSnatRules().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().OvnSnatRules().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("provider-networks"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().ProviderNetworks().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().ProviderNetworks().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("router-lb-rules"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().RouterLBRules().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().RouterLBRules().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("security-groups"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().SecurityGroups().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().SecurityGroups().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("subnets"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().Subnets().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().Subnets().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("switch-lb-rules"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().SwitchLBRules().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().SwitchLBRules().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("vips"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().Vips().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().Vips().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("vlans"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().Vlans().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().Vlans().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("vpcs"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().Vpcs().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().Vpcs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("vpc-dnses"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().VpcDnses().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().VpcDnses().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("vpc-egress-gateways"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kubeovn().V1().VpcEgressGateways().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().VpcEgressGateways().Informer()}, nil
 
 	}
 

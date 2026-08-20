@@ -686,7 +686,7 @@ func (c *Controller) getHealthCheckVip(subnetName, lbVip string) (string, error)
 				Subnet: subnetName,
 			},
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{}); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{}); err != nil {
 			klog.Errorf("failed to create health check vip %s, %v", vipName, err)
 			return "", err
 		}

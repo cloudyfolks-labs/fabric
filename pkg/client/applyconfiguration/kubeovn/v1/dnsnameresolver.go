@@ -39,7 +39,7 @@ func DNSNameResolver(name string) *DNSNameResolverApplyConfiguration {
 	b := &DNSNameResolverApplyConfiguration{}
 	b.WithName(name)
 	b.WithKind("DNSNameResolver")
-	b.WithAPIVersion("kubeovn.io/v1")
+	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 

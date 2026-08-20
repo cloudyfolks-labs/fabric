@@ -28,10 +28,10 @@ import (
 // fakeRouterLBRules implements RouterLBRuleInterface
 type fakeRouterLBRules struct {
 	*gentype.FakeClientWithListAndApply[*v1.RouterLBRule, *v1.RouterLBRuleList, *kubeovnv1.RouterLBRuleApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeRouterLBRules(fake *FakeKubeovnV1) typedkubeovnv1.RouterLBRuleInterface {
+func newFakeRouterLBRules(fake *FakeFabricV1) typedkubeovnv1.RouterLBRuleInterface {
 	return &fakeRouterLBRules{
 		gentype.NewFakeClientWithListAndApply[*v1.RouterLBRule, *v1.RouterLBRuleList, *kubeovnv1.RouterLBRuleApplyConfiguration](
 			fake.Fake,

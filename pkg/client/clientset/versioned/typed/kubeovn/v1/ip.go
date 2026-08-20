@@ -56,7 +56,7 @@ type iPs struct {
 }
 
 // newIPs returns a IPs
-func newIPs(c *KubeovnV1Client) *iPs {
+func newIPs(c *FabricV1Client) *iPs {
 	return &iPs{
 		gentype.NewClientWithListAndApply[*kubeovnv1.IP, *kubeovnv1.IPList, *applyconfigurationkubeovnv1.IPApplyConfiguration](
 			"ips",

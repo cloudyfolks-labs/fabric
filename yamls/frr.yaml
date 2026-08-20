@@ -10,7 +10,7 @@ metadata:
   name: system:kube-ovn-frr
 rules:
   - apiGroups:
-      - kubeovn.io
+      - fabric.cloudyfolks.io
     resources:
       - bgp-confs
       - vpcs

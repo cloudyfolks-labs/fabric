@@ -28,10 +28,10 @@ import (
 // fakeVpcDnses implements VpcDnsInterface
 type fakeVpcDnses struct {
 	*gentype.FakeClientWithListAndApply[*v1.VpcDns, *v1.VpcDnsList, *kubeovnv1.VpcDnsApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeVpcDnses(fake *FakeKubeovnV1) typedkubeovnv1.VpcDnsInterface {
+func newFakeVpcDnses(fake *FakeFabricV1) typedkubeovnv1.VpcDnsInterface {
 	return &fakeVpcDnses{
 		gentype.NewFakeClientWithListAndApply[*v1.VpcDns, *v1.VpcDnsList, *kubeovnv1.VpcDnsApplyConfiguration](
 			fake.Fake,

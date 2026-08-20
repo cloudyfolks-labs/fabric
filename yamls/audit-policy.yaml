@@ -40,7 +40,7 @@ rules:
           - virtualmachines/migrate
           - virtualmachineinstances
           - virtualmachineinstances/status
-      - group: kubeovn.io
+      - group: fabric.cloudyfolks.io
         resources:
           - vpcs
           - vpcs/status

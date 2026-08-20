@@ -60,7 +60,7 @@ type securityGroups struct {
 }
 
 // newSecurityGroups returns a SecurityGroups
-func newSecurityGroups(c *KubeovnV1Client) *securityGroups {
+func newSecurityGroups(c *FabricV1Client) *securityGroups {
 	return &securityGroups{
 		gentype.NewClientWithListAndApply[*kubeovnv1.SecurityGroup, *kubeovnv1.SecurityGroupList, *applyconfigurationkubeovnv1.SecurityGroupApplyConfiguration](
 			"security-groups",

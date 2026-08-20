@@ -24,85 +24,85 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeKubeovnV1 struct {
+type FakeFabricV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKubeovnV1) BgpConves() v1.BgpConfInterface {
+func (c *FakeFabricV1) BgpConves() v1.BgpConfInterface {
 	return newFakeBgpConves(c)
 }
 
-func (c *FakeKubeovnV1) DNSNameResolvers() v1.DNSNameResolverInterface {
+func (c *FakeFabricV1) DNSNameResolvers() v1.DNSNameResolverInterface {
 	return newFakeDNSNameResolvers(c)
 }
 
-func (c *FakeKubeovnV1) IPs() v1.IPInterface {
+func (c *FakeFabricV1) IPs() v1.IPInterface {
 	return newFakeIPs(c)
 }
 
-func (c *FakeKubeovnV1) IPPools() v1.IPPoolInterface {
+func (c *FakeFabricV1) IPPools() v1.IPPoolInterface {
 	return newFakeIPPools(c)
 }
 
-func (c *FakeKubeovnV1) OvnDnatRules() v1.OvnDnatRuleInterface {
+func (c *FakeFabricV1) OvnDnatRules() v1.OvnDnatRuleInterface {
 	return newFakeOvnDnatRules(c)
 }
 
-func (c *FakeKubeovnV1) OvnEips() v1.OvnEipInterface {
+func (c *FakeFabricV1) OvnEips() v1.OvnEipInterface {
 	return newFakeOvnEips(c)
 }
 
-func (c *FakeKubeovnV1) OvnFips() v1.OvnFipInterface {
+func (c *FakeFabricV1) OvnFips() v1.OvnFipInterface {
 	return newFakeOvnFips(c)
 }
 
-func (c *FakeKubeovnV1) OvnSnatRules() v1.OvnSnatRuleInterface {
+func (c *FakeFabricV1) OvnSnatRules() v1.OvnSnatRuleInterface {
 	return newFakeOvnSnatRules(c)
 }
 
-func (c *FakeKubeovnV1) ProviderNetworks() v1.ProviderNetworkInterface {
+func (c *FakeFabricV1) ProviderNetworks() v1.ProviderNetworkInterface {
 	return newFakeProviderNetworks(c)
 }
 
-func (c *FakeKubeovnV1) RouterLBRules() v1.RouterLBRuleInterface {
+func (c *FakeFabricV1) RouterLBRules() v1.RouterLBRuleInterface {
 	return newFakeRouterLBRules(c)
 }
 
-func (c *FakeKubeovnV1) SecurityGroups() v1.SecurityGroupInterface {
+func (c *FakeFabricV1) SecurityGroups() v1.SecurityGroupInterface {
 	return newFakeSecurityGroups(c)
 }
 
-func (c *FakeKubeovnV1) Subnets() v1.SubnetInterface {
+func (c *FakeFabricV1) Subnets() v1.SubnetInterface {
 	return newFakeSubnets(c)
 }
 
-func (c *FakeKubeovnV1) SwitchLBRules() v1.SwitchLBRuleInterface {
+func (c *FakeFabricV1) SwitchLBRules() v1.SwitchLBRuleInterface {
 	return newFakeSwitchLBRules(c)
 }
 
-func (c *FakeKubeovnV1) Vips() v1.VipInterface {
+func (c *FakeFabricV1) Vips() v1.VipInterface {
 	return newFakeVips(c)
 }
 
-func (c *FakeKubeovnV1) Vlans() v1.VlanInterface {
+func (c *FakeFabricV1) Vlans() v1.VlanInterface {
 	return newFakeVlans(c)
 }
 
-func (c *FakeKubeovnV1) Vpcs() v1.VpcInterface {
+func (c *FakeFabricV1) Vpcs() v1.VpcInterface {
 	return newFakeVpcs(c)
 }
 
-func (c *FakeKubeovnV1) VpcDnses() v1.VpcDnsInterface {
+func (c *FakeFabricV1) VpcDnses() v1.VpcDnsInterface {
 	return newFakeVpcDnses(c)
 }
 
-func (c *FakeKubeovnV1) VpcEgressGateways(namespace string) v1.VpcEgressGatewayInterface {
+func (c *FakeFabricV1) VpcEgressGateways(namespace string) v1.VpcEgressGatewayInterface {
 	return newFakeVpcEgressGateways(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeKubeovnV1) RESTClient() rest.Interface {
+func (c *FakeFabricV1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

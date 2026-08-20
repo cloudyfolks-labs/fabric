@@ -28,10 +28,10 @@ import (
 // fakeBgpConves implements BgpConfInterface
 type fakeBgpConves struct {
 	*gentype.FakeClientWithListAndApply[*v1.BgpConf, *v1.BgpConfList, *kubeovnv1.BgpConfApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeBgpConves(fake *FakeKubeovnV1) typedkubeovnv1.BgpConfInterface {
+func newFakeBgpConves(fake *FakeFabricV1) typedkubeovnv1.BgpConfInterface {
 	return &fakeBgpConves{
 		gentype.NewFakeClientWithListAndApply[*v1.BgpConf, *v1.BgpConfList, *kubeovnv1.BgpConfApplyConfiguration](
 			fake.Fake,

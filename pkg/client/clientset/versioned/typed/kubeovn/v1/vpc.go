@@ -60,7 +60,7 @@ type vpcs struct {
 }
 
 // newVpcs returns a Vpcs
-func newVpcs(c *KubeovnV1Client) *vpcs {
+func newVpcs(c *FabricV1Client) *vpcs {
 	return &vpcs{
 		gentype.NewClientWithListAndApply[*kubeovnv1.Vpc, *kubeovnv1.VpcList, *applyconfigurationkubeovnv1.VpcApplyConfiguration](
 			"vpcs",

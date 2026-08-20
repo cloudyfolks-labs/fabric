@@ -1194,7 +1194,7 @@ func (c *Controller) patchOvnEipStatus(key string, ready bool) error {
 			klog.Errorf("failed to marshal ovn eip status '%s', %v", key, err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().OvnEips().Patch(context.Background(), ovnEip.Name,
+		if _, err = c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), ovnEip.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch status for ovn eip '%s', %v", key, err)
 			return err

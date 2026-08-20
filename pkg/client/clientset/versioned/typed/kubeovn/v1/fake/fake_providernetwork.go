@@ -28,10 +28,10 @@ import (
 // fakeProviderNetworks implements ProviderNetworkInterface
 type fakeProviderNetworks struct {
 	*gentype.FakeClientWithListAndApply[*v1.ProviderNetwork, *v1.ProviderNetworkList, *kubeovnv1.ProviderNetworkApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeProviderNetworks(fake *FakeKubeovnV1) typedkubeovnv1.ProviderNetworkInterface {
+func newFakeProviderNetworks(fake *FakeFabricV1) typedkubeovnv1.ProviderNetworkInterface {
 	return &fakeProviderNetworks{
 		gentype.NewFakeClientWithListAndApply[*v1.ProviderNetwork, *v1.ProviderNetworkList, *kubeovnv1.ProviderNetworkApplyConfiguration](
 			fake.Fake,

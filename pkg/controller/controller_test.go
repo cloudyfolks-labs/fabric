@@ -141,77 +141,77 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	// Create fake KubeOVN client
 	kubeovnClient := kubeovnfake.NewSimpleClientset()
 	for _, subnet := range opts.Subnets {
-		_, err := kubeovnClient.KubeovnV1().Subnets().Create(
+		_, err := kubeovnClient.FabricV1().Subnets().Create(
 			context.Background(), subnet, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, ippool := range opts.IPPools {
-		_, err := kubeovnClient.KubeovnV1().IPPools().Create(
+		_, err := kubeovnClient.FabricV1().IPPools().Create(
 			context.Background(), ippool, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, ip := range opts.IPs {
-		_, err := kubeovnClient.KubeovnV1().IPs().Create(
+		_, err := kubeovnClient.FabricV1().IPs().Create(
 			context.Background(), ip, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, vlan := range opts.Vlans {
-		_, err := kubeovnClient.KubeovnV1().Vlans().Create(
+		_, err := kubeovnClient.FabricV1().Vlans().Create(
 			context.Background(), vlan, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, pn := range opts.ProviderNetworks {
-		_, err := kubeovnClient.KubeovnV1().ProviderNetworks().Create(
+		_, err := kubeovnClient.FabricV1().ProviderNetworks().Create(
 			context.Background(), pn, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, vpc := range opts.Vpcs {
-		_, err := kubeovnClient.KubeovnV1().Vpcs().Create(
+		_, err := kubeovnClient.FabricV1().Vpcs().Create(
 			context.Background(), vpc, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, rlr := range opts.RouterLBRules {
-		_, err := kubeovnClient.KubeovnV1().RouterLBRules().Create(
+		_, err := kubeovnClient.FabricV1().RouterLBRules().Create(
 			context.Background(), rlr, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, eip := range opts.OvnEips {
-		_, err := kubeovnClient.KubeovnV1().OvnEips().Create(
+		_, err := kubeovnClient.FabricV1().OvnEips().Create(
 			context.Background(), eip, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, dnat := range opts.OvnDnatRules {
-		_, err := kubeovnClient.KubeovnV1().OvnDnatRules().Create(
+		_, err := kubeovnClient.FabricV1().OvnDnatRules().Create(
 			context.Background(), dnat, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, fip := range opts.OvnFipRules {
-		_, err := kubeovnClient.KubeovnV1().OvnFips().Create(
+		_, err := kubeovnClient.FabricV1().OvnFips().Create(
 			context.Background(), fip, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, snat := range opts.OvnSnatRules {
-		_, err := kubeovnClient.KubeovnV1().OvnSnatRules().Create(
+		_, err := kubeovnClient.FabricV1().OvnSnatRules().Create(
 			context.Background(), snat, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
@@ -247,17 +247,17 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 			options.AllowWatchBookmarks = true
 		}),
 	)
-	vpcInformer := kubeovnInformerFactory.Kubeovn().V1().Vpcs()
-	subnetInformer := kubeovnInformerFactory.Kubeovn().V1().Subnets()
-	ipInformer := kubeovnInformerFactory.Kubeovn().V1().IPs()
-	vlanInformer := kubeovnInformerFactory.Kubeovn().V1().Vlans()
-	providerNetworkInformer := kubeovnInformerFactory.Kubeovn().V1().ProviderNetworks()
-	ippoolInformer := kubeovnInformerFactory.Kubeovn().V1().IPPools()
-	routerLBRuleInformer := kubeovnInformerFactory.Kubeovn().V1().RouterLBRules()
-	ovnEipInformer := kubeovnInformerFactory.Kubeovn().V1().OvnEips()
-	ovnDnatRuleInformer := kubeovnInformerFactory.Kubeovn().V1().OvnDnatRules()
-	ovnFipInformer := kubeovnInformerFactory.Kubeovn().V1().OvnFips()
-	ovnSnatRuleInformer := kubeovnInformerFactory.Kubeovn().V1().OvnSnatRules()
+	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
+	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
+	ipInformer := kubeovnInformerFactory.Fabric().V1().IPs()
+	vlanInformer := kubeovnInformerFactory.Fabric().V1().Vlans()
+	providerNetworkInformer := kubeovnInformerFactory.Fabric().V1().ProviderNetworks()
+	ippoolInformer := kubeovnInformerFactory.Fabric().V1().IPPools()
+	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
+	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
+	ovnDnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnDnatRules()
+	ovnFipInformer := kubeovnInformerFactory.Fabric().V1().OvnFips()
+	ovnSnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnSnatRules()
 
 	fakeInformers := &fakeControllerInformers{
 		vpcInformer:       vpcInformer,
@@ -434,7 +434,7 @@ func TestFakeControllerWithOptions(t *testing.T) {
 	require.Equal(t, "net1", retrievedNAD.Name)
 
 	// Verify that subnets can be retrieved
-	subnetClient := ctrl.config.KubeOvnClient.KubeovnV1().Subnets()
+	subnetClient := ctrl.config.KubeOvnClient.FabricV1().Subnets()
 	retrievedSubnet, err := subnetClient.Get(context.Background(), "net1-subnet", metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Equal(t, "net1-subnet", retrievedSubnet.Name)

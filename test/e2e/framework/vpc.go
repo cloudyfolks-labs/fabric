@@ -30,7 +30,7 @@ type VpcClient struct {
 func (f *Framework) VpcClient() *VpcClient {
 	return &VpcClient{
 		f:            f,
-		VpcInterface: f.KubeOVNClientSet.KubeovnV1().Vpcs(),
+		VpcInterface: f.KubeOVNClientSet.FabricV1().Vpcs(),
 	}
 }
 

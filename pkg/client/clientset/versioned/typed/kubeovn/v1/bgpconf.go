@@ -56,7 +56,7 @@ type bgpConves struct {
 }
 
 // newBgpConves returns a BgpConves
-func newBgpConves(c *KubeovnV1Client) *bgpConves {
+func newBgpConves(c *FabricV1Client) *bgpConves {
 	return &bgpConves{
 		gentype.NewClientWithListAndApply[*kubeovnv1.BgpConf, *kubeovnv1.BgpConfList, *applyconfigurationkubeovnv1.BgpConfApplyConfiguration](
 			"bgp-confs",

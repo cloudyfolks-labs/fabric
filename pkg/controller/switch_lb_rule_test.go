@@ -184,7 +184,7 @@ func setupHandleDelSLRTest(t *testing.T, vpcName, subnetName, slrName, namespace
 			TCPLoadBalancer: tcpLBName,
 		},
 	}
-	_, err := ctrl.config.KubeOvnClient.KubeovnV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+	_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 	require.NoError(t, err)
 	require.NoError(t, fc.fakeInformers.vpcInformer.Informer().GetStore().Add(vpc))
 
@@ -206,7 +206,7 @@ func setupHandleDelSLRTest(t *testing.T, vpcName, subnetName, slrName, namespace
 	vip := &kubeovnv1.Vip{
 		ObjectMeta: metav1.ObjectMeta{Name: subnetName},
 	}
-	_, err = ctrl.config.KubeOvnClient.KubeovnV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
+	_, err = ctrl.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	return fc
@@ -250,7 +250,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		require.NoError(t, err)
 
 		// VIP should have been deleted
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted", subnetName)
 	})
 
@@ -280,7 +280,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted", subnetName)
 	})
 
@@ -317,7 +317,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		require.NoError(t, err)
 
 		// VIP should still exist
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.NoError(t, err, "VIP %s should still exist (other VPC owns the LBHC)", subnetName)
 	})
 
@@ -333,7 +333,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted via fallback path", subnetName)
 	})
 
@@ -362,7 +362,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err = fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted via info.Subnet fallback", subnetName)
 	})
 
@@ -411,7 +411,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err = fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.NoError(t, err, "VIP %s should still exist (other VPC owns the LBHC)", subnetName)
 	})
 
@@ -437,7 +437,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.KubeovnV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted", subnetName)
 	})
 }

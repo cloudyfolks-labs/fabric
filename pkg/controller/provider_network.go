@@ -104,7 +104,7 @@ func (c *Controller) resyncProviderNetworkStatus() {
 			pn.Status.ReadyNodes = readyNodes
 			pn.Status.NotReadyNodes = notReadyNodes
 			pn.Status.Ready = (len(notReadyNodes) == 0)
-			if _, err = c.config.KubeOvnClient.KubeovnV1().ProviderNetworks().UpdateStatus(context.Background(), pn, metav1.UpdateOptions{}); err != nil {
+			if _, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), pn, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 			}
 		}

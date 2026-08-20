@@ -22,7 +22,7 @@ import (
 	fmt "fmt"
 	http "net/http"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	fabricv1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -30,18 +30,18 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	KubeovnV1() kubeovnv1.KubeovnV1Interface
+	FabricV1() fabricv1.FabricV1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	kubeovnV1 *kubeovnv1.KubeovnV1Client
+	fabricV1 *fabricv1.FabricV1Client
 }
 
-// KubeovnV1 retrieves the KubeovnV1Client
-func (c *Clientset) KubeovnV1() kubeovnv1.KubeovnV1Interface {
-	return c.kubeovnV1
+// FabricV1 retrieves the FabricV1Client
+func (c *Clientset) FabricV1() fabricv1.FabricV1Interface {
+	return c.fabricV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -88,7 +88,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.kubeovnV1, err = kubeovnv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.fabricV1, err = fabricv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.kubeovnV1 = kubeovnv1.New(c)
+	cs.fabricV1 = fabricv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

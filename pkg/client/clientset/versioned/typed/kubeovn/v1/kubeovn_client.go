@@ -26,7 +26,7 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-type KubeovnV1Interface interface {
+type FabricV1Interface interface {
 	RESTClient() rest.Interface
 	BgpConvesGetter
 	DNSNameResolversGetter
@@ -48,87 +48,87 @@ type KubeovnV1Interface interface {
 	VpcEgressGatewaysGetter
 }
 
-// KubeovnV1Client is used to interact with features provided by the kubeovn.io group.
-type KubeovnV1Client struct {
+// FabricV1Client is used to interact with features provided by the fabric.cloudyfolks.io group.
+type FabricV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *KubeovnV1Client) BgpConves() BgpConfInterface {
+func (c *FabricV1Client) BgpConves() BgpConfInterface {
 	return newBgpConves(c)
 }
 
-func (c *KubeovnV1Client) DNSNameResolvers() DNSNameResolverInterface {
+func (c *FabricV1Client) DNSNameResolvers() DNSNameResolverInterface {
 	return newDNSNameResolvers(c)
 }
 
-func (c *KubeovnV1Client) IPs() IPInterface {
+func (c *FabricV1Client) IPs() IPInterface {
 	return newIPs(c)
 }
 
-func (c *KubeovnV1Client) IPPools() IPPoolInterface {
+func (c *FabricV1Client) IPPools() IPPoolInterface {
 	return newIPPools(c)
 }
 
-func (c *KubeovnV1Client) OvnDnatRules() OvnDnatRuleInterface {
+func (c *FabricV1Client) OvnDnatRules() OvnDnatRuleInterface {
 	return newOvnDnatRules(c)
 }
 
-func (c *KubeovnV1Client) OvnEips() OvnEipInterface {
+func (c *FabricV1Client) OvnEips() OvnEipInterface {
 	return newOvnEips(c)
 }
 
-func (c *KubeovnV1Client) OvnFips() OvnFipInterface {
+func (c *FabricV1Client) OvnFips() OvnFipInterface {
 	return newOvnFips(c)
 }
 
-func (c *KubeovnV1Client) OvnSnatRules() OvnSnatRuleInterface {
+func (c *FabricV1Client) OvnSnatRules() OvnSnatRuleInterface {
 	return newOvnSnatRules(c)
 }
 
-func (c *KubeovnV1Client) ProviderNetworks() ProviderNetworkInterface {
+func (c *FabricV1Client) ProviderNetworks() ProviderNetworkInterface {
 	return newProviderNetworks(c)
 }
 
-func (c *KubeovnV1Client) RouterLBRules() RouterLBRuleInterface {
+func (c *FabricV1Client) RouterLBRules() RouterLBRuleInterface {
 	return newRouterLBRules(c)
 }
 
-func (c *KubeovnV1Client) SecurityGroups() SecurityGroupInterface {
+func (c *FabricV1Client) SecurityGroups() SecurityGroupInterface {
 	return newSecurityGroups(c)
 }
 
-func (c *KubeovnV1Client) Subnets() SubnetInterface {
+func (c *FabricV1Client) Subnets() SubnetInterface {
 	return newSubnets(c)
 }
 
-func (c *KubeovnV1Client) SwitchLBRules() SwitchLBRuleInterface {
+func (c *FabricV1Client) SwitchLBRules() SwitchLBRuleInterface {
 	return newSwitchLBRules(c)
 }
 
-func (c *KubeovnV1Client) Vips() VipInterface {
+func (c *FabricV1Client) Vips() VipInterface {
 	return newVips(c)
 }
 
-func (c *KubeovnV1Client) Vlans() VlanInterface {
+func (c *FabricV1Client) Vlans() VlanInterface {
 	return newVlans(c)
 }
 
-func (c *KubeovnV1Client) Vpcs() VpcInterface {
+func (c *FabricV1Client) Vpcs() VpcInterface {
 	return newVpcs(c)
 }
 
-func (c *KubeovnV1Client) VpcDnses() VpcDnsInterface {
+func (c *FabricV1Client) VpcDnses() VpcDnsInterface {
 	return newVpcDnses(c)
 }
 
-func (c *KubeovnV1Client) VpcEgressGateways(namespace string) VpcEgressGatewayInterface {
+func (c *FabricV1Client) VpcEgressGateways(namespace string) VpcEgressGatewayInterface {
 	return newVpcEgressGateways(c, namespace)
 }
 
-// NewForConfig creates a new KubeovnV1Client for the given config.
+// NewForConfig creates a new FabricV1Client for the given config.
 // NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
 // where httpClient was generated with rest.HTTPClientFor(c).
-func NewForConfig(c *rest.Config) (*KubeovnV1Client, error) {
+func NewForConfig(c *rest.Config) (*FabricV1Client, error) {
 	config := *c
 	setConfigDefaults(&config)
 	httpClient, err := rest.HTTPClientFor(&config)
@@ -138,21 +138,21 @@ func NewForConfig(c *rest.Config) (*KubeovnV1Client, error) {
 	return NewForConfigAndClient(&config, httpClient)
 }
 
-// NewForConfigAndClient creates a new KubeovnV1Client for the given config and http client.
+// NewForConfigAndClient creates a new FabricV1Client for the given config and http client.
 // Note the http client provided takes precedence over the configured transport values.
-func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KubeovnV1Client, error) {
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*FabricV1Client, error) {
 	config := *c
 	setConfigDefaults(&config)
 	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
 	}
-	return &KubeovnV1Client{client}, nil
+	return &FabricV1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new KubeovnV1Client for the given config and
+// NewForConfigOrDie creates a new FabricV1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *KubeovnV1Client {
+func NewForConfigOrDie(c *rest.Config) *FabricV1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -160,9 +160,9 @@ func NewForConfigOrDie(c *rest.Config) *KubeovnV1Client {
 	return client
 }
 
-// New creates a new KubeovnV1Client for the given RESTClient.
-func New(c rest.Interface) *KubeovnV1Client {
-	return &KubeovnV1Client{c}
+// New creates a new FabricV1Client for the given RESTClient.
+func New(c rest.Interface) *FabricV1Client {
+	return &FabricV1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) {
@@ -178,7 +178,7 @@ func setConfigDefaults(config *rest.Config) {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *KubeovnV1Client) RESTClient() rest.Interface {
+func (c *FabricV1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

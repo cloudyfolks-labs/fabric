@@ -64,9 +64,9 @@ func NewController(config *Configuration) *Controller {
 			listOption.AllowWatchBookmarks = true
 		}))
 
-	vpcInformer := kubeovnInformerFactory.Kubeovn().V1().Vpcs()
+	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
 	nodeInformer := informerFactory.Core().V1().Nodes()
-	subnetInformer := kubeovnInformerFactory.Kubeovn().V1().Subnets()
+	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
 	configMapInformer := informerFactory.Core().V1().ConfigMaps()
 
 	controller := &Controller{

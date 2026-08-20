@@ -340,7 +340,7 @@ func (c *Controller) patchSgStatus(sg *kubeovnv1.SecurityGroup) {
 		klog.Error(err)
 		return
 	}
-	if _, err = c.config.KubeOvnClient.KubeovnV1().SecurityGroups().Patch(context.Background(), sg.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err = c.config.KubeOvnClient.FabricV1().SecurityGroups().Patch(context.Background(), sg.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Error("patch security group status failed", err)
 	}
 }

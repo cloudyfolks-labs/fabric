@@ -220,7 +220,7 @@ func (c *Controller) handleAddReservedIP(key string) error {
 		}
 		op := "replace"
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.KubeovnV1().IPs().Patch(context.Background(), ip.Name,
+		if _, err := c.config.KubeOvnClient.FabricV1().IPs().Patch(context.Background(), ip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for ip %s, %v", ip.Name, err)
 			return err
@@ -329,7 +329,7 @@ func (c *Controller) handleDelIPFinalizer(cachedIP *kubeovnv1.IP) error {
 		klog.Errorf("failed to generate patch payload for ip %s, %v", cachedIP.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.KubeovnV1().IPs().Patch(context.Background(), cachedIP.Name,
+	if _, err := c.config.KubeOvnClient.FabricV1().IPs().Patch(context.Background(), cachedIP.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -482,7 +482,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 		if owner != nil {
 			ipCR.OwnerReferences = []metav1.OwnerReference{*owner}
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().IPs().Create(context.Background(), ipCR, metav1.CreateOptions{}); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().IPs().Create(context.Background(), ipCR, metav1.CreateOptions{}); err != nil {
 			errMsg := fmt.Errorf("failed to create ip CR %s: %w", ipName, err)
 			klog.Error(errMsg)
 			return errMsg
@@ -527,7 +527,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 		}
 		controllerutil.AddFinalizer(newIPCR, util.KubeOVNControllerFinalizer)
 
-		if _, err = c.config.KubeOvnClient.KubeovnV1().IPs().Update(context.Background(), newIPCR, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.KubeOvnClient.FabricV1().IPs().Update(context.Background(), newIPCR, metav1.UpdateOptions{}); err != nil {
 			err := fmt.Errorf("failed to update ip CR %s: %w", ipName, err)
 			klog.Error(err)
 			return err

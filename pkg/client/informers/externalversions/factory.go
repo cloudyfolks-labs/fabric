@@ -325,9 +325,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	Kubeovn() kubeovn.Interface
+	Fabric() kubeovn.Interface
 }
 
-func (f *sharedInformerFactory) Kubeovn() kubeovn.Interface {
+func (f *sharedInformerFactory) Fabric() kubeovn.Interface {
 	return kubeovn.New(f, f.namespace, f.tweakListOptions)
 }

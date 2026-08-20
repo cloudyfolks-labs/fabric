@@ -63,7 +63,7 @@ func NewFilteredSecurityGroupInformer(client versioned.Interface, resyncPeriod t
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewSecurityGroupInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
-	gvr := schema.GroupVersionResource{Group: "kubeovn.io", Version: "v1", Resource: "securitygroups"}
+	gvr := schema.GroupVersionResource{Group: "fabric.cloudyfolks.io", Version: "v1", Resource: "securitygroups"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
 	return cache.NewSharedIndexInformerWithOptions(
@@ -72,25 +72,25 @@ func NewSecurityGroupInformerWithOptions(client versioned.Interface, options int
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().SecurityGroups().List(context.Background(), opts)
+				return client.FabricV1().SecurityGroups().List(context.Background(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().SecurityGroups().Watch(context.Background(), opts)
+				return client.FabricV1().SecurityGroups().Watch(context.Background(), opts)
 			},
 			ListWithContextFunc: func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().SecurityGroups().List(ctx, opts)
+				return client.FabricV1().SecurityGroups().List(ctx, opts)
 			},
 			WatchFuncWithContext: func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.KubeovnV1().SecurityGroups().Watch(ctx, opts)
+				return client.FabricV1().SecurityGroups().Watch(ctx, opts)
 			},
 		}, client),
 		&apiskubeovnv1.SecurityGroup{},

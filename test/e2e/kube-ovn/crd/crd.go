@@ -17,7 +17,7 @@ var _ = framework.Describe("[group:crd]", func() {
 	ginkgo.Context("CRD Generation and Installation", func() {
 		ginkgo.It("should generate and install successfully, and support basic networking", func() {
 			ginkgo.By("Verifying Subnet CRD is established")
-			err := waitForCRDEstablished("subnets.kubeovn.io")
+			err := waitForCRDEstablished("subnets.fabric.cloudyfolks.io")
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			ginkgo.By("Creating a subnet to verify basic CRD usage")

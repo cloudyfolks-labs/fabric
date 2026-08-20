@@ -8,7 +8,7 @@ metadata:
   name: system:ovn
 rules:
   - apiGroups:
-      - "kubeovn.io"
+      - "fabric.cloudyfolks.io"
     resources:
       - vpcs
       - vpcs/status
@@ -275,7 +275,7 @@ rules:
   - apiGroups:
       - certificates.k8s.io
     resourceNames:
-      - kubeovn.io/signer
+      - fabric.cloudyfolks.io/signer
     resources:
       - signers
     verbs:

@@ -30,7 +30,7 @@ type OvnDnatRuleClient struct {
 func (f *Framework) OvnDnatRuleClient() *OvnDnatRuleClient {
 	return &OvnDnatRuleClient{
 		f:                    f,
-		OvnDnatRuleInterface: f.KubeOVNClientSet.KubeovnV1().OvnDnatRules(),
+		OvnDnatRuleInterface: f.KubeOVNClientSet.FabricV1().OvnDnatRules(),
 	}
 }
 

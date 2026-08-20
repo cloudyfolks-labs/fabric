@@ -30,7 +30,7 @@ type OvnSnatRuleClient struct {
 func (f *Framework) OvnSnatRuleClient() *OvnSnatRuleClient {
 	return &OvnSnatRuleClient{
 		f:                    f,
-		OvnSnatRuleInterface: f.KubeOVNClientSet.KubeovnV1().OvnSnatRules(),
+		OvnSnatRuleInterface: f.KubeOVNClientSet.FabricV1().OvnSnatRules(),
 	}
 }
 

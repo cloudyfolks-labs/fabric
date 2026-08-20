@@ -287,7 +287,7 @@ func (c *Controller) updateDefaultVpcExternal(enableExternal bool) error {
 	vpc := cachedVpc.DeepCopy()
 	if vpc.Spec.EnableExternal != enableExternal {
 		vpc.Spec.EnableExternal = enableExternal
-		if _, err := c.config.KubeOvnClient.KubeovnV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 			err := fmt.Errorf("failed to update vpc enable external %s, %w", vpc.Name, err)
 			klog.Error(err)
 			return err
@@ -300,7 +300,7 @@ func (c *Controller) updateDefaultVpcExternal(enableExternal bool) error {
 			klog.Errorf("failed to get vpc bytes, %v", err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.KubeovnV1().Vpcs().Patch(context.Background(),
+		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(),
 			vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch vpc %s, %v", c.config.ClusterRouter, err)
 			return err

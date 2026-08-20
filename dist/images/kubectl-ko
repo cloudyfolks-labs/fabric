@@ -646,21 +646,21 @@ getTestNodePortServiceIPPorts() {
 
 diagnose(){
   gcCommands=()
-  kubectl get crd vpcs.kubeovn.io
-  kubectl get crd vpc-egress-gateways.kubeovn.io
-  kubectl get crd subnets.kubeovn.io
-  kubectl get crd ips.kubeovn.io
-  kubectl get crd vlans.kubeovn.io
-  kubectl get crd provider-networks.kubeovn.io
-  kubectl get crd security-groups.kubeovn.io
-  kubectl get crd vips.kubeovn.io
-  kubectl get crd vpc-dnses.kubeovn.io
-  kubectl get crd switch-lb-rules.kubeovn.io
-  kubectl get crd ippools.kubeovn.io
-  kubectl get crd ovn-eips.kubeovn.io
-  kubectl get crd ovn-fips.kubeovn.io
-  kubectl get crd ovn-dnat-rules.kubeovn.io
-  kubectl get crd ovn-snat-rules.kubeovn.io
+  kubectl get crd vpcs.fabric.cloudyfolks.io
+  kubectl get crd vpc-egress-gateways.fabric.cloudyfolks.io
+  kubectl get crd subnets.fabric.cloudyfolks.io
+  kubectl get crd ips.fabric.cloudyfolks.io
+  kubectl get crd vlans.fabric.cloudyfolks.io
+  kubectl get crd provider-networks.fabric.cloudyfolks.io
+  kubectl get crd security-groups.fabric.cloudyfolks.io
+  kubectl get crd vips.fabric.cloudyfolks.io
+  kubectl get crd vpc-dnses.fabric.cloudyfolks.io
+  kubectl get crd switch-lb-rules.fabric.cloudyfolks.io
+  kubectl get crd ippools.fabric.cloudyfolks.io
+  kubectl get crd ovn-eips.fabric.cloudyfolks.io
+  kubectl get crd ovn-fips.fabric.cloudyfolks.io
+  kubectl get crd ovn-dnat-rules.fabric.cloudyfolks.io
+  kubectl get crd ovn-snat-rules.fabric.cloudyfolks.io
 
   set +eu
   if ! kubectl get svc kube-dns -n kube-system ; then

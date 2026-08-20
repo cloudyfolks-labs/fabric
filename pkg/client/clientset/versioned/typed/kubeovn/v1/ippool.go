@@ -60,7 +60,7 @@ type iPPools struct {
 }
 
 // newIPPools returns a IPPools
-func newIPPools(c *KubeovnV1Client) *iPPools {
+func newIPPools(c *FabricV1Client) *iPPools {
 	return &iPPools{
 		gentype.NewClientWithListAndApply[*kubeovnv1.IPPool, *kubeovnv1.IPPoolList, *applyconfigurationkubeovnv1.IPPoolApplyConfiguration](
 			"ippools",

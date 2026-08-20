@@ -60,7 +60,7 @@ type ovnEips struct {
 }
 
 // newOvnEips returns a OvnEips
-func newOvnEips(c *KubeovnV1Client) *ovnEips {
+func newOvnEips(c *FabricV1Client) *ovnEips {
 	return &ovnEips{
 		gentype.NewClientWithListAndApply[*kubeovnv1.OvnEip, *kubeovnv1.OvnEipList, *applyconfigurationkubeovnv1.OvnEipApplyConfiguration](
 			"ovn-eips",

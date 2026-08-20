@@ -28,10 +28,10 @@ import (
 // fakeSubnets implements SubnetInterface
 type fakeSubnets struct {
 	*gentype.FakeClientWithListAndApply[*v1.Subnet, *v1.SubnetList, *kubeovnv1.SubnetApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeSubnets(fake *FakeKubeovnV1) typedkubeovnv1.SubnetInterface {
+func newFakeSubnets(fake *FakeFabricV1) typedkubeovnv1.SubnetInterface {
 	return &fakeSubnets{
 		gentype.NewFakeClientWithListAndApply[*v1.Subnet, *v1.SubnetList, *kubeovnv1.SubnetApplyConfiguration](
 			fake.Fake,

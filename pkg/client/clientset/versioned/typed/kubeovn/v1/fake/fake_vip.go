@@ -28,10 +28,10 @@ import (
 // fakeVips implements VipInterface
 type fakeVips struct {
 	*gentype.FakeClientWithListAndApply[*v1.Vip, *v1.VipList, *kubeovnv1.VipApplyConfiguration]
-	Fake *FakeKubeovnV1
+	Fake *FakeFabricV1
 }
 
-func newFakeVips(fake *FakeKubeovnV1) typedkubeovnv1.VipInterface {
+func newFakeVips(fake *FakeFabricV1) typedkubeovnv1.VipInterface {
 	return &fakeVips{
 		gentype.NewFakeClientWithListAndApply[*v1.Vip, *v1.VipList, *kubeovnv1.VipApplyConfiguration](
 			fake.Fake,

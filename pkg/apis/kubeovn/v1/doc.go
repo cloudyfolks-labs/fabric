@@ -1,5 +1,5 @@
 // +k8s:deepcopy-gen=package
-// +groupName=kubeovn.io
+// +groupName=fabric.cloudyfolks.io
 // +kubebuilder:validation:Optional
 
 package v1
