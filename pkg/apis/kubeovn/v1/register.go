@@ -39,6 +39,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IPList{},
 		&IPPool{},
 		&IPPoolList{},
+		&LoadBalancerPool{},
+		&LoadBalancerPoolList{},
 		&OvnDnatRule{},
 		&OvnDnatRuleList{},
 		&OvnEip{},

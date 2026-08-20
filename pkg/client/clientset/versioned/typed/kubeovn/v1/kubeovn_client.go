@@ -32,6 +32,7 @@ type FabricV1Interface interface {
 	DNSNameResolversGetter
 	IPsGetter
 	IPPoolsGetter
+	LoadBalancerPoolsGetter
 	OvnDnatRulesGetter
 	OvnEipsGetter
 	OvnFipsGetter
@@ -67,6 +68,10 @@ func (c *FabricV1Client) IPs() IPInterface {
 
 func (c *FabricV1Client) IPPools() IPPoolInterface {
 	return newIPPools(c)
+}
+
+func (c *FabricV1Client) LoadBalancerPools() LoadBalancerPoolInterface {
+	return newLoadBalancerPools(c)
 }
 
 func (c *FabricV1Client) OvnDnatRules() OvnDnatRuleInterface {

@@ -32,6 +32,8 @@ type Interface interface {
 	IPs() IPInformer
 	// IPPools returns a IPPoolInformer.
 	IPPools() IPPoolInformer
+	// LoadBalancerPools returns a LoadBalancerPoolInformer.
+	LoadBalancerPools() LoadBalancerPoolInformer
 	// OvnDnatRules returns a OvnDnatRuleInformer.
 	OvnDnatRules() OvnDnatRuleInformer
 	// OvnEips returns a OvnEipInformer.
@@ -91,6 +93,11 @@ func (v *version) IPs() IPInformer {
 // IPPools returns a IPPoolInformer.
 func (v *version) IPPools() IPPoolInformer {
 	return &iPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// LoadBalancerPools returns a LoadBalancerPoolInformer.
+func (v *version) LoadBalancerPools() LoadBalancerPoolInformer {
+	return &loadBalancerPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // OvnDnatRules returns a OvnDnatRuleInformer.

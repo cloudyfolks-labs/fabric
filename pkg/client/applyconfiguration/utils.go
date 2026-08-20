@@ -70,6 +70,12 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kubeovnv1.IPPoolStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPSpec"):
 		return &kubeovnv1.IPSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LoadBalancerPool"):
+		return &kubeovnv1.LoadBalancerPoolApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LoadBalancerPoolSpec"):
+		return &kubeovnv1.LoadBalancerPoolSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("LoadBalancerPoolStatus"):
+		return &kubeovnv1.LoadBalancerPoolStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("NatOutGoingPolicyMatch"):
 		return &kubeovnv1.NatOutGoingPolicyMatchApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("NatOutgoingPolicyRule"):
