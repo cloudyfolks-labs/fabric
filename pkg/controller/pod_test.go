@@ -437,7 +437,7 @@ func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
 	// This test verifies that when acquireStaticAddressHelper allocates a static IP
 	// for a per-interface NAD (with NadName, NadNamespace, and InterfaceName all set),
 	// the IP is registered in IPAM under the original pod key ("namespace/podName"),
-	// NOT under the annotation key ("nadName.nadNs.kubernetes.io/ip_address.ifaceName").
+	// NOT under the annotation key ("nadName.nadNs.cloudyfolks.io/ip_address.ifaceName").
 	//
 	// If the IPAM key is wrong, ReleaseAddressByNic (called on pod deletion with the pod key)
 	// will fail to find and release the IP, causing an IP leak.
@@ -1189,7 +1189,7 @@ func TestPodNetworkEventDetailsIncludesMultipleNetworks(t *testing.T) {
 	details := controller.podNetworkEventDetails(pod, nets)
 
 	for _, part := range []string{
-		"provider=ovn", "subnet=subnet-a", "ip=10.0.0.2", "mac=00:00:00:00:00:01", "logicalSwitchPort=test-pod.default",
+		"provider=fabric", "subnet=subnet-a", "ip=10.0.0.2", "mac=00:00:00:00:00:01", "logicalSwitchPort=test-pod.default",
 		"provider=net1.default.fabric", "subnet=subnet-b", "ip=10.1.0.2", "mac=00:00:00:00:00:02", "logicalSwitchPort=test-pod.default.net1.default.fabric",
 		"; ",
 	} {
@@ -1364,7 +1364,7 @@ func TestHandleUpdatePodSecurityRecordsSuccess(t *testing.T) {
 	err = fc.fakeController.handleUpdatePodSecurity("default/test-pod")
 
 	require.NoError(t, err)
-	assertPodEvent(t, fc.fakeController, "Normal PodSecurityUpdated", "provider=ovn", "subnet=subnet-a", "ip=10.0.0.2", "mac=00:00:00:00:00:01", "logicalSwitchPort=test-pod.default")
+	assertPodEvent(t, fc.fakeController, "Normal PodSecurityUpdated", "provider=fabric", "subnet=subnet-a", "ip=10.0.0.2", "mac=00:00:00:00:00:01", "logicalSwitchPort=test-pod.default")
 }
 
 func TestHandleUpdatePodSecurityRecordsFailure(t *testing.T) {
@@ -1419,7 +1419,7 @@ func TestHandleUpdatePodSecurityReportsOnlyProcessedOVNNetworks(t *testing.T) {
 	err = fc.fakeController.handleUpdatePodSecurity("default/test-pod")
 
 	require.NoError(t, err)
-	event := assertPodEvent(t, fc.fakeController, "Normal PodSecurityUpdated", "provider=ovn", "logicalSwitchPort=test-pod.default")
+	event := assertPodEvent(t, fc.fakeController, "Normal PodSecurityUpdated", "provider=fabric", "logicalSwitchPort=test-pod.default")
 	assert.NotContains(t, event, "provider="+ipamProvider)
 	assert.NotContains(t, event, "logicalSwitchPort=test-pod.default.net1.default")
 }
@@ -1436,7 +1436,7 @@ func TestHandleDeletePodRecordsReleasedPort(t *testing.T) {
 	err = fc.fakeController.handleDeletePod("default/test-pod")
 
 	require.NoError(t, err)
-	assertPodEvent(t, fc.fakeController, "Normal PodNetworkReleased", "provider=ovn", "subnet=subnet-a", "logicalSwitchPort=test-pod.default")
+	assertPodEvent(t, fc.fakeController, "Normal PodNetworkReleased", "provider=fabric", "subnet=subnet-a", "logicalSwitchPort=test-pod.default")
 }
 
 func TestHandleDeletePodRecordsFailure(t *testing.T) {
@@ -1524,7 +1524,7 @@ func TestHandleDeletePodRetriesOrphanedVMPortIPLookupFailure(t *testing.T) {
 	assert.True(t, k8serrors.IsNotFound(err))
 	assert.Empty(t, fc.fakeController.ipam.GetPodAddress("default/test-vm"))
 	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkReleased", "logicalSwitchPort="+portName, "ipCR="+portName, "ipam="+portName)
-	assert.NotContains(t, event, "provider=ovn")
+	assert.NotContains(t, event, "provider=fabric")
 	assertNoPodEvent(t, fc.fakeController)
 }
 
@@ -1593,7 +1593,7 @@ func TestHandleAddOrUpdatePodRecordsAllocationSuccess(t *testing.T) {
 	err = fc.fakeController.handleAddOrUpdatePod("default/test-pod")
 
 	require.NoError(t, err)
-	assertPodEvent(t, fc.fakeController, "Normal PodNetworkAllocated", "provider=ovn", "subnet=subnet-a", "ip=10.0.0.", "mac=00:00:00:00:00:01", "logicalSwitchPort=test-pod.default")
+	assertPodEvent(t, fc.fakeController, "Normal PodNetworkAllocated", "provider=fabric", "subnet=subnet-a", "ip=10.0.0.", "mac=00:00:00:00:00:01", "logicalSwitchPort=test-pod.default")
 }
 
 func TestHandleAddOrUpdatePodReportsOnlyAllocatedNetworks(t *testing.T) {
@@ -1628,7 +1628,7 @@ func TestHandleAddOrUpdatePodReportsOnlyAllocatedNetworks(t *testing.T) {
 
 	require.NoError(t, err)
 	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkAllocated", "provider="+provider, "subnet=subnet-b", "logicalSwitchPort="+attachmentPort)
-	assert.NotContains(t, event, "provider=ovn")
+	assert.NotContains(t, event, "provider=fabric")
 }
 
 func TestHandleAddOrUpdatePodCombinesAllocatedAndRemovedNetworks(t *testing.T) {
@@ -1717,7 +1717,7 @@ func TestHandleAddOrUpdatePodReportsOnlyRoutedNetworks(t *testing.T) {
 
 	require.NoError(t, err)
 	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkUpdated", "provider="+provider, "subnet=subnet-b", "logicalSwitchPort="+attachmentPort)
-	assert.NotContains(t, event, "provider=ovn")
+	assert.NotContains(t, event, "provider=fabric")
 }
 
 func TestHandleAddOrUpdatePodRecordsAllocationDHCPFailureOnce(t *testing.T) {
@@ -1866,7 +1866,7 @@ func TestHandleAddOrUpdatePodReportsActualAllocatedSubnet(t *testing.T) {
 	err = fc.fakeController.handleAddOrUpdatePod("default/test-pod")
 
 	require.NoError(t, err)
-	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkAllocated", "provider=ovn", "subnet=subnet-b", "ip=10.1.0.2")
+	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkAllocated", "provider=fabric", "subnet=subnet-b", "ip=10.1.0.2")
 	assert.NotContains(t, event, "subnet=subnet-a")
 }
 
@@ -1932,7 +1932,7 @@ func TestHandleAddOrUpdatePodReportsRemovedHotplugNetwork(t *testing.T) {
 
 	require.NoError(t, err)
 	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkUpdated", "provider="+removedProvider, "subnet=subnet-old", "logicalSwitchPort="+removedPort)
-	assert.NotContains(t, event, "provider=ovn")
+	assert.NotContains(t, event, "provider=fabric")
 }
 
 func TestHandleAddOrUpdatePodRecordsDHCPUpdateFailure(t *testing.T) {

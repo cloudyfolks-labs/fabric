@@ -40,7 +40,7 @@ func TestHasAllocatedAnnotation(t *testing.T) {
 		{
 			name: "custom provider allocated",
 			annotations: map[string]string{
-				"my-provider.kubernetes.io/allocated": "true",
+				"my-provider.cloudyfolks.io/allocated": "true",
 			},
 			expected: true,
 		},
@@ -62,8 +62,8 @@ func TestHasAllocatedAnnotation(t *testing.T) {
 		{
 			name: "multiple providers with one allocated",
 			annotations: map[string]string{
-				"fabric.cloudyfolks.io/allocated":     "false",
-				"my-provider.kubernetes.io/allocated": "true",
+				"fabric.cloudyfolks.io/allocated":      "false",
+				"my-provider.cloudyfolks.io/allocated": "true",
 			},
 			expected: true,
 		},

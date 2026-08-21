@@ -1083,22 +1083,22 @@ func TestValidatePodNetwork(t *testing.T) {
 		{
 			name: "ProviderScopedBurstNotNumber",
 			annotations: map[string]string{
-				IPAddressAnnotation:                    "10.16.0.15",
-				MacAddressAnnotation:                   "00:00:00:54:17:2A",
-				CidrAnnotation:                         "10.16.0.0/16",
-				"net1.ns1.kubernetes.io/ingress_burst": "abc",
+				IPAddressAnnotation:                     "10.16.0.15",
+				MacAddressAnnotation:                    "00:00:00:54:17:2A",
+				CidrAnnotation:                          "10.16.0.0/16",
+				"net1.ns1.cloudyfolks.io/ingress_burst": "abc",
 			},
-			err: "abc is not a valid net1.ns1.kubernetes.io/ingress_burst",
+			err: "abc is not a valid net1.ns1.cloudyfolks.io/ingress_burst",
 		},
 		{
 			name: "ProviderScopedRateNotNumber",
 			annotations: map[string]string{
-				IPAddressAnnotation:                  "10.16.0.15",
-				MacAddressAnnotation:                 "00:00:00:54:17:2A",
-				CidrAnnotation:                       "10.16.0.0/16",
-				"net1.ns1.kubernetes.io/egress_rate": "10m",
+				IPAddressAnnotation:                   "10.16.0.15",
+				MacAddressAnnotation:                  "00:00:00:54:17:2A",
+				CidrAnnotation:                        "10.16.0.0/16",
+				"net1.ns1.cloudyfolks.io/egress_rate": "10m",
 			},
-			err: "10m is not a valid net1.ns1.kubernetes.io/egress_rate",
+			err: "10m is not a valid net1.ns1.cloudyfolks.io/egress_rate",
 		},
 		{
 			name: "IPFamilyIPv4",
@@ -1173,7 +1173,7 @@ func TestValidatePodNetwork(t *testing.T) {
 			name: "ProviderScopedIPFamilyMatchesPerInterfaceStaticIP",
 			annotations: map[string]string{
 				"net1.ns1.fabric.net1.cloudyfolks.io/ip_family": "ipv6",
-				"net1.ns1.kubernetes.io/ip_address.net1":        "fd00::15",
+				"net1.ns1.cloudyfolks.io/ip_address.net1":       "fd00::15",
 			},
 			err: "",
 		},
@@ -1181,7 +1181,7 @@ func TestValidatePodNetwork(t *testing.T) {
 			name: "ProviderScopedIPFamilyMismatchesPerInterfaceStaticIP",
 			annotations: map[string]string{
 				"net1.ns1.fabric.net1.cloudyfolks.io/ip_family": "ipv4",
-				"net1.ns1.kubernetes.io/ip_address.net1":        "fd00::15",
+				"net1.ns1.cloudyfolks.io/ip_address.net1":       "fd00::15",
 			},
 			err: "fd00::15 does not match net1.ns1.fabric.net1.cloudyfolks.io/ip_family ipv4",
 		},

@@ -433,16 +433,16 @@ func ValidatePodNetwork(annotations map[string]string) error {
 	// Validate rate and burst annotations across both the unscoped keys
 	// (fabric.cloudyfolks.io/{ingress,egress}_{rate,burst}) and any
 	// provider-scoped variants used for multus attachment networks
-	// ({provider}.kubernetes.io/{ingress,egress}_{rate,burst}). All forms
+	// ({provider}.cloudyfolks.io/{ingress,egress}_{rate,burst}). All forms
 	// share the same suffix, so a single scan covers everything. Rate
 	// annotations historically only validated the unscoped key, leaving
 	// typos on attachment networks silently parsed as 0 and disabling the
 	// limit; treating both rates and bursts uniformly closes that gap.
 	bandwidthSuffixes := []string{
-		".kubernetes.io/ingress_rate",
-		".kubernetes.io/egress_rate",
-		".kubernetes.io/ingress_burst",
-		".kubernetes.io/egress_burst",
+		".cloudyfolks.io/ingress_rate",
+		".cloudyfolks.io/egress_rate",
+		".cloudyfolks.io/ingress_burst",
+		".cloudyfolks.io/egress_burst",
 	}
 	for k, v := range annotations {
 		if v == "" {
@@ -468,7 +468,7 @@ func ValidatePodNetwork(annotations map[string]string) error {
 }
 
 func isIPFamilyAnnotationKey(key string) bool {
-	return key == IPFamilyAnnotation || strings.HasSuffix(key, ".kubernetes.io/ip_family")
+	return key == IPFamilyAnnotation || strings.HasSuffix(key, ".cloudyfolks.io/ip_family")
 }
 
 func ipAddressAnnotationKeyForIPFamily(key string) string {
@@ -497,18 +497,18 @@ func ipAddressAnnotationsForIPFamily(annotations map[string]string, key string) 
 
 // ipAddressAnnotationKeysForIPFamily returns the static IP annotation keys that
 // should be checked for an ip_family key. Same-NAD multi-interface pods use
-// <nad>.<ns>.kubernetes.io/ip_address.<ifName> for static IPs while the family
+// <nad>.<ns>.cloudyfolks.io/ip_address.<ifName> for static IPs while the family
 // annotation is scoped by provider as <nad>.<ns>.fabric.<ifName>.cloudyfolks.io/ip_family.
 func ipAddressAnnotationKeysForIPFamily(key string) []string {
 	keys := []string{ipAddressAnnotationKeyForIPFamily(key)}
-	provider, ok := strings.CutSuffix(key, ".kubernetes.io/ip_family")
+	provider, ok := strings.CutSuffix(key, ".cloudyfolks.io/ip_family")
 	if !ok {
 		return keys
 	}
 	parts := strings.Split(provider, ".")
 	if len(parts) > 3 && parts[2] == OvnProvider {
 		ifName := parts[len(parts)-1]
-		keys = append(keys, fmt.Sprintf("%s.%s.kubernetes.io/ip_address.%s", parts[0], parts[1], ifName))
+		keys = append(keys, fmt.Sprintf("%s.%s.cloudyfolks.io/ip_address.%s", parts[0], parts[1], ifName))
 	}
 	return keys
 }

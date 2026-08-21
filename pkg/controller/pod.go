@@ -2471,7 +2471,7 @@ func (c *Controller) acquireAddress(pod *v1.Pod, podNet *kubeovnNet) (string, st
 
 	var macPointer *string
 	if podNet.NadName != "" && podNet.NadNamespace != "" && podNet.InterfaceName != "" {
-		// will not use the mac address vm-overlay.default.kubernetes.io/mac_address.net1
+		// will not use the mac address vm-overlay.default.cloudyfolks.io/mac_address.net1
 		key := perInterfaceMACAnnotationKey(podNet.NadName, podNet.NadNamespace, podNet.InterfaceName)
 		if macStr := pod.Annotations[key]; macStr != "" {
 			if _, err := net.ParseMAC(macStr); err != nil {
@@ -2563,7 +2563,7 @@ func (c *Controller) acquireAddress(pod *v1.Pod, podNet *kubeovnNet) (string, st
 		ippoolStr == "" {
 		// check new IP annotation
 		if podNet.NadName != "" && podNet.NadNamespace != "" && podNet.InterfaceName != "" {
-			// subnet.namespace.kubernetes.io/ip_address.ifName = ipAddress
+			// subnet.namespace.cloudyfolks.io/ip_address.ifName = ipAddress
 			annoKey := perInterfaceIPAnnotationKey(podNet.NadName, podNet.NadNamespace, podNet.InterfaceName)
 			if ipStr := pod.Annotations[annoKey]; ipStr != "" {
 				return c.acquireStaticAddressHelper(pod, podNet, portName, macPointer, ippoolStr, nsNets, isStsPod, key, requestedIPFamily)
@@ -3204,9 +3204,9 @@ func (c *Controller) getVirtualIPs(pod *v1.Pod, podNets []*kubeovnNet) map[strin
 }
 
 func perInterfaceIPAnnotationKey(nadName, nadNamespace, ifaceName string) string {
-	return fmt.Sprintf("%s.%s.kubernetes.io/ip_address.%s", nadName, nadNamespace, ifaceName)
+	return fmt.Sprintf("%s.%s.cloudyfolks.io/ip_address.%s", nadName, nadNamespace, ifaceName)
 }
 
 func perInterfaceMACAnnotationKey(nadName, nadNamespace, ifaceName string) string {
-	return fmt.Sprintf("%s.%s.kubernetes.io/mac_address.%s", nadName, nadNamespace, ifaceName)
+	return fmt.Sprintf("%s.%s.cloudyfolks.io/mac_address.%s", nadName, nadNamespace, ifaceName)
 }

@@ -198,7 +198,7 @@ func TestHandleDelSuccessEventPreservesPodReference(t *testing.T) {
 	require.Same(t, pod, event.object)
 	require.Equal(t, "virt-launcher", event.object.(*v1.Pod).Name)
 	require.NotContains(t, event.message, "vm-name")
-	for _, part := range []string{"provider=ovn", "interface=eth0", "node=node-a"} {
+	for _, part := range []string{"provider=fabric", "interface=eth0", "node=node-a"} {
 		require.Contains(t, event.message, part)
 	}
 }

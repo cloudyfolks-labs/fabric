@@ -83,7 +83,7 @@ func TestHandleUpdatePodBandwidthFailureEmitsQoSFailureEvent(t *testing.T) {
 
 	require.ErrorIs(t, controller.handleUpdatePod("default/pod"), failErr)
 	requirePodEvent(t, recorder,
-		"Warning", "PodQoSUpdateFailed", "stage=bandwidth", "provider=ovn",
+		"Warning", "PodQoSUpdateFailed", "stage=bandwidth", "provider=fabric",
 		"interface=pod.default", "node=node-a", failErr.Error())
 	requireNoPodEvent(t, recorder)
 }
@@ -166,7 +166,7 @@ func TestHandleUpdatePodSuccessEmitsOneEventWithProcessedInterfaces(t *testing.T
 	require.Equal(t, []string{"pod.default", "pod.default.net1.default.fabric"}, calls["netem"])
 	requirePodEvent(t, recorder,
 		"Normal", "PodQoSUpdated", "node=node-a",
-		"provider=ovn interface=pod.default",
+		"provider=fabric interface=pod.default",
 		"provider=net1.default.fabric interface=pod.default.net1.default.fabric")
 	requireNoPodEvent(t, recorder)
 }
@@ -213,7 +213,7 @@ func TestHandleUpdatePodWithoutMultusEmitsDefaultInterfaceSuccess(t *testing.T) 
 
 	require.NoError(t, controller.handleUpdatePod("default/pod"))
 	requirePodEvent(t, recorder,
-		"Normal", "PodQoSUpdated", "node=node-a", "provider=ovn interface=pod.default")
+		"Normal", "PodQoSUpdated", "node=node-a", "provider=fabric interface=pod.default")
 	requireNoPodEvent(t, recorder)
 }
 

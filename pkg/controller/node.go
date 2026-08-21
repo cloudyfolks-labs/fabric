@@ -59,7 +59,7 @@ func kubeOvnAnnotationsChanged(oldAnnotations, newAnnotations map[string]string)
 	filterKubeOvnAnnotations := func(annotations map[string]string) map[string]string {
 		filtered := make(map[string]string)
 		for key, value := range annotations {
-			if strings.Contains(key, ".kubernetes.io/") {
+			if strings.Contains(key, ".cloudyfolks.io/") {
 				filtered[key] = value
 			}
 		}
