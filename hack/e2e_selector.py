@@ -14,12 +14,13 @@ infrastructureJobs = {
     "build-kube-ovn-base",
     "build-kube-ovn-dpdk-base",
     "build-kube-ovn",
+    "build-kube-ovn-dpdk",
+    "lint-ut",
     "build-vpc-nat-gateway",
     "build-e2e-binaries",
     "netpol-path-filter",
     "e2e-selection",
     "e2e-executor-result",
-    "push",
 }
 expectedX86RunnerJobs = 75
 mandatorySmoke = [

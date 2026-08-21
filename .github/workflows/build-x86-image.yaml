@@ -377,16 +377,9 @@ jobs:
           fi
           rm -frv "$tmp_dir"
 
-      - uses: jlumbroso/free-disk-space@v1.3.1
+      - name: Free disk space
         if: steps.check.outputs.build-base == 1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: docker/setup-buildx-action@v4
         if: steps.check.outputs.build-base == 1
@@ -445,16 +438,9 @@ jobs:
           fi
           rm -frv "$tmp_dir"
 
-      - uses: jlumbroso/free-disk-space@v1.3.1
+      - name: Free disk space
         if: steps.check.outputs.build-dpdk-base == 1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: docker/setup-buildx-action@v4
         if: steps.check.outputs.build-dpdk-base == 1
@@ -473,23 +459,119 @@ jobs:
           name: kube-ovn-dpdk-base
           path: image-amd64-dpdk.tar
 
+  lint-ut:
+    name: Lint and unit test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.headSHA || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        id: setup-go
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+
+      - name: Setup environment variables
+        run: |
+          echo "GO_VERSION=${{ steps.setup-go.outputs.go-version }}" >> "$GITHUB_ENV"
+
+      - name: Go cache
+        if: github.event_name == 'push'
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-lint-go-${{ env.GO_VERSION }}-x86-${{ github.ref_name }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-lint-go-${{ env.GO_VERSION }}-x86-${{ github.ref_name }}-
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-x86-${{ github.ref_name }}-
+
+      - name: Unit test
+        run: make ut
+
+      - uses: shogo82148/actions-goveralls@v1
+        continue-on-error: true
+        with:
+          path-to-profile: profile.cov
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
+
+      - name: Lint
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          make verify-crd
+          make lint
+
+  build-kube-ovn-dpdk:
+    name: Build kube-ovn dpdk
+    runs-on: ubuntu-24.04
+    if: github.event_name != 'pull_request'
+    needs:
+      - build-kube-ovn-dpdk-base
+    steps:
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.headSHA || github.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4
+      - uses: actions/setup-go@v7
+        id: setup-go
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+
+      - name: Setup environment variables
+        run: |
+          echo "TAG=$(cat VERSION)" >> "$GITHUB_ENV"
+          echo "GO_VERSION=${{ steps.setup-go.outputs.go-version }}" >> "$GITHUB_ENV"
+
+      - name: Download dpdk base images
+        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base == 1
+        uses: actions/download-artifact@v8
+        with:
+          name: kube-ovn-dpdk-base
+
+      - name: Load dpdk base images
+        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base == 1
+        run: |
+          docker load --input image-amd64-dpdk.tar
+          docker tag kubeovn/kube-ovn-base:$TAG-amd64-dpdk kubeovn/kube-ovn-base:$TAG-dpdk
+
+      - name: Build dpdk
+        run: |
+          if [ ${{ needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base || 0 }} = 1 ]; then
+            make build-kube-ovn-dpdk
+          else
+            make image-kube-ovn-dpdk
+          fi
+          make tar-kube-ovn-dpdk
+
+      - name: Upload dpdk images to artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: kube-ovn-dpdk
+          path: kube-ovn-dpdk.tar
+
   build-kube-ovn:
     name: Build kube-ovn
     runs-on: ubuntu-24.04
     needs:
       - e2e-selection
       - build-kube-ovn-base
-      - build-kube-ovn-dpdk-base
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -520,18 +602,6 @@ jobs:
             ${{ runner.os }}-go-${{ env.GO_VERSION }}-x86-${{ github.ref_name }}-
             ${{ runner.os }}-go-${{ env.GO_VERSION }}-x86-${{ github.base_ref }}-
 
-      - name: Unit test
-        run: make ut
-
-      - uses: shogo82148/actions-goveralls@v1
-        continue-on-error: true
-        with:
-          path-to-profile: profile.cov
-
-      - name: Install golangci-lint
-        run: |
-          curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
-
       - name: Download base images
         if: needs.build-kube-ovn-base.outputs.build-base == 1
         uses: actions/download-artifact@v8
@@ -544,18 +614,6 @@ jobs:
           docker load --input image-amd64.tar
           docker tag kubeovn/kube-ovn-base:$TAG-amd64 kubeovn/kube-ovn-base:$TAG
           docker tag kubeovn/kube-ovn-base:$TAG-debug-amd64 kubeovn/kube-ovn-base:$TAG-debug
-
-      - name: Download dpdk base images
-        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base == 1
-        uses: actions/download-artifact@v8
-        with:
-          name: kube-ovn-dpdk-base
-
-      - name: Load dpdk base images
-        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base == 1
-        run: |
-          docker load --input image-amd64-dpdk.tar
-          docker tag kubeovn/kube-ovn-base:$TAG-amd64-dpdk kubeovn/kube-ovn-base:$TAG-dpdk
 
       - name: Scan base image
         uses: aquasecurity/trivy-action@v0.36.0
@@ -633,8 +691,6 @@ jobs:
         run: |
           go mod tidy
           git diff --exit-code -- go.mod go.sum
-          make verify-crd
-          make lint
           if [ ${{ needs.build-kube-ovn-base.outputs.build-base || 0 }} = 1 ]; then
             make build-kube-ovn
           else
@@ -642,27 +698,11 @@ jobs:
           fi
           make tar-kube-ovn
 
-      - name: Build dpdk
-        run: |
-          if [ ${{ needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base || 0 }} = 1 ]; then
-            make build-kube-ovn-dpdk
-          else
-            make image-kube-ovn-dpdk
-          fi
-          make tar-kube-ovn-dpdk
-
       - name: Upload images to artifact
         uses: actions/upload-artifact@v7
         with:
           name: kube-ovn
           path: kube-ovn.tar
-
-      - name: Upload dpdk images to artifact
-        uses: actions/upload-artifact@v7
-        if: github.event_name != 'pull_request'
-        with:
-          name: kube-ovn-dpdk
-          path: kube-ovn-dpdk.tar
 
   build-vpc-nat-gateway:
     name: Build vpc-nat-gateway
@@ -670,15 +710,8 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || github.actor == 'github-actions[bot]'
     runs-on: ubuntu-24.04
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -752,16 +785,9 @@ jobs:
             ${{ runner.os }}-e2e-go-${{ env.GO_VERSION }}-x86-${{ github.base_ref }}-
           lookup-only: true
 
-      - uses: jlumbroso/free-disk-space@v1.3.1
+      - name: Free disk space
         if: steps.lookup-go-cache.outputs.cache-hit != 'true'
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - name: Go cache
         if: steps.lookup-go-cache.outputs.cache-hit != 'true' && github.event_name == 'push'
@@ -833,15 +859,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.e2e-selection.outputs.k8sConformanceMatrix) }}
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -1043,15 +1062,8 @@ jobs:
           - standard
           - lax
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -1250,15 +1262,8 @@ jobs:
           - standard
           - lax
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -1418,15 +1423,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.e2e-selection.outputs.kubeOvnConformanceMatrix) }}
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -1620,15 +1618,8 @@ jobs:
           - dual
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -1785,15 +1776,8 @@ jobs:
           - ipv6
           - dual
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -1938,15 +1922,8 @@ jobs:
         ip-family:
           - ipv4
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2120,15 +2097,8 @@ jobs:
             tenant-control-plane: ha
             tenant-control-plane-replicas: 3
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2264,15 +2234,8 @@ jobs:
           - "false"
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2336,15 +2299,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2406,15 +2362,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2478,15 +2427,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2552,15 +2494,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2703,15 +2638,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2826,15 +2754,8 @@ jobs:
         k8s-version:
           - v1.29.14
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -2905,15 +2826,8 @@ jobs:
         mode:
           - overlay
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -3056,15 +2970,8 @@ jobs:
         mode:
           - overlay
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -3210,15 +3117,8 @@ jobs:
           - overlay
           - underlay
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -3385,15 +3285,8 @@ jobs:
           - ipv6
           - dual
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -3515,15 +3408,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -3626,15 +3512,8 @@ jobs:
           - ipv6
           - dual
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -3809,15 +3688,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -3945,15 +3817,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -4096,15 +3961,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -4242,15 +4100,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -4392,15 +4243,8 @@ jobs:
           - overlay
           - underlay
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -4512,15 +4356,8 @@ jobs:
           - ipv6
           - dual
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
@@ -4657,15 +4494,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: false
-          large-packages: false
-          tool-cache: false
-          swap-storage: false
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
 
       - uses: actions/checkout@v7
         with:
