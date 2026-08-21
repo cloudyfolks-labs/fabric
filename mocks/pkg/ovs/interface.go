@@ -1450,6 +1450,20 @@ func (mr *MockLogicalSwitchPortMockRecorder) SetLogicalSwitchPortMigrateOptions(
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogicalSwitchPortMigrateOptions", reflect.TypeOf((*MockLogicalSwitchPort)(nil).SetLogicalSwitchPortMigrateOptions), lspName, srcNodeName, targetNodeName)
 }
 
+// SetLogicalSwitchPortNatAddresses mocks base method.
+func (m *MockLogicalSwitchPort) SetLogicalSwitchPortNatAddresses(lspName, natAddresses string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLogicalSwitchPortNatAddresses", lspName, natAddresses)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLogicalSwitchPortNatAddresses indicates an expected call of SetLogicalSwitchPortNatAddresses.
+func (mr *MockLogicalSwitchPortMockRecorder) SetLogicalSwitchPortNatAddresses(lspName, natAddresses any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogicalSwitchPortNatAddresses", reflect.TypeOf((*MockLogicalSwitchPort)(nil).SetLogicalSwitchPortNatAddresses), lspName, natAddresses)
+}
+
 // SetLogicalSwitchPortSecurity mocks base method.
 func (m *MockLogicalSwitchPort) SetLogicalSwitchPortSecurity(portSecurity bool, lspName, mac, ips, vips string) error {
 	m.ctrl.T.Helper()
@@ -2997,6 +3011,20 @@ func (mr *MockNATMockRecorder) DeleteNats(lrName, natType, logicalIP any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNats", reflect.TypeOf((*MockNAT)(nil).DeleteNats), lrName, natType, logicalIP)
 }
 
+// EnsureSnat mocks base method.
+func (m *MockNAT) EnsureSnat(lrName, externalIP, logicalIP string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureSnat", lrName, externalIP, logicalIP)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureSnat indicates an expected call of EnsureSnat.
+func (mr *MockNATMockRecorder) EnsureSnat(lrName, externalIP, logicalIP any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSnat", reflect.TypeOf((*MockNAT)(nil).EnsureSnat), lrName, externalIP, logicalIP)
+}
+
 // GetNATByUUID mocks base method.
 func (m *MockNAT) GetNATByUUID(uuid string) (*ovnnb.NAT, error) {
 	m.ctrl.T.Helper()
@@ -3054,20 +3082,6 @@ func (m *MockNAT) UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, exte
 func (mr *MockNATMockRecorder) UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, gatewayType any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDnatAndSnat", reflect.TypeOf((*MockNAT)(nil).UpdateDnatAndSnat), lrName, externalIP, logicalIP, lspName, externalMac, gatewayType)
-}
-
-// EnsureSnat mocks base method.
-func (m *MockNAT) EnsureSnat(lrName, externalIP, logicalIP string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureSnat", lrName, externalIP, logicalIP)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// EnsureSnat indicates an expected call of EnsureSnat.
-func (mr *MockNATMockRecorder) EnsureSnat(lrName, externalIP, logicalIP any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSnat", reflect.TypeOf((*MockNAT)(nil).EnsureSnat), lrName, externalIP, logicalIP)
 }
 
 // MockDHCPOptions is a mock of DHCPOptions interface.
@@ -4365,6 +4379,20 @@ func (mr *MockNbClientMockRecorder) EnablePortLayer2forward(lspName any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnablePortLayer2forward", reflect.TypeOf((*MockNbClient)(nil).EnablePortLayer2forward), lspName)
 }
 
+// EnsureSnat mocks base method.
+func (m *MockNbClient) EnsureSnat(lrName, externalIP, logicalIP string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureSnat", lrName, externalIP, logicalIP)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureSnat indicates an expected call of EnsureSnat.
+func (mr *MockNbClientMockRecorder) EnsureSnat(lrName, externalIP, logicalIP any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSnat", reflect.TypeOf((*MockNbClient)(nil).EnsureSnat), lrName, externalIP, logicalIP)
+}
+
 // FindBFD mocks base method.
 func (m *MockNbClient) FindBFD(externalIDs map[string]string) ([]ovnnb.BFD, error) {
 	m.ctrl.T.Helper()
@@ -5548,6 +5576,20 @@ func (mr *MockNbClientMockRecorder) SetLogicalSwitchPortMigrateOptions(lspName, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogicalSwitchPortMigrateOptions", reflect.TypeOf((*MockNbClient)(nil).SetLogicalSwitchPortMigrateOptions), lspName, srcNodeName, targetNodeName)
 }
 
+// SetLogicalSwitchPortNatAddresses mocks base method.
+func (m *MockNbClient) SetLogicalSwitchPortNatAddresses(lspName, natAddresses string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLogicalSwitchPortNatAddresses", lspName, natAddresses)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLogicalSwitchPortNatAddresses indicates an expected call of SetLogicalSwitchPortNatAddresses.
+func (mr *MockNbClientMockRecorder) SetLogicalSwitchPortNatAddresses(lspName, natAddresses any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogicalSwitchPortNatAddresses", reflect.TypeOf((*MockNbClient)(nil).SetLogicalSwitchPortNatAddresses), lspName, natAddresses)
+}
+
 // SetLogicalSwitchPortSecurity mocks base method.
 func (m *MockNbClient) SetLogicalSwitchPortSecurity(portSecurity bool, lspName, mac, ips, vips string) error {
 	m.ctrl.T.Helper()
@@ -6095,20 +6137,6 @@ func (m *MockNbClient) UpdateSgACL(sg *v1.SecurityGroup, direction string) error
 func (mr *MockNbClientMockRecorder) UpdateSgACL(sg, direction any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSgACL", reflect.TypeOf((*MockNbClient)(nil).UpdateSgACL), sg, direction)
-}
-
-// EnsureSnat mocks base method.
-func (m *MockNbClient) EnsureSnat(lrName, externalIP, logicalIP string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureSnat", lrName, externalIP, logicalIP)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// EnsureSnat indicates an expected call of EnsureSnat.
-func (mr *MockNbClientMockRecorder) EnsureSnat(lrName, externalIP, logicalIP any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSnat", reflect.TypeOf((*MockNbClient)(nil).EnsureSnat), lrName, externalIP, logicalIP)
 }
 
 // MockSbClient is a mock of SbClient interface.

@@ -162,6 +162,133 @@ func (c *Controller) checkEipPortConflict(eipName, portStr, excludeRlr, excludeD
 	return nil
 }
 
+func (c *Controller) attachVpcLBsToRouter(vpcName string) error {
+	vpc, err := c.vpcsLister.Get(vpcName)
+	if err != nil {
+		klog.Errorf("failed to get VPC %s: %v", vpcName, err)
+		return err
+	}
+
+	vpcLBs := []string{
+		vpc.Status.TCPLoadBalancer, vpc.Status.TCPSessionLoadBalancer,
+		vpc.Status.UDPLoadBalancer, vpc.Status.UDPSessionLoadBalancer,
+		vpc.Status.SctpLoadBalancer, vpc.Status.SctpSessionLoadBalancer,
+	}
+	var nonEmptyVpcLBs []string
+	for _, lb := range vpcLBs {
+		if lb != "" {
+			nonEmptyVpcLBs = append(nonEmptyVpcLBs, lb)
+		}
+	}
+	if len(nonEmptyVpcLBs) > 0 {
+		if err = c.OVNNbClient.LogicalRouterUpdateLoadBalancers(vpcName, ovsdb.MutateOperationInsert, nonEmptyVpcLBs...); err != nil {
+			klog.Errorf("failed to attach LBs to router %s: %v", vpcName, err)
+			return err
+		}
+	}
+	return nil
+}
+
+// cleanupRouterLBVips removes ip:port vips with their health checks and
+// ip_port_mappings from the VPC shared LBs; a nil vpcLBNames means unscoped.
+func (c *Controller) cleanupRouterLBVips(vpcLBNames set.Set[string], vips []string) error {
+	if len(vips) == 0 {
+		return nil
+	}
+
+	if vpcLBNames != nil {
+		for _, lbName := range vpcLBNames.UnsortedList() {
+			for _, vip := range vips {
+				if e := c.OVNNbClient.LoadBalancerDeleteVip(lbName, vip, true); e != nil && !k8serrors.IsNotFound(e) {
+					klog.Errorf("failed to delete vip %s from LB %s: %v", vip, lbName, e)
+					return e
+				}
+			}
+		}
+	}
+
+	lbhcs, err := c.OVNNbClient.ListLoadBalancerHealthChecks(
+		func(lbhc *ovnnb.LoadBalancerHealthCheck) bool {
+			return slices.Contains(vips, lbhc.Vip)
+		},
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		klog.Errorf("failed to list LBHC for vips %v: %v", vips, err)
+		return err
+	}
+
+	vipSubnets := make(map[string]struct{})
+	lbhcUUIDsToDelete := set.New[string]()
+	for _, lbhc := range lbhcs {
+		lbs, e := c.OVNNbClient.ListLoadBalancers(
+			func(lb *ovnnb.LoadBalancer) bool {
+				return slices.Contains(lb.HealthCheck, lbhc.UUID)
+			},
+		)
+		if e != nil && !k8serrors.IsNotFound(e) {
+			klog.Errorf("failed to list LBs for LBHC %s: %v", lbhc.Vip, e)
+			return e
+		}
+
+		belongsToThisVpc := false
+		referencedByOtherVpc := false
+		for _, lb := range lbs {
+			if vpcLBNames != nil && !vpcLBNames.Has(lb.Name) {
+				referencedByOtherVpc = true
+				continue
+			}
+			belongsToThisVpc = true
+
+			if e = c.OVNNbClient.LoadBalancerDeleteHealthCheck(lb.Name, lbhc.UUID); e != nil && !k8serrors.IsNotFound(e) {
+				klog.Errorf("failed to delete LBHC %s from LB %s: %v", lbhc.Vip, lb.Name, e)
+				return e
+			}
+			if e = c.OVNNbClient.LoadBalancerDeleteIPPortMapping(lb.Name, lbhc.Vip); e != nil && !k8serrors.IsNotFound(e) {
+				klog.Errorf("failed to delete IP port mapping %s from LB %s: %v", lbhc.Vip, lb.Name, e)
+				return e
+			}
+		}
+
+		if (belongsToThisVpc || vpcLBNames == nil) && !referencedByOtherVpc {
+			lbhcUUIDsToDelete.Insert(lbhc.UUID)
+		}
+		if belongsToThisVpc || vpcLBNames == nil {
+			if vip, ex := lbhc.ExternalIDs[util.SwitchLBRuleSubnet]; ex && vip != "" {
+				vipSubnets[vip] = struct{}{}
+			}
+		}
+	}
+
+	if lbhcUUIDsToDelete.Len() > 0 {
+		if err = c.OVNNbClient.DeleteLoadBalancerHealthChecks(
+			func(lbhc *ovnnb.LoadBalancerHealthCheck) bool {
+				return lbhcUUIDsToDelete.Has(lbhc.UUID)
+			},
+		); err != nil && !k8serrors.IsNotFound(err) {
+			klog.Errorf("failed to delete LBHCs for vips %v: %v", vips, err)
+			return err
+		}
+	}
+
+	for vip := range vipSubnets {
+		remaining, e := c.OVNNbClient.ListLoadBalancerHealthChecks(
+			func(lbhc *ovnnb.LoadBalancerHealthCheck) bool {
+				return lbhc.ExternalIDs[util.SwitchLBRuleSubnet] == vip
+			},
+		)
+		if e != nil && !k8serrors.IsNotFound(e) {
+			klog.Errorf("failed to list remaining LBHCs for health-check vip %s: %v", vip, e)
+			continue
+		}
+		if len(remaining) == 0 {
+			if e = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{}); e != nil && !k8serrors.IsNotFound(e) {
+				klog.Errorf("failed to delete health-check vip %s: %v", vip, e)
+			}
+		}
+	}
+	return nil
+}
+
 func (c *Controller) handleAddOrUpdateRouterLBRule(key string) error {
 	klog.V(3).Infof("handleAddOrUpdateRouterLBRule %s", key)
 
@@ -303,31 +430,9 @@ func (c *Controller) handleAddOrUpdateRouterLBRule(key string) error {
 	}
 
 	// Attach VPC shared LBs to the router so external traffic gets LB applied at the router.
-	vpc, err := c.vpcsLister.Get(rlr.Spec.Vpc)
-	if err != nil {
-		klog.Errorf("failed to get VPC %s: %v", rlr.Spec.Vpc, err)
+	if err = c.attachVpcLBsToRouter(rlr.Spec.Vpc); err != nil {
+		klog.Error(err)
 		return err
-	}
-
-	// Verify the VPC router is connected to the EIP's external subnet so that
-	// OVN can install ARP proxy flows for the LB VIP on the external network.
-	// Without this connection nodes cannot reach the VIP.
-	vpcLBs := []string{
-		vpc.Status.TCPLoadBalancer, vpc.Status.TCPSessionLoadBalancer,
-		vpc.Status.UDPLoadBalancer, vpc.Status.UDPSessionLoadBalancer,
-		vpc.Status.SctpLoadBalancer, vpc.Status.SctpSessionLoadBalancer,
-	}
-	var nonEmptyVpcLBs []string
-	for _, lb := range vpcLBs {
-		if lb != "" {
-			nonEmptyVpcLBs = append(nonEmptyVpcLBs, lb)
-		}
-	}
-	if len(nonEmptyVpcLBs) > 0 {
-		if err = c.OVNNbClient.LogicalRouterUpdateLoadBalancers(rlr.Spec.Vpc, ovsdb.MutateOperationInsert, nonEmptyVpcLBs...); err != nil {
-			klog.Errorf("failed to attach LBs to router %s: %v", rlr.Spec.Vpc, err)
-			return err
-		}
 	}
 
 	newRlr := rlr.DeepCopy()
@@ -406,7 +511,7 @@ func (c *Controller) handleDelRouterLBRule(info *RouterLBRuleInfo) error {
 		}
 		if !slices.ContainsFunc(remaining, func(r *kubeovnv1.RouterLBRule) bool {
 			return r.Spec.Vpc == vpcForRlr && r.Name != info.Name
-		}) {
+		}) && !c.hasOvnLbSvcInVpc(vpcForRlr, "") {
 			lbs := vpcLBNames.UnsortedList()
 			if err = c.OVNNbClient.LogicalRouterUpdateLoadBalancers(vpcForRlr, ovsdb.MutateOperationDelete, lbs...); err != nil {
 				klog.Errorf("failed to detach LBs from router %s: %v", vpcForRlr, err)
@@ -416,100 +521,9 @@ func (c *Controller) handleDelRouterLBRule(info *RouterLBRuleInfo) error {
 		}
 	}
 
-	if len(vips) > 0 {
-		// Explicitly remove VIP entries from the VPC shared load balancers.
-		// The service-delete queue only handles cluster-IP services; for
-		// RouterLBRule headless services the VIP must be removed here.
-		if vpcLBNames != nil {
-			for _, lbName := range vpcLBNames.UnsortedList() {
-				for _, vip := range vips {
-					if e := c.OVNNbClient.LoadBalancerDeleteVip(lbName, vip, true); e != nil && !k8serrors.IsNotFound(e) {
-						klog.Errorf("failed to delete vip %s from LB %s for RLR %s: %v", vip, lbName, info.Name, e)
-						return e
-					}
-				}
-			}
-		}
-
-		lbhcs, err := c.OVNNbClient.ListLoadBalancerHealthChecks(
-			func(lbhc *ovnnb.LoadBalancerHealthCheck) bool {
-				return slices.Contains(vips, lbhc.Vip)
-			},
-		)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			klog.Errorf("failed to list LBHC for vips %v: %v", vips, err)
-			return err
-		}
-
-		vipSubnets := make(map[string]struct{})
-		lbhcUUIDsToDelete := set.New[string]()
-		for _, lbhc := range lbhcs {
-			lbs, e := c.OVNNbClient.ListLoadBalancers(
-				func(lb *ovnnb.LoadBalancer) bool {
-					return slices.Contains(lb.HealthCheck, lbhc.UUID)
-				},
-			)
-			if e != nil && !k8serrors.IsNotFound(e) {
-				klog.Errorf("failed to list LBs for LBHC %s: %v", lbhc.Vip, e)
-				return e
-			}
-
-			belongsToThisVpc := false
-			referencedByOtherVpc := false
-			for _, lb := range lbs {
-				if vpcLBNames != nil && !vpcLBNames.Has(lb.Name) {
-					referencedByOtherVpc = true
-					continue
-				}
-				belongsToThisVpc = true
-
-				if e = c.OVNNbClient.LoadBalancerDeleteHealthCheck(lb.Name, lbhc.UUID); e != nil && !k8serrors.IsNotFound(e) {
-					klog.Errorf("failed to delete LBHC %s from LB %s: %v", lbhc.Vip, lb.Name, e)
-					return e
-				}
-				if e = c.OVNNbClient.LoadBalancerDeleteIPPortMapping(lb.Name, lbhc.Vip); e != nil && !k8serrors.IsNotFound(e) {
-					klog.Errorf("failed to delete IP port mapping %s from LB %s: %v", lbhc.Vip, lb.Name, e)
-					return e
-				}
-			}
-
-			if (belongsToThisVpc || vpcLBNames == nil) && !referencedByOtherVpc {
-				lbhcUUIDsToDelete.Insert(lbhc.UUID)
-			}
-			if belongsToThisVpc || vpcLBNames == nil {
-				if vip, ex := lbhc.ExternalIDs[util.SwitchLBRuleSubnet]; ex && vip != "" {
-					vipSubnets[vip] = struct{}{}
-				}
-			}
-		}
-
-		if lbhcUUIDsToDelete.Len() > 0 {
-			if err = c.OVNNbClient.DeleteLoadBalancerHealthChecks(
-				func(lbhc *ovnnb.LoadBalancerHealthCheck) bool {
-					return lbhcUUIDsToDelete.Has(lbhc.UUID)
-				},
-			); err != nil && !k8serrors.IsNotFound(err) {
-				klog.Errorf("failed to delete LBHCs for RLR %s: %v", info.Name, err)
-				return err
-			}
-		}
-
-		for vip := range vipSubnets {
-			remaining, e := c.OVNNbClient.ListLoadBalancerHealthChecks(
-				func(lbhc *ovnnb.LoadBalancerHealthCheck) bool {
-					return lbhc.ExternalIDs[util.SwitchLBRuleSubnet] == vip
-				},
-			)
-			if e != nil && !k8serrors.IsNotFound(e) {
-				klog.Errorf("failed to list remaining LBHCs for health-check vip %s: %v", vip, e)
-				continue
-			}
-			if len(remaining) == 0 {
-				if e = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{}); e != nil && !k8serrors.IsNotFound(e) {
-					klog.Errorf("failed to delete health-check vip %s for RLR %s: %v", vip, info.Name, e)
-				}
-			}
-		}
+	if err := c.cleanupRouterLBVips(vpcLBNames, vips); err != nil {
+		klog.Errorf("failed to clean up LB vips for RLR %s: %v", info.Name, err)
+		return err
 	}
 
 	if err := c.config.KubeClient.CoreV1().Services(info.Namespace).Delete(context.Background(), svcName, metav1.DeleteOptions{}); err != nil {

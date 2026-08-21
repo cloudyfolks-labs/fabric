@@ -28,6 +28,7 @@ LS_CT_SKIP_DST_LPORT_IPS=${LS_CT_SKIP_DST_LPORT_IPS:-true}
 ENABLE_EXTERNAL_VPC=${ENABLE_EXTERNAL_VPC:-false}
 CNI_CONFIG_PRIORITY=${CNI_CONFIG_PRIORITY:-01}
 ENABLE_LB_SVC=${ENABLE_LB_SVC:-false}
+ENABLE_OVN_LB_SVC=${ENABLE_OVN_LB_SVC:-false}
 ENABLE_KEEP_VM_IP=${ENABLE_KEEP_VM_IP:-true}
 ENABLE_ARP_DETECT_IP_CONFLICT=${ENABLE_ARP_DETECT_IP_CONFLICT:-true}
 ENABLE_METRICS=${ENABLE_METRICS:-true}
@@ -6066,6 +6067,7 @@ spec:
           - --log_file=/var/log/kube-ovn/kube-ovn-controller.log
           - --log_file_max_size=200
           - --enable-lb-svc=$ENABLE_LB_SVC
+          - --enable-ovn-lb-svc=$ENABLE_OVN_LB_SVC
           - --keep-vm-ip=$ENABLE_KEEP_VM_IP
           - --enable-metrics=$ENABLE_METRICS
           - --node-local-dns-ip=$NODE_LOCAL_DNS_IP

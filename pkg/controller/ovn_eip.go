@@ -24,6 +24,7 @@ func (c *Controller) enqueueAddOvnEip(obj any) {
 	eip := obj.(*kubeovnv1.OvnEip)
 	key := cache.MetaObjectToName(eip).String()
 	c.requeueRouterLBRulesForEip(eip.Name, false)
+	c.requeueOvnLbSvcForEip(eip)
 	// A terminating object reconciles via the update queue for cleanup (handleAdd skips it; resync=0).
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnEipQueue, key, "ovn eip", eip.DeletionTimestamp, eip.GetFinalizers()) {
 		return
@@ -50,8 +51,10 @@ func (c *Controller) enqueueUpdateOvnEip(oldObj, newObj any) {
 		klog.Infof("enqueue update ovn eip %s", key)
 		c.updateOvnEipQueue.Add(key)
 	}
-	if oldEip.Status.V4Ip != newEip.Status.V4Ip || oldEip.Status.V6Ip != newEip.Status.V6Ip {
+	if oldEip.Status.V4Ip != newEip.Status.V4Ip || oldEip.Status.V6Ip != newEip.Status.V6Ip ||
+		oldEip.Status.Ready != newEip.Status.Ready {
 		c.requeueRouterLBRulesForEip(newEip.Name, false)
+		c.requeueOvnLbSvcForEip(newEip)
 	}
 }
 
@@ -76,6 +79,7 @@ func (c *Controller) enqueueDelOvnEip(obj any) {
 	klog.Infof("enqueue del ovn eip %s", key)
 	c.delOvnEipQueue.Add(eip)
 	c.requeueRouterLBRulesForEip(eip.Name, true)
+	c.requeueOvnLbSvcForEip(eip)
 }
 
 func (c *Controller) handleAddOvnEip(key string) error {

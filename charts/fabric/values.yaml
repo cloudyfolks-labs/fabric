@@ -227,6 +227,9 @@ features:
   # -- Enable Kube-OVN loadbalancer services
   # @section -- Opt-in/out Features
   enableLoadbalancerService: false
+  # -- Serve loadbalancer services natively with OVN router load balancers
+  # @section -- Opt-in/out Features
+  enableOvnLbSvc: false
   # -- Enable persistent VM IPs
   # @section -- Opt-in/out Features
   enableKeepVmIps: true

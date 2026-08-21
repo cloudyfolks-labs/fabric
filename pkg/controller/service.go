@@ -51,13 +51,14 @@ func (c *Controller) enqueueAddService(obj any) {
 		klog.V(3).Infof("enqueue add lb service %s", key)
 		c.addServiceQueue.Add(key)
 	}
+
+	if c.ovnLbSvcEnabled() && svc.Spec.Type == v1.ServiceTypeLoadBalancer {
+		klog.V(3).Infof("enqueue add ovn lb service %s", key)
+		c.addOrUpdateOvnLbSvcQueue.Add(key)
+	}
 }
 
 func (c *Controller) enqueueDeleteService(obj any) {
-	if !c.config.EnableLb {
-		return
-	}
-
 	var svc *v1.Service
 	switch t := obj.(type) {
 	case *v1.Service:
@@ -71,6 +72,15 @@ func (c *Controller) enqueueDeleteService(obj any) {
 		svc = s
 	default:
 		klog.Warningf("unexpected type: %T", obj)
+		return
+	}
+
+	if c.ovnLbSvcEnabled() && isOvnLbSvc(svc, c.config.DefaultLoadBalancerClass) {
+		klog.Infof("enqueue release ovn lb service %s/%s", svc.Namespace, svc.Name)
+		c.delOvnLbSvcQueue.Add(newOvnLbSvcRelease(svc, c.config.ClusterRouter))
+	}
+
+	if !c.config.EnableLb {
 		return
 	}
 
@@ -98,13 +108,25 @@ func (c *Controller) enqueueDeleteService(obj any) {
 }
 
 func (c *Controller) enqueueUpdateService(oldObj, newObj any) {
-	if !c.config.EnableLb {
-		return
-	}
-
 	oldSvc := oldObj.(*v1.Service)
 	newSvc := newObj.(*v1.Service)
 	if oldSvc.ResourceVersion == newSvc.ResourceVersion {
+		return
+	}
+
+	if c.ovnLbSvcEnabled() {
+		oldClaimed := isOvnLbSvc(oldSvc, c.config.DefaultLoadBalancerClass)
+		newClaimed := isOvnLbSvc(newSvc, c.config.DefaultLoadBalancerClass)
+		if oldClaimed && !newClaimed {
+			klog.Infof("enqueue release ovn lb service %s/%s", oldSvc.Namespace, oldSvc.Name)
+			c.delOvnLbSvcQueue.Add(newOvnLbSvcRelease(oldSvc, c.config.ClusterRouter))
+		}
+		if newClaimed {
+			c.addOrUpdateOvnLbSvcQueue.Add(cache.MetaObjectToName(newSvc).String())
+		}
+	}
+
+	if !c.config.EnableLb {
 		return
 	}
 

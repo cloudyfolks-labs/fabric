@@ -422,6 +422,40 @@ func (c *OVNNbClient) SetLogicalSwitchPortArpProxy(lspName string, enableArpProx
 	return nil
 }
 
+func (c *OVNNbClient) SetLogicalSwitchPortNatAddresses(lspName, natAddresses string) error {
+	lsp, err := c.GetLogicalSwitchPort(lspName, false)
+	if err != nil {
+		klog.Error(err)
+		return fmt.Errorf("get logical switch port %s: %w", lspName, err)
+	}
+	if lsp == nil {
+		err = fmt.Errorf("logical switch port %s not found", lspName)
+		klog.Error(err)
+		return err
+	}
+	if lsp.Options["nat-addresses"] == natAddresses {
+		return nil
+	}
+	if lsp.Options == nil {
+		lsp.Options = make(map[string]string)
+	}
+	lsp.Options["nat-addresses"] = natAddresses
+	if natAddresses == "" {
+		delete(lsp.Options, "nat-addresses")
+	}
+
+	op, err := c.UpdateLogicalSwitchPortOp(lsp, &lsp.Options)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	if err := c.Transact("lsp-update", op); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("failed to set logical switch port option nat-addresses %w", err)
+	}
+	return nil
+}
+
 // SetLogicalSwitchPortSecurity set logical switch port port_security
 func (c *OVNNbClient) SetLogicalSwitchPortSecurity(portSecurity bool, lspName, mac, ips, vips string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, false)

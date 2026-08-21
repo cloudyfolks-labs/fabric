@@ -114,6 +114,11 @@ type Controller struct {
 	updateRouterLBRuleQueue workqueue.TypedRateLimitingInterface[*RouterLBRuleInfo]
 	delRouterLBRuleQueue    workqueue.TypedRateLimitingInterface[*RouterLBRuleInfo]
 
+	loadBalancerPoolLister   kubeovnlister.LoadBalancerPoolLister
+	loadBalancerPoolSynced   cache.InformerSynced
+	addOrUpdateOvnLbSvcQueue workqueue.TypedRateLimitingInterface[string]
+	delOvnLbSvcQueue         workqueue.TypedRateLimitingInterface[*ovnLbSvcRelease]
+
 	switchLBRuleLister      kubeovnlister.SwitchLBRuleLister
 	switchLBRuleSynced      cache.InformerSynced
 	addSwitchLBRuleQueue    workqueue.TypedRateLimitingInterface[string]
@@ -391,6 +396,7 @@ func Run(ctx context.Context, config *Configuration) {
 	configMapInformer := cmInformerFactory.Core().V1().ConfigMaps()
 	npInformer := informerFactory.Networking().V1().NetworkPolicies()
 	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
+	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
 	switchLBRuleInformer := kubeovnInformerFactory.Fabric().V1().SwitchLBRules()
 	vpcDNSInformer := kubeovnInformerFactory.Fabric().V1().VpcDnses()
 	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
@@ -623,6 +629,19 @@ func Run(ctx context.Context, config *Configuration) {
 		controller.delVpcDNSQueue = newTypedRateLimitingQueue("DeleteVpcDns", custCrdRateLimiter)
 	}
 
+	if config.EnableOvnLbSvc && config.EnableLb {
+		controller.loadBalancerPoolLister = loadBalancerPoolInformer.Lister()
+		controller.loadBalancerPoolSynced = loadBalancerPoolInformer.Informer().HasSynced
+		controller.addOrUpdateOvnLbSvcQueue = newTypedRateLimitingQueue("AddOrUpdateOvnLbSvc", custCrdRateLimiter)
+		controller.delOvnLbSvcQueue = newTypedRateLimitingQueue(
+			"DeleteOvnLbSvc",
+			workqueue.NewTypedMaxOfRateLimiter(
+				workqueue.NewTypedItemExponentialFailureRateLimiter[*ovnLbSvcRelease](time.Duration(config.CustCrdRetryMinDelay)*time.Second, time.Duration(config.CustCrdRetryMaxDelay)*time.Second),
+				&workqueue.TypedBucketRateLimiter[*ovnLbSvcRelease]{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+			),
+		)
+	}
+
 	if config.EnableNP {
 		controller.npsLister = npInformer.Lister()
 		controller.npsSynced = npInformer.Informer().HasSynced
@@ -710,6 +729,9 @@ func Run(ctx context.Context, config *Configuration) {
 	}
 	if controller.config.EnableLb {
 		cacheSyncs = append(cacheSyncs, controller.routerLBRuleSynced, controller.switchLBRuleSynced, controller.vpcDNSSynced)
+	}
+	if controller.ovnLbSvcEnabled() {
+		cacheSyncs = append(cacheSyncs, controller.loadBalancerPoolSynced)
 	}
 	if controller.config.EnableNP {
 		cacheSyncs = append(cacheSyncs, controller.npsSynced)
@@ -899,6 +921,16 @@ func Run(ctx context.Context, config *Configuration) {
 			DeleteFunc: controller.enqueueDeleteVPCDNS,
 		}); err != nil {
 			util.LogFatalAndExit(err, "failed to add vpc dns event handler")
+		}
+	}
+
+	if controller.ovnLbSvcEnabled() {
+		if _, err = loadBalancerPoolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.enqueueAddLoadBalancerPool,
+			UpdateFunc: controller.enqueueUpdateLoadBalancerPool,
+			DeleteFunc: controller.enqueueDeleteLoadBalancerPool,
+		}); err != nil {
+			util.LogFatalAndExit(err, "failed to add loadbalancer pool event handler")
 		}
 	}
 
@@ -1139,6 +1171,11 @@ func (c *Controller) shutdown() {
 		c.delVpcDNSQueue.ShutDown()
 	}
 
+	if c.ovnLbSvcEnabled() {
+		c.addOrUpdateOvnLbSvcQueue.ShutDown()
+		c.delOvnLbSvcQueue.ShutDown()
+	}
+
 	c.addIPQueue.ShutDown()
 	c.updateIPQueue.ShutDown()
 	c.delIPQueue.ShutDown()
@@ -1273,6 +1310,12 @@ func (c *Controller) startWorkers(ctx context.Context) {
 		go wait.Until(func() {
 			c.resyncVpcDNSConfig()
 		}, 5*time.Second, ctx.Done())
+	}
+
+	if c.ovnLbSvcEnabled() {
+		go wait.Until(runWorker("add/update ovn lb service", c.addOrUpdateOvnLbSvcQueue, c.handleAddOrUpdateOvnLbSvc), time.Second, ctx.Done())
+		go wait.Until(runWorker("delete ovn lb service", c.delOvnLbSvcQueue, c.handleDelOvnLbSvc), time.Second, ctx.Done())
+		go wait.Until(c.resyncLoadBalancerPoolStatus, 30*time.Second, ctx.Done())
 	}
 
 	for range c.config.WorkerNum {
@@ -1469,6 +1512,8 @@ func getWorkItemKey(obj any) string {
 		return v.key
 	case *SwitchLBRuleInfo:
 		return v.Name
+	case *ovnLbSvcRelease:
+		return v.key
 	default:
 		key, err := cache.MetaNamespaceKeyFunc(obj)
 		if err != nil {

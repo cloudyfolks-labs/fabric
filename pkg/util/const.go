@@ -52,6 +52,13 @@ const (
 	KubeHostVMVip              = "kube_host_vm_vip"
 	SwitchLBRuleSubnet         = "switch_lb_subnet"
 
+	LoadBalancerClass              = "fabric.cloudyfolks.io/loadbalancer"
+	LoadBalancerPoolAnnotation     = "lb.fabric.cloudyfolks.io/address-pool"
+	LoadBalancerIPsAnnotation      = "lb.fabric.cloudyfolks.io/ips"
+	LoadBalancerSharedIPAnnotation = "lb.fabric.cloudyfolks.io/allow-shared-ip"
+	LoadBalancerAnnounceLabel      = "fabric.cloudyfolks.io/announce"
+	LoadBalancerServiceLabel       = "fabric.cloudyfolks.io/service"
+
 	LogicalRouterAnnotation = "fabric.cloudyfolks.io/logical_router"
 	VpcAnnotation           = "fabric.cloudyfolks.io/vpc"
 
