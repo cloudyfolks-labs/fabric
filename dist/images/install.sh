@@ -453,6 +453,8 @@ spec:
                 items:
                   type: string
                 type: array
+              advertiseLoadBalancerVips:
+                type: boolean
               connectTime:
                 type: string
               ebgpMultiHop:

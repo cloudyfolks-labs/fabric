@@ -36,7 +36,7 @@ func TestRenderFull(t *testing.T) {
 		KeepaliveTime:   10,
 		Vpcs: []VpcAdvertisement{
 			{VpcName: "vpc-b", VrfName: "ovnvrf1002", TableID: 1002, LrpIP: "172.19.0.24"},
-			{VpcName: "vpc-a", VrfName: "ovnvrf1001", TableID: 1001, LrpIP: "172.19.0.21"},
+			{VpcName: "vpc-a", VrfName: "ovnvrf1001", TableID: 1001, LrpIP: "172.19.0.21", Networks: []string{"91.246.31.42", "91.246.31.40"}},
 		},
 		ImportVrfs: []string{"ovnvrf1002", "ovnvrf1001"},
 	}
@@ -58,6 +58,9 @@ func TestRenderFull(t *testing.T) {
 		"  neighbor 172.19.0.4 route-map KUBE-OVN-OUT out",
 		"  import vrf ovnvrf1001",
 		"  import vrf ovnvrf1002",
+		" no bgp network import-check",
+		"  network 91.246.31.40/32",
+		"  network 91.246.31.42/32",
 		"route-map KUBE-OVN-NH-vpc-a permit 10",
 		" set ip next-hop 172.19.0.21",
 		"ip prefix-list KUBE-OVN-ADVERTISE seq 5 permit 91.246.31.0/24 ge 32 le 32",
@@ -177,6 +180,8 @@ func TestValidateRenderInput(t *testing.T) {
 		"filter bad length":     func(in *RenderInput) { in.AdvertiseFilter[0] = "192.0.2.0/24 ge 300" },
 		"lrp address missing":   func(in *RenderInput) { in.Vpcs[0].LrpIP = "" },
 		"lrp address not an ip": func(in *RenderInput) { in.Vpcs[0].LrpIP = "bogus" },
+		"lb vip not an ip":      func(in *RenderInput) { in.Vpcs[0].Networks = []string{"bogus"} },
+		"lb vip injected line":  func(in *RenderInput) { in.Vpcs[0].Networks = []string{"10.0.0.5\nrouter bgp 65000"} },
 	}
 	for name, mutate := range cases {
 		in := valid

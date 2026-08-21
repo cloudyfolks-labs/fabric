@@ -204,7 +204,7 @@ func (c *Controller) desiredConfig() (string, error) {
 		return "", fmt.Errorf("node %s has no IPv4 internal address, set spec.routerId on bgp-conf %s", c.config.NodeName, conf.Name)
 	}
 
-	vpcs, err := c.collectVpcAdvertisements()
+	vpcs, err := c.collectVpcAdvertisements(conf.Spec.AdvertiseLoadBalancerVips)
 	if err != nil {
 		return "", err
 	}
@@ -250,7 +250,7 @@ func (c *Controller) selectBgpConf(node *corev1.Node) (*kubeovnv1.BgpConf, error
 	return matched[0], nil
 }
 
-func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
+func (c *Controller) collectVpcAdvertisements(advertiseLoadBalancerVips bool) ([]VpcAdvertisement, error) {
 	vpcs, err := c.vpcLister.List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list vpcs: %w", err)
@@ -279,11 +279,16 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 			klog.Warningf("vpc %s has no ready lrp ovn-eip, skipping advertisement", vpc.Name)
 			continue
 		}
+		var networks []string
+		if advertiseLoadBalancerVips {
+			networks = loadBalancerVips(eips, vpc.Name)
+		}
 		result = append(result, VpcAdvertisement{
-			VpcName: vpc.Name,
-			VrfName: vrfDeviceName(dr),
-			TableID: dr.VrfID,
-			LrpIP:   lrpIP,
+			VpcName:  vpc.Name,
+			VrfName:  vrfDeviceName(dr),
+			TableID:  dr.VrfID,
+			LrpIP:    lrpIP,
+			Networks: networks,
 		})
 	}
 	return result, nil
@@ -317,7 +322,30 @@ func (c *Controller) advertisementSignature() string {
 		}
 	}
 	sort.Strings(names)
+	if eips, err := c.ovnEipLister.List(labels.Everything()); err == nil {
+		for _, vpcName := range names {
+			names = append(names, loadBalancerVips(eips, vpcName)...)
+		}
+	}
 	return strings.Join(names, ",")
+}
+
+func loadBalancerVips(eips []*kubeovnv1.OvnEip, vpcName string) []string {
+	var vips []string
+	for _, eip := range eips {
+		if eip.Labels[util.LoadBalancerAnnounceLabel] != kubeovnv1.LoadBalancerPoolAnnounceBGP {
+			continue
+		}
+		if eip.Labels[util.VpcNameLabel] != vpcName {
+			continue
+		}
+		if eip.Status.V4Ip == "" {
+			continue
+		}
+		vips = append(vips, eip.Status.V4Ip)
+	}
+	sort.Strings(vips)
+	return vips
 }
 
 func lrpAddress(eips []*kubeovnv1.OvnEip, vpcName string) string {

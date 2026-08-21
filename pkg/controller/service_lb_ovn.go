@@ -416,7 +416,7 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 			}
 			return nil, fmt.Errorf("recreating ovn eip %s on subnet %s", eipName, pool.Spec.Subnet)
 		}
-		return c.ensureOvnLbSvcEipLabels(eip, announce, labelValue)
+		return c.ensureOvnLbSvcEipLabels(eip, announce, labelValue, c.ovnLbSvcVpc(svc))
 	} else if !k8serrors.IsNotFound(err) {
 		klog.Error(err)
 		return nil, err
@@ -431,7 +431,7 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 		}
 		if donorEip != nil {
 			klog.Infof("service %s/%s shares eip %s with service %s", svc.Namespace, svc.Name, donorEip.Name, donorKey)
-			return c.ensureOvnLbSvcEipLabels(donorEip, announce, labelValue)
+			return c.ensureOvnLbSvcEipLabels(donorEip, announce, labelValue, c.ovnLbSvcVpc(svc))
 		}
 	}
 
@@ -465,6 +465,7 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 			Labels: map[string]string{
 				util.LoadBalancerAnnounceLabel: announce,
 				util.LoadBalancerServiceLabel:  labelValue,
+				util.VpcNameLabel:              c.ovnLbSvcVpc(svc),
 			},
 		},
 		Spec: kubeovnv1.OvnEipSpec{
@@ -513,13 +514,16 @@ func (c *Controller) requestedLbIPsInUse(requestedV4, requestedV6 string) (strin
 	return "", nil
 }
 
-func (c *Controller) ensureOvnLbSvcEipLabels(eip *kubeovnv1.OvnEip, announce, serviceLabelValue string) (*kubeovnv1.OvnEip, error) {
+func (c *Controller) ensureOvnLbSvcEipLabels(eip *kubeovnv1.OvnEip, announce, serviceLabelValue, vpcName string) (*kubeovnv1.OvnEip, error) {
 	patch := util.KVPatch{}
 	if eip.Labels[util.LoadBalancerAnnounceLabel] != announce {
 		patch[util.LoadBalancerAnnounceLabel] = announce
 	}
 	if eip.Labels[util.LoadBalancerServiceLabel] == "" {
 		patch[util.LoadBalancerServiceLabel] = serviceLabelValue
+	}
+	if eip.Labels[util.VpcNameLabel] != vpcName {
+		patch[util.VpcNameLabel] = vpcName
 	}
 	if len(patch) > 0 {
 		if err := util.PatchLabels(c.config.KubeOvnClient.FabricV1().OvnEips(), eip.Name, patch); err != nil {

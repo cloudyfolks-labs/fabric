@@ -38,6 +38,8 @@ type BgpConfSpec struct {
 	NodeSelector    map[string]string `json:"nodeSelector,omitempty"`
 	Peers           []BgpPeer         `json:"peers,omitempty"`
 	AdvertiseFilter []string          `json:"advertiseFilter,omitempty"`
+
+	AdvertiseLoadBalancerVips bool `json:"advertiseLoadBalancerVips,omitempty"`
 }
 
 type BgpPeer struct {
