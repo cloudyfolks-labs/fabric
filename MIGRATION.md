@@ -14,6 +14,11 @@ fabric renamed the user-facing API domains. This is a breaking change.
 Identifiers internal to the OVN and OVS databases do not change. The
 OVN logical topology of an existing cluster stays valid.
 
+`domainName` rules in AdminNetworkPolicy and ClusterNetworkPolicy need
+the fabric build of the CoreDNS resolver plugin
+(`ghcr.io/cloudyfolks-labs/fabric-dns`); the kube-ovn build watches the
+old API group and does not work with fabric.
+
 ## New clusters
 
 Install fabric directly. Use the fabric domains in all manifests.

@@ -2989,13 +2989,10 @@ jobs:
           pipx install jinjanator
           make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
 
-      - name: Clone DNSNameResolver repository
+      - name: Build DNSNameResolver image
         run: |
-          git clone https://github.com/kubeovn/dnsnameresolver.git
           cd dnsnameresolver
           make build
-          docker save kubeovn/dnsnameresolver:dev -o dnsnameresolver.tar
-          docker load --input dnsnameresolver.tar
           make install
 
       - name: Install Kube-OVN
@@ -3143,13 +3140,10 @@ jobs:
           pipx install jinjanator
           make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
 
-      - name: Clone DNSNameResolver repository
+      - name: Build DNSNameResolver image
         run: |
-          git clone https://github.com/kubeovn/dnsnameresolver.git
           cd dnsnameresolver
           make build
-          docker save kubeovn/dnsnameresolver:dev -o dnsnameresolver.tar
-          docker load --input dnsnameresolver.tar
           make install
 
       - name: Install Kube-OVN

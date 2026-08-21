@@ -54,6 +54,14 @@ them resolve as a delete during a sync:
 The `vpc-nat-gateway` container image remains. The lb-svc feature uses it
 as the gateway pod image.
 
+## Vendored components
+
+`dnsnameresolver/` is a nested Go module vendored from
+[kubeovn/dnsnameresolver](https://github.com/kubeovn/dnsnameresolver),
+renamed to watch `fabric.cloudyfolks.io/v1`. It builds the
+`fabric-dns` CoreDNS image that resolves `domainName` network policy
+rules. Sync upstream changes into the directory manually.
+
 ## Renamed identifiers
 
 fabric renamed the user-facing API domains (see `MIGRATION.md` for the

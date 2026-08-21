@@ -75,6 +75,13 @@ jobs:
             -t "$REGISTRY/vpc-nat-gateway:$TAG" \
             -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
 
+      - name: Build and push dns resolver image
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 --push \
+            -t "$REGISTRY/fabric-dns:$TAG" \
+            --build-arg PLUGIN_VERSION="$TAG" \
+            -f dnsnameresolver/Dockerfile .
+
   publish-chart:
     name: Publish helm chart
     needs: build-images
