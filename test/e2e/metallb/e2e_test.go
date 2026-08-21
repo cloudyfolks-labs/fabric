@@ -1382,7 +1382,7 @@ func getVIPNode(containerID, targetIP, clusterName string) string {
 	var vipMac string
 	for _, line := range lines {
 		fields := strings.Fields(line)
-		if len(fields) >= 4 && fields[0] == targetIP {
+		if len(fields) >= 5 && fields[0] == targetIP {
 			vipMac = fields[4]
 			framework.Logf("VIP MAC address: %s", vipMac)
 			break

@@ -84,8 +84,10 @@ func testVipWithSG(ip, namespaceName, allowPod, denyPod, aapPod, securityGroupNa
 	stdout, stderr, err := framework.ExecShellInPod(context.Background(), f, namespaceName, allowPod, sgCheck)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", sgCheck, err, stderr, stdout)
 	// denyPod can not ping aapPod with security group
-	_, _, err = framework.ExecShellInPod(context.Background(), f, namespaceName, denyPod, sgCheck)
-	framework.ExpectError(err)
+	framework.WaitUntil(2*time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
+		_, _, err = framework.ExecShellInPod(context.Background(), f, namespaceName, denyPod, sgCheck)
+		return err != nil, nil
+	}, "security group denies traffic from denyPod")
 
 	ginkgo.By("Checking ovn address_set and lsp port_security")
 	// address_set should have allow address pair ip
