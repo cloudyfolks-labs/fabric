@@ -26,10 +26,15 @@ import (
 
 // BgpConfApplyConfiguration represents a declarative configuration of the BgpConf type for use
 // with apply.
+//
+// BgpConf configures the per-node FRR agent. IPv6 is not supported:
+// neighbour addresses, the router id and the advertise filter must all
+// be IPv4, and the agent rejects the configuration otherwise.
 type BgpConfApplyConfiguration struct {
 	metav1.TypeMetaApplyConfiguration    `json:",inline"`
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                                 *BgpConfSpecApplyConfiguration `json:"spec,omitempty"`
+	Spec                                 *BgpConfSpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                               *BgpConfStatusApplyConfiguration `json:"status,omitempty"`
 }
 
 // BgpConf constructs a declarative configuration of the BgpConf type for use with
@@ -207,6 +212,14 @@ func (b *BgpConfApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 // If called multiple times, the Spec field is set to the value of the last call.
 func (b *BgpConfApplyConfiguration) WithSpec(value *BgpConfSpecApplyConfiguration) *BgpConfApplyConfiguration {
 	b.Spec = value
+	return b
+}
+
+// WithStatus sets the Status field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Status field is set to the value of the last call.
+func (b *BgpConfApplyConfiguration) WithStatus(value *BgpConfStatusApplyConfiguration) *BgpConfApplyConfiguration {
+	b.Status = value
 	return b
 }
 

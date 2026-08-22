@@ -10,11 +10,13 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	kubeinformers "k8s.io/client-go/informers"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
 	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
@@ -158,27 +160,102 @@ func (c *Controller) drainTrigger() {
 	}
 }
 
+func nodeApplyState(serial string, st ApplyStatus) (string, string) {
+	switch {
+	case st.AppliedSerial == serial:
+		return kubeovnv1.BgpNodeStateApplied, ""
+	case st.ResultSerial == serial && st.ResultState == "error":
+		return kubeovnv1.BgpNodeStateFailed, st.Detail
+	default:
+		return kubeovnv1.BgpNodeStatePending, "waiting for the FRR reload"
+	}
+}
+
 func (c *Controller) reconcile() {
+	conf, err := c.selectedBgpConf()
+	if err != nil {
+		klog.Errorf("failed to select the bgp-conf: %v", err)
+		return
+	}
+
 	config, err := c.desiredConfig()
 	if err != nil {
 		klog.Errorf("failed to compute desired FRR configuration: %v", err)
+		if conf != nil {
+			c.reportNodeState(conf.Name, kubeovnv1.BgpNodeStateFailed, "", err.Error())
+		}
 		return
 	}
 
 	s, err := c.applier.Apply(config)
 	if err != nil {
 		klog.Errorf("failed to apply FRR configuration: %v", err)
+		if conf != nil {
+			c.reportNodeState(conf.Name, kubeovnv1.BgpNodeStateFailed, "", err.Error())
+		}
 		return
 	}
 
 	st := c.applier.Status()
-	switch {
-	case st.AppliedSerial == s:
+	state, message := nodeApplyState(s, st)
+	switch state {
+	case kubeovnv1.BgpNodeStateApplied:
 		klog.V(5).Infof("FRR configuration %s applied", s)
-	case st.ResultSerial == s && st.ResultState == "error":
+	case kubeovnv1.BgpNodeStateFailed:
 		klog.Errorf("FRR reload failed for configuration %s: %s", s, st.Detail)
 	default:
 		klog.V(3).Infof("FRR configuration %s pending, applied %s", s, st.AppliedSerial)
+	}
+	if conf != nil {
+		c.reportNodeState(conf.Name, state, s, message)
+	}
+}
+
+func (c *Controller) selectedBgpConf() (*kubeovnv1.BgpConf, error) {
+	node, err := c.nodeLister.Get(c.config.NodeName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node %s: %w", c.config.NodeName, err)
+	}
+	return c.selectBgpConf(node)
+}
+
+func (c *Controller) reportNodeState(confName, state, serial, message string) {
+	confs := c.config.KubeOvnClient.FabricV1().BgpConves()
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		conf, err := confs.Get(context.Background(), confName, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		newConf := conf.DeepCopy()
+		nodes := make([]kubeovnv1.BgpNodeStatus, 0, len(newConf.Status.Nodes)+1)
+		var current *kubeovnv1.BgpNodeStatus
+		for i := range newConf.Status.Nodes {
+			if newConf.Status.Nodes[i].Node == c.config.NodeName {
+				current = &newConf.Status.Nodes[i]
+				continue
+			}
+			nodes = append(nodes, newConf.Status.Nodes[i])
+		}
+		if current != nil && current.State == state && current.Serial == serial && current.Message == message {
+			return nil
+		}
+		nodes = append(nodes, kubeovnv1.BgpNodeStatus{
+			Node:           c.config.NodeName,
+			Serial:         serial,
+			State:          state,
+			Message:        message,
+			LastUpdateTime: metav1.Now(),
+		})
+		sort.Slice(nodes, func(i, j int) bool { return nodes[i].Node < nodes[j].Node })
+		newConf.Status.Nodes = nodes
+		_, err = confs.UpdateStatus(context.Background(), newConf, metav1.UpdateOptions{})
+		return err
+	})
+	if err != nil {
+		klog.Errorf("failed to report the FRR state of node %s on bgp-conf %s: %v", c.config.NodeName, confName, err)
 	}
 }
 

@@ -46,6 +46,7 @@ rules:
       - dnsnameresolvers
       - dnsnameresolvers/status
       - bgp-confs
+      - bgp-confs/status
     verbs:
       - create
       - get

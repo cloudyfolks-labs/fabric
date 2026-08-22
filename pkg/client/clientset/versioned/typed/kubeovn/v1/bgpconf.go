@@ -40,6 +40,8 @@ type BgpConvesGetter interface {
 type BgpConfInterface interface {
 	Create(ctx context.Context, bgpConf *kubeovnv1.BgpConf, opts metav1.CreateOptions) (*kubeovnv1.BgpConf, error)
 	Update(ctx context.Context, bgpConf *kubeovnv1.BgpConf, opts metav1.UpdateOptions) (*kubeovnv1.BgpConf, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, bgpConf *kubeovnv1.BgpConf, opts metav1.UpdateOptions) (*kubeovnv1.BgpConf, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
 	Get(ctx context.Context, name string, opts metav1.GetOptions) (*kubeovnv1.BgpConf, error)
@@ -47,6 +49,8 @@ type BgpConfInterface interface {
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kubeovnv1.BgpConf, err error)
 	Apply(ctx context.Context, bgpConf *applyconfigurationkubeovnv1.BgpConfApplyConfiguration, opts metav1.ApplyOptions) (result *kubeovnv1.BgpConf, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, bgpConf *applyconfigurationkubeovnv1.BgpConfApplyConfiguration, opts metav1.ApplyOptions) (result *kubeovnv1.BgpConf, err error)
 	BgpConfExpansion
 }
 

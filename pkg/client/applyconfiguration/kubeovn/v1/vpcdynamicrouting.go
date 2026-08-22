@@ -48,7 +48,8 @@ type VpcDynamicRoutingApplyConfiguration struct {
 	// Defaults to "ovnvrf" plus the vrf table id.
 	VrfName *string `json:"vrfName,omitempty"`
 	// Linux routing table id used by the VRF.
-	// Defaults to the logical router's datapath id.
+	// Required when dynamic routing is enabled and unique across VPCs.
+	// 253, 254 and 255 are reserved by the host routing tables.
 	VrfID *uint32 `json:"vrfId,omitempty"`
 }
 

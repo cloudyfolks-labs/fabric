@@ -44,6 +44,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kubeovnv1.BgpConfApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BgpConfSpec"):
 		return &kubeovnv1.BgpConfSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("BgpConfStatus"):
+		return &kubeovnv1.BgpConfStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("BgpNodeStatus"):
+		return &kubeovnv1.BgpNodeStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BgpPeer"):
 		return &kubeovnv1.BgpPeerApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Condition"):

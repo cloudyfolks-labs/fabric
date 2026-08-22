@@ -236,3 +236,19 @@ func TestValidateRenderInput(t *testing.T) {
 		}
 	}
 }
+
+func TestNodeApplyState(t *testing.T) {
+	state, message := nodeApplyState("abc", ApplyStatus{AppliedSerial: "abc"})
+	if state != kubeovnv1.BgpNodeStateApplied || message != "" {
+		t.Errorf("expected an applied state, got %q %q", state, message)
+	}
+
+	state, message = nodeApplyState("abc", ApplyStatus{ResultSerial: "abc", ResultState: "error", Detail: "error abc reload"})
+	if state != kubeovnv1.BgpNodeStateFailed || message != "error abc reload" {
+		t.Errorf("expected a failed state, got %q %q", state, message)
+	}
+
+	if state, _ = nodeApplyState("abc", ApplyStatus{AppliedSerial: "old"}); state != kubeovnv1.BgpNodeStatePending {
+		t.Errorf("expected a pending state, got %q", state)
+	}
+}
