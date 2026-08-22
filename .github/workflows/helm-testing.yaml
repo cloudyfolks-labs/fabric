@@ -9,6 +9,9 @@ on:
 
 permissions: {}
 
+env:
+  KIND_VERSION: v0.32.0
+
 jobs:
   lint-test:
     runs-on: ubuntu-latest

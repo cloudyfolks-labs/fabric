@@ -69,7 +69,7 @@
       "reason": "core Kube-OVN connectivity suite"
     },
     {
-      "patterns": ["test/e2e/cnp-domain/**", "test/e2e/anp-domain/**", "test/cnp/**", "test/anp/**", "test/e2e/cyclonus.yaml"],
+      "patterns": ["test/e2e/cnp-domain/**", "test/e2e/anp-domain/**", "test/e2e/cyclonus.yaml"],
       "groups": ["policy"],
       "owner": "networking-e2e",
       "reason": "network policy suites and fixtures"
@@ -87,7 +87,7 @@
       "reason": "VPC dynamic routing control plane and end-to-end coverage"
     },
     {
-      "patterns": ["test/e2e/multus/**", "test/e2e/non-primary-cni/**", "test/e2e/cilium-chaining/**", "yamls/cilium-chaining.yaml"],
+      "patterns": ["test/e2e/multus/**", "test/e2e/non-primary-cni/**", "yamls/cilium-chaining.yaml"],
       "groups": ["multi-cni"],
       "owner": "networking-e2e",
       "reason": "multiple and chained CNI suites"
@@ -117,13 +117,13 @@
       "reason": "high availability and hosted control plane suites"
     },
     {
-      "patterns": ["test/e2e/ovn-ic/**", "test/e2e/submariner/**"],
+      "patterns": ["test/e2e/ovn-ic/**"],
       "groups": ["multi-cluster"],
       "owner": "networking-e2e",
       "reason": "interconnection and multi-cluster suites"
     },
     {
-      "patterns": ["pkg/controller/ovn_ic_controller.go", "pkg/controller/ovn_ic_controller_test.go"],
+      "patterns": ["pkg/ovn_ic_controller/**"],
       "groups": ["multi-cluster"],
       "owner": "networking-e2e",
       "reason": "OVN interconnection reconciliation"
@@ -153,7 +153,7 @@
       "reason": "security suite executed by the high availability job"
     },
     {
-      "patterns": ["pkg/webhook/**", "cmd/webhook/**", "pkg/controller/ipsec*.go"],
+      "patterns": ["pkg/webhook/**", "cmd/webhook/**", "pkg/daemon/ipsec.go", "pkg/controller/pki*.go", "pkg/controller/signer*.go"],
       "groups": ["security-webhook"],
       "owner": "networking-e2e",
       "reason": "webhook and IPsec production paths"

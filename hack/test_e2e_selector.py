@@ -185,9 +185,9 @@ class E2ESelectorTest(unittest.TestCase):
         for path in [
             "pkg/controller/network_policy.go",
             "pkg/controller/service.go",
-            "pkg/controller/ovn_ic_controller.go",
             "pkg/controller/vpc_nat_gateway.go",
-            "pkg/controller/ipsec.go",
+            "pkg/controller/pki.go",
+            "pkg/controller/signer.go",
         ]:
             with self.subTest(path=path):
                 plan = self.select([path])
@@ -572,7 +572,7 @@ class E2ESelectorTest(unittest.TestCase):
             ("charts/fabric/Chart.yaml", "install-platform"),
             ("test/e2e/ha/e2e_test.go", "ha-hosted"),
             ("test/e2e/ovn-ic/e2e_test.go", "multi-cluster"),
-            ("pkg/controller/ovn_ic_controller.go", "multi-cluster"),
+            ("pkg/ovn_ic_controller/ovn_ic_controller.go", "multi-cluster"),
             ("test/e2e/vpc-egress-gateway/e2e_test.go", "nat-egress"),
             ("pkg/controller/vpc_egress_gateway.go", "nat-egress"),
             ("test/e2e/webhook/e2e_test.go", "security-webhook"),
