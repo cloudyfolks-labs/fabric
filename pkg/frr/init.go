@@ -33,18 +33,18 @@ while true; do
     sleep 5
     continue
   fi
-  if python3 "$RELOAD_PY" --reload --overwrite "$FRR_DIR/frr.conf.desired" >/tmp/frr-reload.log 2>&1; then
-    printf '%s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-applied"
-    printf 'ok %s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-result"
-    continue
-  fi
-  new_instances=$(grep -c '^router bgp .* vrf ' "$FRR_DIR/frr.conf.desired" 2>/dev/null)
-  old_instances=$(grep -c '^router bgp .* vrf ' "$FRR_DIR/frr.conf" 2>/dev/null)
+  new_instances=$(grep '^router bgp .* vrf ' "$FRR_DIR/frr.conf.desired" 2>/dev/null | sort)
+  old_instances=$(grep '^router bgp .* vrf ' "$FRR_DIR/frr.conf" 2>/dev/null | sort)
   if [ "$new_instances" != "$old_instances" ]; then
     cp "$FRR_DIR/frr.conf.desired" "$FRR_DIR/frr.conf"
     printf '%s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-applied"
     printf 'ok %s restart\n' "$want" > "$FRR_DIR/.kube-ovn-frr-result"
     exit 0
+  fi
+  if python3 "$RELOAD_PY" --reload --overwrite "$FRR_DIR/frr.conf.desired" >/tmp/frr-reload.log 2>&1; then
+    printf '%s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-applied"
+    printf 'ok %s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-result"
+    continue
   fi
   { printf 'error %s reload\n' "$want"; sed "$REDACT" /tmp/frr-reload.log | tail -20; } > "$FRR_DIR/.kube-ovn-frr-result"
   sleep 5
