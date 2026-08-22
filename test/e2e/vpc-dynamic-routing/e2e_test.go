@@ -254,7 +254,6 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 2)
-		ginkgo.DeferCleanup(dumpAgentFrrState, f, topo)
 		w := setupVpcWorkload(f, topo, agentVrfName, agentVrfID, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
 		deployAgent(f, topo)
 
@@ -369,7 +368,6 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 1)
-		ginkgo.DeferCleanup(dumpAgentFrrState, f, topo)
 		w := setupVpcWorkload(f, topo, lbVrfName, lbVrfID, framework.RandomCIDR(f.ClusterIPFamily), "",
 			[]apiv1.RedistributeType{apiv1.RedistributeNAT, apiv1.RedistributeLB})
 		deployAgent(f, topo)
@@ -1067,6 +1065,7 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 		framework.ExpectNoError(err, "deleting agent daemonset")
 	})
 	f.DaemonSetClientNS(framework.KubeOvnNamespace).RolloutStatus(agentName)
+	ginkgo.DeferCleanup(dumpAgentFrrState, f, topo)
 }
 
 func setVpcStaticRoutes(f *framework.Framework, vpcName string, routes []*apiv1.StaticRoute) {
