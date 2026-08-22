@@ -15,6 +15,9 @@ type BgpConfList struct {
 // +genclient:nonNamespaced
 // +resourceName=bgp-confs
 // +kubebuilder:resource:scope="Cluster",path="bgp-confs",singular="bgp-conf"
+// BgpConf configures the per-node FRR agent. IPv6 is not supported:
+// neighbour addresses, the router id and the advertise filter must all
+// be IPv4, and the agent rejects the configuration otherwise.
 type BgpConf struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`

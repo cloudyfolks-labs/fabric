@@ -221,6 +221,9 @@ func TestValidateRenderInput(t *testing.T) {
 		"filter bad length":     func(in *RenderInput) { in.AdvertiseFilter[0] = "192.0.2.0/24 ge 300" },
 		"lrp address missing":   func(in *RenderInput) { in.Vpcs[0].LrpIP = "" },
 		"lrp address not an ip": func(in *RenderInput) { in.Vpcs[0].LrpIP = "bogus" },
+		"neighbor is ipv6":      func(in *RenderInput) { in.Neighbors[0].Address = "fd00::9" },
+		"lrp address is ipv6":   func(in *RenderInput) { in.Vpcs[0].LrpIP = "fd00::21" },
+		"filter is ipv6":        func(in *RenderInput) { in.AdvertiseFilter[0] = "fd00::/64 le 128" },
 	}
 	for name, mutate := range cases {
 		in := valid

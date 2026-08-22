@@ -18,6 +18,10 @@ spec:
   - name: v1
     schema:
       openAPIV3Schema:
+        description: |-
+          BgpConf configures the per-node FRR agent. IPv6 is not supported:
+          neighbour addresses, the router id and the advertise filter must all
+          be IPv4, and the agent rejects the configuration otherwise.
         properties:
           apiVersion:
             description: |-

@@ -103,8 +103,12 @@ func ValidateRenderInput(input RenderInput) error {
 		}
 	}
 	for _, n := range input.Neighbors {
-		if _, err := netip.ParseAddr(n.Address); err != nil {
+		addr, err := netip.ParseAddr(n.Address)
+		if err != nil {
 			return fmt.Errorf("neighbor address %q is not a valid IP address", n.Address)
+		}
+		if !addr.Is4() {
+			return fmt.Errorf("neighbor address %q is IPv6: dynamic routing supports IPv4 only", n.Address)
 		}
 		if n.ASN == 0 {
 			return fmt.Errorf("neighbor %s has no ASN: set peers[].asn or peerASN", n.Address)
@@ -119,8 +123,12 @@ func ValidateRenderInput(input RenderInput) error {
 		}
 	}
 	for _, vpc := range input.Vpcs {
-		if _, err := netip.ParseAddr(vpc.LrpIP); err != nil {
+		addr, err := netip.ParseAddr(vpc.LrpIP)
+		if err != nil {
 			return fmt.Errorf("vpc %s lrp address %q is not a valid IP address", vpc.VpcName, vpc.LrpIP)
+		}
+		if !addr.Is4() {
+			return fmt.Errorf("vpc %s lrp address %q is IPv6: dynamic routing supports IPv4 only", vpc.VpcName, vpc.LrpIP)
 		}
 	}
 	return nil
@@ -134,14 +142,18 @@ func validateFilterEntry(entry string) error {
 	if len(fields) == 0 || len(fields)%2 == 0 {
 		return fmt.Errorf("advertise filter entry %q must be a prefix optionally followed by ge/le bounds", entry)
 	}
-	if _, err := netip.ParsePrefix(fields[0]); err != nil {
+	prefix, err := netip.ParsePrefix(fields[0])
+	if err != nil {
 		return fmt.Errorf("advertise filter entry %q: %w", entry, err)
+	}
+	if !prefix.Addr().Is4() {
+		return fmt.Errorf("advertise filter entry %q is IPv6: dynamic routing supports IPv4 only", entry)
 	}
 	for i := 1; i < len(fields); i += 2 {
 		if fields[i] != "ge" && fields[i] != "le" {
 			return fmt.Errorf("advertise filter entry %q: expected ge or le, got %q", entry, fields[i])
 		}
-		if length, err := strconv.Atoi(fields[i+1]); err != nil || length < 0 || length > 128 {
+		if length, err := strconv.Atoi(fields[i+1]); err != nil || length < 0 || length > 32 {
 			return fmt.Errorf("advertise filter entry %q: invalid prefix length %q", entry, fields[i+1])
 		}
 	}
