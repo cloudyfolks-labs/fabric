@@ -3776,7 +3776,12 @@ jobs:
         run: make kind-install-ipv4
 
       - name: Load the vrf kernel module
-        run: sudo modprobe vrf
+        run: |
+          sudo modprobe vrf || {
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends "linux-modules-extra-$(uname -r)"
+            sudo modprobe vrf
+          }
 
       - name: Run E2E
         id: e2e
