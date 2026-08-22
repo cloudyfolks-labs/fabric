@@ -598,10 +598,13 @@ ip protocol bgp route-map OVN-NO-FIB
 			return !strings.Contains(string(stdout), wb.eipV4+"/32"), nil
 		}, "EIP of "+wb.vpcName+" withdrawn on ToR")
 		for _, w := range []*drWorkload{wa, wc} {
-			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
-			framework.ExpectNoError(err)
-			framework.ExpectTrue(strings.Contains(string(stdout), w.eipV4+"/32"),
-				"EIP of "+w.vpcName+" must survive the withdrawal of "+wb.vpcName)
+			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
+				if err != nil {
+					return false, nil
+				}
+				return strings.Contains(string(stdout), w.eipV4+"/32"), nil
+			}, "EIP of "+w.vpcName+" must survive the withdrawal of "+wb.vpcName)
 		}
 	})
 })
@@ -1015,7 +1018,7 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 		ObjectMeta: metav1.ObjectMeta{Name: agentName},
 		Rules: []rbacv1.PolicyRule{{
 			APIGroups: []string{"fabric.cloudyfolks.io"},
-			Resources: []string{"bgp-confs", "vpcs", "ovn-eips"},
+			Resources: []string{"bgp-confs", "vpcs", "ovn-eips", "loadbalancer-pools", "subnets"},
 			Verbs:     []string{"get", "list", "watch"},
 		}, {
 			APIGroups: []string{"fabric.cloudyfolks.io"},

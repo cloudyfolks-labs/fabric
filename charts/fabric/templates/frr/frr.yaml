@@ -25,6 +25,8 @@ rules:
       - bgp-confs
       - vpcs
       - ovn-eips
+      - loadbalancer-pools
+      - subnets
     verbs:
       - get
       - list

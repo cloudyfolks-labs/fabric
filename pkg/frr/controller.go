@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +36,10 @@ type Controller struct {
 	vpcSynced     cache.InformerSynced
 	ovnEipLister  kubeovnlister.OvnEipLister
 	ovnEipSynced  cache.InformerSynced
+	lbPoolLister  kubeovnlister.LoadBalancerPoolLister
+	lbPoolSynced  cache.InformerSynced
+	subnetLister  kubeovnlister.SubnetLister
+	subnetSynced  cache.InformerSynced
 	nodeLister    listerv1.NodeLister
 	nodeSynced    cache.InformerSynced
 	podLister     listerv1.PodLister
@@ -69,6 +74,8 @@ func NewController(config *Configuration) (*Controller, error) {
 	bgpConfInformer := kubeovnInformerFactory.Fabric().V1().BgpConves()
 	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
 	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
+	lbPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
+	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	podInformer := podInformerFactory.Core().V1().Pods()
 
@@ -81,6 +88,10 @@ func NewController(config *Configuration) (*Controller, error) {
 		vpcSynced:              vpcInformer.Informer().HasSynced,
 		ovnEipLister:           ovnEipInformer.Lister(),
 		ovnEipSynced:           ovnEipInformer.Informer().HasSynced,
+		lbPoolLister:           lbPoolInformer.Lister(),
+		lbPoolSynced:           lbPoolInformer.Informer().HasSynced,
+		subnetLister:           subnetInformer.Lister(),
+		subnetSynced:           subnetInformer.Informer().HasSynced,
 		nodeLister:             nodeInformer.Lister(),
 		nodeSynced:             nodeInformer.Informer().HasSynced,
 		podLister:              podInformer.Lister(),
@@ -100,6 +111,8 @@ func NewController(config *Configuration) (*Controller, error) {
 		bgpConfInformer.Informer(),
 		vpcInformer.Informer(),
 		ovnEipInformer.Informer(),
+		lbPoolInformer.Informer(),
+		subnetInformer.Informer(),
 		nodeInformer.Informer(),
 	} {
 		if _, err := informer.AddEventHandler(handler); err != nil {
@@ -122,7 +135,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.podInformerFactory.Start(ctx.Done())
 	c.kubeovnInformerFactory.Start(ctx.Done())
 
-	if !cache.WaitForCacheSync(ctx.Done(), c.bgpConfSynced, c.vpcSynced, c.ovnEipSynced, c.nodeSynced, c.podSynced) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.bgpConfSynced, c.vpcSynced, c.ovnEipSynced, c.lbPoolSynced, c.subnetSynced, c.nodeSynced, c.podSynced) {
 		return errors.New("failed to wait for caches to sync")
 	}
 	klog.Info("caches synced, starting reconcile loop")
@@ -291,7 +304,12 @@ func (c *Controller) desiredConfig() (string, error) {
 		imports = append(imports, vpc.VrfName)
 	}
 
+	poolEntries, err := c.collectPoolAdvertiseEntries()
+	if err != nil {
+		return "", err
+	}
 	input := BuildRenderInput(conf, c.config.NodeName, routerID, vpcs, imports)
+	input.AdvertiseFilter = mergeAdvertiseEntries(input.AdvertiseFilter, poolEntries)
 	if err = ValidateRenderInput(input); err != nil {
 		return "", fmt.Errorf("invalid configuration from bgp-conf %s: %w", conf.Name, err)
 	}
@@ -364,6 +382,42 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 		})
 	}
 	return result, nil
+}
+
+func (c *Controller) collectPoolAdvertiseEntries() ([]string, error) {
+	pools, err := c.lbPoolLister.List(labels.Everything())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list loadbalancer-pools: %w", err)
+	}
+	entries := make([]string, 0, len(pools))
+	for _, pool := range pools {
+		if pool.Spec.Announce != kubeovnv1.LoadBalancerPoolAnnounceBGP {
+			continue
+		}
+		subnet, err := c.subnetLister.Get(pool.Spec.Subnet)
+		if err != nil {
+			klog.Warningf("loadbalancer-pool %s: subnet %s not found, skipping advertisement", pool.Name, pool.Spec.Subnet)
+			continue
+		}
+		for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
+			if cidr == "" || util.CheckProtocol(cidr) != kubeovnv1.ProtocolIPv4 {
+				continue
+			}
+			entries = append(entries, cidr+" ge 32 le 32")
+		}
+	}
+	sort.Strings(entries)
+	return entries, nil
+}
+
+func mergeAdvertiseEntries(base, extra []string) []string {
+	merged := slices.Clone(base)
+	for _, entry := range extra {
+		if !slices.Contains(merged, entry) {
+			merged = append(merged, entry)
+		}
+	}
+	return merged
 }
 
 func vrfPresent(vrfName string) bool {
