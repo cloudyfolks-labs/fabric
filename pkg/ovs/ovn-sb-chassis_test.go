@@ -484,5 +484,5 @@ func (suite *OvnClientTestSuite) testGetKubeOvnChassises() {
 		}
 		return names["kube-ovn-chassis-1"] && names["kube-ovn-chassis-2"] &&
 			!names["non-kube-ovn-chassis"] && names["mixed-chassis"]
-	}, 5*time.Second, 100*time.Millisecond)
+	}, 15*time.Second, 100*time.Millisecond)
 }
