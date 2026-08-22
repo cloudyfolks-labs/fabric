@@ -47,6 +47,28 @@ one, migrate to the replacement before you move to fabric.
 
 Install fabric directly. Use the fabric domains in all manifests.
 
+## Cluster-wide CNI outage
+
+The window between step 1 and step 6 is a cluster-wide CNI outage. No
+controller assigns IP addresses in that window. Each Pod that the
+scheduler starts in the window stays in `ContainerCreating` until
+fabric runs. Running Pods keep their network: ovn-central and ovs-ovn
+continue to forward.
+
+Do this before you start:
+
+- Cordon all nodes with `kubectl cordon`. This stops new Pods on the
+  nodes.
+- Stop the cluster autoscaler, and stop all CI jobs and CronJobs that
+  make Pods.
+- Do not drain the nodes. A drain makes new Pods that cannot get an IP
+  address.
+- Keep the window short. Prepare and check the converted manifests
+  before you stop the kube-ovn control plane.
+
+Uncordon the nodes after step 6, when the fabric controller reports
+that all Subnets are ready.
+
 ## Existing kube-ovn clusters
 
 A fresh install is the recommended path. An in-place migration is
@@ -69,11 +91,50 @@ possible with a maintenance window:
    logical switches, routers, and ports keep their names.
 7. Update workload manifests (Deployments, VirtualMachine templates)
    to the new annotation keys before the next rollout.
-8. Delete the old `*.kubeovn.io` CRDs only after all CRs are converted
-   and verified. fabric removes the legacy
-   `kubeovn.io/kube-ovn-controller` finalizer from converted objects
-   automatically.
+8. Remove the kube-ovn finalizers from the objects in the old API
+   group. fabric runs no controller for that group, so nothing else
+   removes them, and step 9 blocks for ever if they stay.
+
+   ```
+   hack/strip-legacy-finalizers.sh
+   hack/strip-legacy-finalizers.sh --apply
+   ```
+
+   The first command reports what it changes. The second command makes
+   the change. You can run both commands more than one time.
+9. Delete the old `*.kubeovn.io` CRDs only after all CRs are converted
+   and verified.
 
 Pods with kube-ovn secondary NICs get new logical switch port names on
 their next recreation because the provider suffix changed. Plan a
 rolling restart for multi-NIC workloads.
+
+## Rollback
+
+Rollback is possible until step 9. After step 9 the old CRs are gone,
+and you must restore them from the export you made in step 2.
+
+1. Cordon all nodes again.
+2. Stop the fabric control plane (controller, webhook). Do not stop
+   ovn-central or ovs-ovn.
+3. Remove the fabric finalizers from the fabric CRs. The script
+   removes `fabric.cloudyfolks.io/controller` from the old group only,
+   so use this command for the new group:
+
+   ```
+   for crd in $(kubectl get crd -o name | grep fabric.cloudyfolks.io); do
+     kubectl get "${crd#customresourcedefinition.apiextensions.k8s.io/}" -A -o name |
+       xargs -r -n1 kubectl patch --type=merge -p '{"metadata":{"finalizers":null}}'
+   done
+   ```
+
+4. Delete the fabric workloads and the fabric CRDs.
+5. Apply the CRs you exported in step 2, in the `kubeovn.io/v1` form.
+6. Put back the `ovn.kubernetes.io/` annotations on Pods, Nodes,
+   Namespaces and VirtualMachines. Set `spec.provider` back to
+   `...ovn` in Subnet and NetworkAttachmentDefinition objects.
+7. Install kube-ovn again. It adopts the same OVN database.
+8. Uncordon the nodes.
+
+The OVN northbound and southbound databases stay valid through the
+rollback. Only the Kubernetes objects change.
