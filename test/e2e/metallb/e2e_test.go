@@ -661,7 +661,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 			for i, ingress := range svc.Status.LoadBalancer.Ingress {
 				lbsvcIP := ingress.IP
 				ginkgo.By(fmt.Sprintf("Checking service %s[%d] with IP %s", svc.Name, i, lbsvcIP))
-				checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP, "80", clusterName, true)
+				checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP, "80", true)
 			}
 		}
 
@@ -675,7 +675,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		ginkgo.By("Checking the first service remains reachable with externalTrafficPolicy=Cluster")
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
 			if util.CheckProtocol(ingress.IP) == apiv1.ProtocolIPv4 {
-				checkReachable(f, containerID, clientIPv4, clientIPv6, ingress.IP, "80", clusterName, true)
+				checkReachable(f, containerID, clientIPv4, clientIPv6, ingress.IP, "80", true)
 			}
 		}
 
@@ -686,7 +686,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		deployClient.RolloutStatus(deployName)
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
 			if util.CheckProtocol(ingress.IP) == apiv1.ProtocolIPv4 {
-				checkReachable(f, containerID, clientIPv4, clientIPv6, ingress.IP, "80", clusterName, true)
+				checkReachable(f, containerID, clientIPv4, clientIPv6, ingress.IP, "80", true)
 			}
 		}
 
@@ -723,7 +723,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		for i, ingress := range service2.Status.LoadBalancer.Ingress {
 			lbsvcIP2 := ingress.IP
 			ginkgo.By(fmt.Sprintf("Checking service %s[%d] with IP %s after first service deletion", service2.Name, i, lbsvcIP2))
-			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", clusterName, true)
+			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", true)
 		}
 
 		ginkgo.By("Enabling u2oInterconnection on subnet")
@@ -740,7 +740,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		for _, ingress := range service2.Status.LoadBalancer.Ingress {
 			lbsvcIP2 := ingress.IP
 			ginkgo.By(fmt.Sprintf("Checking service %s with IP %s (with u2oInterconnection)", service2.Name, lbsvcIP2))
-			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", clusterName, true)
+			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", true)
 		}
 
 		ginkgo.By("Verifying OpenFlow rules use u2oInterconnection MAC")
@@ -774,7 +774,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		for _, ingress := range service2.Status.LoadBalancer.Ingress {
 			lbsvcIP2 := ingress.IP
 			ginkgo.By(fmt.Sprintf("Checking service %s with IP %s (after disabling u2oInterconnection)", service2.Name, lbsvcIP2))
-			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", clusterName, true)
+			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", true)
 		}
 	})
 
@@ -885,7 +885,7 @@ func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip 
 	}, "underlay pod traffic to VIP should reach a service backend")
 }
 
-func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6, targetIP, targetPort, clusterName string, expectReachable bool) {
+func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6, targetIP, targetPort string, expectReachable bool) {
 	ginkgo.GinkgoHelper()
 	ginkgo.By("checking curl reachable")
 	isIPv6 := util.CheckProtocol(targetIP) == apiv1.ProtocolIPv6
