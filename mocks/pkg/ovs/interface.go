@@ -785,6 +785,20 @@ func (m *MockGatewayChassis) EXPECT() *MockGatewayChassisMockRecorder {
 	return m.recorder
 }
 
+// DeleteGatewayChassisByChassisName mocks base method.
+func (m *MockGatewayChassis) DeleteGatewayChassisByChassisName(chassisName string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteGatewayChassisByChassisName", chassisName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteGatewayChassisByChassisName indicates an expected call of DeleteGatewayChassisByChassisName.
+func (mr *MockGatewayChassisMockRecorder) DeleteGatewayChassisByChassisName(chassisName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteGatewayChassisByChassisName", reflect.TypeOf((*MockGatewayChassis)(nil).DeleteGatewayChassisByChassisName), chassisName)
+}
+
 // UpdateGatewayChassis mocks base method.
 func (m *MockGatewayChassis) UpdateGatewayChassis(gwChassis *ovnnb.GatewayChassis, fields ...any) error {
 	m.ctrl.T.Helper()
@@ -802,6 +816,20 @@ func (mr *MockGatewayChassisMockRecorder) UpdateGatewayChassis(gwChassis any, fi
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{gwChassis}, fields...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassis", reflect.TypeOf((*MockGatewayChassis)(nil).UpdateGatewayChassis), varargs...)
+}
+
+// UpdateGatewayChassises mocks base method.
+func (m *MockGatewayChassis) UpdateGatewayChassises(lrpName string, chassises []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateGatewayChassises", lrpName, chassises)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateGatewayChassises indicates an expected call of UpdateGatewayChassises.
+func (mr *MockGatewayChassisMockRecorder) UpdateGatewayChassises(lrpName, chassises any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassises", reflect.TypeOf((*MockGatewayChassis)(nil).UpdateGatewayChassises), lrpName, chassises)
 }
 
 // MockBFD is a mock of BFD interface.
@@ -3983,6 +4011,20 @@ func (mr *MockNbClientMockRecorder) DeleteDHCPOptionsForPort(portName any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDHCPOptionsForPort", reflect.TypeOf((*MockNbClient)(nil).DeleteDHCPOptionsForPort), portName)
 }
 
+// DeleteGatewayChassisByChassisName mocks base method.
+func (m *MockNbClient) DeleteGatewayChassisByChassisName(chassisName string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteGatewayChassisByChassisName", chassisName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteGatewayChassisByChassisName indicates an expected call of DeleteGatewayChassisByChassisName.
+func (mr *MockNbClientMockRecorder) DeleteGatewayChassisByChassisName(chassisName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteGatewayChassisByChassisName", reflect.TypeOf((*MockNbClient)(nil).DeleteGatewayChassisByChassisName), chassisName)
+}
+
 // DeleteHAChassisGroup mocks base method.
 func (m *MockNbClient) DeleteHAChassisGroup(name string) error {
 	m.ctrl.T.Helper()
@@ -5905,6 +5947,20 @@ func (mr *MockNbClientMockRecorder) UpdateGatewayChassis(gwChassis any, fields .
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{gwChassis}, fields...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassis", reflect.TypeOf((*MockNbClient)(nil).UpdateGatewayChassis), varargs...)
+}
+
+// UpdateGatewayChassises mocks base method.
+func (m *MockNbClient) UpdateGatewayChassises(lrpName string, chassises []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateGatewayChassises", lrpName, chassises)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateGatewayChassises indicates an expected call of UpdateGatewayChassises.
+func (mr *MockNbClientMockRecorder) UpdateGatewayChassises(lrpName, chassises any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassises", reflect.TypeOf((*MockNbClient)(nil).UpdateGatewayChassises), lrpName, chassises)
 }
 
 // UpdateIngressACLOps mocks base method.

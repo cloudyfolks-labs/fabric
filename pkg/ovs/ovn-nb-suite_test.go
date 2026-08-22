@@ -481,16 +481,16 @@ func (suite *OvnClientTestSuite) Test_MonitorBFDs() {
 }
 
 /* gateway_chassis unit test */
-func (suite *OvnClientTestSuite) Test_CreateGatewayChassises() {
-	suite.testCreateGatewayChassises()
+func (suite *OvnClientTestSuite) Test_UpdateGatewayChassises() {
+	suite.testUpdateGatewayChassises()
+}
+
+func (suite *OvnClientTestSuite) Test_DeleteGatewayChassisByChassisName() {
+	suite.testDeleteGatewayChassisByChassisName()
 }
 
 func (suite *OvnClientTestSuite) Test_UpdateGatewayChassis() {
 	suite.testUpdateGatewayChassis()
-}
-
-func (suite *OvnClientTestSuite) Test_NewGatewayChassis() {
-	suite.testNewGatewayChassis()
 }
 
 /* ha_chassis_group unit test */

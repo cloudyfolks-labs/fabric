@@ -78,7 +78,7 @@ func (c *OVNNbClient) CreateLogicalPatchPort(lsName, lrName, lspName, lrpName, i
 	}
 
 	/* create gateway chassises for logical router port */
-	if err := c.CreateGatewayChassises(lrpName, chassises...); err != nil {
+	if err := c.UpdateGatewayChassises(lrpName, chassises); err != nil {
 		err := fmt.Errorf("create gateway chassises for logical router port %s: %w", lrpName, err)
 		klog.Error(err)
 		return err
