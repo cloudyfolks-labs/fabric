@@ -465,3 +465,23 @@ an empty focus.
   the last CI run of the `Lint and unit test` job.
 - `go mod tidy`, `make gen-crd` and `make verify-version` leave no diff.
 - `helm lint` and `helm template` pass for the chart.
+
+## F19: Withdrawal of a VPC can remove all VRF devices on its gateway chassis
+
+Observed once on the local e2e rig during the multi-VPC isolation spec.
+Three VPCs held dynamic-routing VRFs. Two VPCs failed over to the
+second gateway node, which then held all three VRFs. The test then
+withdrew the EIP and FIP of the VPC that was native to that node. After
+the withdrawal, the node had zero VRF devices. The FRR agent still
+rendered all BGP VRF instances, but with no kernel VRFs there was
+nothing to redistribute, and the two surviving VPCs lost their
+advertisements permanently.
+
+The VRF devices belong to ovn-controller route_exchange, so the defect
+is in the OVN layer teardown path, not in the FRR agent. The trigger is
+sensitive to which chassis hosts the withdrawn VPC. The solo run of the
+same spec, where the withdrawn VPC was one of the moved VPCs, passes.
+
+Status: open. The e2e spec now always withdraws a moved VPC so the
+suite stays deterministic. Track the OVN route_exchange teardown bug
+separately before enabling dynamic routing at scale on Bedrock.

@@ -584,27 +584,34 @@ ip protocol bgp route-map OVN-NO-FIB
 				"EIP of "+w.vpcName+" must still be advertised from its original chassis")
 		}
 
-		ginkgo.By("Withdrawing VPC " + wb.vpcName + " only")
-		setVpcStaticRoutes(f, wb.vpcName, nil)
-		f.OvnFipClient().DeleteSync(wb.fipName)
-		wb.fipCreated = false
-		f.OvnEipClient().DeleteSync(wb.eipName)
-		wb.eipCreated = false
+		withdrawn := moved[0]
+		survivors := make([]*drWorkload, 0, 2)
+		for _, w := range []*drWorkload{wa, wb, wc} {
+			if w != withdrawn {
+				survivors = append(survivors, w)
+			}
+		}
+		ginkgo.By("Withdrawing VPC " + withdrawn.vpcName + " only")
+		setVpcStaticRoutes(f, withdrawn.vpcName, nil)
+		f.OvnFipClient().DeleteSync(withdrawn.fipName)
+		withdrawn.fipCreated = false
+		f.OvnEipClient().DeleteSync(withdrawn.eipName)
+		withdrawn.eipCreated = false
 		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
 			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
 			if err != nil {
 				return false, nil
 			}
-			return !strings.Contains(string(stdout), wb.eipV4+"/32"), nil
-		}, "EIP of "+wb.vpcName+" withdrawn on ToR")
-		for _, w := range []*drWorkload{wa, wc} {
+			return !strings.Contains(string(stdout), withdrawn.eipV4+"/32"), nil
+		}, "EIP of "+withdrawn.vpcName+" withdrawn on ToR")
+		for _, w := range survivors {
 			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
 				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
 				if err != nil {
 					return false, nil
 				}
 				return strings.Contains(string(stdout), w.eipV4+"/32"), nil
-			}, "EIP of "+w.vpcName+" must survive the withdrawal of "+wb.vpcName)
+			}, "EIP of "+w.vpcName+" must survive the withdrawal of "+withdrawn.vpcName)
 		}
 	})
 })
