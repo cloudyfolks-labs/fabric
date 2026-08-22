@@ -204,6 +204,9 @@ features:
   # -- Enable Kube-OVN loadbalancers
   # @section -- Opt-in/out Features
   enableLoadbalancer: true
+  # -- Prefer the local chassis backend on OVN loadbalancers
+  # @section -- Opt-in/out Features
+  enableOvnLbPreferLocal: false
   # -- Enable Kube-OVN network policies
   # @section -- Opt-in/out Features
   enableNetworkPolicies: true

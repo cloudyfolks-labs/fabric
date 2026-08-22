@@ -145,6 +145,14 @@ spec:
           - --pod-nic-type={{- .Values.networking.podNicType }}
           - --enable-lb={{- .Values.features.enableLoadbalancer }}
           - --enable-np={{- .Values.features.enableNetworkPolicies }}
+          - --enable-eip-snat={{- .Values.networking.enableEipSnat }}
+          {{- if .Values.networking.externalGatewayConfigNs }}
+          - --external-gateway-config-ns={{- .Values.networking.externalGatewayConfigNs }}
+          {{- end }}
+          {{- if .Values.networking.externalGatewaySwitch }}
+          - --external-gateway-switch={{- .Values.networking.externalGatewaySwitch }}
+          {{- end }}
+          - --enable-external-vpc={{- .Values.features.enableExternalVpcs }}
           - --enable-ecmp={{- .Values.networking.enableEcmp }}
           - --logtostderr=false
           - --alsologtostderr=true
@@ -168,6 +176,7 @@ spec:
           - --ovsdb-con-timeout={{- .Values.features.OVSDB_CON_TIMEOUT }}
           - --ovsdb-inactivity-timeout={{- .Values.features.OVSDB_INACTIVITY_TIMEOUT }}
           - --enable-live-migration-optimize={{- .Values.features.enableLiveMigrationOptimization }}
+          - --enable-ovn-lb-prefer-local={{- .Values.features.enableOvnLbPreferLocal }}
           - --image={{ $controllerImage.prefix }}{{ $controllerImage.repository }}:{{ $controllerImage.tag }}
           - --non-primary-cni-mode={{- .Values.cni.nonPrimaryCNI }}
           - --np-enforcement={{- .Values.networkPolicies.enforcement | quote }}

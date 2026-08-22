@@ -136,6 +136,8 @@ type LogicalSwitchPort interface {
 type LoadBalancer interface {
 	CreateLoadBalancer(lbName, protocol string, selectFields ...string) error
 	LoadBalancerAddVip(lbName, vip string, backends ...string) error
+	SetLoadBalancerVIPExternalTrafficLocal(lbName, vip, vipNodeLSP string) error
+	SetLoadBalancerPreferLocalBackend(lbName string, preferLocalBackend bool) error
 	LoadBalancerDeleteVip(lbName, vip string, ignoreHealthCheck bool) error
 	LoadBalancerAddIPPortMapping(lbName, vip string, ipPortMappings map[string]string) error
 	LoadBalancerUpdateIPPortMapping(lbName, vip string, ipPortMappings map[string]string) error

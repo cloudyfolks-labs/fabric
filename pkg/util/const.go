@@ -354,6 +354,7 @@ const (
 	UnderlaySvcLocalOpenFlowCookieV6 = 0x1001
 
 	MasqueradeExternalLBAccessMac = "00:00:00:01:00:01"
+	MasqueradeCheckIP             = "0.0.0.0"
 )
 
 const (

@@ -215,6 +215,10 @@ type Controller struct {
 	epsIndexer                    cache.Indexer
 	addOrUpdateEndpointSliceQueue workqueue.TypedRateLimitingInterface[string]
 	epKeyMutex                    keymutex.KeyMutex
+	serviceL2StatusMutex          sync.RWMutex
+	serviceL2StatusIndexer        cache.Indexer
+	serviceL2StatusSynced         cache.InformerSynced
+	serviceL2StatusStarted        bool
 
 	deploymentsLister appsv1.DeploymentLister
 	deploymentsSynced cache.InformerSynced
@@ -697,6 +701,8 @@ func Run(ctx context.Context, config *Configuration) {
 	// ServiceCIDR (networking.k8s.io/v1) is GA in K8s 1.33; older clusters
 	// don't have the API at all. Best-effort start with periodic retry.
 	controller.StartServiceCIDRInformerFactory(ctx)
+
+	controller.StartServiceL2StatusInformer(ctx)
 
 	// Wait for the caches to be synced before starting workers
 	controller.informerFactory.Start(ctx.Done())

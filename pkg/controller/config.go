@@ -137,6 +137,7 @@ type Configuration struct {
 	LsCtSkipDstLportIPs     bool
 
 	EnableLb                    bool
+	EnableOVNLBPreferLocal      bool
 	EnableNP                    bool
 	EnableEcmp                  bool
 	EnableKeepVMIP              bool
@@ -240,6 +241,7 @@ func ParseFlags() (*Configuration, error) {
 		argLsCtSkipDstLportIPs         = pflag.Bool("ls-ct-skip-dst-lport-ips", true, "Skip conntrack for direct traffic between lports")
 		argPodNicType                  = pflag.String("pod-nic-type", "veth-pair", "The default pod network nic implementation type")
 		argEnableLb                    = pflag.Bool("enable-lb", true, "Enable load balancer")
+		argEnableOVNLBPreferLocal      = pflag.Bool("enable-ovn-lb-prefer-local", false, "Whether to support ovn loadbalancer prefer local")
 		argEnableNP                    = pflag.Bool("enable-np", true, "Enable network policy support")
 		argNPEnforcement               = pflag.String("np-enforcement", "standard", "Network policy enforcement mode: standard or lax")
 		argEnableEcmp                  = pflag.Bool("enable-ecmp", false, "Enable ecmp route for centralized subnet")
@@ -339,6 +341,7 @@ func ParseFlags() (*Configuration, error) {
 		PodNicType:                     *argPodNicType,
 		LeaderElection:                 leaderElectionConfig,
 		EnableLb:                       *argEnableLb,
+		EnableOVNLBPreferLocal:         *argEnableOVNLBPreferLocal,
 		EnableNP:                       *argEnableNP,
 		ExternalGatewaySwitch:          "external",
 		EnableEcmp:                     *argEnableEcmp,

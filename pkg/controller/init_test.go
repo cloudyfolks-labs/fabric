@@ -229,6 +229,10 @@ func TestInitLB_SkipsCtFlushForSessionAffinityUDP(t *testing.T) {
 					CreateLoadBalancer(lbName, tt.protocol).
 					Return(nil)
 			}
+			mockOvnClient.EXPECT().
+				SetLoadBalancerPreferLocalBackend(lbName, gomock.Any()).
+				Return(nil)
+
 			if tt.expectCtFlushCall {
 				mockOvnClient.EXPECT().
 					SetLoadBalancerCtFlush(lbName, true).

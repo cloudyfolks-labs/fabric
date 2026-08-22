@@ -2,6 +2,7 @@ package kubevirt
 
 import (
 	"context"
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"net"
@@ -27,6 +28,7 @@ import (
 
 	apiv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
 	"github.com/kubeovn/kube-ovn/pkg/ipam"
+	"github.com/kubeovn/kube-ovn/pkg/ovs"
 	"github.com/kubeovn/kube-ovn/pkg/util"
 	"github.com/kubeovn/kube-ovn/test/e2e/framework"
 	"github.com/kubeovn/kube-ovn/test/e2e/framework/docker"
@@ -35,8 +37,9 @@ import (
 )
 
 const (
-	dockerNetworkName = "kube-ovn-vlan"
-	curlListenPort    = 80
+	dockerNetworkName         = "kube-ovn-vlan"
+	localExternalVIPKeyPrefix = "kube-ovn.io/local-external-vip/"
+	curlListenPort            = 80
 )
 
 type underlayTestEnvironment struct {
@@ -65,6 +68,14 @@ const (
 	internalVIPClientOnNonVIPBackendNode internalVIPClientTopology = "non-VIP node with a local backend"
 	internalVIPClientOnNonBackendNode    internalVIPClientTopology = "node without a local backend"
 )
+
+type logicalFlow struct {
+	pipeline string
+	tableID  int
+	priority int
+	match    string
+	actions  string
+}
 
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
@@ -440,8 +451,15 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		}
 		framework.ExpectNotEmpty(vip, "no IPv4 LoadBalancer ingress IP was assigned")
 		waitUnderlayServiceFlowOnAnyNode(nodeNames, providerNetworkName, vip, curlListenPort, 30*time.Second)
+		for _, clusterIP := range service.Spec.ClusterIPs {
+			if util.CheckProtocol(clusterIP) == apiv1.ProtocolIPv4 {
+				expectNoUnderlayVIPBypassLFlow(clusterIP, curlListenPort)
+			}
+		}
 
 		vipNode := getVIPNodeFromService(f, service.Name)
+		waitUnderlayVIPBypassLFlow(vip, curlListenPort, 30*time.Second)
+		waitUnderlayVIPNodeLFlow(vip, util.NodeLspName(vipNode), curlListenPort, 30*time.Second)
 
 		backendPodList, err := cs.CoreV1().Pods(f.Namespace.Name).List(context.Background(), metav1.ListOptions{
 			LabelSelector: "app=nginx-internal",
@@ -479,6 +497,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		}
 		framework.ExpectNotEmpty(env.nonVIPBackendNode, "no non-VIP node with a local backend is available")
 		framework.ExpectNotEmpty(env.nonVIPNode, "no node without a local backend is available")
+		waitUnderlayVIPBackendLFlowAbsent(env.backendPods, vipNode, 30*time.Second)
 		return env
 	}
 
@@ -512,10 +531,10 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 	runInternalVIPTopologyCase := func(env *internalVIPTestEnvironment, topology internalVIPClientTopology) {
 		client := createInternalVIPClient(env, topology)
 		defer f.PodClient().DeleteSync(client.Name)
-		checkInternalPodVIPBackend(f, client, env.vip)
+		checkInternalPodVIPBackend(f, client, env.vip, env.vipNode)
 	}
 
-	moveInternalVIPNode := func(env *internalVIPTestEnvironment, newVIPNode string) {
+	moveInternalVIPNode := func(env *internalVIPTestEnvironment, newVIPNode, lbName string, expectBackendL2Lookup bool) {
 		oldVIPNode := env.vipNode
 		ginkgo.By(fmt.Sprintf("Moving the L2Advertisement from %s to %s", oldVIPNode, newVIPNode))
 		advertisement := env.l2Advertisement.DeepCopy()
@@ -528,6 +547,15 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		framework.ExpectNoError(err)
 		env.l2Advertisement = updatedAdvertisement
 		waitVIPNodeFromService(f, env.service.Name, newVIPNode, 30*time.Second)
+
+		waitLoadBalancerVIPNodeMarker(lbName, env.vip, util.NodeLspName(newVIPNode), 30*time.Second)
+		waitUnderlayVIPBypassLFlow(env.vip, curlListenPort, 30*time.Second)
+		waitUnderlayVIPNodeLFlowCleaned(env.vip, util.NodeLspName(oldVIPNode), curlListenPort, 30*time.Second)
+		waitUnderlayVIPNodeLFlow(env.vip, util.NodeLspName(newVIPNode), curlListenPort, 30*time.Second)
+		if expectBackendL2Lookup {
+			waitUnderlayVIPBackendLFlowAbsent(env.backendPods, oldVIPNode, 30*time.Second)
+			waitUnderlayVIPBackendLFlows(env.backendPods, newVIPNode, 30*time.Second)
+		}
 		env.vipNode = newVIPNode
 	}
 
@@ -542,6 +570,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 			env.subnet = subnetClient.Get(subnetName)
 			return env.subnet.Status.U2OInterconnectionMAC != "", nil
 		}, "u2oInterconnection MAC not set")
+		waitUnderlayVIPBackendLFlows(env.backendPods, env.vipNode, 30*time.Second)
 	}
 
 	disableU2O := func(env *internalVIPTestEnvironment) {
@@ -555,6 +584,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 			env.subnet = subnetClient.Get(subnetName)
 			return env.subnet.Status.U2OInterconnectionMAC == "", nil
 		}, "u2oInterconnection MAC not cleared")
+		waitUnderlayVIPBackendLFlowAbsent(env.backendPods, env.vipNode, 30*time.Second)
 	}
 
 	addUnderlayPolicyRoutes := func(cidrV4 string) {
@@ -639,13 +669,24 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 
 		service = f.ServiceClient().Get(serviceName)
 		service2 = f.ServiceClient().Get(serviceName2)
+		tcpLoadBalancer := f.VpcClient().Get(util.DefaultVpc).Status.TCPLoadBalancer
+		framework.ExpectNotEmpty(tcpLoadBalancer, "default VPC TCP load balancer should be set")
+		vipNodes := make(map[string]string, 2)
 		for _, svc := range []*corev1.Service{service, service2} {
+			for _, clusterIP := range svc.Spec.ClusterIPs {
+				if util.CheckProtocol(clusterIP) == apiv1.ProtocolIPv4 {
+					expectNoUnderlayVIPBypassLFlow(clusterIP, curlListenPort)
+				}
+			}
 			for _, ingress := range svc.Status.LoadBalancer.Ingress {
 				if util.CheckProtocol(ingress.IP) != apiv1.ProtocolIPv4 {
 					continue
 				}
 				vipNode := getVIPNodeFromService(f, svc.Name)
-				framework.Logf("service %s VIP %s is announced from node %s", svc.Name, ingress.IP, vipNode)
+				vipNodes[ingress.IP] = vipNode
+				waitLoadBalancerVIPNodeMarker(tcpLoadBalancer, ingress.IP, util.NodeLspName(vipNode), 30*time.Second)
+				waitUnderlayVIPBypassLFlow(ingress.IP, curlListenPort, 30*time.Second)
+				waitUnderlayVIPNodeLFlow(ingress.IP, util.NodeLspName(vipNode), curlListenPort, 30*time.Second)
 			}
 		}
 
@@ -661,7 +702,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 			for i, ingress := range svc.Status.LoadBalancer.Ingress {
 				lbsvcIP := ingress.IP
 				ginkgo.By(fmt.Sprintf("Checking service %s[%d] with IP %s", svc.Name, i, lbsvcIP))
-				checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP, "80", true)
+				checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP, "80", clusterName, true)
 			}
 		}
 
@@ -671,22 +712,36 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		service = serviceClient.PatchSync(service, modifiedService, func(s *corev1.Service) (bool, error) {
 			return s.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeCluster, nil
 		}, "externalTrafficPolicy is Cluster")
+		for _, ingress := range service.Status.LoadBalancer.Ingress {
+			if util.CheckProtocol(ingress.IP) != apiv1.ProtocolIPv4 {
+				continue
+			}
+			waitLoadBalancerVIPNodeMarker(tcpLoadBalancer, ingress.IP, "", 30*time.Second)
+			waitUnderlayVIPBypassLFlowCleaned(ingress.IP, curlListenPort, 30*time.Second)
+			waitUnderlayVIPNodeLFlowCleaned(ingress.IP, util.NodeLspName(vipNodes[ingress.IP]), curlListenPort, 30*time.Second)
+		}
+		waitServiceVIPNodeMarkers(tcpLoadBalancer, service2, vipNodes, 30*time.Second)
 
 		ginkgo.By("Checking the first service remains reachable with externalTrafficPolicy=Cluster")
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
 			if util.CheckProtocol(ingress.IP) == apiv1.ProtocolIPv4 {
-				checkReachable(f, containerID, clientIPv4, clientIPv6, ingress.IP, "80", true)
+				checkReachable(f, containerID, clientIPv4, clientIPv6, ingress.IP, "80", clusterName, true)
 			}
 		}
 
 		ginkgo.By("Refreshing endpoints while the first service uses externalTrafficPolicy=Cluster")
 		deployClient.SetScale(deployName, 2)
 		deployClient.RolloutStatus(deployName)
+		for _, ingress := range service.Status.LoadBalancer.Ingress {
+			if util.CheckProtocol(ingress.IP) == apiv1.ProtocolIPv4 {
+				waitLoadBalancerVIPBackendCount(tcpLoadBalancer, ingress.IP, curlListenPort, 2, 30*time.Second)
+			}
+		}
 		deployClient.SetScale(deployName, 3)
 		deployClient.RolloutStatus(deployName)
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
 			if util.CheckProtocol(ingress.IP) == apiv1.ProtocolIPv4 {
-				checkReachable(f, containerID, clientIPv4, clientIPv6, ingress.IP, "80", true)
+				waitLoadBalancerVIPBackendCount(tcpLoadBalancer, ingress.IP, curlListenPort, 3, 30*time.Second)
 			}
 		}
 
@@ -696,6 +751,15 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		service = serviceClient.PatchSync(service, modifiedService, func(s *corev1.Service) (bool, error) {
 			return s.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal, nil
 		}, "externalTrafficPolicy is Local")
+		for _, ingress := range service.Status.LoadBalancer.Ingress {
+			if util.CheckProtocol(ingress.IP) != apiv1.ProtocolIPv4 {
+				continue
+			}
+			waitLoadBalancerVIPNodeMarker(tcpLoadBalancer, ingress.IP, util.NodeLspName(vipNodes[ingress.IP]), 30*time.Second)
+			waitUnderlayVIPBypassLFlow(ingress.IP, curlListenPort, 30*time.Second)
+			waitUnderlayVIPNodeLFlow(ingress.IP, util.NodeLspName(vipNodes[ingress.IP]), curlListenPort, 30*time.Second)
+		}
+		waitServiceVIPNodeMarkers(tcpLoadBalancer, service2, vipNodes, 30*time.Second)
 
 		ginkgo.By("Restarting ds kube-ovn-cni")
 		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
@@ -717,13 +781,19 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		ginkgo.By("Waiting for first service's underlay OpenFlow rules to be cleaned up")
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
 			waitUnderlayServiceFlowCleaned(nodeNames, providerNetworkName, ingress.IP, curlListenPort, 30*time.Second)
+			if util.CheckProtocol(ingress.IP) == apiv1.ProtocolIPv4 {
+				waitLoadBalancerVIPNodeMarker(tcpLoadBalancer, ingress.IP, "", 30*time.Second)
+				waitUnderlayVIPBypassLFlowCleaned(ingress.IP, curlListenPort, 30*time.Second)
+				waitUnderlayVIPNodeLFlowCleaned(ingress.IP, util.NodeLspName(vipNodes[ingress.IP]), curlListenPort, 30*time.Second)
+			}
 		}
+		waitServiceVIPNodeMarkers(tcpLoadBalancer, service2, vipNodes, 30*time.Second)
 
 		ginkgo.By("Checking the second service is still reachable after first service deletion")
 		for i, ingress := range service2.Status.LoadBalancer.Ingress {
 			lbsvcIP2 := ingress.IP
 			ginkgo.By(fmt.Sprintf("Checking service %s[%d] with IP %s after first service deletion", service2.Name, i, lbsvcIP2))
-			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", true)
+			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", clusterName, true)
 		}
 
 		ginkgo.By("Enabling u2oInterconnection on subnet")
@@ -740,7 +810,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		for _, ingress := range service2.Status.LoadBalancer.Ingress {
 			lbsvcIP2 := ingress.IP
 			ginkgo.By(fmt.Sprintf("Checking service %s with IP %s (with u2oInterconnection)", service2.Name, lbsvcIP2))
-			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", true)
+			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", clusterName, true)
 		}
 
 		ginkgo.By("Verifying OpenFlow rules use u2oInterconnection MAC")
@@ -774,7 +844,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		for _, ingress := range service2.Status.LoadBalancer.Ingress {
 			lbsvcIP2 := ingress.IP
 			ginkgo.By(fmt.Sprintf("Checking service %s with IP %s (after disabling u2oInterconnection)", service2.Name, lbsvcIP2))
-			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", true)
+			checkReachable(f, containerID, clientIPv4, clientIPv6, lbsvcIP2, "80", clusterName, true)
 		}
 	})
 
@@ -825,9 +895,13 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		firstVIPNode := env.vipNode
 		secondVIPNode := env.nonVIPBackendNode
 
+		tcpLoadBalancer := f.VpcClient().Get(util.DefaultVpc).Status.TCPLoadBalancer
+		framework.ExpectNotEmpty(tcpLoadBalancer, "default VPC TCP load balancer should be set")
+		waitLoadBalancerVIPNodeMarker(tcpLoadBalancer, env.vip, util.NodeLspName(firstVIPNode), 30*time.Second)
+
 		moveVIP := func(oldVIPNode, newVIPNode string) {
 			framework.ExpectEqual(env.vipNode, oldVIPNode)
-			moveInternalVIPNode(env, newVIPNode)
+			moveInternalVIPNode(env, newVIPNode, tcpLoadBalancer, true)
 		}
 
 		moveVIP(firstVIPNode, secondVIPNode)
@@ -842,7 +916,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		disableU2O(env)
 	})
 
-	framework.ConformanceIt("should keep ClientIP session affinity when the internal underlay VIP moves", func() {
+	framework.ConformanceIt("should keep ClientIP session affinity on the announcing node when the internal underlay VIP moves", func() {
 		env := setupInternalVIPEnvironment()
 		client := createInternalVIPClient(env, internalVIPClientOnNonBackendNode)
 		defer f.PodClient().DeleteSync(client.Name)
@@ -854,22 +928,38 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 			return s.Spec.SessionAffinity == corev1.ServiceAffinityClientIP, nil
 		}, "sessionAffinity is ClientIP")
 
-		checkInternalPodVIPBackend(f, client, env.vip)
+		tcpSessionLoadBalancer := f.VpcClient().Get(util.DefaultVpc).Status.TCPSessionLoadBalancer
+		framework.ExpectNotEmpty(tcpSessionLoadBalancer, "default VPC TCP session load balancer should be set")
+		waitLoadBalancerVIPNodeMarker(tcpSessionLoadBalancer, env.vip, util.NodeLspName(env.vipNode), 30*time.Second)
+		waitUnderlayVIPAffinityLFlow(env.vip, util.NodeLspName(env.vipNode), 30*time.Second)
+		checkInternalPodVIPBackend(f, client, env.vip, env.vipNode)
 
-		moveInternalVIPNode(env, env.nonVIPBackendNode)
-		checkInternalPodVIPBackend(f, client, env.vip)
+		oldVIPNodeLSP := util.NodeLspName(env.vipNode)
+		moveInternalVIPNode(env, env.nonVIPBackendNode, tcpSessionLoadBalancer, false)
+		waitUnderlayVIPAffinityLFlowCleaned(env.vip, oldVIPNodeLSP, 30*time.Second)
+		waitUnderlayVIPAffinityLFlow(env.vip, util.NodeLspName(env.vipNode), 30*time.Second)
+		checkInternalPodVIPBackend(f, client, env.vip, env.vipNode)
 	})
 })
 
-// checkInternalPodVIPBackend asserts what fabric guarantees for an underlay
-// VIP under Cluster semantics: the VIP answers and the reply comes from a
-// backend of the service. Backend locality and client source IP preservation
-// were guarantees of the removed prefer-local mode; source IP preservation
-// for the supported path is covered by the router-lb-rule suite.
-func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip string) {
+func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip, vipNode string) {
 	ginkgo.GinkgoHelper()
 
-	ginkgo.By("Checking the VIP resolves to a backend of the service")
+	ginkgo.By("Checking the backend observes the original client Pod IP")
+	clientIPCommand := fmt.Sprintf("curl -q -s --connect-timeout 2 --max-time 2 %s/clientip", net.JoinHostPort(vip, "80"))
+	framework.WaitUntil(2*time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
+		output, _, err := framework.ExecShellInPod(context.Background(), f, client.Namespace, client.Name, clientIPCommand)
+		if err != nil {
+			return false, nil
+		}
+		observedClientIP, _, err := net.SplitHostPort(strings.TrimSpace(output))
+		if err != nil {
+			return false, nil
+		}
+		return observedClientIP == client.Status.PodIP, nil
+	}, "underlay VIP backend should observe the original client Pod IP")
+
+	ginkgo.By("Checking the selected backend is on the VIP announcing node")
 	hostnameCommand := fmt.Sprintf("curl -q -s --connect-timeout 2 --max-time 2 %s/hostname", net.JoinHostPort(vip, "80"))
 	framework.WaitUntil(2*time.Second, 30*time.Second, func(ctx context.Context) (bool, error) {
 		output, _, err := framework.ExecShellInPod(context.Background(), f, client.Namespace, client.Name, hostnameCommand)
@@ -881,11 +971,290 @@ func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip 
 		if err != nil {
 			return false, nil
 		}
-		return backend.Labels["app"] == "nginx-internal", nil
-	}, "underlay pod traffic to VIP should reach a service backend")
+		return backend.Spec.NodeName == vipNode, nil
+	}, "underlay pod traffic to VIP should be DNATed on the VIP node")
 }
 
-func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6, targetIP, targetPort string, expectReachable bool) {
+func waitServiceVIPNodeMarkers(lbName string, service *corev1.Service, vipNodes map[string]string, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	for _, ingress := range service.Status.LoadBalancer.Ingress {
+		if util.CheckProtocol(ingress.IP) == apiv1.ProtocolIPv4 {
+			framework.ExpectHaveKey(vipNodes, ingress.IP)
+			waitLoadBalancerVIPNodeMarker(lbName, ingress.IP, util.NodeLspName(vipNodes[ingress.IP]), timeout)
+		}
+	}
+}
+
+func waitLoadBalancerVIPNodeMarker(lbName, vip, expectedNodeLSP string, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	key := localExternalVIPKeyPrefix + util.JoinHostPort(vip, curlListenPort)
+	description := fmt.Sprintf("load balancer %s external ID %s should be absent", lbName, key)
+	if expectedNodeLSP != "" {
+		description = fmt.Sprintf("load balancer %s external ID %s should equal %q", lbName, key, expectedNodeLSP)
+	}
+	framework.WaitUntil(time.Second, timeout, func(_ context.Context) (bool, error) {
+		exists, err := hasLoadBalancerExternalID(lbName, key, expectedNodeLSP)
+		if err != nil {
+			return false, nil
+		}
+		if expectedNodeLSP == "" {
+			return !exists, nil
+		}
+		return exists, nil
+	}, description)
+}
+
+func hasLoadBalancerExternalID(lbName, key, value string) (bool, error) {
+	condition := fmt.Sprintf(`'external_ids:"%s"!=[]'`, key)
+	if value != "" {
+		condition = fmt.Sprintf(`'external_ids:"%s"="%s"'`, key, value)
+	}
+	stdout, stderr, err := framework.NBExec(
+		"ovn-nbctl",
+		"--data=bare",
+		"--format=csv",
+		"--no-heading",
+		"--columns=_uuid",
+		"find",
+		"Load_Balancer",
+		"name="+lbName,
+		condition,
+	)
+	if err != nil {
+		return false, fmt.Errorf("finding load balancer %s external ID %s: %w, stderr: %s", lbName, key, err, stderr)
+	}
+	return strings.TrimSpace(string(stdout)) != "", nil
+}
+
+func waitLoadBalancerVIPBackendCount(lbName, vip string, port int32, expectedCount int, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	vipKey := util.JoinHostPort(vip, port)
+	framework.WaitUntil(time.Second, timeout, func(_ context.Context) (bool, error) {
+		backendList, err := getLoadBalancerVIPBackends(lbName, vipKey)
+		if err != nil {
+			return false, nil
+		}
+		if backendList == "" {
+			return expectedCount == 0, nil
+		}
+		return len(strings.Split(backendList, ",")) == expectedCount, nil
+	}, fmt.Sprintf("load balancer %s VIP %s should have %d backends", lbName, vipKey, expectedCount))
+}
+
+func getLoadBalancerVIPBackends(lbName, vipKey string) (string, error) {
+	stdout, stderr, err := framework.NBExec(
+		"ovn-nbctl",
+		"--data=bare",
+		"--no-heading",
+		"get",
+		"Load_Balancer",
+		lbName,
+		fmt.Sprintf("'vips:%q'", vipKey),
+	)
+	if err != nil {
+		return "", fmt.Errorf("getting load balancer %s vip %s backends: %w, stderr: %s", lbName, vipKey, err, stderr)
+	}
+	return strings.Trim(strings.TrimSpace(string(stdout)), `"`), nil
+}
+
+func waitUnderlayVIPBypassLFlow(vip string, port int32, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	match := fmt.Sprintf("ct.new && ip4.dst == %s && tcp.dst == %d", vip, port)
+	waitLogicalFlowCount(1, timeout, "exactly one VIP bypass lflow should exist", func(flow logicalFlow) bool {
+		return flow.pipeline == "ingress" && flow.tableID == 13 && flow.priority == 139 &&
+			flow.match == match && flow.actions == "next;"
+	})
+}
+
+func expectNoUnderlayVIPBypassLFlow(vip string, port int32) {
+	ginkgo.GinkgoHelper()
+
+	waitUnderlayVIPBypassLFlowCleaned(vip, port, 5*time.Second)
+}
+
+func waitUnderlayVIPBypassLFlowCleaned(vip string, port int32, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	match := fmt.Sprintf("ct.new && ip4.dst == %s && tcp.dst == %d", vip, port)
+	waitLogicalFlowCount(0, timeout, "VIP bypass lflow should be absent", func(flow logicalFlow) bool {
+		return flow.pipeline == "ingress" && flow.tableID == 13 && flow.priority == 139 &&
+			flow.match == match && flow.actions == "next;"
+	})
+}
+
+func waitUnderlayVIPNodeLFlow(vip, vipNodeLSP string, port int32, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	match := fmt.Sprintf(
+		"ct.new && ip4.dst == %s && tcp.dst == %d && is_chassis_resident(\"%s\")",
+		vip,
+		port,
+		vipNodeLSP,
+	)
+	waitLogicalFlowCount(1, timeout, "exactly one VIP DNAT lflow should be resident on the announcing node", func(flow logicalFlow) bool {
+		return flow.pipeline == "ingress" && flow.tableID == 13 && flow.priority == 140 &&
+			flow.match == match && strings.Contains(flow.actions, "ct_lb_mark")
+	})
+}
+
+func waitUnderlayVIPNodeLFlowCleaned(vip, vipNodeLSP string, port int32, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	match := fmt.Sprintf(
+		"ct.new && ip4.dst == %s && tcp.dst == %d && is_chassis_resident(\"%s\")",
+		vip,
+		port,
+		vipNodeLSP,
+	)
+	waitLogicalFlowCount(0, timeout, "VIP DNAT lflow should be absent from the old announcing node", func(flow logicalFlow) bool {
+		return flow.pipeline == "ingress" && flow.tableID == 13 && flow.priority == 140 && flow.match == match
+	})
+}
+
+func waitUnderlayVIPBackendLFlows(backendPods []corev1.Pod, vipNode string, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	vipNodeBackendFound := false
+	for i := range backendPods {
+		pod := &backendPods[i]
+		expectedCount := 0
+		if pod.Spec.NodeName == vipNode {
+			expectedCount = 1
+			vipNodeBackendFound = true
+		}
+		waitUnderlayVIPBackendLFlow(*pod, vipNode, expectedCount, timeout)
+	}
+	framework.ExpectTrue(vipNodeBackendFound, "no backend is available on VIP node %s", vipNode)
+}
+
+func waitUnderlayVIPBackendLFlowAbsent(backendPods []corev1.Pod, vipNode string, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	for i := range backendPods {
+		waitUnderlayVIPBackendLFlow(backendPods[i], vipNode, 0, timeout)
+	}
+}
+
+func waitUnderlayVIPBackendLFlow(backendPod corev1.Pod, vipNode string, expectedCount int, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	backendIP := podIPv4(backendPod)
+	backendMAC := backendPod.Annotations[util.MacAddressAnnotation]
+	framework.ExpectNotEmpty(backendMAC, "backend Pod %s has no MAC annotation", backendPod.Name)
+	backendLSP := ovs.PodNameToPortName(backendPod.Name, backendPod.Namespace, util.OvnProvider)
+	vipNodeLSP := util.NodeLspName(vipNode)
+	match := fmt.Sprintf(
+		"reg0[2] != 0 && ip4.dst == %s && is_chassis_resident(\"%s\")",
+		backendIP,
+		vipNodeLSP,
+	)
+	actions := fmt.Sprintf("eth.dst = %s; outport = \"%s\"; output;", backendMAC, backendLSP)
+	description := fmt.Sprintf("targeted backend lflow count for Pod %s on VIP node %s should be %d", backendPod.Name, vipNode, expectedCount)
+	waitLogicalFlowCount(expectedCount, timeout, description, func(flow logicalFlow) bool {
+		return flow.pipeline == "ingress" && flow.tableID == 28 && flow.priority == 55 &&
+			flow.match == match && flow.actions == actions
+	})
+}
+
+func waitUnderlayVIPAffinityLFlow(vip, vipNodeLSP string, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	waitLogicalFlowCount(1, timeout, "session affinity lflow should be resident on the announcing node", func(flow logicalFlow) bool {
+		return isUnderlayVIPAffinityLFlow(flow, vip, vipNodeLSP)
+	})
+}
+
+func waitUnderlayVIPAffinityLFlowCleaned(vip, vipNodeLSP string, timeout time.Duration) {
+	ginkgo.GinkgoHelper()
+
+	waitLogicalFlowCount(0, timeout, "session affinity lflow should be absent from the old announcing node", func(flow logicalFlow) bool {
+		return isUnderlayVIPAffinityLFlow(flow, vip, vipNodeLSP)
+	})
+}
+
+func isUnderlayVIPAffinityLFlow(flow logicalFlow, vip, vipNodeLSP string) bool {
+	return flow.pipeline == "ingress" && flow.tableID == 13 && flow.priority == 150 &&
+		strings.Contains(flow.match, fmt.Sprintf("ip4.dst == %s", vip)) &&
+		strings.Contains(flow.match, fmt.Sprintf("is_chassis_resident(\"%s\")", vipNodeLSP)) &&
+		strings.Contains(flow.actions, "ct_lb_mark")
+}
+
+func podIPv4(pod corev1.Pod) string {
+	ginkgo.GinkgoHelper()
+
+	for _, podIP := range pod.Status.PodIPs {
+		if util.CheckProtocol(podIP.IP) == apiv1.ProtocolIPv4 {
+			return podIP.IP
+		}
+	}
+	framework.Failf("Pod %s/%s has no IPv4 address", pod.Namespace, pod.Name)
+	return ""
+}
+
+func waitLogicalFlowCount(expectedCount int, timeout time.Duration, description string, match func(logicalFlow) bool) {
+	ginkgo.GinkgoHelper()
+
+	framework.WaitUntil(time.Second, timeout, func(_ context.Context) (bool, error) {
+		flows, err := listLogicalFlows()
+		if err != nil {
+			return false, nil
+		}
+		count := 0
+		for _, flow := range flows {
+			if match(flow) {
+				count++
+			}
+		}
+		return count == expectedCount, nil
+	}, description)
+}
+
+func listLogicalFlows() ([]logicalFlow, error) {
+	output, err := exec.Command(
+		"kubectl", "ko", "sbctl",
+		"--format=csv",
+		"--data=bare",
+		"--no-heading",
+		"--columns=pipeline,table_id,priority,match,actions",
+		"find", "Logical_Flow",
+	).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("listing OVN logical flows: %w, output: %s", err, output)
+	}
+
+	records, err := csv.NewReader(strings.NewReader(string(output))).ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("parsing OVN logical flows: %w", err)
+	}
+	flows := make([]logicalFlow, 0, len(records))
+	for _, record := range records {
+		if len(record) != 5 {
+			return nil, fmt.Errorf("unexpected logical flow record with %d columns: %q", len(record), record)
+		}
+		tableID, err := strconv.Atoi(record[1])
+		if err != nil {
+			return nil, fmt.Errorf("parsing logical flow table ID %q: %w", record[1], err)
+		}
+		priority, err := strconv.Atoi(record[2])
+		if err != nil {
+			return nil, fmt.Errorf("parsing logical flow priority %q: %w", record[2], err)
+		}
+		flows = append(flows, logicalFlow{
+			pipeline: record[0],
+			tableID:  tableID,
+			priority: priority,
+			match:    record[3],
+			actions:  record[4],
+		})
+	}
+	return flows, nil
+}
+
+func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6, targetIP, targetPort, clusterName string, expectReachable bool) {
 	ginkgo.GinkgoHelper()
 	ginkgo.By("checking curl reachable")
 	isIPv6 := util.CheckProtocol(targetIP) == apiv1.ProtocolIPv6
@@ -926,7 +1295,7 @@ func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6,
 		framework.ExpectError(err)
 	}
 
-	ginkgo.By("checking the vip answers arp")
+	ginkgo.By("checking vip node is same as backend pod's host")
 	if !isIPv6 {
 		cmd = strings.Fields(fmt.Sprintf("arping -c 5 -W 2 %s", targetIP))
 		output, _, err := docker.Exec(containerID, nil, cmd...)
@@ -952,9 +1321,12 @@ func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6,
 	backendPodName := strings.TrimSpace(string(output))
 	framework.Logf("Packet reached backend: %s", backendPodName)
 
-	ginkgo.By("Checking the reply comes from a pod of the deployment")
+	vipNode := getVIPNode(containerID, targetIP, clusterName)
+
+	ginkgo.By("Checking the backend pod's host is same as the metallb vip's node")
 	backendPod := f.PodClient().GetPod(backendPodName)
-	framework.ExpectNotNil(backendPod, "backend %s must be a pod of the service", backendPodName)
+	backendPodNode := backendPod.Spec.NodeName
+	framework.ExpectEqual(backendPodNode, vipNode)
 }
 
 func getVIPNodeFromService(f *framework.Framework, serviceName string) string {

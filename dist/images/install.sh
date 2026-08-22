@@ -20,6 +20,7 @@ ENABLE_MIRROR=${ENABLE_MIRROR:-false}
 VLAN_NIC=${VLAN_NIC:-}
 HW_OFFLOAD=${HW_OFFLOAD:-false}
 ENABLE_LB=${ENABLE_LB:-true}
+ENABLE_OVN_LB_PREFER_LOCAL=${ENABLE_OVN_LB_PREFER_LOCAL:-false}
 ENABLE_NP=${ENABLE_NP:-true}
 NP_ENFORCEMENT=${NP_ENFORCEMENT:-standard}
 LS_DNAT_MOD_DL_DST=${LS_DNAT_MOD_DL_DST:-true}
@@ -6106,6 +6107,7 @@ spec:
           - --ls-ct-skip-dst-lport-ips=$LS_CT_SKIP_DST_LPORT_IPS
           - --pod-nic-type=$POD_NIC_TYPE
           - --enable-lb=$ENABLE_LB
+          - --enable-ovn-lb-prefer-local=$ENABLE_OVN_LB_PREFER_LOCAL
           - --enable-np=$ENABLE_NP
           - --np-enforcement=$NP_ENFORCEMENT
           - --logtostderr=false

@@ -122,8 +122,11 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 	svc := cachedService.DeepCopy()
 
 	var (
-		vpcName, subnetName string
-		ignoreHealthCheck   = true
+		vpcName, subnetName  string
+		externalVIPNode      string
+		serviceL2StatusReady = true
+		ignoreHealthCheck    = true
+		isPreferLocalBackend = false
 	)
 
 	annotationVips := serviceAnnotationVips(svc)
@@ -135,6 +138,20 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 		// Health checks can only run against IPv4 endpoints and if the service doesn't specify they must be disabled
 		if util.CheckProtocol(ip) == kubeovnv1.ProtocolIPv4 && !serviceHealthChecksDisabled(svc) {
 			ignoreHealthCheck = false
+		}
+	}
+
+	if c.config.EnableLb && c.config.EnableOVNLBPreferLocal {
+		if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
+			if svc.Spec.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
+				isPreferLocalBackend = true
+				externalVIPNode, serviceL2StatusReady, err = c.getServiceL2StatusNode(namespace, name)
+				if err != nil {
+					return err
+				}
+			}
+		} else if svc.Spec.Type == v1.ServiceTypeClusterIP && svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == v1.ServiceInternalTrafficPolicyLocal {
+			isPreferLocalBackend = true
 		}
 	}
 
@@ -174,6 +191,15 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 	if svc.Spec.SessionAffinity == v1.ServiceAffinityClientIP {
 		tcpLb, udpLb, sctpLb, oldTCPLb, oldUDPLb, oldSctpLb = oldTCPLb, oldUDPLb, oldSctpLb, tcpLb, udpLb, sctpLb
 	}
+	if c.config.EnableOVNLBPreferLocal {
+		if err = c.clearLoadBalancerVIPExternalTrafficLocal(svc, tcpLb, udpLb, sctpLb); err != nil {
+			return err
+		}
+		if err = c.clearLoadBalancerVIPExternalTrafficLocal(svc, oldTCPLb, oldUDPLb, oldSctpLb); err != nil {
+			return err
+		}
+	}
+
 	for _, lbVip := range lbVips {
 		skipHealthCheck := ignoreHealthCheck || !slices.Contains(annotationVips, lbVip)
 		for _, port := range svc.Spec.Ports {
@@ -203,9 +229,14 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 				}
 			}
 
+			if isPreferLocalBackend {
+				// only use the ipportmapping's lsp to ip map when the backend is local
+				checkIP = util.MasqueradeCheckIP
+			}
+
 			backends = c.getEndpointBackend(endpointSlices, port, lbVip)
 
-			if !skipHealthCheck {
+			if !skipHealthCheck || isPreferLocalBackend {
 				ipPortMapping, err = c.getIPPortMapping(endpointSlices, svc, checkIP)
 				if err != nil {
 					err := fmt.Errorf("couldn't get ip port mapping for svc %s/%s: %w", svc.Namespace, svc.Name, err)
@@ -221,6 +252,29 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 					klog.Errorf("failed to add vip %s with backends %s to LB %s: %v", lbVip, backends, lb, err)
 					return err
 				}
+				if isPreferLocalBackend &&
+					svc.Spec.Type == v1.ServiceTypeLoadBalancer &&
+					svc.Spec.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal &&
+					serviceL2StatusReady &&
+					slices.ContainsFunc(svc.Status.LoadBalancer.Ingress, func(ingress v1.LoadBalancerIngress) bool {
+						return ingress.IP == lbVip
+					}) {
+					vipNodeLSP := ""
+					if externalVIPNode != "" {
+						vipNodeLSP = util.NodeLspName(externalVIPNode)
+					}
+					if err = c.OVNNbClient.SetLoadBalancerVIPExternalTrafficLocal(lb, vip, vipNodeLSP); err != nil {
+						return fmt.Errorf("couldn't mark external local vip %s on LB %s: %w", vip, lb, err)
+					}
+				}
+
+				if isPreferLocalBackend && len(ipPortMapping) != 0 {
+					if err = c.OVNNbClient.LoadBalancerUpdateIPPortMapping(lb, vip, ipPortMapping); err != nil {
+						klog.Errorf("failed to update ip port mapping %s for vip %s to LB %s: %v", ipPortMapping, vip, lb, err)
+						return err
+					}
+				}
+
 				if !skipHealthCheck {
 					klog.Infof("add health check ip port mapping %v to LB %s", ipPortMapping, lb)
 					if err = c.OVNNbClient.LoadBalancerAddHealthCheck(lb, vip, skipHealthCheck, ipPortMapping, externals); err != nil {
@@ -240,6 +294,17 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 				if err = c.OVNNbClient.LoadBalancerDeleteVip(oldLb, vip, true); err != nil {
 					klog.Errorf("failed to delete vip %s from LB %s: %v", vip, oldLb, err)
 					return err
+				}
+
+				if c.config.EnableOVNLBPreferLocal {
+					if err := c.OVNNbClient.LoadBalancerDeleteIPPortMapping(lb, vip); err != nil {
+						klog.Errorf("failed to delete ip port mapping for vip %s from LB %s: %v", vip, lb, err)
+						return err
+					}
+					if err := c.OVNNbClient.LoadBalancerDeleteIPPortMapping(oldLb, vip); err != nil {
+						klog.Errorf("failed to delete ip port mapping for vip %s from LB %s: %v", vip, lb, err)
+						return err
+					}
 				}
 			}
 		}
@@ -328,6 +393,41 @@ func (c *Controller) replaceEndpointAddressesWithSecondaryIPs(endpointSlices []*
 		}
 	}
 
+	return nil
+}
+
+func (c *Controller) clearLoadBalancerVIPExternalTrafficLocal(svc *v1.Service, tcpLb, udpLb, sctpLb string) error {
+	if svc.Spec.Type != v1.ServiceTypeLoadBalancer ||
+		svc.Spec.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
+		return nil
+	}
+
+	for _, ingress := range svc.Status.LoadBalancer.Ingress {
+		if ingress.IP == "" {
+			continue
+		}
+		for _, port := range svc.Spec.Ports {
+			var lb string
+			switch port.Protocol {
+			case v1.ProtocolTCP:
+				lb = tcpLb
+			case v1.ProtocolUDP:
+				lb = udpLb
+			case v1.ProtocolSCTP:
+				lb = sctpLb
+			}
+			if lb == "" {
+				continue
+			}
+			vip := util.JoinHostPort(ingress.IP, port.Port)
+			if err := c.OVNNbClient.SetLoadBalancerVIPExternalTrafficLocal(lb, vip, ""); err != nil {
+				return fmt.Errorf("couldn't clear external local vip marker %s on LB %s: %w", vip, lb, err)
+			}
+			if err := c.OVNNbClient.LoadBalancerDeleteIPPortMapping(lb, vip); err != nil {
+				return fmt.Errorf("couldn't clear external local vip ip port mapping %s on LB %s: %w", vip, lb, err)
+			}
+		}
+	}
 	return nil
 }
 
