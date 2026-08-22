@@ -33,18 +33,6 @@ while true; do
     sleep 5
     continue
   fi
-  new_instances=$(grep '^router bgp .* vrf ' "$FRR_DIR/frr.conf.desired" 2>/dev/null | sort)
-  old_instances=$(grep '^router bgp .* vrf ' "$FRR_DIR/frr.conf" 2>/dev/null | sort)
-  added=$(printf '%s\n' "$new_instances" | while read -r line; do
-    [ -n "$line" ] || continue
-    printf '%s\n' "$old_instances" | grep -qxF -- "$line" || printf '%s\n' "$line"
-  done)
-  if [ -n "$added" ]; then
-    cp "$FRR_DIR/frr.conf.desired" "$FRR_DIR/frr.conf"
-    printf '%s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-applied"
-    printf 'ok %s restart\n' "$want" > "$FRR_DIR/.kube-ovn-frr-result"
-    exit 0
-  fi
   if python3 "$RELOAD_PY" --reload --overwrite "$FRR_DIR/frr.conf.desired" >/tmp/frr-reload.log 2>&1; then
     printf '%s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-applied"
     printf 'ok %s\n' "$want" > "$FRR_DIR/.kube-ovn-frr-result"
