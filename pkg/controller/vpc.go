@@ -1341,12 +1341,21 @@ func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *kubeovnv1.Vpc) erro
 		return nil
 	}
 
+	gwNodes, err := c.nodesLister.List(externalGatewayNodeSelector)
+	if err != nil {
+		klog.Errorf("failed to list external gw nodes: %v", err)
+		return err
+	}
 	chassises, err := c.externalGatewayChassises(vpc.Name)
 	if err != nil {
 		klog.Error(err)
 		return err
 	}
 	if len(chassises) == 0 {
+		if len(gwNodes) != 0 {
+			klog.Warningf("no external gw node of vpc %s has a chassis yet, keeping the current gateway chassis", vpc.Name)
+			return nil
+		}
 		klog.Warningf("no node carries the %s label, clearing the gateway chassis of vpc %s", util.ExGatewayLabel, vpc.Name)
 	}
 
