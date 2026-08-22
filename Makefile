@@ -11,6 +11,7 @@ HELM_OVN_DB_TLS_ARGS = $(if $(TLS_MIN_VERSION),--set networking.tlsMinVersion=$(
 REGISTRY = kubeovn
 DEV_TAG = dev
 RELEASE_TAG = $(shell cat VERSION)
+BASE_VERSION_TAG = $(shell cat BASE_VERSION)
 DEBUG_TAG = $(shell cat VERSION)-debug
 LEGACY_TAG = $(shell cat VERSION)-amd64-legacy
 VERSION = $(shell echo $${VERSION:-$(RELEASE_TAG)})

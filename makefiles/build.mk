@@ -29,6 +29,20 @@ MODERNIZE_EXCLUDE := github.com/kubeovn/kube-ovn/mocks|github.com/kubeovn/kube-o
 gen-crd:
 	hack/gen-crd.sh
 
+.PHONY: pull-base
+pull-base:
+	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)
+	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-debug
+	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-amd64-legacy
+	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG) $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)
+	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-debug $(REGISTRY)/kube-ovn-base:$(DEBUG_TAG)
+	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-amd64-legacy $(REGISTRY)/kube-ovn-base:$(LEGACY_TAG)
+
+.PHONY: pull-base-dpdk
+pull-base-dpdk:
+	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-dpdk
+	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-dpdk $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-dpdk
+
 .PHONY: sync-version
 sync-version:
 	hack/sync-version.sh

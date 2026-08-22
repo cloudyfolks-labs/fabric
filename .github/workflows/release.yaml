@@ -42,7 +42,7 @@ jobs:
           else
             echo "TAG=dev-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
           fi
-          echo "BASE_TAG=$(cat VERSION)" >> "$GITHUB_ENV"
+          echo "BASE_TAG=$(cat BASE_VERSION)" >> "$GITHUB_ENV"
 
       - name: Build amd64 binaries
         run: make build-go

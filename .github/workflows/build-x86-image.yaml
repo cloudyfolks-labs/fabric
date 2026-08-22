@@ -549,6 +549,10 @@ jobs:
           docker load --input image-amd64-dpdk.tar
           docker tag kubeovn/kube-ovn-base:$TAG-amd64-dpdk kubeovn/kube-ovn-base:$TAG-dpdk
 
+      - name: Pull dpdk base image
+        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base != 1
+        run: make pull-base-dpdk
+
       - name: Build dpdk
         run: |
           if [ ${{ needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base || 0 }} = 1 ]; then
@@ -615,6 +619,10 @@ jobs:
           docker load --input image-amd64.tar
           docker tag kubeovn/kube-ovn-base:$TAG-amd64 kubeovn/kube-ovn-base:$TAG
           docker tag kubeovn/kube-ovn-base:$TAG-debug-amd64 kubeovn/kube-ovn-base:$TAG-debug
+
+      - name: Pull base images
+        if: needs.build-kube-ovn-base.outputs.build-base != 1
+        run: make pull-base
 
       - name: Scan base image
         uses: aquasecurity/trivy-action@v0.36.0

@@ -31,7 +31,7 @@ jobs:
 
       - name: Mirror kube-ovn base images
         run: |
-          TAG=$(cat VERSION)
+          TAG=$(cat BASE_VERSION)
           docker buildx imagetools create \
             -t "ghcr.io/cloudyfolks-labs/kube-ovn-base:$TAG" \
             "docker.io/kubeovn/kube-ovn-base:$TAG"
