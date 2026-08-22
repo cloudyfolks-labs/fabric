@@ -63,6 +63,9 @@ func NewValidatingHook(client client.Client, scheme *runtime.Scheme, cache cache
 	updateHooks[ovnSnat] = v.ovnSnatUpdateHook
 	createHooks[ovnDnat] = v.ovnDnatCreateHook
 	updateHooks[ovnDnat] = v.ovnDnatUpdateHook
+
+	createHooks[loadBalancerPoolGVK] = v.LoadBalancerPoolCreateHook
+	updateHooks[loadBalancerPoolGVK] = v.LoadBalancerPoolUpdateHook
 	return v, nil
 }
 

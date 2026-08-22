@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -414,4 +415,52 @@ func TestGcOvnLbSvcEipsReleasesOrphans(t *testing.T) {
 
 	_, err = ctrl.config.KubeOvnClient.FabricV1().OvnEips().Get(context.Background(), orphanEip.Name, metav1.GetOptions{})
 	require.True(t, k8serrors.IsNotFound(err), "expected the orphaned eip to be released, got %v", err)
+}
+
+func TestLoadBalancerPoolReadiness(t *testing.T) {
+	t.Parallel()
+
+	status, reason, _ := loadBalancerPoolReadiness(false, 10)
+	assert.Equal(t, corev1.ConditionFalse, status)
+	assert.Equal(t, reasonOvnLbSvcExternalSubnetNotReady, reason)
+
+	status, reason, _ = loadBalancerPoolReadiness(true, 0)
+	assert.Equal(t, corev1.ConditionFalse, status)
+	assert.Equal(t, reasonOvnLbSvcPoolExhausted, reason)
+
+	status, reason, _ = loadBalancerPoolReadiness(true, 5)
+	assert.Equal(t, corev1.ConditionTrue, status)
+	assert.Equal(t, reasonOvnLbSvcPoolReady, reason)
+}
+
+func TestUpdateLoadBalancerPoolUsageSetsReady(t *testing.T) {
+	pool := &kubeovnv1.LoadBalancerPool{
+		ObjectMeta: metav1.ObjectMeta{Name: "pool-a"},
+		Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "lb-subnet"},
+		Status: kubeovnv1.LoadBalancerPoolStatus{
+			Conditions: []kubeovnv1.Condition{{Type: kubeovnv1.Ready, Status: corev1.ConditionFalse, Reason: reasonOvnLbSvcExternalSubnetNotReady}},
+		},
+	}
+	subnet := &kubeovnv1.Subnet{
+		ObjectMeta: metav1.ObjectMeta{Name: "lb-subnet"},
+		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "192.168.1.0/24"},
+		Status:     kubeovnv1.SubnetStatus{V4AvailableIPs: internal.BigInt{Int: *big.NewInt(200)}},
+	}
+
+	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Subnets: []*kubeovnv1.Subnet{subnet}})
+	require.NoError(t, err)
+	ctrl := fakeCtrl.fakeController
+
+	_, err = ctrl.config.KubeOvnClient.FabricV1().LoadBalancerPools().Create(context.Background(), pool, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	require.NoError(t, ctrl.updateLoadBalancerPoolUsage(pool))
+
+	updated, err := ctrl.config.KubeOvnClient.FabricV1().LoadBalancerPools().Get(context.Background(), pool.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	conditions := kubeovnv1.Conditions(updated.Status.Conditions)
+	ready := conditions.GetCondition(kubeovnv1.Ready)
+	require.NotNil(t, ready)
+	assert.Equal(t, corev1.ConditionTrue, ready.Status)
+	assert.Equal(t, int64(200), updated.Status.Available)
 }

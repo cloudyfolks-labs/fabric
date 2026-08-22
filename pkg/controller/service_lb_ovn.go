@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
@@ -288,6 +289,10 @@ func (c *Controller) handleAddOrUpdateOvnLbSvc(key string) error {
 	if err != nil {
 		c.recorder.Event(svc, corev1.EventTypeWarning, reasonOvnLbSvcPoolSelectionFailed, err.Error())
 		c.setOvnLbSvcCondition(svc, metav1.ConditionFalse, reasonOvnLbSvcPoolSelectionFailed, err.Error())
+		if _, eipErr := c.ovnEipsLister.Get(ovnLbSvcEipName(svc.UID)); eipErr == nil {
+			klog.Infof("service %s has no loadbalancer pool any more, releasing", key)
+			return c.releaseOvnLbSvc(newOvnLbSvcRelease(svc, c.config.ClusterRouter))
+		}
 		return nil
 	}
 
@@ -296,7 +301,6 @@ func (c *Controller) handleAddOrUpdateOvnLbSvc(key string) error {
 		msg := fmt.Sprintf("subnet %s of loadbalancer pool %s: %v", pool.Spec.Subnet, pool.Name, err)
 		c.recorder.Event(svc, corev1.EventTypeWarning, reasonOvnLbSvcExternalSubnetNotReady, msg)
 		c.setOvnLbSvcCondition(svc, metav1.ConditionFalse, reasonOvnLbSvcExternalSubnetNotReady, msg)
-		c.setLoadBalancerPoolCondition(pool, corev1.ConditionFalse, reasonOvnLbSvcExternalSubnetNotReady, msg)
 		return err
 	}
 
@@ -319,7 +323,6 @@ func (c *Controller) handleAddOrUpdateOvnLbSvc(key string) error {
 		}
 		c.recorder.Event(svc, corev1.EventTypeWarning, reason, msg)
 		c.setOvnLbSvcCondition(svc, metav1.ConditionFalse, reason, msg)
-		c.setLoadBalancerPoolCondition(pool, corev1.ConditionFalse, reason, msg)
 		return fmt.Errorf("%s", msg)
 	}
 
@@ -483,7 +486,6 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 		msg := fmt.Sprintf("loadbalancer pool %s has no available ip in subnet %s", pool.Name, subnet.Name)
 		c.recorder.Event(svc, corev1.EventTypeWarning, reasonOvnLbSvcPoolExhausted, msg)
 		c.setOvnLbSvcCondition(svc, metav1.ConditionFalse, reasonOvnLbSvcPoolExhausted, msg)
-		c.setLoadBalancerPoolCondition(pool, corev1.ConditionFalse, reasonOvnLbSvcPoolExhausted, msg)
 		return nil, fmt.Errorf("%s", msg)
 	}
 
@@ -674,19 +676,6 @@ func (c *Controller) setOvnLbSvcCondition(svc *corev1.Service, status metav1.Con
 	}
 	if _, err := c.config.KubeClient.CoreV1().Services(svc.Namespace).UpdateStatus(context.Background(), newSvc, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("failed to update status of service %s/%s: %v", svc.Namespace, svc.Name, err)
-	}
-}
-
-func (c *Controller) setLoadBalancerPoolCondition(pool *kubeovnv1.LoadBalancerPool, status corev1.ConditionStatus, reason, message string) {
-	newPool := pool.DeepCopy()
-	conditions := kubeovnv1.Conditions(newPool.Status.Conditions)
-	conditions.SetCondition(kubeovnv1.Ready, status, reason, message, newPool.Generation)
-	newPool.Status.Conditions = conditions
-	if equality.Semantic.DeepEqual(newPool.Status, pool.Status) {
-		return
-	}
-	if _, err := c.config.KubeOvnClient.FabricV1().LoadBalancerPools().UpdateStatus(context.Background(), newPool, metav1.UpdateOptions{}); err != nil {
-		klog.Errorf("failed to update status of loadbalancer pool %s: %v", pool.Name, err)
 	}
 }
 
@@ -906,8 +895,19 @@ func (c *Controller) resyncLoadBalancerPoolStatus() {
 	}
 }
 
+func loadBalancerPoolReadiness(subnetFound bool, available int64) (corev1.ConditionStatus, string, string) {
+	if !subnetFound {
+		return corev1.ConditionFalse, reasonOvnLbSvcExternalSubnetNotReady, "subnet does not exist"
+	}
+	if available == 0 {
+		return corev1.ConditionFalse, reasonOvnLbSvcPoolExhausted, "subnet has no available address"
+	}
+	return corev1.ConditionTrue, reasonOvnLbSvcPoolReady, "pool is ready"
+}
+
 func (c *Controller) updateLoadBalancerPoolUsage(pool *kubeovnv1.LoadBalancerPool) error {
 	var available int64
+	subnetFound := true
 	subnet, err := c.subnetsLister.Get(pool.Spec.Subnet)
 	switch {
 	case err == nil:
@@ -917,6 +917,7 @@ func (c *Controller) updateLoadBalancerPoolUsage(pool *kubeovnv1.LoadBalancerPoo
 			available = bigIntToInt64(subnet.Status.V4AvailableIPs)
 		}
 	case k8serrors.IsNotFound(err):
+		subnetFound = false
 	default:
 		return err
 	}
@@ -932,12 +933,26 @@ func (c *Controller) updateLoadBalancerPoolUsage(pool *kubeovnv1.LoadBalancerPoo
 		}
 	}
 
-	if pool.Status.Available == available && pool.Status.InUse == inUse {
-		return nil
-	}
-	newPool := pool.DeepCopy()
-	newPool.Status.Available = available
-	newPool.Status.InUse = inUse
-	_, err = c.config.KubeOvnClient.FabricV1().LoadBalancerPools().UpdateStatus(context.Background(), newPool, metav1.UpdateOptions{})
-	return err
+	status, reason, message := loadBalancerPoolReadiness(subnetFound, available)
+	pools := c.config.KubeOvnClient.FabricV1().LoadBalancerPools()
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := pools.Get(context.Background(), pool.Name, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		newPool := current.DeepCopy()
+		newPool.Status.Available = available
+		newPool.Status.InUse = inUse
+		conditions := kubeovnv1.Conditions(newPool.Status.Conditions)
+		conditions.SetCondition(kubeovnv1.Ready, status, reason, message, newPool.Generation)
+		newPool.Status.Conditions = conditions
+		if equality.Semantic.DeepEqual(newPool.Status, current.Status) {
+			return nil
+		}
+		_, err = pools.UpdateStatus(context.Background(), newPool, metav1.UpdateOptions{})
+		return err
+	})
 }

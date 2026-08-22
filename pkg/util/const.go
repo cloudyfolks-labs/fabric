@@ -416,6 +416,7 @@ var (
 	KindCronJob     = ObjectKind[*batchv1.CronJob]()
 
 	KindIP               = ObjectKind[*kubeovnv1.IP]()
+	KindLoadBalancerPool = ObjectKind[*kubeovnv1.LoadBalancerPool]()
 	KindOvnEip           = ObjectKind[*kubeovnv1.OvnEip]()
 	KindOvnFip           = ObjectKind[*kubeovnv1.OvnFip]()
 	KindOvnDnatRule      = ObjectKind[*kubeovnv1.OvnDnatRule]()

@@ -54,6 +54,7 @@ webhooks:
           - subnets
           - vpcs
           - vips
+          - loadbalancer-pools
               objectSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
