@@ -272,30 +272,51 @@ ip protocol bgp route-map OVN-NO-FIB
 			return strings.Contains(string(stdout), " 0% packet loss"), nil
 		}, "ToR reaches EIP via advertised route")
 
-		if len(topo.gwNodeNames) >= 2 {
-			nodeByName := make(map[string]kind.Node, len(topo.kindNodes))
-			for _, node := range topo.kindNodes {
-				nodeByName[node.Name()] = node
-			}
-			var activeName, standbyName string
-			ginkgo.By("Locating the active gateway chassis")
-			framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
-				activeName, standbyName = "", ""
-				for _, gwName := range topo.gwNodeNames {
-					node := nodeByName[gwName]
-					if _, _, err := node.Exec("ip", "link", "show", agentVrfName); err == nil {
-						activeName = gwName
-					} else {
-						standbyName = gwName
-					}
+		nodeByName := make(map[string]kind.Node, len(topo.kindNodes))
+		for _, node := range topo.kindNodes {
+			nodeByName[node.Name()] = node
+		}
+		var activeName, standbyName string
+		ginkgo.By("Locating the active gateway chassis")
+		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
+			activeName, standbyName = "", ""
+			for _, gwName := range topo.gwNodeNames {
+				node := nodeByName[gwName]
+				if _, _, err := node.Exec("ip", "link", "show", agentVrfName); err == nil {
+					activeName = gwName
+				} else {
+					standbyName = gwName
 				}
-				return activeName != "" && standbyName != "", nil
-			}, "exactly one gateway chassis holds the VRF")
-			framework.Logf("active chassis: %s, standby chassis: %s", activeName, standbyName)
-			activeNode, standbyNode := nodeByName[activeName], nodeByName[standbyName]
+			}
+			return activeName != "", nil
+		}, "one gateway chassis holds the VRF")
+		framework.Logf("active chassis: %s, standby chassis: %s", activeName, standbyName)
+		activeNode := nodeByName[activeName]
 
-			ginkgo.By("Moving the gateway binding off " + activeNode.Name())
-			moveGatewayBinding(f, topo, w, activeNode.Name())
+		ginkgo.By("Verifying the fabric route is learned into the VRF kernel table")
+		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+			stdout, _, err := activeNode.Exec("ip", "route", "show", "vrf", agentVrfName)
+			if err != nil {
+				return false, nil
+			}
+			return strings.Contains(string(stdout), remoteLoopbackIP), nil
+		}, "fabric route learned into the VRF kernel table by the agent configuration")
+
+		ginkgo.By("Testing egress connectivity from workload pod to fabric loopback " + remoteLoopbackIP)
+		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+			output, err := e2epodoutput.RunHostCmd(f.Namespace.Name, w.workloadPodName,
+				fmt.Sprintf("ping -c 3 -W 2 %s", remoteLoopbackIP))
+			if err != nil {
+				return false, nil
+			}
+			return strings.Contains(output, " 0% packet loss"), nil
+		}, "workload pod reaches the fabric loopback through the learned route")
+
+		if standbyName != "" {
+			standbyNode := nodeByName[standbyName]
+
+			ginkgo.By("Taking the external gateway label off " + activeNode.Name())
+			failOverGatewayNode(f, topo, []string{w.vpcName}, activeNode.Name())
 
 			ginkgo.By("Verifying the VRF and routes move to " + standbyNode.Name())
 			framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
@@ -416,8 +437,8 @@ ip protocol bgp route-map OVN-NO-FIB
 			waitTorLearnsEip(topo, w)
 		}
 
-		ginkgo.By("Failing over VPC " + wa.vpcName + " only")
-		fromNode := bindingNode(topo, wa)
+		ginkgo.By("Failing over the chassis that hosts " + wa.vpcName)
+		fromNode := bindings[wa.vpcName]
 		framework.ExpectNotEmpty(fromNode)
 		var toNode string
 		for _, gwName := range topo.gwNodeNames {
@@ -425,17 +446,31 @@ ip protocol bgp route-map OVN-NO-FIB
 				toNode = gwName
 			}
 		}
-		moveGatewayBinding(f, topo, wa, fromNode)
-
-		ginkgo.By("Verifying only " + wa.vpcName + " moves while other VPCs keep their paths")
-		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
-			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+wa.eipV4+"/32")
-			if err != nil {
-				return false, nil
+		var moved, kept []*drWorkload
+		for _, w := range []*drWorkload{wa, wb, wc} {
+			if bindings[w.vpcName] == fromNode {
+				moved = append(moved, w)
+			} else {
+				kept = append(kept, w)
 			}
-			return bgpPathFromPeer(string(stdout), topo.nodeIPMap[toNode]), nil
-		}, "EIP of "+wa.vpcName+" relearned from the standby chassis")
-		for _, w := range []*drWorkload{wb, wc} {
+		}
+		movedVpcs := make([]string, 0, len(moved))
+		for _, w := range moved {
+			movedVpcs = append(movedVpcs, w.vpcName)
+		}
+		failOverGatewayNode(f, topo, movedVpcs, fromNode)
+
+		ginkgo.By("Verifying every VPC keeps its own path after the failover")
+		for _, w := range moved {
+			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
+				if err != nil {
+					return false, nil
+				}
+				return bgpPathFromPeer(string(stdout), topo.nodeIPMap[toNode]), nil
+			}, "EIP of "+w.vpcName+" relearned from the surviving chassis")
+		}
+		for _, w := range kept {
 			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
 			framework.ExpectNoError(err)
 			framework.ExpectTrue(bgpPathFromPeer(string(stdout), topo.nodeIPMap[bindings[w.vpcName]]),
@@ -966,19 +1001,48 @@ func waitTorLearnsEip(topo *drTopology, w *drWorkload) {
 	}, "ToR learned EIP "+w.eipV4+" via the owning VPC LRP")
 }
 
-func moveGatewayBinding(f *framework.Framework, topo *drTopology, w *drWorkload, fromNode string) {
+func chassisOfNode(f *framework.Framework, nodeName string) string {
 	ginkgo.GinkgoHelper()
 
-	ovnCentralPod := getOvnCentralPod(f)
-	chassisName, _, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, ovnCentralPod, "ovn-central",
-		"ovn-sbctl", "--data=bare", "--no-heading", "--columns=name", "find", "chassis", "hostname="+fromNode)
+	chassisName, _, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, getOvnCentralPod(f), "ovn-central",
+		"ovn-sbctl", "--data=bare", "--no-heading", "--columns=name", "find", "chassis", "hostname="+nodeName)
 	framework.ExpectNoError(err, "resolving chassis name")
 	chassisName = strings.TrimSpace(chassisName)
 	framework.ExpectNotEmpty(chassisName)
-	lrpName := fmt.Sprintf("%s-%s", w.vpcName, topo.externalSubnetName)
-	_, _, err = framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, ovnCentralPod, "ovn-central",
-		"ovn-nbctl", "lrp-del-gateway-chassis", lrpName, chassisName)
-	framework.ExpectNoError(err, "removing gateway chassis from LRP")
+	return chassisName
+}
+
+func lrpGatewayChassis(f *framework.Framework, lrpName string) string {
+	ginkgo.GinkgoHelper()
+
+	stdout, _, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, getOvnCentralPod(f), "ovn-central",
+		"ovn-nbctl", "lrp-get-gateway-chassis", lrpName)
+	framework.ExpectNoError(err, "reading gateway chassis of "+lrpName)
+	return stdout
+}
+
+// failOverGatewayNode removes the external gateway label from a node. The
+// controller elects the gateway chassis on every reconcile, so the label is
+// the supported way to take a chassis out of the external gateway set.
+func failOverGatewayNode(f *framework.Framework, topo *drTopology, vpcNames []string, fromNode string) {
+	ginkgo.GinkgoHelper()
+
+	chassisName := chassisOfNode(f, fromNode)
+
+	ginkgo.By("Removing the external gateway label from node " + fromNode)
+	e2enode.RemoveLabelOffNode(f.ClientSet, fromNode, util.ExGatewayLabel)
+	ginkgo.DeferCleanup(func() {
+		ginkgo.By("Restoring the external gateway label on node " + fromNode)
+		e2enode.AddOrUpdateLabelOnNode(f.ClientSet, fromNode, util.ExGatewayLabel, "true")
+	})
+
+	for _, vpcName := range vpcNames {
+		lrpName := fmt.Sprintf("%s-%s", vpcName, topo.externalSubnetName)
+		ginkgo.By("Waiting for lrp " + lrpName + " to drop chassis " + chassisName)
+		framework.WaitUntil(2*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+			return !strings.Contains(lrpGatewayChassis(f, lrpName), chassisName), nil
+		}, "lrp "+lrpName+" no longer points at the chassis of "+fromNode)
+	}
 }
 
 func bgpPathFromPeer(showOutput, peerIP string) bool {
