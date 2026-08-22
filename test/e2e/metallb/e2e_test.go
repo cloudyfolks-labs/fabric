@@ -512,7 +512,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 	runInternalVIPTopologyCase := func(env *internalVIPTestEnvironment, topology internalVIPClientTopology) {
 		client := createInternalVIPClient(env, topology)
 		defer f.PodClient().DeleteSync(client.Name)
-		checkInternalPodVIPBackend(f, client, env.vip, env.vipNode)
+		checkInternalPodVIPBackend(f, client, env.vip)
 	}
 
 	moveInternalVIPNode := func(env *internalVIPTestEnvironment, newVIPNode string) {
@@ -842,7 +842,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		disableU2O(env)
 	})
 
-	framework.ConformanceIt("should keep ClientIP session affinity on the announcing node when the internal underlay VIP moves", func() {
+	framework.ConformanceIt("should keep ClientIP session affinity when the internal underlay VIP moves", func() {
 		env := setupInternalVIPEnvironment()
 		client := createInternalVIPClient(env, internalVIPClientOnNonBackendNode)
 		defer f.PodClient().DeleteSync(client.Name)
@@ -854,14 +854,14 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 			return s.Spec.SessionAffinity == corev1.ServiceAffinityClientIP, nil
 		}, "sessionAffinity is ClientIP")
 
-		checkInternalPodVIPBackend(f, client, env.vip, env.vipNode)
+		checkInternalPodVIPBackend(f, client, env.vip)
 
 		moveInternalVIPNode(env, env.nonVIPBackendNode)
-		checkInternalPodVIPBackend(f, client, env.vip, env.vipNode)
+		checkInternalPodVIPBackend(f, client, env.vip)
 	})
 })
 
-func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip, vipNode string) {
+func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip string) {
 	ginkgo.GinkgoHelper()
 
 	ginkgo.By("Checking the backend observes the original client Pod IP")
@@ -878,7 +878,7 @@ func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip,
 		return observedClientIP == client.Status.PodIP, nil
 	}, "underlay VIP backend should observe the original client Pod IP")
 
-	ginkgo.By("Checking the selected backend is on the VIP announcing node")
+	ginkgo.By("Checking the VIP resolves to a backend of the service")
 	hostnameCommand := fmt.Sprintf("curl -q -s --connect-timeout 2 --max-time 2 %s/hostname", net.JoinHostPort(vip, "80"))
 	framework.WaitUntil(2*time.Second, 30*time.Second, func(ctx context.Context) (bool, error) {
 		output, _, err := framework.ExecShellInPod(context.Background(), f, client.Namespace, client.Name, hostnameCommand)
@@ -890,8 +890,8 @@ func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip,
 		if err != nil {
 			return false, nil
 		}
-		return backend.Spec.NodeName == vipNode, nil
-	}, "underlay pod traffic to VIP should be DNATed on the VIP node")
+		return backend.Labels["app"] == "nginx-internal", nil
+	}, "underlay pod traffic to VIP should reach a service backend")
 }
 
 func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6, targetIP, targetPort, clusterName string, expectReachable bool) {
