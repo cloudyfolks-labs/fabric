@@ -485,6 +485,10 @@ func (suite *OvnClientTestSuite) Test_UpdateGatewayChassises() {
 	suite.testUpdateGatewayChassises()
 }
 
+func (suite *OvnClientTestSuite) Test_UpdateGatewayChassisMembers() {
+	suite.testUpdateGatewayChassisMembers()
+}
+
 func (suite *OvnClientTestSuite) Test_DeleteGatewayChassisByChassisName() {
 	suite.testDeleteGatewayChassisByChassisName()
 }

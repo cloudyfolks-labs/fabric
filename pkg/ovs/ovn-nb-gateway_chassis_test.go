@@ -141,3 +141,44 @@ func TestGatewayChassisPriorities(t *testing.T) {
 	require.Empty(t, gatewayChassisPriorities(nil))
 	require.Equal(t, map[string]int{"a": 100, "b": 99, "c": 98}, gatewayChassisPriorities([]string{"a", "b", "c"}))
 }
+
+func (suite *OvnClientTestSuite) testUpdateGatewayChassisMembers() {
+	t := suite.T()
+	t.Parallel()
+
+	nbClient := suite.ovnNBClient
+	lrName := "test-gw-chassis-members-lr"
+	lrpName := "test-gw-chassis-members-lrp"
+	kept := "2c1e4f2f-9a70-1e3a-4ba1-000000000001"
+	stale := "2c1e4f2f-9a70-1e3a-4ba1-000000000002"
+	added := "2c1e4f2f-9a70-1e3a-4ba1-000000000003"
+
+	err := nbClient.CreateLogicalRouter(lrName)
+	require.NoError(t, err)
+
+	err = nbClient.CreateLogicalRouterPort(lrName, lrpName, "00:11:22:37:af:64", []string{"fd00::c0a8:1201/120"})
+	require.NoError(t, err)
+
+	err = nbClient.UpdateGatewayChassises(lrpName, []string{kept, stale})
+	require.NoError(t, err)
+
+	keptChassis, err := nbClient.GetGatewayChassis(lrpName+"-"+kept, false)
+	require.NoError(t, err)
+	keptChassis.Priority = 101
+	require.NoError(t, nbClient.UpdateGatewayChassis(keptChassis, &keptChassis.Priority))
+
+	err = nbClient.UpdateGatewayChassisMembers(lrpName, []string{kept, added})
+	require.NoError(t, err)
+
+	keptChassis, err = nbClient.GetGatewayChassis(lrpName+"-"+kept, false)
+	require.NoError(t, err)
+	require.Equal(t, 101, keptChassis.Priority, "the priority of a member that stays must survive")
+
+	gone, err := nbClient.GetGatewayChassis(lrpName+"-"+stale, true)
+	require.NoError(t, err)
+	require.Nil(t, gone)
+
+	addedChassis, err := nbClient.GetGatewayChassis(lrpName+"-"+added, false)
+	require.NoError(t, err)
+	require.Equal(t, 99, addedChassis.Priority)
+}

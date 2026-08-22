@@ -1369,7 +1369,13 @@ func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *kubeovnv1.Vpc) erro
 		if !exists {
 			continue
 		}
-		if err = c.OVNNbClient.UpdateGatewayChassises(lrpName, chassises); err != nil {
+		if vpc.Spec.EnableBfd {
+			// the BFD status handler owns the priorities of this lrp
+			err = c.OVNNbClient.UpdateGatewayChassisMembers(lrpName, chassises)
+		} else {
+			err = c.OVNNbClient.UpdateGatewayChassises(lrpName, chassises)
+		}
+		if err != nil {
 			klog.Errorf("failed to update gateway chassis of lrp %s: %v", lrpName, err)
 			return err
 		}

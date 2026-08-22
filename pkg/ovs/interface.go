@@ -72,6 +72,7 @@ type HAChassisGroup interface {
 type GatewayChassis interface {
 	UpdateGatewayChassis(gwChassis *ovnnb.GatewayChassis, fields ...any) error
 	UpdateGatewayChassises(lrpName string, chassises []string) error
+	UpdateGatewayChassisMembers(lrpName string, chassises []string) error
 	DeleteGatewayChassisByChassisName(chassisName string) error
 }
 

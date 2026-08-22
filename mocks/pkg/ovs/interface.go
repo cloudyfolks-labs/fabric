@@ -818,6 +818,20 @@ func (mr *MockGatewayChassisMockRecorder) UpdateGatewayChassis(gwChassis any, fi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassis", reflect.TypeOf((*MockGatewayChassis)(nil).UpdateGatewayChassis), varargs...)
 }
 
+// UpdateGatewayChassisMembers mocks base method.
+func (m *MockGatewayChassis) UpdateGatewayChassisMembers(lrpName string, chassises []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateGatewayChassisMembers", lrpName, chassises)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateGatewayChassisMembers indicates an expected call of UpdateGatewayChassisMembers.
+func (mr *MockGatewayChassisMockRecorder) UpdateGatewayChassisMembers(lrpName, chassises any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassisMembers", reflect.TypeOf((*MockGatewayChassis)(nil).UpdateGatewayChassisMembers), lrpName, chassises)
+}
+
 // UpdateGatewayChassises mocks base method.
 func (m *MockGatewayChassis) UpdateGatewayChassises(lrpName string, chassises []string) error {
 	m.ctrl.T.Helper()
@@ -5947,6 +5961,20 @@ func (mr *MockNbClientMockRecorder) UpdateGatewayChassis(gwChassis any, fields .
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{gwChassis}, fields...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassis", reflect.TypeOf((*MockNbClient)(nil).UpdateGatewayChassis), varargs...)
+}
+
+// UpdateGatewayChassisMembers mocks base method.
+func (m *MockNbClient) UpdateGatewayChassisMembers(lrpName string, chassises []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateGatewayChassisMembers", lrpName, chassises)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateGatewayChassisMembers indicates an expected call of UpdateGatewayChassisMembers.
+func (mr *MockNbClientMockRecorder) UpdateGatewayChassisMembers(lrpName, chassises any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateGatewayChassisMembers", reflect.TypeOf((*MockNbClient)(nil).UpdateGatewayChassisMembers), lrpName, chassises)
 }
 
 // UpdateGatewayChassises mocks base method.

@@ -23,54 +23,40 @@ func gatewayChassisPriorities(chassises []string) map[string]int {
 	return priorities
 }
 
-// UpdateGatewayChassises converges the gateway chassis of a logical router port
-// on the given ordered list: it rewrites the priorities, removes the members
-// that are no longer wanted and adds the missing ones.
-func (c *OVNNbClient) UpdateGatewayChassises(lrpName string, chassises []string) error {
+func (c *OVNNbClient) gatewayChassisMemberOps(lrpName string, chassises []string) ([]ovnnb.GatewayChassis, []ovsdb.Operation, error) {
 	existing, err := c.ListGatewayChassisByLogicalRouterPort(lrpName, true)
 	if err != nil {
 		klog.Error(err)
-		return err
+		return nil, nil, err
 	}
 
-	wanted := gatewayChassisPriorities(chassises)
+	missing := gatewayChassisPriorities(chassises)
+	kept := make([]ovnnb.GatewayChassis, 0, len(existing))
+	stale := make([]string, 0, len(existing))
+	for _, gwChassis := range existing {
+		if _, ok := missing[gwChassis.ChassisName]; !ok {
+			stale = append(stale, gwChassis.UUID)
+			continue
+		}
+		delete(missing, gwChassis.ChassisName)
+		kept = append(kept, gwChassis)
+	}
+
 	var ops []ovsdb.Operation
-	var staleUUIDs []string
-
-	for i := range existing {
-		gwChassis := existing[i]
-		priority, ok := wanted[gwChassis.ChassisName]
-		if !ok {
-			staleUUIDs = append(staleUUIDs, gwChassis.UUID)
-			continue
-		}
-		delete(wanted, gwChassis.ChassisName)
-		if gwChassis.Priority == priority {
-			continue
-		}
-		gwChassis.Priority = priority
-		updateOps, err := c.Where(&gwChassis).Update(&gwChassis, &gwChassis.Priority)
+	if len(stale) != 0 {
+		removeOps, err := c.LogicalRouterPortUpdateGatewayChassisOp(lrpName, stale, ovsdb.MutateOperationDelete)
 		if err != nil {
 			klog.Error(err)
-			return fmt.Errorf("generate operations for updating gateway chassis %s: %w", gwChassis.Name, err)
-		}
-		ops = append(ops, updateOps...)
-	}
-
-	if len(staleUUIDs) != 0 {
-		removeOps, err := c.LogicalRouterPortUpdateGatewayChassisOp(lrpName, staleUUIDs, ovsdb.MutateOperationDelete)
-		if err != nil {
-			klog.Error(err)
-			return err
+			return nil, nil, err
 		}
 		ops = append(ops, removeOps...)
 	}
 
-	if len(wanted) != 0 {
-		models := make([]model.Model, 0, len(wanted))
-		uuids := make([]string, 0, len(wanted))
+	if len(missing) != 0 {
+		models := make([]model.Model, 0, len(missing))
+		uuids := make([]string, 0, len(missing))
 		for _, chassisName := range chassises {
-			priority, ok := wanted[chassisName]
+			priority, ok := missing[chassisName]
 			if !ok {
 				continue
 			}
@@ -87,15 +73,62 @@ func (c *OVNNbClient) UpdateGatewayChassises(lrpName string, chassises []string)
 		createOps, err := c.Create(models...)
 		if err != nil {
 			klog.Error(err)
-			return fmt.Errorf("generate operations for creating gateway chassis: %w", err)
+			return nil, nil, fmt.Errorf("generate operations for creating gateway chassis: %w", err)
 		}
 		addOps, err := c.LogicalRouterPortUpdateGatewayChassisOp(lrpName, uuids, ovsdb.MutateOperationInsert)
 		if err != nil {
 			klog.Error(err)
-			return err
+			return nil, nil, err
 		}
 		ops = append(ops, createOps...)
 		ops = append(ops, addOps...)
+	}
+
+	return kept, ops, nil
+}
+
+// UpdateGatewayChassisMembers converges the members of a logical router port on
+// the given list and keeps the priority of the members that stay. Use it when
+// another mechanism owns the priorities, for example the BFD status handler.
+func (c *OVNNbClient) UpdateGatewayChassisMembers(lrpName string, chassises []string) error {
+	_, ops, err := c.gatewayChassisMemberOps(lrpName, chassises)
+	if err != nil {
+		return err
+	}
+	if len(ops) == 0 {
+		return nil
+	}
+	if err = c.Transact("gateway-chassises-update", ops); err != nil {
+		err := fmt.Errorf("update gateway chassis members %v for logical router port %s: %w", chassises, lrpName, err)
+		klog.Error(err)
+		return err
+	}
+	return nil
+}
+
+// UpdateGatewayChassises converges the gateway chassis of a logical router port
+// on the given ordered list: it rewrites the priorities, removes the members
+// that are no longer wanted and adds the missing ones.
+func (c *OVNNbClient) UpdateGatewayChassises(lrpName string, chassises []string) error {
+	kept, ops, err := c.gatewayChassisMemberOps(lrpName, chassises)
+	if err != nil {
+		return err
+	}
+
+	wanted := gatewayChassisPriorities(chassises)
+	for i := range kept {
+		gwChassis := kept[i]
+		priority := wanted[gwChassis.ChassisName]
+		if gwChassis.Priority == priority {
+			continue
+		}
+		gwChassis.Priority = priority
+		updateOps, err := c.Where(&gwChassis).Update(&gwChassis, &gwChassis.Priority)
+		if err != nil {
+			klog.Error(err)
+			return fmt.Errorf("generate operations for updating gateway chassis %s: %w", gwChassis.Name, err)
+		}
+		ops = append(ops, updateOps...)
 	}
 
 	if len(ops) == 0 {
