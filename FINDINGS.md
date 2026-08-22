@@ -101,12 +101,20 @@ them.
 - The per-VPC deterministic shuffle moved into
   `externalGatewayChassises` unchanged.
 
-Two guards protect a running VPC: a node whose CNI has not published its
-chassis yet is skipped instead of failing the reconcile, and the chassis
-set is cleared only when no node carries the label at all.
+Three guards protect a running VPC:
 
-- Commits: `d664a6d7a`, `6c61bf509`, `bf5a779fb`, `a8f8ee128`
+- A node whose CNI has not published its chassis yet is skipped instead
+  of failing the reconcile.
+- The chassis set is cleared only when no node carries the label at all,
+  not when every labelled node lost its chassis annotation.
+- A VPC with `enableBfd` converges the members only and keeps the
+  priorities, because the BFD status handler raises and lowers them on
+  the same LRP. Rewriting them would undo a BFD failover.
+
+- Commits: `d664a6d7a`, `6c61bf509`, `bf5a779fb`, `a8f8ee128`,
+  `b8b95cf64`
 - Tests: `Test_UpdateGatewayChassises`,
+  `Test_UpdateGatewayChassisMembers`,
   `Test_DeleteGatewayChassisByChassisName`,
   `TestGatewayChassisPriorities` in `pkg/ovs`;
   `TestEnqueueVpcExternalGatewayByNodeChange`,
@@ -266,7 +274,8 @@ rendered, the state (`Applied`, `Pending` or `Failed`), the failure
 detail and a timestamp. The write uses a conflict retry and skips when
 nothing changed. This is the last-applied result the item asks for.
 
-- Commits: `e493f608e`
+- Commits: `e493f608e`, `6a176ede5` for the agent RBAC on
+  `bgp-confs/status`
 - Tests: `TestNodeApplyState`
 
 **Not done: peer session state.** The design, and why it is not in this
