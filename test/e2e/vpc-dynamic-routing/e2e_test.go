@@ -1145,6 +1145,9 @@ func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
 			{"cat", "/etc/frr/.kube-ovn-frr-applied"},
 			{"vtysh", "-c", "show running-config"},
 			{"vtysh", "-c", "show bgp vrf all summary"},
+			{"vtysh", "-c", "show bgp vrf all ipv4 unicast"},
+			{"vtysh", "-c", "show ip route vrf all"},
+			{"ip", "-o", "link", "show", "type", "vrf"},
 		} {
 			out, errOut, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, pod.Name, "frr", cmd...)
 			framework.Logf("agent %s %v:\n%s%s (err=%v)", gwName, cmd, out, errOut, err)
