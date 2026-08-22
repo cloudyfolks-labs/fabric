@@ -82,7 +82,7 @@ case "${SUITE}" in
     ;;
   lb-svc)
     n_worker=2 make kind-init-ipv4
-    ENABLE_LB_SVC=true CNI_CONFIG_PRIORITY=10 make kind-install-ipv4
+    make kind-install-lb-svc
     make kube-ovn-lb-svc-conformance-e2e
     ;;
   *)
