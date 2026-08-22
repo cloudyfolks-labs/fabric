@@ -333,6 +333,12 @@ func (c *Controller) handleSubnetFinalizer(subnet *kubeovnv1.Subnet) (*kubeovnv1
 		return patchSubnet, false, nil
 	}
 
+	if !subnet.DeletionTimestamp.IsZero() {
+		if err := c.deleteHealthCheckVip(subnet.Name); err != nil {
+			return subnet, false, err
+		}
+	}
+
 	if readyToRemoveFinalizer(subnet) {
 		newSubnet := subnet.DeepCopy()
 		controllerutil.RemoveFinalizer(newSubnet, util.DeprecatedFinalizerName)
@@ -351,6 +357,22 @@ func (c *Controller) handleSubnetFinalizer(subnet *kubeovnv1.Subnet) (*kubeovnv1
 		return newSubnet, true, nil
 	}
 	return subnet, false, nil
+}
+
+func (c *Controller) deleteHealthCheckVip(subnetName string) error {
+	vip, err := c.virtualIpsLister.Get(subnetName)
+	if err != nil || vip.Spec.Subnet != subnetName {
+		return nil
+	}
+	if !vip.DeletionTimestamp.IsZero() {
+		return nil
+	}
+	klog.Infof("delete health check vip %s of deleting subnet %s", vip.Name, subnetName)
+	if err = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+		klog.Errorf("failed to delete health check vip %s, %v", vip.Name, err)
+		return err
+	}
+	return nil
 }
 
 func (c *Controller) validateVpcBySubnet(subnet *kubeovnv1.Subnet) (*kubeovnv1.Vpc, error) {
@@ -870,14 +892,6 @@ func (c *Controller) handleDeleteSubnet(subnet *kubeovnv1.Subnet) error {
 	if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), u2oInterconnName, metav1.DeleteOptions{}); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			klog.Errorf("failed to delete ip %s, %v", u2oInterconnName, err)
-			return err
-		}
-	}
-
-	if vip, err := c.virtualIpsLister.Get(subnet.Name); err == nil && vip.Spec.Subnet == subnet.Name {
-		klog.Infof("delete health check vip %s of subnet %s", vip.Name, subnet.Name)
-		if err = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
-			klog.Errorf("failed to delete health check vip %s, %v", vip.Name, err)
 			return err
 		}
 	}

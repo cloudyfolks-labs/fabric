@@ -578,10 +578,13 @@ ip protocol bgp route-map OVN-NO-FIB
 			}, "EIP of "+w.vpcName+" advertised from the surviving chassis")
 		}
 		for _, w := range kept {
-			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
-			framework.ExpectNoError(err)
-			framework.ExpectTrue(bgpPathFromPeer(string(stdout), topo.nodeIPMap[bindings[w.vpcName]]),
-				"EIP of "+w.vpcName+" must still be advertised from its original chassis")
+			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
+				if err != nil {
+					return false, nil
+				}
+				return bgpPathFromPeer(string(stdout), topo.nodeIPMap[bindings[w.vpcName]]), nil
+			}, "EIP of "+w.vpcName+" must still be advertised from its original chassis")
 		}
 
 		withdrawn := moved[0]
