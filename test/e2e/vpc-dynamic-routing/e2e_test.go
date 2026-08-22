@@ -1066,6 +1066,7 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 	})
 	f.DaemonSetClientNS(framework.KubeOvnNamespace).RolloutStatus(agentName)
 	ginkgo.DeferCleanup(dumpAgentFrrState, f, topo)
+	ginkgo.DeferCleanup(dumpOvnDynamicRoutingState, f)
 }
 
 func setVpcStaticRoutes(f *framework.Framework, vpcName string, routes []*apiv1.StaticRoute) {
@@ -1124,6 +1125,25 @@ func waitTorLearnsEip(topo *drTopology, w *drWorkload) {
 		}
 		return strings.Contains(string(stdout), w.eipV4+"/32") && strings.Contains(string(stdout), "via "+w.lrpIP), nil
 	}, "ToR learned EIP "+w.eipV4+" via the owning VPC LRP")
+}
+
+// dumpOvnDynamicRoutingState prints the NB and SB side of the advertisement
+// chain when a spec fails: what the router redistributes, which load
+// balancers it carries, and what northd actually put into Advertised_Route.
+func dumpOvnDynamicRoutingState(f *framework.Framework) {
+	if !ginkgo.CurrentSpecReport().Failed() {
+		return
+	}
+	pod := getOvnCentralPod(f)
+	for _, cmd := range []string{
+		"ovn-nbctl --no-leader-only --format=csv --no-heading --columns=name,options list Logical_Router",
+		"ovn-nbctl --no-leader-only --format=csv --no-heading --columns=name,load_balancer list Logical_Router",
+		"ovn-nbctl --no-leader-only --format=csv --no-heading --columns=name,vips,options list Load_Balancer",
+		"ovn-sbctl --no-leader-only --format=csv --no-heading --columns=ip_prefix,logical_port,tracked_port list Advertised_Route",
+	} {
+		out, errOut, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, pod, "ovn-central", "sh", "-c", cmd)
+		framework.Logf("ovn dump [%s]:\n%s%s (err=%v)", cmd, out, errOut, err)
+	}
 }
 
 // dumpAgentFrrState prints the agent pods' apply result and the live FRR
