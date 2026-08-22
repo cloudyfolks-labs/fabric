@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 VERSION=$(cat VERSION)
 BARE=${VERSION#v}
 
+INSTALL=dist/images/install.sh
 CHART=charts/fabric/Chart.yaml
 CRD_CHART=charts/fabric/charts/fabric-crds/Chart.yaml
 VALUES=charts/fabric/values.yaml
@@ -30,4 +31,9 @@ awk -v bare="${BARE}" '
   { print }
 ' "${CRD_CHART}" > "${CRD_CHART}.tmp" && mv "${CRD_CHART}.tmp" "${CRD_CHART}"
 
-echo "chart version synced to ${VERSION}"
+awk -v version="${VERSION}" '
+  /^VERSION=/ { print "VERSION=\"" version "\""; next }
+  { print }
+' "${INSTALL}" > "${INSTALL}.tmp" && mv "${INSTALL}.tmp" "${INSTALL}"
+
+echo "chart and install.sh version synced to ${VERSION}"

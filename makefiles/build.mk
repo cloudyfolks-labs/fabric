@@ -35,7 +35,7 @@ sync-version:
 
 .PHONY: verify-version
 verify-version: sync-version
-	@if ! git diff --exit-code charts/fabric/Chart.yaml charts/fabric/charts/fabric-crds/Chart.yaml charts/fabric/values.yaml >/dev/null; then echo "Error: the chart version is out of sync with VERSION. Please run 'make sync-version' and commit the changes."; exit 1; fi
+	@if ! git diff --exit-code charts/fabric/Chart.yaml charts/fabric/charts/fabric-crds/Chart.yaml charts/fabric/values.yaml dist/images/install.sh >/dev/null; then echo "Error: the chart version is out of sync with VERSION. Please run 'make sync-version' and commit the changes."; exit 1; fi
 
 .PHONY: verify-crd
 verify-crd: gen-crd
