@@ -3775,6 +3775,9 @@ jobs:
           ENABLE_OVN_LB_SVC: "true"
         run: make kind-install-ipv4
 
+      - name: Load the vrf kernel module
+        run: sudo modprobe vrf
+
       - name: Run E2E
         id: e2e
         working-directory: ${{ env.E2E_DIR }}

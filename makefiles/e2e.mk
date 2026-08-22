@@ -221,7 +221,7 @@ vpc-dynamic-routing-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-dynamic-routing
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
-	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m \
+	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m --fail-on-empty \
 		--focus=CNI:Kube-OVN ./test/e2e/vpc-dynamic-routing/vpc-dynamic-routing.test -- $(TEST_BIN_ARGS)
 
 .PHONY: ovn-vpc-nat-gw-conformance-e2e

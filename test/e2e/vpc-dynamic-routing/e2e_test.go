@@ -626,7 +626,7 @@ func setupTopology(f *framework.Framework, gwNodeCount int) *drTopology {
 	framework.ExpectNoError(err)
 	framework.ExpectNotEmpty(kindNodes)
 	if _, _, err = kindNodes[0].Exec("ip", "link", "add", "vrf-probe", "type", "vrf", "table", "9999"); err != nil {
-		ginkgo.Skip("VRF kernel module not available, skipping dynamic routing test")
+		ginkgo.Skip("VRF kernel module not available (modprobe vrf on the host), skipping dynamic routing test")
 	}
 	_, _, _ = kindNodes[0].Exec("ip", "link", "del", "vrf-probe")
 
