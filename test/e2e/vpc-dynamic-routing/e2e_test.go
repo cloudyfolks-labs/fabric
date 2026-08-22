@@ -1030,6 +1030,10 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 			Resources: []string{"bgp-confs", "vpcs", "ovn-eips"},
 			Verbs:     []string{"get", "list", "watch"},
 		}, {
+			APIGroups: []string{"fabric.cloudyfolks.io"},
+			Resources: []string{"bgp-confs/status"},
+			Verbs:     []string{"get", "update", "patch"},
+		}, {
 			APIGroups: []string{""},
 			Resources: []string{"nodes", "pods"},
 			Verbs:     []string{"get", "list", "watch"},
