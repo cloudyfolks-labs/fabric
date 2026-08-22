@@ -1227,6 +1227,7 @@ false
   "enableNetworkPolicies": true,
   "enableOvnInterconnections": false,
   "enableOvnIpsec": false,
+  "enableOvnLbPreferLocal": false,
   "enableOvnLbSvc": false,
   "enableSecureServing": false,
   "enableTproxy": false,
@@ -1316,6 +1317,15 @@ false
 </pre>
 </td>
 			<td>Enable IPSEC</td>
+		</tr>
+		<tr>
+			<td>features.enableOvnLbPreferLocal</td>
+			<td>bool</td>
+			<td><pre lang="json">
+false
+</pre>
+</td>
+			<td>Prefer the local chassis backend on OVN loadbalancers</td>
 		</tr>
 		<tr>
 			<td>features.enableOvnLbSvc</td>
