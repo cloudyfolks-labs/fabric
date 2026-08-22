@@ -1983,21 +1983,21 @@ func TestHandleAddOrUpdatePodWithoutWorkDoesNotRecordSuccess(t *testing.T) {
 
 func podEventFixture() (*corev1.Pod, *kubeovnv1.Subnet) {
 	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: metav1.NamespaceDefault, UID: "pod-uid", Annotations: map[string]string{
-			util.LogicalSwitchAnnotation: "subnet-a",
-		}},
-	}, &kubeovnv1.Subnet{
-		ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"},
-		Spec: kubeovnv1.SubnetSpec{
-			CIDRBlock: "10.0.0.0/24",
-			Gateway:   "10.0.0.1",
-			Protocol:  kubeovnv1.ProtocolIPv4,
-			Provider:  util.OvnProvider,
-			Vpc:       util.DefaultVpc,
-			Default:   true,
-		},
-		Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(253)},
-	}
+			ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: metav1.NamespaceDefault, UID: "pod-uid", Annotations: map[string]string{
+				util.LogicalSwitchAnnotation: "subnet-a",
+			}},
+		}, &kubeovnv1.Subnet{
+			ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"},
+			Spec: kubeovnv1.SubnetSpec{
+				CIDRBlock: "10.0.0.0/24",
+				Gateway:   "10.0.0.1",
+				Protocol:  kubeovnv1.ProtocolIPv4,
+				Provider:  util.OvnProvider,
+				Vpc:       util.DefaultVpc,
+				Default:   true,
+			},
+			Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(253)},
+		}
 }
 
 func storeDeletingPod(controller *Controller, pod *corev1.Pod) {
