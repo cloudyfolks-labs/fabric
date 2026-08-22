@@ -421,9 +421,12 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 }
 
 func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
-	cachedOvnEip, err := c.ovnEipsLister.Get(key)
+	cachedOvnEip, err := c.config.KubeOvnClient.FabricV1().OvnEips().Get(context.Background(), key, metav1.GetOptions{})
 	if err != nil {
-		klog.Errorf("failed to get cached ovn eip '%s', %v", key, err)
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		klog.Errorf("failed to get ovn eip '%s', %v", key, err)
 		return err
 	}
 	ovnEip := cachedOvnEip.DeepCopy()
