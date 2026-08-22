@@ -150,14 +150,10 @@ ovs-vsctl set open . external-ids:ovn-encap-type="${TUNNEL_TYPE}"
 ovs-vsctl set open . external-ids:hostname="${NODE_NAME}"
 
 # Start ovn-controller
-ovn_user_args=()
-if [ -n "$DEBUG_WRAPPER" ]; then
-  ovn_user_args=(--ovn-user=root:root)
-fi
 if [[ "$ENABLE_SSL" == "false" ]]; then
-  /usr/share/ovn/scripts/ovn-ctl "${ovn_user_args[@]}" --ovn-controller-wrapper="$DEBUG_WRAPPER" restart_controller
+  /usr/share/ovn/scripts/ovn-ctl --ovn-controller-wrapper="$DEBUG_WRAPPER" restart_controller
 else
-  /usr/share/ovn/scripts/ovn-ctl "${ovn_user_args[@]}" --ovn-controller-ssl-key=/var/run/tls/key --ovn-controller-ssl-cert=/var/run/tls/cert --ovn-controller-ssl-ca-cert=/var/run/tls/cacert --ovn-controller-wrapper="$DEBUG_WRAPPER" restart_controller
+  /usr/share/ovn/scripts/ovn-ctl --ovn-controller-ssl-key=/var/run/tls/key --ovn-controller-ssl-cert=/var/run/tls/cert --ovn-controller-ssl-ca-cert=/var/run/tls/cacert --ovn-controller-wrapper="$DEBUG_WRAPPER" restart_controller
   bash /kube-ovn/kube-ovn-tls-reload.sh ovs &
 fi
 
