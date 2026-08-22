@@ -177,6 +177,7 @@ func Render(input RenderInput) string {
 		}
 		b.WriteString(" address-family ipv4 unicast\n")
 		fmt.Fprintf(&b, "  redistribute kernel route-map %s%s\n", nhRouteMap, vpc.VpcName)
+		b.WriteString("  import vrf default\n")
 		networks := make([]string, len(vpc.Networks))
 		copy(networks, vpc.Networks)
 		sort.Strings(networks)
@@ -191,6 +192,7 @@ func Render(input RenderInput) string {
 	if input.RouterID != "" {
 		fmt.Fprintf(&b, " bgp router-id %s\n", input.RouterID)
 	}
+	b.WriteString(" no bgp ebgp-requires-policy\n")
 	if input.GracefulRestart {
 		b.WriteString(" bgp graceful-restart\n")
 	}

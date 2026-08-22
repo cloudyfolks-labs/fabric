@@ -47,6 +47,8 @@ func TestRenderFull(t *testing.T) {
 		"router bgp 65002 vrf ovnvrf1002",
 		"  redistribute kernel route-map KUBE-OVN-NH-vpc-a",
 		"  redistribute kernel route-map KUBE-OVN-NH-vpc-b",
+		"  import vrf default",
+		" no bgp ebgp-requires-policy",
 		"router bgp 65002",
 		" bgp router-id 172.19.0.2",
 		" neighbor 172.19.0.4 remote-as 65001",
@@ -98,6 +100,27 @@ func TestRenderDeterministic(t *testing.T) {
 		if got := Render(input); got != first {
 			t.Fatal("render output is not deterministic")
 		}
+	}
+}
+
+func TestRenderLearnsRoutesFromPeer(t *testing.T) {
+	config := Render(RenderInput{
+		NodeName:  "node1",
+		RouterID:  "10.0.0.1",
+		LocalASN:  65002,
+		Neighbors: []Neighbor{{Address: "10.0.0.9", ASN: 65001}},
+		Vpcs: []VpcAdvertisement{
+			{VpcName: "vpc-a", VrfName: "ovnvrf1001", TableID: 1001, LrpIP: "10.0.0.21"},
+			{VpcName: "vpc-b", VrfName: "ovnvrf1002", TableID: 1002, LrpIP: "10.0.0.22"},
+		},
+		ImportVrfs: []string{"ovnvrf1001", "ovnvrf1002"},
+	})
+
+	if !strings.Contains(config, " no bgp ebgp-requires-policy\n") {
+		t.Errorf("expected inbound prefixes to be permitted, got:\n%s", config)
+	}
+	if got := strings.Count(config, "  import vrf default\n"); got != 2 {
+		t.Errorf("expected each vrf instance to import the default vrf, got %d:\n%s", got, config)
 	}
 }
 
