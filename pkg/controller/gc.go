@@ -1022,6 +1022,10 @@ func (c *Controller) gcChassis() error {
 			}
 			// maybe node name changed, delete chassis
 			klog.Infof("gc node %s chassis %s", node.Name, chassisName)
+			if err := c.OVNNbClient.DeleteGatewayChassisByChassisName(chassisName); err != nil {
+				klog.Errorf("failed to delete gateway chassis of chassis %s: %v", chassisName, err)
+				return err
+			}
 			if err := c.OVNSbClient.DeleteChassis(chassisName); err != nil {
 				klog.Errorf("failed to delete node %s chassis %s %v", node.Name, chassisName, err)
 				return err
@@ -1031,6 +1035,10 @@ func (c *Controller) gcChassis() error {
 
 	for chassisName, hostname := range chassisNodes {
 		klog.Infof("gc node %s chassis %s", hostname, chassisName)
+		if err := c.OVNNbClient.DeleteGatewayChassisByChassisName(chassisName); err != nil {
+			klog.Errorf("failed to delete gateway chassis of chassis %s: %v", chassisName, err)
+			return err
+		}
 		if err := c.OVNSbClient.DeleteChassis(chassisName); err != nil {
 			klog.Errorf("failed to delete node %s chassis %s %v", hostname, chassisName, err)
 			return err

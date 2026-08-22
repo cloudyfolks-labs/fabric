@@ -40,6 +40,7 @@ func (c *Controller) enqueueAddNode(obj any) {
 	klog.V(3).Infof("enqueue add node %s", key)
 	c.addNodeQueue.Add(key)
 	c.enqueueVpcBFDPortByNodeChange(nil, node)
+	c.enqueueVpcExternalGatewayByNodeChange(nil, node)
 }
 
 func nodeReady(node *v1.Node) bool {
@@ -121,6 +122,29 @@ func (c *Controller) enqueueVpcBFDPortByNodeChange(oldNode, newNode *v1.Node) {
 	}
 }
 
+func isExternalGatewayNode(node *v1.Node) bool {
+	return node != nil && node.Labels[util.ExGatewayLabel] == "true"
+}
+
+func (c *Controller) enqueueVpcExternalGatewayByNodeChange(oldNode, newNode *v1.Node) {
+	if !isExternalGatewayNode(oldNode) && !isExternalGatewayNode(newNode) {
+		return
+	}
+
+	vpcs, err := c.vpcsLister.List(labels.Everything())
+	if err != nil {
+		klog.Errorf("failed to list vpcs for node update: %v", err)
+		return
+	}
+	for _, vpc := range vpcs {
+		if !vpc.Spec.EnableExternal && !vpc.Status.EnableExternal {
+			continue
+		}
+		klog.V(3).Infof("enqueue update vpc %s for external gateway triggered by node change", vpc.Name)
+		c.addOrUpdateVpcQueue.Add(vpc.Name)
+	}
+}
+
 func (c *Controller) enqueueUpdateNode(oldObj, newObj any) {
 	oldNode := oldObj.(*v1.Node)
 	newNode := newObj.(*v1.Node)
@@ -142,6 +166,9 @@ func (c *Controller) enqueueUpdateNode(oldObj, newObj any) {
 	}
 	if nodeReadyChanged || nodeLabelsChanged {
 		c.enqueueVpcBFDPortByNodeChange(oldNode, newNode)
+	}
+	if nodeLabelsChanged || kubeOvnAnnotationsChanged(oldNode.Annotations, newNode.Annotations) {
+		c.enqueueVpcExternalGatewayByNodeChange(oldNode, newNode)
 	}
 }
 
@@ -167,6 +194,7 @@ func (c *Controller) enqueueDeleteNode(obj any) {
 	c.deletingNodeObjMap.Store(key, node)
 	c.deleteNodeQueue.Add(key)
 	c.enqueueVpcBFDPortByNodeChange(node, nil)
+	c.enqueueVpcExternalGatewayByNodeChange(node, nil)
 }
 
 func nodeUnderlayAddressSetName(node string, af int) string {
@@ -471,6 +499,12 @@ func (c *Controller) deleteNode(key string) error {
 	if err := c.OVNNbClient.DeleteLogicalSwitchPort(portName); err != nil {
 		klog.Errorf("failed to delete node switch port %s: %v", portName, err)
 		return err
+	}
+	if chassis, err := c.OVNSbClient.GetChassisByHost(key); err == nil && chassis != nil {
+		if err = c.OVNNbClient.DeleteGatewayChassisByChassisName(chassis.Name); err != nil {
+			klog.Errorf("failed to delete gateway chassis of node %s: %v", key, err)
+			return err
+		}
 	}
 	if err := c.OVNSbClient.DeleteChassisByHost(key); err != nil {
 		klog.Errorf("failed to delete chassis for node %s: %v", key, err)

@@ -668,6 +668,11 @@ func (c *Controller) handleUpdateVpcExternal(vpc *kubeovnv1.Vpc, custVpcEnableEx
 		}
 	}
 
+	if err := c.reconcileVpcExternalGatewayChassis(vpc); err != nil {
+		klog.Errorf("failed to reconcile external gateway chassis for vpc %s: %v", vpc.Name, err)
+		return err
+	}
+
 	if err := c.reconcileVpcDynamicRoutingLrpOptions(vpc); err != nil {
 		klog.Errorf("failed to reconcile dynamic routing lrp options for vpc %s: %v", vpc.Name, err)
 		return err
@@ -1276,13 +1281,7 @@ func (c *Controller) reconcileVpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc) er
 		maintainVrf = "true"
 	}
 
-	subnets := make([]string, 0, len(vpc.Spec.ExtraExternalSubnets)+1)
-	if c.config.ExternalGatewaySwitch != "" {
-		subnets = append(subnets, c.config.ExternalGatewaySwitch)
-	}
-	subnets = append(subnets, vpc.Spec.ExtraExternalSubnets...)
-
-	for _, subnet := range subnets {
+	for _, subnet := range vpcExternalSubnets(vpc, c.config.ExternalGatewaySwitch) {
 		lrpName := fmt.Sprintf("%s-%s", vpc.Name, subnet)
 		lrp, err := c.OVNNbClient.GetLogicalRouterPort(lrpName, true)
 		if err != nil {
@@ -1300,6 +1299,71 @@ func (c *Controller) reconcileVpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc) er
 		}
 	}
 
+	return nil
+}
+
+func vpcExternalSubnets(vpc *kubeovnv1.Vpc, defaultSubnet string) []string {
+	subnets := make([]string, 0, len(vpc.Spec.ExtraExternalSubnets)+1)
+	if defaultSubnet != "" {
+		subnets = append(subnets, defaultSubnet)
+	}
+	return append(subnets, vpc.Spec.ExtraExternalSubnets...)
+}
+
+func (c *Controller) externalGatewayChassises(vpcName string) ([]string, error) {
+	gwNodes, err := c.nodesLister.List(externalGatewayNodeSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list external gw nodes: %w", err)
+	}
+
+	chassises := make([]string, 0, len(gwNodes))
+	for _, gwNode := range gwNodes {
+		annoChassisName := gwNode.Annotations[util.ChassisAnnotation]
+		if annoChassisName == "" {
+			return nil, fmt.Errorf("node %s has no chassis annotation, kube-ovn-cni not ready", gwNode.Name)
+		}
+		chassis, err := c.OVNSbClient.GetChassis(annoChassisName, false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chassis %s of node %s: %w", annoChassisName, gwNode.Name, err)
+		}
+		chassises = append(chassises, chassis.Name)
+	}
+
+	sort.Slice(chassises, func(i, j int) bool {
+		return util.Sha256Hash([]byte(vpcName+chassises[i])) < util.Sha256Hash([]byte(vpcName+chassises[j]))
+	})
+	return chassises, nil
+}
+
+func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *kubeovnv1.Vpc) error {
+	if !vpc.Spec.EnableExternal {
+		return nil
+	}
+
+	chassises, err := c.externalGatewayChassises(vpc.Name)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	if len(chassises) == 0 {
+		klog.Warningf("no node carries the %s label, clearing the gateway chassis of vpc %s", util.ExGatewayLabel, vpc.Name)
+	}
+
+	for _, subnet := range vpcExternalSubnets(vpc, c.config.ExternalGatewaySwitch) {
+		lrpName := fmt.Sprintf("%s-%s", vpc.Name, subnet)
+		exists, err := c.OVNNbClient.LogicalRouterPortExists(lrpName)
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+		if !exists {
+			continue
+		}
+		if err = c.OVNNbClient.UpdateGatewayChassises(lrpName, chassises); err != nil {
+			klog.Errorf("failed to update gateway chassis of lrp %s: %v", lrpName, err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1340,39 +1404,16 @@ func (c *Controller) handleAddVpcExternalSubnet(key, subnet string) error {
 		klog.Error(err)
 		return err
 	}
-	// init lrp gw chassis group
-	chassises := []string{}
-	gwNodes, err := c.nodesLister.List(externalGatewayNodeSelector)
+	chassises, err := c.externalGatewayChassises(key)
 	if err != nil {
-		klog.Errorf("failed to list external gw nodes, %v", err)
+		klog.Error(err)
 		return err
 	}
-	for _, gwNode := range gwNodes {
-		annoChassisName := gwNode.Annotations[util.ChassisAnnotation]
-		if annoChassisName == "" {
-			err := fmt.Errorf("node %s has no chassis annotation, kube-ovn-cni not ready", gwNode.Name)
-			klog.Error(err)
-			return err
-		}
-		klog.Infof("get node %s chassis: %s", gwNode.Name, annoChassisName)
-		chassis, err := c.OVNSbClient.GetChassis(annoChassisName, false)
-		if err != nil {
-			klog.Errorf("failed to get node %s chassis: %s, %v", gwNode.Name, annoChassisName, err)
-			return err
-		}
-		chassises = append(chassises, chassis.Name)
-	}
-
 	if len(chassises) == 0 {
 		err := errors.New("no external gw nodes")
 		klog.Error(err)
 		return err
 	}
-
-	// distribute active gateway chassis across VPCs
-	sort.Slice(chassises, func(i, j int) bool {
-		return util.Sha256Hash([]byte(key+chassises[i])) < util.Sha256Hash([]byte(key+chassises[j]))
-	})
 
 	ipCidr, err := util.GetIPAddrWithMask(util.GetStringIP(v4ip, v6ip), cachedSubnet.Spec.CIDRBlock)
 	if err != nil {

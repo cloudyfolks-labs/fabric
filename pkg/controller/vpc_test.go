@@ -717,3 +717,12 @@ func Test_enqueueUpdateVpc_dynamicRouting(t *testing.T) {
 		})
 	}
 }
+
+func TestVpcExternalSubnets(t *testing.T) {
+	t.Parallel()
+
+	vpc := &kubeovnv1.Vpc{Spec: kubeovnv1.VpcSpec{ExtraExternalSubnets: []string{"vlan-a", "vlan-b"}}}
+	require.Equal(t, []string{"external", "vlan-a", "vlan-b"}, vpcExternalSubnets(vpc, "external"))
+	require.Equal(t, []string{"vlan-a", "vlan-b"}, vpcExternalSubnets(vpc, ""))
+	require.Equal(t, []string{"external"}, vpcExternalSubnets(&kubeovnv1.Vpc{}, "external"))
+}

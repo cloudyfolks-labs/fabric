@@ -487,3 +487,75 @@ func TestGetPolicyRouteParams_ClonedExternalIDs(t *testing.T) {
 	}, originalExternalIDs)
 	require.Contains(t, policy.ExternalIDs, "node-1")
 }
+
+func newExternalVpc(name string, enableExternal bool) *kubeovnv1.Vpc {
+	return &kubeovnv1.Vpc{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec:       kubeovnv1.VpcSpec{EnableExternal: enableExternal},
+	}
+}
+
+func externalGatewayNode(name string, gateway bool) *corev1.Node {
+	labels := map[string]string{}
+	if gateway {
+		labels[util.ExGatewayLabel] = "true"
+	}
+	return &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Labels:      labels,
+			Annotations: map[string]string{util.AllocatedAnnotation: "true"},
+		},
+	}
+}
+
+func TestEnqueueVpcExternalGatewayByNodeChange(t *testing.T) {
+	tests := []struct {
+		name     string
+		old      *corev1.Node
+		current  *corev1.Node
+		enqueued []string
+	}{
+		{
+			name:     "label added",
+			old:      externalGatewayNode("node-a", false),
+			current:  externalGatewayNode("node-a", true),
+			enqueued: []string{"external-vpc"},
+		},
+		{
+			name:     "label removed",
+			old:      externalGatewayNode("node-a", true),
+			current:  externalGatewayNode("node-a", false),
+			enqueued: []string{"external-vpc"},
+		},
+		{
+			name:     "node deleted",
+			old:      externalGatewayNode("node-a", true),
+			current:  nil,
+			enqueued: []string{"external-vpc"},
+		},
+		{
+			name:     "unrelated node",
+			old:      externalGatewayNode("node-a", false),
+			current:  externalGatewayNode("node-a", false),
+			enqueued: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := prepareNodeQueueTestController(t,
+				newExternalVpc("external-vpc", true),
+				newExternalVpc("internal-vpc", false),
+			)
+			ctrl.enqueueVpcExternalGatewayByNodeChange(tt.old, tt.current)
+			require.Equal(t, tt.enqueued, drainVpcQueue(t, ctrl))
+		})
+	}
+}
+
+func TestEnqueueDeleteNodeEnqueuesExternalVpc(t *testing.T) {
+	ctrl := prepareNodeQueueTestController(t, newExternalVpc("external-vpc", true))
+	ctrl.enqueueDeleteNode(externalGatewayNode("node-a", true))
+	require.Equal(t, []string{"external-vpc"}, drainVpcQueue(t, ctrl))
+}
