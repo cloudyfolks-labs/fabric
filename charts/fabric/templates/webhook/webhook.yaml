@@ -55,7 +55,7 @@ webhooks:
           - vpcs
           - vips
           - loadbalancer-pools
-              objectSelector:
+    objectSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: NotIn
