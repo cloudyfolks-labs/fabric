@@ -43,7 +43,7 @@ const (
 	ovnCentralTLSHashFile       = "/tmp/kube-ovn-central-tls.hash"
 	ovsOVNTLSHashFile           = "/tmp/kube-ovn-tls.hash"
 
-	kubeOVNTLSCertHashAnnotation = "kube-ovn.io/kube-ovn-tls-cert-hash"
+	kubeOVNTLSCertHashAnnotation = "fabric.cloudyfolks.io/tls-cert-hash"
 )
 
 var kubeOVNTLSDataKeys = []string{"cacert", "cert", "key"}

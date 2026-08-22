@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -208,4 +209,25 @@ func testKubeOVNTLSSecret(namespace string, data map[string][]byte, annotations 
 		},
 		Data: data,
 	}
+}
+
+func TestKubeOVNTLSCertHashReadsLegacyAnnotation(t *testing.T) {
+	t.Parallel()
+
+	legacy := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{legacyKubeOVNTLSCertHashAnnotation: "old"},
+	}}
+	require.Equal(t, "old", kubeOVNTLSCertHash(legacy))
+
+	both := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{
+			legacyKubeOVNTLSCertHashAnnotation: "old",
+			kubeOVNTLSCertHashAnnotation:       "new",
+		},
+	}}
+	require.Equal(t, "new", kubeOVNTLSCertHash(both))
+
+	setKubeOVNTLSAnnotation(both, kubeOVNTLSCertHashAnnotation, "newer")
+	require.Equal(t, "newer", both.Annotations[kubeOVNTLSCertHashAnnotation])
+	require.NotContains(t, both.Annotations, legacyKubeOVNTLSCertHashAnnotation)
 }

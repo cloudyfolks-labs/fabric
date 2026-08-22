@@ -27,7 +27,8 @@ const (
 	kubeOVNTLSCertDuration            = 10 * 365 * 24 * time.Hour
 	kubeOVNTLSCommonName              = "ovn"
 
-	kubeOVNTLSCertHashAnnotation = "kube-ovn.io/kube-ovn-tls-cert-hash"
+	kubeOVNTLSCertHashAnnotation       = "fabric.cloudyfolks.io/tls-cert-hash"
+	legacyKubeOVNTLSCertHashAnnotation = "kube-ovn.io/kube-ovn-tls-cert-hash"
 )
 
 func (c *Controller) startKubeOVNTLSManager(ctx context.Context) {
@@ -95,7 +96,7 @@ func (c *Controller) reconcileKubeOVNTLS(ctx context.Context) error {
 		return err
 	}
 
-	if secret.Annotations[kubeOVNTLSCertHashAnnotation] != hash {
+	if kubeOVNTLSCertHash(secret) != hash {
 		if err = c.setKubeOVNTLSHash(ctx, hash); err != nil {
 			return err
 		}
@@ -193,9 +194,17 @@ func (c *Controller) setKubeOVNTLSHash(ctx context.Context, hash string) error {
 	})
 }
 
+func kubeOVNTLSCertHash(secret *corev1.Secret) string {
+	if hash := secret.Annotations[kubeOVNTLSCertHashAnnotation]; hash != "" {
+		return hash
+	}
+	return secret.Annotations[legacyKubeOVNTLSCertHashAnnotation]
+}
+
 func setKubeOVNTLSAnnotation(secret *corev1.Secret, key, value string) {
 	if secret.Annotations == nil {
 		secret.Annotations = map[string]string{}
 	}
 	secret.Annotations[key] = value
+	delete(secret.Annotations, legacyKubeOVNTLSCertHashAnnotation)
 }
