@@ -31,6 +31,6 @@ COPY grace_stop_ovn_controller /usr/share/ovn/scripts/grace_stop_ovn_controller
 
 COPY --from=setcap /kube-ovn /kube-ovn
 RUN /kube-ovn/iptables-wrapper-installer.sh --no-sanity-check && \
-    setcap CAP_NET_ADMIN+eip "$(readlink -f /usr/bin/ovn-controller)"
+    if [ ! -x /usr/bin/valgrind ]; then setcap CAP_NET_ADMIN+eip "$(readlink -f /usr/bin/ovn-controller)"; fi
 
 WORKDIR /kube-ovn
