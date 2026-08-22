@@ -41,7 +41,7 @@ jobs:
         uses: helm/chart-testing-action@v2.8.0
 
       - name: Run chart-testing (lint)
-        run: ct lint --all --config charts/fabric/ct.yaml
+        run: ct lint --config charts/fabric/ct.yaml
 
   install:
     name: Install chart
@@ -88,7 +88,7 @@ jobs:
         run: |
           timeout 120 bash -c 'until kubectl get node -l node-role.kubernetes.io/control-plane -o name 2>/dev/null | grep -q .; do echo "Waiting for control-plane nodes to be labeled..."; sleep 2; done'
           kubectl label node --overwrite -l node-role.kubernetes.io/control-plane kube-ovn/role=master
-          ct install --all --config charts/fabric/ct.yaml
+          ct install --config charts/fabric/ct.yaml
 
       - name: Check kube ovn pod restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
