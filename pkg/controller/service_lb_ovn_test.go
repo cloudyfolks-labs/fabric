@@ -310,3 +310,67 @@ func Test_poolSubnetExhausted(t *testing.T) {
 	v6Subnet.Status.V6AvailableIPs = internal.NewBigInt(1)
 	assert.False(t, poolSubnetExhausted(v6Subnet))
 }
+
+func TestVpcAdvertisesLoadBalancerVips(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{}))
+	assert.False(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{
+		Spec: kubeovnv1.VpcSpec{DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+			Enabled:      true,
+			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+		}},
+	}))
+	assert.False(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{
+		Spec: kubeovnv1.VpcSpec{DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+		}},
+	}))
+	assert.True(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{
+		Spec: kubeovnv1.VpcSpec{DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+			Enabled:      true,
+			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB},
+		}},
+	}))
+}
+
+func TestCheckPoolAnnouncePath(t *testing.T) {
+	bgpVpc := &kubeovnv1.Vpc{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpc-bgp"},
+		Spec: kubeovnv1.VpcSpec{
+			EnableExternal: true,
+			DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+				Enabled:      true,
+				VrfID:        1001,
+				Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+			},
+		},
+	}
+	l2Vpc := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc-l2"}}
+	lrpEip := &kubeovnv1.OvnEip{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpc-l2-external"},
+		Spec:       kubeovnv1.OvnEipSpec{Type: util.OvnEipTypeLRP, ExternalSubnet: "external"},
+		Status:     kubeovnv1.OvnEipStatus{Ready: true},
+	}
+
+	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+		Vpcs:    []*kubeovnv1.Vpc{bgpVpc, l2Vpc},
+		OvnEips: []*kubeovnv1.OvnEip{lrpEip},
+	})
+	require.NoError(t, err)
+	ctrl := fakeCtrl.fakeController
+
+	bgpPool := &kubeovnv1.LoadBalancerPool{
+		ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"},
+		Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: kubeovnv1.LoadBalancerPoolAnnounceBGP},
+	}
+	assert.Empty(t, ctrl.checkPoolAnnouncePath(bgpPool, "vpc-bgp"))
+	assert.Contains(t, ctrl.checkPoolAnnouncePath(bgpPool, "vpc-l2"), "does not advertise loadbalancer vips")
+
+	l2Pool := &kubeovnv1.LoadBalancerPool{
+		ObjectMeta: metav1.ObjectMeta{Name: "pool-l2"},
+		Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "external", Announce: kubeovnv1.LoadBalancerPoolAnnounceL2},
+	}
+	assert.Empty(t, ctrl.checkPoolAnnouncePath(l2Pool, "vpc-l2"))
+	assert.Contains(t, ctrl.checkPoolAnnouncePath(l2Pool, "vpc-bgp"), "has no ready LRP")
+}
