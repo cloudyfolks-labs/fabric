@@ -89,6 +89,12 @@ func (c *Controller) enqueueUpdateSubnet(oldObj, newObj any) {
 		return
 	}
 
+	if oldSubnet.DeletionTimestamp.IsZero() && !newSubnet.DeletionTimestamp.IsZero() {
+		klog.Infof("enqueue update subnet %s triggered by deletion start", key)
+		c.addOrUpdateSubnetQueue.Add(key)
+		return
+	}
+
 	if !reflect.DeepEqual(oldSubnet.Spec, newSubnet.Spec) {
 		klog.V(3).Infof("enqueue update subnet %s", key)
 
