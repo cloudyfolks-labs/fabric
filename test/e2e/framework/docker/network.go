@@ -41,7 +41,7 @@ func generateULASubnetFromName(name string, attempt int32) string {
 }
 
 func getNetwork(name string, ignoreNotFound bool) (*network.Inspect, error) {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func NetworkCreate(name string, ipv6, skipIfExists bool) (*network.Inspect, erro
 		options.IPAM.Config = append(options.IPAM.Config, config)
 	}
 
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func NetworkCreate(name string, ipv6, skipIfExists bool) (*network.Inspect, erro
 }
 
 func NetworkConnect(networkID, containerID string) error {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func NetworkConnect(networkID, containerID string) error {
 }
 
 func NetworkDisconnect(networkID, containerID string) error {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func NetworkDisconnect(networkID, containerID string) error {
 }
 
 func NetworkRemove(networkID string) error {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}

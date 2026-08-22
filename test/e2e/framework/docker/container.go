@@ -10,7 +10,7 @@ import (
 )
 
 func ContainerList(filters map[string][]string) ([]container.Summary, error) {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func ContainerList(filters map[string][]string) ([]container.Summary, error) {
 }
 
 func ContainerCreate(name, image, networkName string, cmd []string) (*container.InspectResponse, error) {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func ContainerCreate(name, image, networkName string, cmd []string) (*container.
 }
 
 func ContainerInspect(id string) (*container.InspectResponse, error) {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func ContainerInspect(id string) (*container.InspectResponse, error) {
 }
 
 func ContainerRemove(id string) error {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}

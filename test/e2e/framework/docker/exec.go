@@ -23,7 +23,7 @@ func (e ErrNonZeroExitCode) Error() string {
 }
 
 func Exec(id string, env []string, cmd ...string) (stdout, stderr []byte, err error) {
-	cli, err := client.New(client.FromEnv)
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, nil, err
 	}
