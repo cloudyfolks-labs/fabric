@@ -715,14 +715,19 @@ func Test_handleDelRouterLBRule(t *testing.T) {
 		assert.True(t, k8serrors.IsNotFound(err), "service must be deleted")
 	})
 
-	t.Run("VPC not found skips VIP deletion but still cleans LBHCs", func(t *testing.T) {
+	t.Run("VPC not found still deletes the VIP from every LB that holds it", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			Services: []*corev1.Service{makeSvc(true)},
 			// VPC intentionally absent.
 		})
 		require.NoError(t, err)
 
-		// LoadBalancerDeleteVip must NOT be called (vpcLBNames is nil).
+		fc.mockOvnClient.EXPECT().
+			ListLoadBalancers(gomock.Any()).
+			Return([]ovnnb.LoadBalancer{{Name: testTCPLB, Vips: map[string]string{testVip: "10.0.0.1:80"}}}, nil)
+		fc.mockOvnClient.EXPECT().
+			LoadBalancerDeleteVip(testTCPLB, testVip, true).
+			Return(nil)
 		fc.mockOvnClient.EXPECT().
 			ListLoadBalancerHealthChecks(gomock.Any()).
 			Return([]ovnnb.LoadBalancerHealthCheck{}, nil)
