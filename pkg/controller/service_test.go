@@ -147,6 +147,64 @@ func Test_getVipIps(t *testing.T) {
 	}
 }
 
+func Test_getVipIpsKeepsClusterIPsAlongsideRouterLbVip(t *testing.T) {
+	t.Parallel()
+
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				util.RouterLBRuleVipsAnnotation: "192.168.1.10,fd00::10",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type:       v1.ServiceTypeLoadBalancer,
+			ClusterIP:  "10.96.0.1",
+			ClusterIPs: []string{"10.96.0.1", "fd01::1"},
+		},
+		Status: v1.ServiceStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{{IP: "192.168.1.10"}, {IP: "192.168.1.11"}},
+			},
+		},
+	}
+
+	require.Equal(t, []string{"192.168.1.10", "fd00::10", "10.96.0.1", "fd01::1", "192.168.1.11"}, getVipIps(svc))
+}
+
+func Test_getVipIpsKeepsClusterIPsAlongsideSwitchLbVip(t *testing.T) {
+	t.Parallel()
+
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				util.SwitchLBRuleVipsAnnotation: "10.0.0.1",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			ClusterIP:  "10.96.0.2",
+			ClusterIPs: []string{"10.96.0.2"},
+		},
+	}
+
+	require.Equal(t, []string{"10.0.0.1", "10.96.0.2"}, getVipIps(svc))
+}
+
+func Test_serviceAnnotationVips(t *testing.T) {
+	t.Parallel()
+
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				util.SwitchLBRuleVipsAnnotation: "10.0.0.1, fd00::1",
+				util.RouterLBRuleVipsAnnotation: "192.168.1.10",
+			},
+		},
+		Spec: v1.ServiceSpec{ClusterIP: "10.96.0.1", ClusterIPs: []string{"10.96.0.1"}},
+	}
+
+	require.Equal(t, []string{"10.0.0.1", "fd00::1", "192.168.1.10"}, serviceAnnotationVips(svc))
+}
+
 func Test_enqueueServiceGatedByEnableLb(t *testing.T) {
 	t.Parallel()
 

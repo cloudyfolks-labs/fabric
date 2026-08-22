@@ -122,32 +122,20 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 	svc := cachedService.DeepCopy()
 
 	var (
-		lbVips                   []string
-		vip, vpcName, subnetName string
-		ok                       bool
-		ignoreHealthCheck        = true
+		vpcName, subnetName string
+		ignoreHealthCheck   = true
 	)
 
-	if vip, ok = svc.Annotations[util.SwitchLBRuleVipsAnnotation]; ok && vip != "" {
-		lbVips = []string{vip}
-
+	annotationVips := serviceAnnotationVips(svc)
+	lbVips := getVipIps(svc)
+	if len(lbVips) == 0 {
+		return nil
+	}
+	for _, ip := range annotationVips {
 		// Health checks can only run against IPv4 endpoints and if the service doesn't specify they must be disabled
-		if util.CheckProtocol(vip) == kubeovnv1.ProtocolIPv4 && !serviceHealthChecksDisabled(svc) {
+		if util.CheckProtocol(ip) == kubeovnv1.ProtocolIPv4 && !serviceHealthChecksDisabled(svc) {
 			ignoreHealthCheck = false
 		}
-	} else if vip, ok = svc.Annotations[util.RouterLBRuleVipsAnnotation]; ok && vip != "" {
-		for ip := range strings.SplitSeq(vip, ",") {
-			ip = strings.TrimSpace(ip)
-			if ip == "" {
-				continue
-			}
-			lbVips = append(lbVips, ip)
-			if util.CheckProtocol(ip) == kubeovnv1.ProtocolIPv4 && !serviceHealthChecksDisabled(svc) {
-				ignoreHealthCheck = false
-			}
-		}
-	} else if lbVips = util.ServiceClusterIPs(*svc); len(lbVips) == 0 {
-		return nil
 	}
 
 	// If Kube-OVN is running in secondary CNI mode, the endpoint IPs should be derived from the network attachment definitions
@@ -187,6 +175,7 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 		tcpLb, udpLb, sctpLb, oldTCPLb, oldUDPLb, oldSctpLb = oldTCPLb, oldUDPLb, oldSctpLb, tcpLb, udpLb, sctpLb
 	}
 	for _, lbVip := range lbVips {
+		skipHealthCheck := ignoreHealthCheck || !slices.Contains(annotationVips, lbVip)
 		for _, port := range svc.Spec.Ports {
 			var lb, oldLb string
 			switch port.Protocol {
@@ -204,7 +193,7 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 				ipPortMapping, externals map[string]string
 			)
 
-			if !ignoreHealthCheck {
+			if !skipHealthCheck {
 				if checkIP, err = c.getHealthCheckVip(subnetName, lbVip); err != nil {
 					klog.Error(err)
 					return err
@@ -216,7 +205,7 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 
 			backends = c.getEndpointBackend(endpointSlices, port, lbVip)
 
-			if !ignoreHealthCheck {
+			if !skipHealthCheck {
 				ipPortMapping, err = c.getIPPortMapping(endpointSlices, svc, checkIP)
 				if err != nil {
 					err := fmt.Errorf("couldn't get ip port mapping for svc %s/%s: %w", svc.Namespace, svc.Name, err)
@@ -232,9 +221,9 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 					klog.Errorf("failed to add vip %s with backends %s to LB %s: %v", lbVip, backends, lb, err)
 					return err
 				}
-				if !ignoreHealthCheck {
+				if !skipHealthCheck {
 					klog.Infof("add health check ip port mapping %v to LB %s", ipPortMapping, lb)
-					if err = c.OVNNbClient.LoadBalancerAddHealthCheck(lb, vip, ignoreHealthCheck, ipPortMapping, externals); err != nil {
+					if err = c.OVNNbClient.LoadBalancerAddHealthCheck(lb, vip, skipHealthCheck, ipPortMapping, externals); err != nil {
 						klog.Errorf("failed to add health check for vip %s with ip port mapping %s to LB %s: %v", lbVip, ipPortMapping, lb, err)
 						return err
 					}

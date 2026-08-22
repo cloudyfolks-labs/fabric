@@ -548,27 +548,27 @@ func (c *Controller) handleAddService(key string) error {
 	return nil
 }
 
+func serviceAnnotationVips(svc *v1.Service) []string {
+	vips := splitAnnotationIPs(svc.Annotations[util.SwitchLBRuleVipsAnnotation])
+	return append(vips, splitAnnotationIPs(svc.Annotations[util.RouterLBRuleVipsAnnotation])...)
+}
+
+func serviceIngressIPs(svc *v1.Service) []string {
+	var ips []string
+	for _, ingress := range svc.Status.LoadBalancer.Ingress {
+		if ingress.IP != "" {
+			ips = append(ips, ingress.IP)
+		}
+	}
+	return ips
+}
+
 func getVipIps(svc *v1.Service) []string {
 	var ips []string
-	if vip, ok := svc.Annotations[util.SwitchLBRuleVipsAnnotation]; ok {
-		for ip := range strings.SplitSeq(vip, ",") {
-			if ip != "" {
+	for _, group := range [][]string{serviceAnnotationVips(svc), util.ServiceClusterIPs(*svc), serviceIngressIPs(svc)} {
+		for _, ip := range group {
+			if !slices.Contains(ips, ip) {
 				ips = append(ips, ip)
-			}
-		}
-	} else if vip, ok := svc.Annotations[util.RouterLBRuleVipsAnnotation]; ok {
-		for ip := range strings.SplitSeq(vip, ",") {
-			if ip != "" {
-				ips = append(ips, ip)
-			}
-		}
-	} else {
-		ips = util.ServiceClusterIPs(*svc)
-		if svc.Annotations[util.ServiceExternalIPFromSubnetAnnotation] != "" {
-			for _, ingress := range svc.Status.LoadBalancer.Ingress {
-				if ingress.IP != "" {
-					ips = append(ips, ingress.IP)
-				}
 			}
 		}
 	}
