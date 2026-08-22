@@ -1491,7 +1491,7 @@ func validateVpcEgressObservabilityHotReload(f *framework.Framework, veg *apiv1.
 }
 
 func triggerVpcEgressObserverConfigRefresh(f *framework.Framework, pods []corev1.Pod, resourceVersion string) error {
-	const annotation = "e2e.kube-ovn.io/observability-config-version"
+	const annotation = "e2e.fabric.cloudyfolks.io/observability-config-version"
 	for _, pod := range pods {
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			current, err := f.ClientSet.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
