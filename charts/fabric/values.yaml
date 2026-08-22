@@ -402,7 +402,7 @@ grafanaDashboards:
 natGw:
   image:
     repository: ghcr.io/cloudyfolks-labs/vpc-nat-gateway
-    tag: v0.1.0
+    tag: v1.17.0
 
 networkPolicies:
   # -- Enforcement level of network policies when they get applied (can be: standard, lax).

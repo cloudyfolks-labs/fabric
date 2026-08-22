@@ -8,9 +8,11 @@ release. Nothing is released from a workstation.
 ## Cut a release
 
 1. Set the new version in `VERSION`, for example `v1.18.0`.
-2. Run `make sync-version`. It copies `VERSION` into the chart image tag,
-   the chart version, the chart appVersion and the CRD subchart version.
-   `make verify-version` runs in CI and fails when they drift.
+2. Run `make sync-version`. It copies `VERSION` into the chart image
+   tags, the chart version, the chart appVersion and the CRD subchart
+   version. `make verify-version` runs in CI and fails when they drift.
+   Then run `helm-docs` in `charts/fabric` to regenerate `README.md`
+   from `values.yaml`. CI does not check the chart README.
 3. Commit both changes and merge them to `main`.
 4. Push the tag: `git tag v1.18.0 && git push origin v1.18.0`.
 

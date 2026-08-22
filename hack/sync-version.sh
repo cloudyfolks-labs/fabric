@@ -10,8 +10,10 @@ CRD_CHART=charts/fabric/charts/fabric-crds/Chart.yaml
 VALUES=charts/fabric/values.yaml
 
 awk -v version="${VERSION}" '
-  /^    kubeovn:$/ { global = 1 }
-  global && /^      tag: / { sub(/tag: .*/, "tag: " version); global = 0 }
+  /^    kubeovn:$/ { pending = "      " }
+  /^    repository: ghcr.io\/cloudyfolks-labs\/vpc-nat-gateway$/ { pending = "    " }
+  /^    # -- DPDK image tag.$/ { pending = "    " }
+  pending != "" && index($0, pending "tag: ") == 1 { sub(/tag: .*/, "tag: " version); pending = "" }
   { print }
 ' "${VALUES}" > "${VALUES}.tmp" && mv "${VALUES}.tmp" "${VALUES}"
 
