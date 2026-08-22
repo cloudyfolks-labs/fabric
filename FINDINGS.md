@@ -436,6 +436,24 @@ function now reads the live object. Commit `7e507e3a0`.
 
 Neither fix was run against a cluster in this pass.
 
+## Post-audit addendum: dynamic routing was dead at the chassis
+
+Running the suite locally (hack/local-e2e.sh, added after the audit)
+surfaced what CI silence had hidden: ovs-ovn runs ovn-controller as
+nobody with added pod capabilities, which a non-root process never
+receives without file capabilities, so every route_exchange VRF create
+failed with EPERM. Sessions established and routes were learned, but
+nothing was ever advertised. The image now grants CAP_NET_ADMIN to
+ovn-controller the same way the other fabric binaries get their file
+capabilities, and the failover spec passes end to end: advertise,
+learn, egress via the learned route, label-driven re-election, ToR
+relearn from the standby, withdrawal.
+
+The CI job itself had never run a single spec (the vrf kernel module
+is absent on the hosted runner), which is why none of this surfaced in
+any green run. The job installs the module now and the suite fails on
+an empty focus.
+
 ## Local verification
 
 - `go build ./...` and `go vet ./pkg/... ./cmd/... ./test/...` pass for
