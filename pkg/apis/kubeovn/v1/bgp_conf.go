@@ -43,6 +43,7 @@ const (
 )
 
 type BgpNodeStatus struct {
+	// +kubebuilder:validation:Required
 	Node string `json:"node"`
 	// Serial of the configuration the agent last rendered.
 	// +optional

@@ -524,6 +524,8 @@ spec:
                       - Pending
                       - Failed
                       type: string
+                  required:
+                  - node
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
