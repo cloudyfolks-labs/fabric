@@ -55,6 +55,7 @@ type Vpc struct {
 	Status VpcStatus `json:"status"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.dynamicRouting) || !self.dynamicRouting.enabled || (has(self.enableExternal) && self.enableExternal)",message="dynamic routing requires enableExternal"
 type VpcSpec struct {
 	// The default subnet name for the VPC
 	DefaultSubnet string `json:"defaultSubnet,omitempty"`

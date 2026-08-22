@@ -4611,6 +4611,10 @@ spec:
                   type: object
                 type: array
             type: object
+            x-kubernetes-validations:
+            - message: dynamic routing requires enableExternal
+              rule: '!has(self.dynamicRouting) || !self.dynamicRouting.enabled ||
+                (has(self.enableExternal) && self.enableExternal)'
           status:
             properties:
               bfdPort:

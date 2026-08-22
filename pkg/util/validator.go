@@ -613,6 +613,9 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 	}
 
 	if dr := vpc.Spec.DynamicRouting; dr.IsEnabled() {
+		if !vpc.Spec.EnableExternal {
+			return errors.New("dynamic routing requires enableExternal: the VPC advertises through its external gateway LRP")
+		}
 		if len(dr.Redistribute) == 0 {
 			return errors.New("redistribute must be set explicitly when dynamic routing is enabled")
 		}

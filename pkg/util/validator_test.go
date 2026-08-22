@@ -1592,6 +1592,7 @@ func TestValidateVpc(t *testing.T) {
 			name: "valid dynamic routing",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
 					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
 						Enabled:      true,
 						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
@@ -1606,6 +1607,7 @@ func TestValidateVpc(t *testing.T) {
 			name: "dynamic routing enabled without redistribute",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
 					DynamicRouting: &kubeovnv1.VpcDynamicRouting{Enabled: true},
 				},
 			},
@@ -1616,6 +1618,7 @@ func TestValidateVpc(t *testing.T) {
 			name: "dynamic routing unknown redistribute type",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
 					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
 						Enabled:      true,
 						Redistribute: []kubeovnv1.RedistributeType{"ospf"},
@@ -1628,6 +1631,7 @@ func TestValidateVpc(t *testing.T) {
 			name: "dynamic routing duplicate redistribute type",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
 					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
 						Enabled:      true,
 						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeNAT},
@@ -1640,6 +1644,7 @@ func TestValidateVpc(t *testing.T) {
 			name: "dynamic routing invalid vrf name",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
 					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
 						Enabled:      true,
 						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
@@ -1648,6 +1653,20 @@ func TestValidateVpc(t *testing.T) {
 				},
 			},
 			wantErr: true,
+		},
+		{
+			name: "dynamic routing without external gateway",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:      true,
+						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:        1001,
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "dynamic routing requires enableExternal: the VPC advertises through its external gateway LRP",
 		},
 		{
 			name: "dynamic routing disabled skips validation",
@@ -1662,6 +1681,7 @@ func TestValidateVpc(t *testing.T) {
 			name: "dynamic routing without vrf id",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
 					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
 						Enabled:      true,
 						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
@@ -1675,6 +1695,7 @@ func TestValidateVpc(t *testing.T) {
 			name: "dynamic routing with reserved vrf id",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
 					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
 						Enabled:      true,
 						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
