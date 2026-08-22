@@ -1596,6 +1596,7 @@ func TestValidateVpc(t *testing.T) {
 						Enabled:      true,
 						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
 						VrfName:      "t-acme",
+						VrfID:        1001,
 					},
 				},
 			},
@@ -1657,6 +1658,33 @@ func TestValidateVpc(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "dynamic routing without vrf id",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:      true,
+						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "vrfId must be set when dynamic routing is enabled",
+		},
+		{
+			name: "dynamic routing with reserved vrf id",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:      true,
+						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:        254,
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "vrfId 254 is in the reserved linux routing table range 253-255",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1669,6 +1697,40 @@ func TestValidateVpc(t *testing.T) {
 				t.Errorf("expected error message %q, but got %q", tt.errMsg, err.Error())
 			}
 		})
+	}
+}
+
+func TestValidateVpcVrfID(t *testing.T) {
+	dynamicRouting := func(vrfID uint32) *kubeovnv1.VpcDynamicRouting {
+		return &kubeovnv1.VpcDynamicRouting{
+			Enabled:      true,
+			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+			VrfID:        vrfID,
+		}
+	}
+	existing := []kubeovnv1.Vpc{
+		{ObjectMeta: metav1.ObjectMeta{Name: "vpc-a"}, Spec: kubeovnv1.VpcSpec{DynamicRouting: dynamicRouting(1001)}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "vpc-off"}, Spec: kubeovnv1.VpcSpec{DynamicRouting: &kubeovnv1.VpcDynamicRouting{VrfID: 1002}}},
+	}
+
+	duplicate := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc-b"}, Spec: kubeovnv1.VpcSpec{DynamicRouting: dynamicRouting(1001)}}
+	if err := ValidateVpcVrfID(duplicate, existing); err == nil {
+		t.Error("expected a conflict with the vrf id of vpc-a")
+	}
+
+	free := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc-b"}, Spec: kubeovnv1.VpcSpec{DynamicRouting: dynamicRouting(1003)}}
+	if err := ValidateVpcVrfID(free, existing); err != nil {
+		t.Errorf("expected a free vrf id to pass, got %v", err)
+	}
+
+	reuseOfDisabled := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc-b"}, Spec: kubeovnv1.VpcSpec{DynamicRouting: dynamicRouting(1002)}}
+	if err := ValidateVpcVrfID(reuseOfDisabled, existing); err != nil {
+		t.Errorf("expected the vrf id of a disabled vpc to be free, got %v", err)
+	}
+
+	itself := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc-a"}, Spec: kubeovnv1.VpcSpec{DynamicRouting: dynamicRouting(1001)}}
+	if err := ValidateVpcVrfID(itself, existing); err != nil {
+		t.Errorf("expected an update of the same vpc to pass, got %v", err)
 	}
 }
 

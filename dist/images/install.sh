@@ -4519,10 +4519,16 @@ spec:
                   vrfId:
                     description: |-
                       Linux routing table id used by the VRF.
-                      Defaults to the logical router's datapath id.
-                    format: int32
+                      Required when dynamic routing is enabled and unique across VPCs.
+                      253, 254 and 255 are reserved by the host routing tables.
+                    format: int64
+                    maximum: 4294967295
                     minimum: 1
                     type: integer
+                    x-kubernetes-validations:
+                    - message: vrfId 253, 254 and 255 are reserved by the host routing
+                        tables
+                      rule: self < 253 || self > 255
                   vrfName:
                     description: |-
                       Name of the VRF used to advertise and learn routes.
@@ -4537,6 +4543,8 @@ spec:
                     is enabled
                   rule: '!self.enabled || (has(self.redistribute) && self.redistribute.size()
                     > 0)'
+                - message: vrfId must be set when dynamic routing is enabled
+                  rule: '!self.enabled || has(self.vrfId)'
               enableBfd:
                 description: Enable BFD (Bidirectional Forwarding Detection) for the
                   VPC

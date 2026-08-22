@@ -103,6 +103,7 @@ const (
 // Linux VRF on the gateway chassis, where an external routing daemon
 // (e.g. FRR) can redistribute them via BGP.
 // +kubebuilder:validation:XValidation:rule="!self.enabled || (has(self.redistribute) && self.redistribute.size() > 0)",message="redistribute must be set explicitly when dynamic routing is enabled"
+// +kubebuilder:validation:XValidation:rule="!self.enabled || has(self.vrfId)",message="vrfId must be set when dynamic routing is enabled"
 type VpcDynamicRouting struct {
 	// +kubebuilder:default=false
 	Enabled bool `json:"enabled"`
@@ -130,8 +131,12 @@ type VpcDynamicRouting struct {
 	VrfName string `json:"vrfName,omitempty"`
 
 	// Linux routing table id used by the VRF.
-	// Defaults to the logical router's datapath id.
+	// Required when dynamic routing is enabled and unique across VPCs.
+	// 253, 254 and 255 are reserved by the host routing tables.
 	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4294967295
+	// +kubebuilder:validation:Format=int64
+	// +kubebuilder:validation:XValidation:rule="self < 253 || self > 255",message="vrfId 253, 254 and 255 are reserved by the host routing tables"
 	VrfID uint32 `json:"vrfId,omitempty"`
 }
 

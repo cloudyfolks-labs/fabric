@@ -11,6 +11,9 @@ import (
 )
 
 const (
+	ReservedRoutingTableIDStart = 253
+	ReservedRoutingTableIDEnd   = 255
+
 	CniTypeName = "kube-ovn"
 
 	DeprecatedFinalizerName    = "kube-ovn-controller"

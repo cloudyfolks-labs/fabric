@@ -632,7 +632,29 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 		if dr.VrfName != "" && (len(dr.VrfName) > 15 || strings.ContainsAny(dr.VrfName, "/ \t\n\f\r")) {
 			return fmt.Errorf("vrfName %q must be a valid linux interface name (no '/' or whitespace, max 15 chars)", dr.VrfName)
 		}
+		if dr.VrfID == 0 {
+			return errors.New("vrfId must be set when dynamic routing is enabled")
+		}
+		if dr.VrfID >= ReservedRoutingTableIDStart && dr.VrfID <= ReservedRoutingTableIDEnd {
+			return fmt.Errorf("vrfId %d is in the reserved linux routing table range %d-%d", dr.VrfID, ReservedRoutingTableIDStart, ReservedRoutingTableIDEnd)
+		}
 	}
 
+	return nil
+}
+
+func ValidateVpcVrfID(vpc *kubeovnv1.Vpc, vpcs []kubeovnv1.Vpc) error {
+	dr := vpc.Spec.DynamicRouting
+	if !dr.IsEnabled() {
+		return nil
+	}
+	for _, other := range vpcs {
+		if other.Name == vpc.Name {
+			continue
+		}
+		if odr := other.Spec.DynamicRouting; odr.IsEnabled() && odr.VrfID == dr.VrfID {
+			return fmt.Errorf("vrfId %d is already used by vpc %s", dr.VrfID, other.Name)
+		}
+	}
 	return nil
 }

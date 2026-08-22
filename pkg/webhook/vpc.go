@@ -34,10 +34,18 @@ func (v *ValidatingHook) VpcCreateHook(ctx context.Context, req admission.Reques
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
 	}
 
+	vpcList := &ovnv1.VpcList{}
+	if err := v.cache.List(ctx, vpcList); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	if err := util.ValidateVpcVrfID(&vpc, vpcList.Items); err != nil {
+		return ctrlwebhook.Errored(http.StatusConflict, err)
+	}
+
 	return ctrlwebhook.Allowed("bypass")
 }
 
-func (v *ValidatingHook) VpcUpdateHook(_ context.Context, req admission.Request) admission.Response {
+func (v *ValidatingHook) VpcUpdateHook(ctx context.Context, req admission.Request) admission.Response {
 	vpc := ovnv1.Vpc{}
 	if err := v.decoder.DecodeRaw(req.Object, &vpc); err != nil {
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
@@ -45,6 +53,14 @@ func (v *ValidatingHook) VpcUpdateHook(_ context.Context, req admission.Request)
 
 	if err := util.ValidateVpc(&vpc); err != nil {
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+
+	vpcList := &ovnv1.VpcList{}
+	if err := v.cache.List(ctx, vpcList); err != nil {
+		return ctrlwebhook.Errored(http.StatusBadRequest, err)
+	}
+	if err := util.ValidateVpcVrfID(&vpc, vpcList.Items); err != nil {
+		return ctrlwebhook.Errored(http.StatusConflict, err)
 	}
 
 	return ctrlwebhook.Allowed("bypass")
