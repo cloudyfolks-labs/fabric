@@ -218,6 +218,7 @@ vpc-egress-gateway-e2e:
 .PHONY: vpc-dynamic-routing-e2e
 vpc-dynamic-routing-e2e:
 	$(call kind_load_image,kube-ovn,quay.io/frrouting/frr:10.7.0,1)
+	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-dynamic-routing
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
