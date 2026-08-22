@@ -461,7 +461,9 @@ spec:
               keepaliveTime:
                 type: string
               localASN:
-                format: int32
+                format: int64
+                maximum: 4294967295
+                minimum: 0
                 type: integer
               neighbours:
                 items:
@@ -474,7 +476,9 @@ spec:
               password:
                 type: string
               peerASN:
-                format: int32
+                format: int64
+                maximum: 4294967295
+                minimum: 0
                 type: integer
               peers:
                 items:
@@ -483,7 +487,9 @@ spec:
                       minLength: 1
                       type: string
                     asn:
-                      format: int32
+                      format: int64
+                      maximum: 4294967295
+                      minimum: 0
                       type: integer
                     bfd:
                       type: boolean

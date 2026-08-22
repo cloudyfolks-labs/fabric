@@ -26,7 +26,13 @@ type BgpConf struct {
 }
 
 type BgpConfSpec struct {
-	LocalASN      uint32          `json:"localASN"`
+	// +kubebuilder:validation:Format=int64
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4294967295
+	LocalASN uint32 `json:"localASN"`
+	// +kubebuilder:validation:Format=int64
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4294967295
 	PeerASN       uint32          `json:"peerASN"`
 	RouterID      string          `json:"routerId,omitempty"`
 	Neighbours    []string        `json:"neighbours"`
@@ -47,6 +53,9 @@ type BgpPeer struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Address string `json:"address"`
-	ASN     uint32 `json:"asn,omitempty"`
-	BFD     bool   `json:"bfd,omitempty"`
+	// +kubebuilder:validation:Format=int64
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=4294967295
+	ASN uint32 `json:"asn,omitempty"`
+	BFD bool   `json:"bfd,omitempty"`
 }
