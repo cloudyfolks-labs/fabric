@@ -688,6 +688,10 @@ func (c *Controller) gcLoadBalancer() error {
 		)
 
 		vpcLbs.Add(tcpLb, udpLb, sctpLb, tcpSessLb, udpSessLb, sctpSessLb)
+		expected := c.GenVpcLoadBalancer(vpc.Name)
+		vpcLbs.Add(expected.TCPLoadBalancer, expected.TCPSessLoadBalancer,
+			expected.UDPLoadBalancer, expected.UDPSessLoadBalancer,
+			expected.SctpLoadBalancer, expected.SctpSessLoadBalancer)
 		if err = removeVip(tcpLb, tcpVips); err != nil {
 			klog.Error(err)
 			return err
