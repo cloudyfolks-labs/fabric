@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -584,8 +585,18 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			Nodes: bfdPortNodes,
 		}
 	}
-	if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().
-		UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+	desiredStatus := vpc.Status
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := c.config.KubeOvnClient.FabricV1().Vpcs().Get(context.Background(), key, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		newVpc := current.DeepCopy()
+		newVpc.Status = desiredStatus
+		_, err = c.config.KubeOvnClient.FabricV1().Vpcs().UpdateStatus(context.Background(), newVpc, metav1.UpdateOptions{})
+		return err
+	})
+	if err != nil {
 		klog.Error(err)
 		return err
 	}
