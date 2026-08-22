@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"net"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/component-base/logs"
 	"k8s.io/klog/v2"
 	commontest "k8s.io/kubernetes/test/e2e/common"
@@ -22,6 +25,7 @@ import (
 	"k8s.io/kubernetes/test/e2e/framework/config"
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	e2epodoutput "k8s.io/kubernetes/test/e2e/framework/pod/output"
+	"k8s.io/utils/ptr"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -42,6 +46,9 @@ const (
 	vrfID             = 1001
 	agentVrfName      = "ovnvrf1002"
 	agentVrfID        = 1002
+	lbVrfName         = "ovnvrf1004"
+	lbVrfID           = 1004
+	lbPoolCIDR        = "100.64.0.0/24"
 	remoteLoopbackIP  = "198.51.100.1"
 	dockerNetworkName = "kube-ovn-dynamic-routing"
 	chassisContainer  = "container"
@@ -103,17 +110,18 @@ type drTopology struct {
 }
 
 type drWorkload struct {
-	vpcName         string
-	vrfName         string
-	tableID         uint32
-	workloadPodName string
-	workloadIP      string
-	lrpIP           string
-	eipName         string
-	eipV4           string
-	fipName         string
-	eipCreated      bool
-	fipCreated      bool
+	vpcName            string
+	vrfName            string
+	tableID            uint32
+	internalSubnetName string
+	workloadPodName    string
+	workloadIP         string
+	lrpIP              string
+	eipName            string
+	eipV4              string
+	fipName            string
+	eipCreated         bool
+	fipCreated         bool
 }
 
 var _ = framework.SerialDescribe("[group:vpc-dynamic-routing]", func() {
@@ -348,6 +356,117 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		deleteNatAndVerifyWithdrawal(f, topo, w, nil)
+	})
+
+	framework.ConformanceIt("should announce a loadbalancer service vip over BGP", func() {
+		f.SkipVersionPriorTo(1, 17, "dynamic routing requires v1.17+")
+		if !f.HasIPv4() {
+			ginkgo.Skip("dynamic routing e2e test requires IPv4 support")
+		}
+		if !ovnLbSvcEnabled(f) {
+			ginkgo.Skip("the ovn loadbalancer service mode is disabled on this cluster")
+		}
+
+		topo := setupTopology(f, 1)
+		w := setupVpcWorkload(f, topo, lbVrfName, lbVrfID, framework.RandomCIDR(f.ClusterIPFamily), "",
+			[]apiv1.RedistributeType{apiv1.RedistributeNAT, apiv1.RedistributeLB})
+		deployAgent(f, topo)
+
+		namespaceName := f.Namespace.Name
+		backendName := "lb-backend-" + framework.RandomSuffix()
+		backendLabels := map[string]string{"app": backendName}
+		ginkgo.By("Creating backend pod " + backendName + " in " + w.internalSubnetName)
+		backend := framework.MakePod(namespaceName, backendName, backendLabels,
+			map[string]string{util.LogicalSwitchAnnotation: w.internalSubnetName},
+			framework.AgnhostImage, nil, []string{"netexec", "--http-port", "80"})
+		_ = f.PodClient().CreateSync(backend)
+		ginkgo.DeferCleanup(func() {
+			ginkgo.By("Deleting backend pod " + backendName)
+			f.PodClient().DeleteSync(backendName)
+		})
+
+		poolSubnetName := "lbpool-" + framework.RandomSuffix()
+		ginkgo.By("Creating the provider-less pool subnet " + poolSubnetName)
+		poolSubnet := framework.MakeSubnet(poolSubnetName, "", lbPoolCIDR, "", "", "lb-pool.default", nil, nil, nil)
+		_ = f.SubnetClient().CreateSync(poolSubnet)
+		ginkgo.DeferCleanup(func() {
+			ginkgo.By("Deleting pool subnet " + poolSubnetName)
+			f.SubnetClient().DeleteSync(poolSubnetName)
+		})
+
+		poolName := "lbpool-" + framework.RandomSuffix()
+		ginkgo.By("Creating loadbalancer pool " + poolName + " with announce bgp")
+		pool := &apiv1.LoadBalancerPool{
+			ObjectMeta: metav1.ObjectMeta{Name: poolName},
+			Spec: apiv1.LoadBalancerPoolSpec{
+				Subnet:   poolSubnetName,
+				Announce: apiv1.LoadBalancerPoolAnnounceBGP,
+				Default:  true,
+			},
+		}
+		_, err := f.KubeOVNClientSet.FabricV1().LoadBalancerPools().Create(context.TODO(), pool, metav1.CreateOptions{})
+		framework.ExpectNoError(err, "creating loadbalancer pool "+poolName)
+		ginkgo.DeferCleanup(func() {
+			ginkgo.By("Deleting loadbalancer pool " + poolName)
+			err := f.KubeOVNClientSet.FabricV1().LoadBalancerPools().Delete(context.TODO(), poolName, metav1.DeleteOptions{})
+			framework.ExpectNoError(err)
+		})
+
+		svcName := "lb-svc-" + framework.RandomSuffix()
+		ginkgo.By("Creating loadbalancer service " + svcName)
+		ports := []corev1.ServicePort{{
+			Name:       "http",
+			Port:       80,
+			TargetPort: intstr.FromInt32(80),
+			Protocol:   corev1.ProtocolTCP,
+		}}
+		svc := framework.MakeService(svcName, corev1.ServiceTypeLoadBalancer, nil, backendLabels, ports, "")
+		svc.Spec.LoadBalancerClass = ptr.To(util.LoadBalancerClass)
+		svc.Spec.IPFamilyPolicy = ptr.To(corev1.IPFamilyPolicySingleStack)
+		svc = f.ServiceClient().CreateSync(svc, func(s *corev1.Service) (bool, error) {
+			return len(s.Status.LoadBalancer.Ingress) != 0 && s.Status.LoadBalancer.Ingress[0].IP != "", nil
+		}, "the loadbalancer service has an ingress ip")
+		ginkgo.DeferCleanup(func() {
+			ginkgo.By("Deleting loadbalancer service " + svcName)
+			f.ServiceClient().DeleteSync(svcName)
+		})
+
+		vip := svc.Status.LoadBalancer.Ingress[0].IP
+		framework.Logf("loadbalancer service VIP: %s", vip)
+		framework.ExpectTrue(strings.HasPrefix(vip, "100.64.0."), "the VIP must come from the pool subnet, got "+vip)
+
+		ginkgo.By("Verifying the service keeps its cluster ip programmed next to the vip")
+		framework.ExpectNotEmpty(svc.Spec.ClusterIP)
+		framework.ExpectNotEqual(svc.Spec.ClusterIP, corev1.ClusterIPNone)
+
+		ginkgo.By("Verifying ToR learns the VIP with the LRP as next hop")
+		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
+			if err != nil {
+				return false, nil
+			}
+			return strings.Contains(string(stdout), vip+"/32") && strings.Contains(string(stdout), "via "+w.lrpIP), nil
+		}, "ToR learned the loadbalancer VIP via the VPC LRP")
+
+		ginkgo.By("Reaching the VIP from the fabric")
+		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+			stdout, _, err := docker.Exec(topo.torID, nil, "curl", "-s", "--connect-timeout", "2", "--max-time", "2",
+				fmt.Sprintf("http://%s/hostname", net.JoinHostPort(vip, "80")))
+			if err != nil {
+				return false, nil
+			}
+			return strings.Contains(string(stdout), backendName), nil
+		}, "the fabric reaches the loadbalancer service through the advertised VIP")
+
+		ginkgo.By("Deleting the service and verifying the VIP is withdrawn")
+		f.ServiceClient().DeleteSync(svcName)
+		framework.WaitUntil(3*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
+			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
+			if err != nil {
+				return false, nil
+			}
+			return !strings.Contains(string(stdout), vip+"/32"), nil
+		}, "the loadbalancer VIP is withdrawn on the ToR")
 	})
 
 	framework.ConformanceIt("should isolate multiple VPCs with overlapping subnets via kube-ovn-frr agent", func() {
@@ -686,6 +805,7 @@ func setupVpcWorkload(f *framework.Framework, topo *drTopology, vrf string, tabl
 
 	internalSubnetName := "int-" + framework.RandomSuffix()
 	ginkgo.By("Creating internal subnet " + internalSubnetName + " with CIDR " + cidr)
+	w.internalSubnetName = internalSubnetName
 	internalSubnet := framework.MakeSubnet(internalSubnetName, "", cidr, "", w.vpcName, "", nil, nil, nil)
 	_ = subnetClient.CreateSync(internalSubnet)
 	ginkgo.DeferCleanup(func() {
@@ -999,6 +1119,19 @@ func waitTorLearnsEip(topo *drTopology, w *drWorkload) {
 		}
 		return strings.Contains(string(stdout), w.eipV4+"/32") && strings.Contains(string(stdout), "via "+w.lrpIP), nil
 	}, "ToR learned EIP "+w.eipV4+" via the owning VPC LRP")
+}
+
+func ovnLbSvcEnabled(f *framework.Framework) bool {
+	ginkgo.GinkgoHelper()
+
+	deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), "kube-ovn-controller", metav1.GetOptions{})
+	framework.ExpectNoError(err, "getting the kube-ovn-controller deployment")
+	for _, container := range deploy.Spec.Template.Spec.Containers {
+		if slices.Contains(container.Args, "--enable-ovn-lb-svc=true") {
+			return true
+		}
+	}
+	return false
 }
 
 func chassisOfNode(f *framework.Framework, nodeName string) string {

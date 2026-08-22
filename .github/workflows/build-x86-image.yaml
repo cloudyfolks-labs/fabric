@@ -3764,6 +3764,7 @@ jobs:
         id: install
         env:
           UNTAINT_CONTROL_PLANE: "false"
+          ENABLE_OVN_LB_SVC: "true"
         run: make kind-install-ipv4
 
       - name: Run E2E
