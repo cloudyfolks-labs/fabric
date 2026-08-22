@@ -1320,7 +1320,8 @@ func (c *Controller) externalGatewayChassises(vpcName string) ([]string, error) 
 	for _, gwNode := range gwNodes {
 		annoChassisName := gwNode.Annotations[util.ChassisAnnotation]
 		if annoChassisName == "" {
-			return nil, fmt.Errorf("node %s has no chassis annotation, kube-ovn-cni not ready", gwNode.Name)
+			klog.Warningf("node %s has no chassis annotation, kube-ovn-cni not ready", gwNode.Name)
+			continue
 		}
 		chassis, err := c.OVNSbClient.GetChassis(annoChassisName, false)
 		if err != nil {
