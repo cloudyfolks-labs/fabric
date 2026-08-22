@@ -72,3 +72,8 @@ make kind-init kind-install
 
 Apache-2.0. The imported kube-ovn code keeps its upstream copyright
 headers. See [LICENSE](LICENSE).
+
+## Release
+
+See [docs/release.md](docs/release.md). The GitHub Actions release
+workflow is the only release path.

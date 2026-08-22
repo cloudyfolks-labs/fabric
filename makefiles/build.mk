@@ -29,6 +29,14 @@ MODERNIZE_EXCLUDE := github.com/kubeovn/kube-ovn/mocks|github.com/kubeovn/kube-o
 gen-crd:
 	hack/gen-crd.sh
 
+.PHONY: sync-version
+sync-version:
+	hack/sync-version.sh
+
+.PHONY: verify-version
+verify-version: sync-version
+	@if ! git diff --exit-code charts/fabric/Chart.yaml charts/fabric/charts/fabric-crds/Chart.yaml charts/fabric/values.yaml >/dev/null; then echo "Error: the chart version is out of sync with VERSION. Please run 'make sync-version' and commit the changes."; exit 1; fi
+
 .PHONY: verify-crd
 verify-crd: gen-crd
 	@if ! git diff --exit-code charts/fabric/charts/fabric-crds/templates/crds.yaml dist/images/install.sh >/dev/null; then echo "Error: CRDs are out of sync. Please run 'make gen-crd' and commit the changes."; exit 1; fi

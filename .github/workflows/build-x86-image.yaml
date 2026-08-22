@@ -507,6 +507,7 @@ jobs:
           go mod tidy
           git diff --exit-code -- go.mod go.sum
           make verify-crd
+          make verify-version
           make lint
 
   build-kube-ovn-dpdk:

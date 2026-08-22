@@ -107,7 +107,7 @@ jobs:
         run: |
           CHART_VERSION=$(sed -n 's/^version: //p' charts/fabric/Chart.yaml)
           if [ "${{ github.event_name }}" = "push" ] && [ "v$CHART_VERSION" != "$TAG" ]; then
-            echo "chart version $CHART_VERSION does not match tag $TAG, run hack/release.sh first"
+            echo "chart version $CHART_VERSION does not match tag $TAG, run make sync-version and commit the result"
             exit 1
           fi
           if [ "${{ github.event_name }}" != "push" ]; then
