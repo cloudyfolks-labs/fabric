@@ -614,3 +614,25 @@ func Test_checkServiceLBIPBelongToSubnet(t *testing.T) {
 		})
 	}
 }
+
+func Test_getVipIpsSkipsLbSvcGatewayAddress(t *testing.T) {
+	t.Parallel()
+
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{util.AttachmentProvider: "lb-svc-attachment.kube-system"},
+		},
+		Spec: v1.ServiceSpec{
+			Type:       v1.ServiceTypeLoadBalancer,
+			ClusterIP:  "10.96.0.3",
+			ClusterIPs: []string{"10.96.0.3"},
+		},
+		Status: v1.ServiceStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{{IP: "172.18.0.50"}},
+			},
+		},
+	}
+
+	require.Equal(t, []string{"10.96.0.3"}, getVipIps(svc))
+}

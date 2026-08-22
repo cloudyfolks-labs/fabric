@@ -554,6 +554,9 @@ func serviceAnnotationVips(svc *v1.Service) []string {
 }
 
 func serviceIngressIPs(svc *v1.Service) []string {
+	if svc.Annotations[util.AttachmentProvider] != "" {
+		return nil
+	}
 	var ips []string
 	for _, ingress := range svc.Status.LoadBalancer.Ingress {
 		if ingress.IP != "" {
