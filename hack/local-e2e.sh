@@ -49,6 +49,13 @@ fi
 
 export E2E_BRANCH=main E2E_IP_FAMILY=ipv4 E2E_NETWORK_MODE=overlay
 
+# install.sh drops the kubectl-ko plugin into /usr/local/bin, which is
+# root-owned on macOS. Give it a writable directory on PATH instead.
+KUBECTL_KO_DIR="${HOME}/.local/share/fabric/bin"
+mkdir -p "${KUBECTL_KO_DIR}"
+export KUBECTL_KO_DIR
+export PATH="${KUBECTL_KO_DIR}:${PATH}"
+
 case "${SUITE}" in
   dynamic-routing)
     n_worker=2 make kind-init-ipv4

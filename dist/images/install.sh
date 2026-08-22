@@ -7059,8 +7059,9 @@ if ! sh -c "echo \":$PATH:\" | grep -q \":/usr/local/bin:\""; then
 fi
 
 echo "[Step 6/6] Run network diagnose"
-kubectl cp kube-system/"$(kubectl -n kube-system get pods -o wide | grep cni | awk '{print $1}' | awk 'NR==1{print}')":/kube-ovn/kubectl-ko /usr/local/bin/kubectl-ko
-chmod +x /usr/local/bin/kubectl-ko
+KUBECTL_KO_DIR=${KUBECTL_KO_DIR:-/usr/local/bin}
+kubectl cp kube-system/"$(kubectl -n kube-system get pods -o wide | grep cni | awk '{print $1}' | awk 'NR==1{print}')":/kube-ovn/kubectl-ko "$KUBECTL_KO_DIR/kubectl-ko"
+chmod +x "$KUBECTL_KO_DIR/kubectl-ko"
 # show pod status in kube-system namespace before diagnose
 kubectl get pod -n kube-system -o wide
 kubectl ko diagnose all
