@@ -825,3 +825,35 @@ func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 		})
 	}
 }
+
+func Test_cleanupRouterLBVipsUnscoped(t *testing.T) {
+	fakeController, err := newFakeControllerWithOptions(t, nil)
+	require.NoError(t, err)
+	ctrl := fakeController.fakeController
+	mockOvnClient := fakeController.mockOvnClient
+
+	vips := []string{"192.168.1.10:80", "192.168.1.10:443"}
+	lbs := []ovnnb.LoadBalancer{
+		{Name: "vpc-a-tcp", Vips: map[string]string{"192.168.1.10:80": "10.0.0.1:80"}},
+		{Name: "vpc-b-tcp", Vips: map[string]string{"192.168.1.10:443": "10.0.0.2:443"}},
+	}
+
+	mockOvnClient.EXPECT().ListLoadBalancers(gomock.Any()).DoAndReturn(
+		func(filter func(lb *ovnnb.LoadBalancer) bool) ([]ovnnb.LoadBalancer, error) {
+			matched := make([]ovnnb.LoadBalancer, 0, len(lbs))
+			for i := range lbs {
+				if filter(&lbs[i]) {
+					matched = append(matched, lbs[i])
+				}
+			}
+			return matched, nil
+		})
+	for _, lb := range lbs {
+		for _, vip := range vips {
+			mockOvnClient.EXPECT().LoadBalancerDeleteVip(lb.Name, vip, true).Return(nil)
+		}
+	}
+	mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return(nil, nil)
+
+	require.NoError(t, ctrl.cleanupRouterLBVips(nil, vips))
+}

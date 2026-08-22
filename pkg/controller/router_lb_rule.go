@@ -196,13 +196,29 @@ func (c *Controller) cleanupRouterLBVips(vpcLBNames set.Set[string], vips []stri
 		return nil
 	}
 
-	if vpcLBNames != nil {
-		for _, lbName := range vpcLBNames.UnsortedList() {
-			for _, vip := range vips {
-				if e := c.OVNNbClient.LoadBalancerDeleteVip(lbName, vip, true); e != nil && !k8serrors.IsNotFound(e) {
-					klog.Errorf("failed to delete vip %s from LB %s: %v", vip, lbName, e)
-					return e
-				}
+	lbNames := vpcLBNames
+	if lbNames == nil {
+		lbs, err := c.OVNNbClient.ListLoadBalancers(func(lb *ovnnb.LoadBalancer) bool {
+			return slices.ContainsFunc(vips, func(vip string) bool {
+				_, ok := lb.Vips[vip]
+				return ok
+			})
+		})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			klog.Errorf("failed to list LBs for vips %v: %v", vips, err)
+			return err
+		}
+		lbNames = set.New[string]()
+		for _, lb := range lbs {
+			lbNames.Insert(lb.Name)
+		}
+	}
+
+	for _, lbName := range lbNames.UnsortedList() {
+		for _, vip := range vips {
+			if e := c.OVNNbClient.LoadBalancerDeleteVip(lbName, vip, true); e != nil && !k8serrors.IsNotFound(e) {
+				klog.Errorf("failed to delete vip %s from LB %s: %v", vip, lbName, e)
+				return e
 			}
 		}
 	}
