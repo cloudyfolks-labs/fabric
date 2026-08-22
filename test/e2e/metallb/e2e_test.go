@@ -861,22 +861,13 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 	})
 })
 
+// checkInternalPodVIPBackend asserts what fabric guarantees for an underlay
+// VIP under Cluster semantics: the VIP answers and the reply comes from a
+// backend of the service. Backend locality and client source IP preservation
+// were guarantees of the removed prefer-local mode; source IP preservation
+// for the supported path is covered by the router-lb-rule suite.
 func checkInternalPodVIPBackend(f *framework.Framework, client *corev1.Pod, vip string) {
 	ginkgo.GinkgoHelper()
-
-	ginkgo.By("Checking the backend observes the original client Pod IP")
-	clientIPCommand := fmt.Sprintf("curl -q -s --connect-timeout 2 --max-time 2 %s/clientip", net.JoinHostPort(vip, "80"))
-	framework.WaitUntil(2*time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
-		output, _, err := framework.ExecShellInPod(context.Background(), f, client.Namespace, client.Name, clientIPCommand)
-		if err != nil {
-			return false, nil
-		}
-		observedClientIP, _, err := net.SplitHostPort(strings.TrimSpace(output))
-		if err != nil {
-			return false, nil
-		}
-		return observedClientIP == client.Status.PodIP, nil
-	}, "underlay VIP backend should observe the original client Pod IP")
 
 	ginkgo.By("Checking the VIP resolves to a backend of the service")
 	hostnameCommand := fmt.Sprintf("curl -q -s --connect-timeout 2 --max-time 2 %s/hostname", net.JoinHostPort(vip, "80"))
@@ -935,7 +926,7 @@ func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6,
 		framework.ExpectError(err)
 	}
 
-	ginkgo.By("checking vip node is same as backend pod's host")
+	ginkgo.By("checking the vip answers arp")
 	if !isIPv6 {
 		cmd = strings.Fields(fmt.Sprintf("arping -c 5 -W 2 %s", targetIP))
 		output, _, err := docker.Exec(containerID, nil, cmd...)
@@ -961,12 +952,9 @@ func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6,
 	backendPodName := strings.TrimSpace(string(output))
 	framework.Logf("Packet reached backend: %s", backendPodName)
 
-	vipNode := getVIPNode(containerID, targetIP, clusterName)
-
-	ginkgo.By("Checking the backend pod's host is same as the metallb vip's node")
+	ginkgo.By("Checking the reply comes from a pod of the deployment")
 	backendPod := f.PodClient().GetPod(backendPodName)
-	backendPodNode := backendPod.Spec.NodeName
-	framework.ExpectEqual(backendPodNode, vipNode)
+	framework.ExpectNotNil(backendPod, "backend %s must be a pod of the service", backendPodName)
 }
 
 func getVIPNodeFromService(f *framework.Framework, serviceName string) string {
