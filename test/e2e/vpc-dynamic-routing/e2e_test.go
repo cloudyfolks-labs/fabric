@@ -48,7 +48,7 @@ const (
 	agentVrfID        = 1002
 	lbVrfName         = "ovnvrf1004"
 	lbVrfID           = 1004
-	lbPoolCIDR        = "100.64.0.0/24"
+	lbPoolCIDR        = "203.0.113.0/24"
 	remoteLoopbackIP  = "198.51.100.1"
 	dockerNetworkName = "kube-ovn-dynamic-routing"
 	chassisContainer  = "container"
@@ -433,7 +433,7 @@ ip protocol bgp route-map OVN-NO-FIB
 
 		vip := svc.Status.LoadBalancer.Ingress[0].IP
 		framework.Logf("loadbalancer service VIP: %s", vip)
-		framework.ExpectTrue(strings.HasPrefix(vip, "100.64.0."), "the VIP must come from the pool subnet, got "+vip)
+		framework.ExpectTrue(strings.HasPrefix(vip, "203.0.113."), "the VIP must come from the pool subnet, got "+vip)
 
 		ginkgo.By("Verifying the service keeps its cluster ip programmed next to the vip")
 		framework.ExpectNotEmpty(svc.Spec.ClusterIP)
