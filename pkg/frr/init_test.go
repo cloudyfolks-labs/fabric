@@ -5,11 +5,16 @@ import (
 	"testing"
 )
 
-func TestReloadScriptNeverExits(t *testing.T) {
-	if strings.Contains(reloadScript, "exit 0") {
-		t.Errorf("the reload loop is PID 1 of the FRR container, exiting bounces every BGP session:\n%s", reloadScript)
-	}
+func TestReloadScriptPrefersReload(t *testing.T) {
 	if !strings.Contains(reloadScript, "--reload --overwrite") {
 		t.Errorf("expected the desired config to be applied by reload:\n%s", reloadScript)
+	}
+	reloadIdx := strings.Index(reloadScript, "--reload --overwrite")
+	restartIdx := strings.Index(reloadScript, "exit 0")
+	if restartIdx < reloadIdx {
+		t.Errorf("the restart must be the fallback after a failed reload, not the first choice:\n%s", reloadScript)
+	}
+	if !strings.Contains(reloadScript, "restart") {
+		t.Errorf("a failed reload of a changed vrf instance set must fall back to a restart:\n%s", reloadScript)
 	}
 }

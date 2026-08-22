@@ -254,6 +254,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 2)
+		ginkgo.DeferCleanup(dumpAgentFrrState, f, topo)
 		w := setupVpcWorkload(f, topo, agentVrfName, agentVrfID, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
 		deployAgent(f, topo)
 
@@ -368,6 +369,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 1)
+		ginkgo.DeferCleanup(dumpAgentFrrState, f, topo)
 		w := setupVpcWorkload(f, topo, lbVrfName, lbVrfID, framework.RandomCIDR(f.ClusterIPFamily), "",
 			[]apiv1.RedistributeType{apiv1.RedistributeNAT, apiv1.RedistributeLB})
 		deployAgent(f, topo)
@@ -1123,6 +1125,32 @@ func waitTorLearnsEip(topo *drTopology, w *drWorkload) {
 		}
 		return strings.Contains(string(stdout), w.eipV4+"/32") && strings.Contains(string(stdout), "via "+w.lrpIP), nil
 	}, "ToR learned EIP "+w.eipV4+" via the owning VPC LRP")
+}
+
+// dumpAgentFrrState prints the agent pods' apply result and the live FRR
+// state when a spec fails, so a CI log carries the evidence instead of only
+// the timed-out assertion.
+func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
+	if !ginkgo.CurrentSpecReport().Failed() {
+		return
+	}
+	for _, gwName := range topo.gwNodeNames {
+		ds := f.DaemonSetClientNS(framework.KubeOvnNamespace).Get("kube-ovn-frr-e2e")
+		pod, err := f.DaemonSetClientNS(framework.KubeOvnNamespace).GetPodOnNode(ds, gwName)
+		if err != nil {
+			framework.Logf("no agent pod on %s: %v", gwName, err)
+			continue
+		}
+		for _, cmd := range [][]string{
+			{"cat", "/etc/frr/.kube-ovn-frr-result"},
+			{"cat", "/etc/frr/.kube-ovn-frr-applied"},
+			{"vtysh", "-c", "show running-config"},
+			{"vtysh", "-c", "show bgp vrf all summary"},
+		} {
+			out, errOut, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, pod.Name, "frr", cmd...)
+			framework.Logf("agent %s %v:\n%s%s (err=%v)", gwName, cmd, out, errOut, err)
+		}
+	}
 }
 
 func ovnLbSvcEnabled(f *framework.Framework) bool {
