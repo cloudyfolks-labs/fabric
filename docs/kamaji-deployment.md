@@ -36,7 +36,7 @@ targeting different `--kube-context`s.
 | `kube-ovn-controller` | Tenant cluster | Watches tenant Subnet/IP/Vpc CRs — best done with in-cluster auth |
 | `ovs-ovn`, `kube-ovn-cni`, `kube-ovn-pinger` (DaemonSets) | Tenant cluster | They program local OVS on every tenant node |
 | `kube-ovn-monitor` (Deployment) | **`full` mode only** | Reads ovn-central's local Unix sockets and DB files; would crashloop in a tenant-only install. Tracked as follow-up. |
-| Kube-OVN CRDs (`kubeovn.io/v1` …) | Tenant apiserver | Tenants `kubectl create subnet` against their own apiserver |
+| Kube-OVN CRDs (`fabric.cloudyfolks.io/v1` …) | Tenant apiserver | Tenants `kubectl create subnet` against their own apiserver |
 | `kube-ovn-tls` Secret | **Both clusters** | ovn-central serves SSL listeners (mgmt); controller / ovs-ovn use client certs (tenant) |
 
 ## Prerequisites
@@ -160,7 +160,7 @@ kubectl --context=tenant -n kube-system exec ds/ovs-ovn -- \
 
 # Sanity: create a tenant Subnet, watch a pod get an IP
 kubectl --context=tenant create -f - <<EOF
-apiVersion: kubeovn.io/v1
+apiVersion: fabric.cloudyfolks.io/v1
 kind: Subnet
 metadata: {name: smoke}
 spec:
