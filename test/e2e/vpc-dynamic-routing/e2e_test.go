@@ -432,7 +432,7 @@ ip protocol bgp route-map OVN-NO-FIB
 
 		ginkgo.By("Reaching the VIP from the fabric")
 		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
-			stdout, _, err := docker.Exec(topo.torID, nil, "curl", "-s", "--connect-timeout", "2", "--max-time", "2",
+			stdout, _, err := docker.Exec(topo.torID, nil, "wget", "-q", "-O", "-", "--timeout=2",
 				fmt.Sprintf("http://%s/hostname", net.JoinHostPort(vip, "80")))
 			if err != nil {
 				return false, nil
