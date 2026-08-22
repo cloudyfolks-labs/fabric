@@ -1040,7 +1040,6 @@ func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kube
 					return err
 				}
 			}
-
 		}
 
 		if pod.Annotations[fmt.Sprintf(util.ActivationStrategyTemplate, podNet.ProviderName)] != "" {
@@ -1302,7 +1301,6 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 					klog.Errorf("failed to delete static route, %v", err)
 					return err
 				}
-
 			}
 		}
 		for _, port := range ports {
