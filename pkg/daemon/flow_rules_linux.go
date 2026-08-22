@@ -23,8 +23,7 @@ func (c *Controller) AddOrUpdateUnderlaySubnetSvcLocalFlowCache(serviceIP string
 	patchPortName := fmt.Sprintf("patch-localnet.%s-to-br-int", subnetName)
 	outPort, err := c.getPortID(patchPortName)
 	if err != nil {
-		klog.V(5).Infof("patch-localnet port %s not found on bridge %s, skipping underlay service flow for %s:%d (subnet %s may not have pods on this node yet)", patchPortName, bridgeName, serviceIP, port, subnetName)
-		return nil
+		return fmt.Errorf("patch-localnet port %s not ready on bridge %s for underlay service flow %s:%d: %w", patchPortName, bridgeName, serviceIP, port, err)
 	}
 
 	isIPv6 := util.CheckProtocol(serviceIP) == kubeovnv1.ProtocolIPv6
