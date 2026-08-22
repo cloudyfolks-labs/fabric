@@ -4,10 +4,10 @@ fabric is a Kubernetes network fabric for multi-tenant clouds. It gives
 each tenant a real VPC with its own router, its own address space, and a
 BGP path to the physical network.
 
-fabric is a fork of [kube-ovn](https://github.com/kubeovn/kube-ovn), a
-CNCF Sandbox Project. The OVN substrate, the CNI, and most of the
-features come from kube-ovn. See [UPSTREAM.md](UPSTREAM.md) for the fork
-base and how we sync upstream changes.
+fabric started as a fork of
+[kube-ovn](https://github.com/kubeovn/kube-ovn) and is now a standalone
+project. The OVN substrate and the CNI come from that import; fabric
+develops independently and does not track upstream.
 
 ## Direction
 

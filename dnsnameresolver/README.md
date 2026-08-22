@@ -2,6 +2,11 @@
 
 This is a CoreDNS plugin that works together with Kube-OVN to implement the [FQDN Egress Firewall](https://network-policy-api.sigs.k8s.io/npeps/npep-133-fqdn-egress-selector/) in [Network Policy API](https://network-policy-api.sigs.k8s.io/).
 
+This directory is a nested Go module vendored from
+[kubeovn/dnsnameresolver](https://github.com/kubeovn/dnsnameresolver),
+adapted to watch `fabric.cloudyfolks.io/v1`. Changes from that source
+are made here directly.
+
 The origin code comes from [coredns-ocp-dnsnameresolver](https://github.com/openshift/coredns-ocp-dnsnameresolver) with following modifications:
 
 - Change `DNSNameResolver` scope from `namespaced` to `cluster` to better implement Network Policy API.

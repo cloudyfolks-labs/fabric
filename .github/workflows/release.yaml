@@ -132,12 +132,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BASE_SHA=$(sed -n 's/^- Import base: `\(.*\)`.*/\1/p' UPSTREAM.md)
-          SYNC_SHA=$(sed -n 's/^- Last synced: `\(.*\)`.*/\1/p' UPSTREAM.md)
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes \
-            --notes "fabric is a fork of kube-ovn. Import base: \`$BASE_SHA\`. Last upstream sync: \`$SYNC_SHA\`.
-
-          Images: \`$REGISTRY/fabric:$GITHUB_REF_NAME\`
+            --notes "Images: \`$REGISTRY/fabric:$GITHUB_REF_NAME\`
           Chart: \`helm install fabric oci://$REGISTRY/charts/fabric --version ${GITHUB_REF_NAME#v}\`"

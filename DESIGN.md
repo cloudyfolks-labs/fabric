@@ -32,16 +32,19 @@ not shape it.
   such as `kube-ovn.io/*` and `vendor=kube-ovn`) are wire contracts
   with the vendored OVN patches. They are not user API and do not
   change.
-- Names inherited from kube-ovn that are not user API (binary names,
-  Go package paths, image names) change only when there is a
-  functional reason, to keep upstream syncs small.
+- All other names — binaries, container images, the Go module and
+  package paths, Kubernetes object names, metric namespaces,
+  environment variables, file paths, and CLI tools — carry no
+  compatibility guarantee. fabric renames the names inherited from
+  kube-ovn as the project converges on the fabric identity.
 
-## Upstream relationship
+## Origin
 
-fabric tracks kube-ovn master as described in `UPSTREAM.md`. Features
-are designed so that their mechanism could be proposed upstream; only
-the naming differs. During a sync, upstream changes to renamed
-identifiers resolve to the fabric names.
+fabric imported the kube-ovn source tree once and develops
+independently. It does not track or sync upstream. The Apache-2.0
+license and the upstream copyright headers apply to the imported code.
+Upstream fixes or ideas can be ported deliberately, as normal changes
+with review.
 
 ## Migration
 

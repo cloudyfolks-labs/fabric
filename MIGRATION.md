@@ -1,5 +1,10 @@
 # Migration from kube-ovn
 
+fabric started as a fork of kube-ovn and develops independently. This
+guide describes how to move a kube-ovn cluster or manifests to fabric.
+
+## Renamed APIs
+
 fabric renamed the user-facing API domains. This is a breaking change.
 
 | kube-ovn | fabric |
@@ -19,6 +24,24 @@ the fabric build of the CoreDNS resolver plugin
 (`ghcr.io/cloudyfolks-labs/fabric-dns`); the kube-ovn build watches the
 old API group and does not work with fabric.
 
+## Removed features
+
+fabric does not carry these kube-ovn features. If your cluster uses
+one, migrate to the replacement before you move to fabric.
+
+| Removed | Replacement in fabric |
+|---|---|
+| BGP speaker (`--enable-bgp`, speaker pod) | Per-node FRR agent driven by the `BgpConf` CRD |
+| `VpcNatGateway`, `IptablesEIP`, `IptablesFIPRule`, `IptablesDnatRule`, `IptablesSnatRule`, `QoSPolicy` | `OvnEip`, `OvnFip`, `OvnSnatRule`, `OvnDnatRule` |
+| Pod annotations `eip` / `snat` | `OvnFip` / `OvnSnatRule` CRs |
+| `ovn-external-gw-config` ConfigMap | `Vpc.spec.enableExternal` and `extraExternalSubnets` |
+| `--enable-ovn-lb-prefer-local` | None; `externalTrafficPolicy: Local` support is planned |
+| `--enable-external-vpc` (mirror foreign OVN routers as Vpc CRs) | None |
+| STT tunnel encapsulation | Geneve (default) or VXLAN |
+| `--mac-learning-fallback`, `--set-vxlan-tx-off` | Not needed |
+| Kernel fastpath module | The OVN datapath does not need it |
+| VpcEgressGateway BGP/EVPN announcer (`EvpnConf`) | The FRR agent; the egress gateway itself remains |
+
 ## New clusters
 
 Install fabric directly. Use the fabric domains in all manifests.
@@ -33,17 +56,19 @@ possible with a maintenance window:
 2. Export all kube-ovn CRs. For each object: set `apiVersion` to
    `fabric.cloudyfolks.io/v1`, rename all `ovn.kubernetes.io/` keys in
    metadata, and remove `status`, `resourceVersion`, and `uid`.
-3. Install the fabric CRDs and apply the converted CRs.
-4. Rewrite annotations on live objects (Pods, Nodes, Namespaces,
+3. Convert CRs of removed features to their replacements from the
+   table above.
+4. Install the fabric CRDs and apply the converted CRs.
+5. Rewrite annotations on live objects (Pods, Nodes, Namespaces,
    VirtualMachines): copy each `ovn.kubernetes.io/<key>` to
    `fabric.cloudyfolks.io/<key>`. Update `spec.provider` in converted
    Subnet and NetworkAttachmentDefinition objects from `...ovn` to
    `...fabric`.
-5. Install fabric. The controller adopts the existing OVN database;
+6. Install fabric. The controller adopts the existing OVN database;
    logical switches, routers, and ports keep their names.
-6. Update workload manifests (Deployments, VirtualMachine templates)
+7. Update workload manifests (Deployments, VirtualMachine templates)
    to the new annotation keys before the next rollout.
-7. Delete the old `*.kubeovn.io` CRDs only after all CRs are converted
+8. Delete the old `*.kubeovn.io` CRDs only after all CRs are converted
    and verified. fabric removes the legacy
    `kubeovn.io/kube-ovn-controller` finalizer from converted objects
    automatically.
