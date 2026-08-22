@@ -306,14 +306,6 @@ kube-ovn-ipsec-cert-mgr-e2e:
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/ipsec/ipsec.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-anp-e2e
-kube-ovn-anp-e2e:
-	KUBECONFIG=$(KUBECONFIG) ./test/anp/conformance.sh
-
-.PHONY: kube-ovn-cnp-e2e
-kube-ovn-cnp-e2e:
-	KUBECONFIG=$(KUBECONFIG) ./test/cnp/conformance.sh
-
 .PHONY: kube-ovn-anp-domain-e2e
 kube-ovn-anp-domain-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/anp-domain
@@ -353,16 +345,6 @@ kube-ovn-underlay-metallb-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/metallb/metallb.test -- $(TEST_BIN_ARGS)
-
-.PHONY: kube-ovn-slr-e2e
-kube-ovn-slr-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
-	E2E_BRANCH=$(E2E_BRANCH) \
-	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
-	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN) --timeout=10m \
-		--focus="\[group:slr-ip-port-mapping\]" ./test/e2e/kube-ovn/kube-ovn.test -- $(TEST_BIN_ARGS)
 
 .PHONY: kube-ovn-rlr-e2e
 kube-ovn-rlr-e2e:

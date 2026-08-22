@@ -1,4 +1,4 @@
-package ipam_bench
+package ipam_test
 
 import (
 	"crypto/rand"
