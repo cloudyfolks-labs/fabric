@@ -49,6 +49,14 @@ fi
 
 export E2E_BRANCH=main E2E_IP_FAMILY=ipv4 E2E_NETWORK_MODE=overlay
 
+# The framework's docker client reads DOCKER_HOST, not the cli context.
+# Without this it talks to /var/run/docker.sock, which can be a stale
+# Docker Desktop socket while the cluster lives in another engine.
+if [ -z "${DOCKER_HOST:-}" ]; then
+  DOCKER_HOST=$(docker context inspect --format '{{.Endpoints.docker.Host}}')
+  export DOCKER_HOST
+fi
+
 # install.sh drops the kubectl-ko plugin into /usr/local/bin, which is
 # root-owned on macOS. Give it a writable directory on PATH instead.
 KUBECTL_KO_DIR="${HOME}/.local/share/fabric/bin"
