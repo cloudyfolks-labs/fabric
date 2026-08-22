@@ -83,9 +83,9 @@ when it is not and does not patch the Vpc itself.
 
 - `announce: l2`: OVN ARP responder + GARP. Zero extra components.
   Requires L2 adjacency; failover is gateway-chassis failover.
-- `announce: bgp`: the FRR agent advertises a host route per VIP,
-  withdrawn on release. Gated by `advertiseLoadBalancerVips` on
-  `BgpConf`. ECMP-capable; no L2 requirement.
+- `announce: bgp`: OVN writes the VIP host route into the VPC VRF and
+  the FRR agent redistributes it with the LRP as next hop. Gated by
+  `redistribute: lb` on the VPC. ECMP-capable; no L2 requirement.
 
 ## Conformance behavior
 

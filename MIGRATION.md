@@ -41,6 +41,7 @@ one, migrate to the replacement before you move to fabric.
 | `--mac-learning-fallback`, `--set-vxlan-tx-off` | Not needed |
 | Kernel fastpath module | The OVN datapath does not need it |
 | VpcEgressGateway BGP/EVPN announcer (`EvpnConf`) | The FRR agent; the egress gateway itself remains |
+| `BgpConf.spec.advertiseLoadBalancerVips` | `Vpc.spec.dynamicRouting.redistribute: lb` |
 
 ## New clusters
 

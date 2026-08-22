@@ -19,11 +19,10 @@ const (
 )
 
 type VpcAdvertisement struct {
-	VpcName  string
-	VrfName  string
-	TableID  uint32
-	LrpIP    string
-	Networks []string
+	VpcName string
+	VrfName string
+	TableID uint32
+	LrpIP   string
 }
 
 type Neighbor struct {
@@ -123,11 +122,6 @@ func ValidateRenderInput(input RenderInput) error {
 		if _, err := netip.ParseAddr(vpc.LrpIP); err != nil {
 			return fmt.Errorf("vpc %s lrp address %q is not a valid IP address", vpc.VpcName, vpc.LrpIP)
 		}
-		for _, network := range vpc.Networks {
-			if _, err := netip.ParseAddr(network); err != nil {
-				return fmt.Errorf("vpc %s loadbalancer vip %q is not a valid IP address", vpc.VpcName, network)
-			}
-		}
 	}
 	return nil
 }
@@ -172,18 +166,9 @@ func Render(input RenderInput) string {
 
 	for _, vpc := range vpcs {
 		fmt.Fprintf(&b, "router bgp %d vrf %s\n", input.LocalASN, vpc.VrfName)
-		if len(vpc.Networks) > 0 {
-			b.WriteString(" no bgp network import-check\n")
-		}
 		b.WriteString(" address-family ipv4 unicast\n")
 		fmt.Fprintf(&b, "  redistribute kernel route-map %s%s\n", nhRouteMap, vpc.VpcName)
 		b.WriteString("  import vrf default\n")
-		networks := make([]string, len(vpc.Networks))
-		copy(networks, vpc.Networks)
-		sort.Strings(networks)
-		for _, network := range networks {
-			fmt.Fprintf(&b, "  network %s/32\n", network)
-		}
 		b.WriteString(" exit-address-family\n")
 		b.WriteString("exit\n!\n")
 	}
