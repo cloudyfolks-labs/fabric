@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -373,4 +375,43 @@ func TestCheckPoolAnnouncePath(t *testing.T) {
 	}
 	assert.Empty(t, ctrl.checkPoolAnnouncePath(l2Pool, "vpc-l2"))
 	assert.Contains(t, ctrl.checkPoolAnnouncePath(l2Pool, "vpc-bgp"), "has no ready LRP")
+}
+
+func TestGcOvnLbSvcEipsReleasesOrphans(t *testing.T) {
+	class := util.LoadBalancerClass
+	live := makeLbSvc("default", "live", &class, corev1.ServiceTypeLoadBalancer)
+	live.Annotations = map[string]string{util.RouterLBRuleVipsAnnotation: "192.168.1.10"}
+
+	liveEip := &kubeovnv1.OvnEip{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   ovnLbSvcEipName(live.UID),
+			Labels: map[string]string{util.LoadBalancerServiceLabel: ovnLbSvcLabelValue("default", "live")},
+		},
+		Status: kubeovnv1.OvnEipStatus{V4Ip: "192.168.1.10"},
+	}
+	orphanEip := &kubeovnv1.OvnEip{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "lb-uid-gone",
+			Labels: map[string]string{util.LoadBalancerServiceLabel: ovnLbSvcLabelValue("default", "gone")},
+		},
+		Status: kubeovnv1.OvnEipStatus{V4Ip: "192.168.1.11"},
+	}
+
+	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+		Services: []*corev1.Service{live},
+		OvnEips:  []*kubeovnv1.OvnEip{liveEip, orphanEip},
+	})
+	require.NoError(t, err)
+
+	ctrl := fakeCtrl.fakeController
+	ctrl.config.EnableOvnLbSvc = true
+	ctrl.config.EnableLb = true
+
+	require.NoError(t, ctrl.gcOvnLbSvcEips())
+
+	_, err = ctrl.config.KubeOvnClient.FabricV1().OvnEips().Get(context.Background(), liveEip.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	_, err = ctrl.config.KubeOvnClient.FabricV1().OvnEips().Get(context.Background(), orphanEip.Name, metav1.GetOptions{})
+	require.True(t, k8serrors.IsNotFound(err), "expected the orphaned eip to be released, got %v", err)
 }

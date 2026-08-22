@@ -15,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
@@ -50,6 +51,7 @@ func (c *Controller) gc() error {
 		c.gcLbSvcPods,
 		c.gcVPCDNS,
 		c.gcRouterLBRules,
+		c.gcOvnLbSvcEips,
 	}
 	for _, gcFunc := range gcFunctions {
 		if err := gcFunc(); err != nil {
@@ -1305,4 +1307,58 @@ func logicalRouterPortFilter(exceptPeerPorts *strset.Set) func(lrp *ovnnb.Logica
 
 		return lrp.Peer != nil && len(*lrp.Peer) != 0
 	}
+}
+
+func (c *Controller) gcOvnLbSvcEips() error {
+	if !c.ovnLbSvcEnabled() {
+		return nil
+	}
+
+	klog.Infof("start to gc ovn loadbalancer service eips")
+
+	requirement, err := labels.NewRequirement(util.LoadBalancerServiceLabel, selection.Exists, nil)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	eips, err := c.ovnEipsLister.List(labels.NewSelector().Add(*requirement))
+	if err != nil {
+		klog.Errorf("failed to list ovn eips: %v", err)
+		return err
+	}
+
+	for _, eip := range eips {
+		claimants, err := c.remainingOvnLbSvcClaimants("", ovnEipIPs(eip))
+		if err != nil {
+			klog.Error(err)
+			return err
+		}
+		if len(claimants) != 0 {
+			continue
+		}
+		if c.ovnLbSvcEipHasOwner(eip) {
+			continue
+		}
+
+		klog.Infof("gc: releasing orphaned ovn loadbalancer service eip %s", eip.Name)
+		if err = c.config.KubeOvnClient.FabricV1().OvnEips().Delete(context.Background(), eip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+			klog.Errorf("gc: failed to delete ovn eip %s: %v", eip.Name, err)
+			return err
+		}
+	}
+
+	klog.Infof("finish to gc ovn loadbalancer service eips")
+	return nil
+}
+
+func (c *Controller) ovnLbSvcEipHasOwner(eip *kubeovnv1.OvnEip) bool {
+	namespace, name, ok := parseOvnLbSvcLabelValue(eip.Labels[util.LoadBalancerServiceLabel])
+	if !ok {
+		return false
+	}
+	svc, err := c.servicesLister.Services(namespace).Get(name)
+	if err != nil {
+		return false
+	}
+	return isOvnLbSvc(svc, c.config.DefaultLoadBalancerClass) && ovnLbSvcEipName(svc.UID) == eip.Name
 }
