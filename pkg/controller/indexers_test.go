@@ -9,7 +9,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/util"
 )
 
 func TestIndexPodByNode(t *testing.T) {
@@ -222,15 +221,6 @@ func TestIndexVpcByBFDPort(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "bfd-disabled"},
 			Spec: kubeovnv1.VpcSpec{
 				BFDPort: &kubeovnv1.BFDPort{Enabled: false},
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   "external",
-				Labels: map[string]string{util.VpcExternalLabel: "true"},
-			},
-			Spec: kubeovnv1.VpcSpec{
-				BFDPort: &kubeovnv1.BFDPort{Enabled: true},
 			},
 		},
 	}

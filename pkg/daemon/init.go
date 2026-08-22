@@ -97,7 +97,7 @@ func InitMirror(config *Configuration) error {
 	return configureEmptyMirror(config.MirrorNic, config.MTU)
 }
 
-func (c *Controller) ovsInitProviderNetwork(provider, nic string, trunks []string, exchangeLinkName, macLearningFallback bool, vlanInterfaceMap map[string]int) (int, error) { // create and configure external bridge
+func (c *Controller) ovsInitProviderNetwork(provider, nic string, trunks []string, exchangeLinkName bool, vlanInterfaceMap map[string]int) (int, error) { // create and configure external bridge
 	if err := validateProviderVlanInterfaceMap(vlanInterfaceMap); err != nil {
 		return 0, err
 	}
@@ -115,7 +115,7 @@ func (c *Controller) ovsInitProviderNetwork(provider, nic string, trunks []strin
 	}
 
 	klog.V(3).Infof("configure external bridge %s", brName)
-	if err := c.configExternalBridge(provider, brName, nic, exchangeLinkName, macLearningFallback, vlanInterfaceMap); err != nil {
+	if err := c.configExternalBridge(provider, brName, nic, exchangeLinkName, vlanInterfaceMap); err != nil {
 		errMsg := fmt.Errorf("failed to create and configure external bridge %s: %w", brName, err)
 		klog.Error(errMsg)
 		return 0, errMsg

@@ -882,9 +882,6 @@ func (c *Controller) loopTunnelCheck() {
 		tunnelNic = util.VxlanNic
 	case "geneve":
 		tunnelNic = util.GeneveNic
-	case "stt":
-		// TODO: tunnelNic = "stt tunnel nic name"
-		return
 	default:
 		return
 	}

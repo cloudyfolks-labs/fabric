@@ -161,7 +161,7 @@ networking:
   # -- Network type can be "geneve" or "vlan".
   # @section -- Network parameters of the CNI
   networkType: geneve
-  # -- Tunnel type can be "geneve", "vxlan" or "stt".
+  # -- Tunnel type can be "geneve" or "vxlan".
   # @section -- Network parameters of the CNI
   tunnelType: geneve
   # -- IPs to exclude from IPAM in the default subnet.
@@ -170,17 +170,6 @@ networking:
   # -- NIC type used on pods to connect them to the CNI.
   # @section -- Network parameters of the CNI
   podNicType: "veth-pair"
-  # -- Enable EIP and SNAT.
-  # @section -- Network parameters of the CNI
-  enableEipSnat: true
-  # -- Namespace where ovn-external-gw-config ConfigMap is located.
-  # Empty means it will use the same namespace as the controller (PodNamespace).
-  # @section -- Network parameters of the CNI
-  externalGatewayConfigNs: ""
-  # -- The name of the external gateway switch (OVS bridge providing external network).
-  # Empty means the default "external" is used.
-  # @section -- Network parameters of the CNI
-  externalGatewaySwitch: ""
   # -- Comma-separated string of NodeLocal DNS IP addresses.
   # @section -- Network parameters of the CNI
   nodeLocalDnsIp: ""
@@ -218,9 +207,6 @@ features:
   # -- Enable Kube-OVN network policies
   # @section -- Opt-in/out Features
   enableNetworkPolicies: true
-  # -- Enable external VPCs
-  # @section -- Opt-in/out Features
-  enableExternalVpcs: false
   # -- Enable hardware offloads
   # @section -- Opt-in/out Features
   enableHardwareOffload: false
@@ -260,10 +246,8 @@ features:
   LS_CT_SKIP_DST_LPORT_IPS: true
   ENABLE_ANP: false
   ENABLE_DNS_NAME_RESOLVER: false
-  SET_VXLAN_TX_OFF: false
   OVSDB_CON_TIMEOUT: 3
   OVSDB_INACTIVITY_TIMEOUT: 10
-  ENABLE_OVN_LB_PREFER_LOCAL: false
 
 # -- CNI binary/configuration injected on the nodes.
 # @section -- CNI configuration
@@ -384,7 +368,7 @@ prometheusRule:
 
 # -- Configuration of the Grafana dashboard ConfigMaps, automatically picked
 # up by the kube-prometheus-stack Grafana sidecar. One ConfigMap is emitted
-# per dashboard under dist/monitoring.
+# per dashboard under charts/fabric/dashboards.
 # @section -- Grafana dashboards configuration
 # @default -- "{}"
 grafanaDashboards:

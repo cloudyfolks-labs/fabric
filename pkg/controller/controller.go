@@ -78,9 +78,6 @@ type Controller struct {
 	OVNNbClient ovs.NbClient
 	OVNSbClient ovs.SbClient
 
-	// ExternalGatewayType define external gateway type, centralized
-	ExternalGatewayType string
-
 	podsLister             v1.PodLister
 	podsSynced             cache.InformerSynced
 	podIndexer             cache.Indexer
@@ -218,10 +215,6 @@ type Controller struct {
 	epsIndexer                    cache.Indexer
 	addOrUpdateEndpointSliceQueue workqueue.TypedRateLimitingInterface[string]
 	epKeyMutex                    keymutex.KeyMutex
-	serviceL2StatusMutex          sync.RWMutex
-	serviceL2StatusIndexer        cache.Indexer
-	serviceL2StatusSynced         cache.InformerSynced
-	serviceL2StatusStarted        bool
 
 	deploymentsLister appsv1.DeploymentLister
 	deploymentsSynced cache.InformerSynced
@@ -704,10 +697,6 @@ func Run(ctx context.Context, config *Configuration) {
 	// ServiceCIDR (networking.k8s.io/v1) is GA in K8s 1.33; older clusters
 	// don't have the API at all. Best-effort start with periodic retry.
 	controller.StartServiceCIDRInformerFactory(ctx)
-
-	// MetalLB is optional. When its ServiceL2Status API is available, use it to
-	// identify the chassis announcing each underlay LoadBalancer VIP.
-	controller.StartServiceL2StatusInformer(ctx)
 
 	// Wait for the caches to be synced before starting workers
 	controller.informerFactory.Start(ctx.Done())
@@ -1343,15 +1332,8 @@ func (c *Controller) startWorkers(ctx context.Context) {
 		go wait.Until(runWorker("update vlan", c.updateVlanQueue, c.handleUpdateVlan), time.Second, ctx.Done())
 	}
 
-	if c.config.EnableEipSnat {
-		go wait.Until(func() {
-			// init l3 about the default vpc external lrp binding to the gw chassis
-			c.resyncExternalGateway()
-		}, time.Second, ctx.Done())
+	c.OVNNbClient.MonitorBFD()
 
-		// maintain l3 ha about the vpc external lrp binding to the gw chassis
-		c.OVNNbClient.MonitorBFD()
-	}
 	go wait.Until(func() {
 		c.resyncVpcNatConfig()
 	}, time.Second, ctx.Done())
@@ -1369,12 +1351,6 @@ func (c *Controller) startWorkers(ctx context.Context) {
 			klog.Errorf("inspection error: %v", err)
 		}
 	}, time.Duration(c.config.InspectInterval)*time.Second, ctx.Done())
-
-	if c.config.EnableExternalVpc {
-		go wait.Until(func() {
-			c.syncExternalVpc()
-		}, 5*time.Second, ctx.Done())
-	}
 
 	go wait.Until(c.resyncProviderNetworkStatus, 30*time.Second, ctx.Done())
 	go wait.Until(c.exportSubnetMetrics, 30*time.Second, ctx.Done())

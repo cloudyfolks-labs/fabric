@@ -93,7 +93,7 @@ func (c *Controller) gcLogicalSwitch() error {
 		return err
 	}
 
-	lss, err := c.OVNNbClient.ListLogicalSwitchNames(c.config.EnableExternalVpc, nil)
+	lss, err := c.OVNNbClient.ListLogicalSwitchNames(false, nil)
 	if err != nil {
 		klog.Errorf("failed to list logical switch: %v", err)
 		return err
@@ -110,7 +110,6 @@ func (c *Controller) gcLogicalSwitch() error {
 	klog.Infof("subnet in kubernetes: %v", subnetNames)
 	for _, ls := range lss {
 		if ls == util.InterconnectionSwitch ||
-			ls == util.ExternalGatewaySwitch ||
 			ls == c.config.ExternalGatewaySwitch {
 			continue
 		}
@@ -137,7 +136,7 @@ func (c *Controller) gcCustomLogicalRouter() error {
 		return err
 	}
 
-	lrs, err := c.OVNNbClient.ListLogicalRouterNames(c.config.EnableExternalVpc, nil)
+	lrs, err := c.OVNNbClient.ListLogicalRouterNames(false, nil)
 	if err != nil {
 		klog.Errorf("failed to list logical router, %v", err)
 		return err
@@ -449,7 +448,7 @@ func (c *Controller) markAndCleanLSP() error {
 			vipsMap.Add(portName)
 		}
 	}
-	lsps, err := c.OVNNbClient.ListNormalLogicalSwitchPorts(c.config.EnableExternalVpc, nil)
+	lsps, err := c.OVNNbClient.ListNormalLogicalSwitchPorts(false, nil)
 	if err != nil {
 		klog.Errorf("failed to list logical switch port, %v", err)
 		return err

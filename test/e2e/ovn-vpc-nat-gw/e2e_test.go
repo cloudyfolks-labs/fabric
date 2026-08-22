@@ -10,7 +10,6 @@ import (
 	"time"
 
 	dockernetwork "github.com/moby/moby/api/types/network"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
@@ -633,24 +632,10 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 			framework.ExpectNotEqual(oldUnderlayExternalSubnet.Status.V6UsingIPRange, newUnerlayExternalSubnet.Status.V6UsingIPRange)
 		}
 
-		externalGwNodes := strings.Join(gwNodeNames, ",")
-		ginkgo.By("Creating config map ovn-external-gw-config for centralized case")
-		cmData := map[string]string{
-			"enable-external-gw": "true",
-			"external-gw-nodes":  externalGwNodes,
-			"type":               kubeovnv1.GWCentralizedType,
-			"external-gw-nic":    "eth1",
-			"external-gw-addr":   strings.Join(cidr, ","),
+		ginkgo.By("Labeling gateway nodes for centralized case")
+		for _, name := range gwNodeNames {
+			e2enode.AddOrUpdateLabelOnNode(cs, name, util.ExGatewayLabel, "true")
 		}
-		configMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      util.ExternalGatewayConfig,
-				Namespace: framework.KubeOvnNamespace,
-			},
-			Data: cmData,
-		}
-		_, err = cs.CoreV1().ConfigMaps(framework.KubeOvnNamespace).Create(context.Background(), configMap, metav1.CreateOptions{})
-		framework.ExpectNoError(err, "failed to create")
 
 		ginkgo.By("1. Test custom vpc nats using centralized external gw")
 		noBfdSubnetV4Cidr := "192.168.0.0/24"
@@ -1225,24 +1210,10 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 			pod.Spec.NodeName = node
 			_ = podClient.CreateSync(pod)
 		}
-		ginkgo.By("3. Updating config map ovn-external-gw-config for distributed case")
-		cmData = map[string]string{
-			"enable-external-gw": "true",
-			"external-gw-nodes":  externalGwNodes,
-			"type":               kubeovnv1.GWDistributedType,
-			"external-gw-nic":    "eth1",
-			"external-gw-addr":   strings.Join(cidr, ","),
+		ginkgo.By("3. Labeling all nodes as gateway nodes for distributed case")
+		for _, name := range nodeNames {
+			e2enode.AddOrUpdateLabelOnNode(cs, name, util.ExGatewayLabel, "true")
 		}
-		// TODO:// external-gw-nodes could be auto managed by recognizing gw chassis node which has the external-gw-nic
-		configMap = &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      util.ExternalGatewayConfig,
-				Namespace: framework.KubeOvnNamespace,
-			},
-			Data: cmData,
-		}
-		_, err = cs.CoreV1().ConfigMaps(framework.KubeOvnNamespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
-		framework.ExpectNoError(err, "failed to update ConfigMap")
 
 		ginkgo.By("Getting kind nodes")
 		nodes, err := kind.ListNodes(clusterName, "")
@@ -1293,10 +1264,10 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 			ipClient.DeleteSync(ipName)
 		}
 
-		ginkgo.By("Disable ovn eip snat external gateway")
-		ginkgo.By("Deleting configmap")
-		err = cs.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
-		framework.ExpectNoError(err, "failed to delete ConfigMap")
+		ginkgo.By("Removing gateway node labels")
+		for _, name := range nodeNames {
+			e2enode.RemoveLabelOffNode(cs, name, util.ExGatewayLabel)
+		}
 
 		lrpEipName := fmt.Sprintf("%s-%s", bfdVpcName, underlaySubnetName)
 		ginkgo.By("Deleting ovn eip " + lrpEipName)

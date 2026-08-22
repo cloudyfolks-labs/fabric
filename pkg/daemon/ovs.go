@@ -287,7 +287,7 @@ func removeOvnMapping(name, key string) error {
 	return setOvnMappings(name, mappings)
 }
 
-func (c *Controller) configExternalBridge(provider, bridge, nic string, exchangeLinkName, macLearningFallback bool, vlanInterfaceMap map[string]int) error {
+func (c *Controller) configExternalBridge(provider, bridge, nic string, exchangeLinkName bool, vlanInterfaceMap map[string]int) error {
 	// check if nic exists before configuring external bridge
 	nicExists, err := linkExists(nic)
 	if err != nil {
@@ -305,7 +305,6 @@ func (c *Controller) configExternalBridge(provider, bridge, nic string, exchange
 	}
 	cmd := []string{
 		ovs.MayExist, "add-br", bridge,
-		"--", "set", "bridge", bridge, fmt.Sprintf("other_config:mac-learning-fallback=%v", macLearningFallback),
 		"--", "set", "bridge", bridge, "external_ids:vendor=" + util.CniTypeName,
 		"--", "set", "bridge", bridge, fmt.Sprintf("external_ids:exchange-link-name=%v", exchangeLinkName),
 	}

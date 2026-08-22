@@ -22,10 +22,8 @@ HW_OFFLOAD=${HW_OFFLOAD:-false}
 ENABLE_LB=${ENABLE_LB:-true}
 ENABLE_NP=${ENABLE_NP:-true}
 NP_ENFORCEMENT=${NP_ENFORCEMENT:-standard}
-ENABLE_EIP_SNAT=${ENABLE_EIP_SNAT:-true}
 LS_DNAT_MOD_DL_DST=${LS_DNAT_MOD_DL_DST:-true}
 LS_CT_SKIP_DST_LPORT_IPS=${LS_CT_SKIP_DST_LPORT_IPS:-true}
-ENABLE_EXTERNAL_VPC=${ENABLE_EXTERNAL_VPC:-false}
 CNI_CONFIG_PRIORITY=${CNI_CONFIG_PRIORITY:-01}
 ENABLE_LB_SVC=${ENABLE_LB_SVC:-false}
 ENABLE_OVN_LB_SVC=${ENABLE_OVN_LB_SVC:-false}
@@ -57,12 +55,10 @@ IPSEC_CERT_DURATION=${IPSEC_CERT_DURATION:-63072000} # 2 years in seconds
 CERT_MANAGER_ISSUER_NAME=${CERT_MANAGER_ISSUER_NAME:-kube-ovn}
 ENABLE_ANP=${ENABLE_ANP:-false}
 ENABLE_DNS_NAME_RESOLVER=${ENABLE_DNS_NAME_RESOLVER:-false}
-SET_VXLAN_TX_OFF=${SET_VXLAN_TX_OFF:-false}
 HOST_TUNNEL_SRC=${HOST_TUNNEL_SRC:-false}
 OVSDB_CON_TIMEOUT=${OVSDB_CON_TIMEOUT:-3}
 OVSDB_INACTIVITY_TIMEOUT=${OVSDB_INACTIVITY_TIMEOUT:-10}
 ENABLE_LIVE_MIGRATION_OPTIMIZE=${ENABLE_LIVE_MIGRATION_OPTIMIZE:-true}
-ENABLE_OVN_LB_PREFER_LOCAL=${ENABLE_OVN_LB_PREFER_LOCAL:-false}
 LEADER_ELECT_LEASE_DURATION=${LEADER_ELECT_LEASE_DURATION:-30s}
 LEADER_ELECT_RENEW_DEADLINE=${LEADER_ELECT_RENEW_DEADLINE:-20s}
 LEADER_ELECT_RETRY_PERIOD=${LEADER_ELECT_RETRY_PERIOD:-6s}
@@ -146,8 +142,8 @@ fi
 EXCLUDE_IPS=""                                    # EXCLUDE_IPS for default subnet
 LABEL="node-role.kubernetes.io/control-plane"     # The node label to deploy OVN DB
 DEPRECATED_LABEL="node-role.kubernetes.io/master" # The node label to deploy OVN DB in earlier versions
-NETWORK_TYPE="geneve"                             # vlan or (geneve, vxlan or stt)
-TUNNEL_TYPE="geneve"                              # (geneve, vxlan or stt). ATTENTION: some networkpolicy cannot take effect when using vxlan and stt need custom compile ovs kernel module
+NETWORK_TYPE="geneve"                             # vlan or (geneve or vxlan)
+TUNNEL_TYPE="geneve"                              # geneve or vxlan. ATTENTION: some networkpolicy cannot take effect when using vxlan
 POD_NIC_TYPE="veth-pair"                          # veth-pair or internal-port
 
 # VLAN Config only take effect when NETWORK_TYPE is vlan
@@ -156,8 +152,6 @@ VLAN_ID="100"
 
 if [ "$ENABLE_VLAN" = "true" ]; then
   NETWORK_TYPE="vlan"
-  # ENABLE_EIP_SNAT is only supported when you use vpc, vlan not support
-  ENABLE_EIP_SNAT=${ENABLE_EIP_SNAT:-false}
   if [ "$VLAN_NIC" != "" ]; then
     VLAN_INTERFACE_NAME="$VLAN_NIC"
   fi
@@ -241,7 +235,6 @@ echo "Default Subnet CIDR:  $POD_CIDR"
 echo "Join Subnet CIDR:     $JOIN_CIDR"
 echo "Enable SVC LB:        $ENABLE_LB"
 echo "Enable Networkpolicy: $ENABLE_NP"
-echo "Enable EIP and SNAT:  $ENABLE_EIP_SNAT"
 echo "Enable Mirror:        $ENABLE_MIRROR"
 echo "-------------------------------"
 
@@ -6060,8 +6053,6 @@ spec:
           - --enable-lb=$ENABLE_LB
           - --enable-np=$ENABLE_NP
           - --np-enforcement=$NP_ENFORCEMENT
-          - --enable-eip-snat=$ENABLE_EIP_SNAT
-          - --enable-external-vpc=$ENABLE_EXTERNAL_VPC
           - --logtostderr=false
           - --alsologtostderr=true
           - --gc-interval=$GC_INTERVAL
@@ -6082,7 +6073,6 @@ spec:
           - --ovsdb-con-timeout=$OVSDB_CON_TIMEOUT
           - --ovsdb-inactivity-timeout=$OVSDB_INACTIVITY_TIMEOUT
           - --enable-live-migration-optimize=$ENABLE_LIVE_MIGRATION_OPTIMIZE
-          - --enable-ovn-lb-prefer-local=$ENABLE_OVN_LB_PREFER_LOCAL
           - --image=$REGISTRY/kube-ovn:$VERSION
           securityContext:
             runAsUser: ${RUN_AS_USER}
@@ -6285,7 +6275,6 @@ spec:
           - --cert-manager-ipsec-cert=$CERT_MANAGER_IPSEC_CERT
           - --ovn-ipsec-cert-duration=$IPSEC_CERT_DURATION
           - --cert-manager-issuer-name=$CERT_MANAGER_ISSUER_NAME
-          - --set-vxlan-tx-off=$SET_VXLAN_TX_OFF
           - --host-tunnel-src=$HOST_TUNNEL_SRC
         securityContext:
           runAsUser: 0

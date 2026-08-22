@@ -141,7 +141,7 @@ func (c *Controller) handleAddOrUpdateVMIMigration(key string) error {
 		}
 	}
 
-	lsps, err := c.OVNNbClient.ListNormalLogicalSwitchPorts(c.config.EnableExternalVpc, map[string]string{"pod": fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)})
+	lsps, err := c.OVNNbClient.ListNormalLogicalSwitchPorts(false, map[string]string{"pod": fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)})
 	if err != nil {
 		klog.Errorf("failed to list logical switch ports for vmi %s/%s, %v", vmi.Namespace, vmi.Name, err)
 		return err

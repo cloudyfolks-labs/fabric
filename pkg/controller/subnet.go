@@ -466,8 +466,6 @@ func (c *Controller) getSubnetMTU(subnet *kubeovnv1.Subnet) (int, error) {
 				mtu -= util.GeneveHeaderLength
 			case util.NetworkTypeVxlan:
 				mtu -= util.VxlanHeaderLength
-			case util.NetworkTypeStt:
-				mtu -= util.SttHeaderLength
 			default:
 				return 0, fmt.Errorf("invalid network type: %s", c.config.NetworkType)
 			}

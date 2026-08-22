@@ -98,9 +98,6 @@ func (c *Controller) enqueueVpcBFDPortByNodeChange(oldNode, newNode *v1.Node) {
 	}
 
 	for _, vpc := range vpcs {
-		if vpc.Labels != nil && vpc.Labels[util.VpcExternalLabel] == "true" {
-			continue
-		}
 		if !vpc.Spec.BFDPort.IsEnabled() {
 			continue
 		}

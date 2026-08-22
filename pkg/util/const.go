@@ -28,8 +28,6 @@ const (
 	GatewayAnnotation            = "fabric.cloudyfolks.io/gateway"
 	IPPoolAnnotation             = "fabric.cloudyfolks.io/ip_pool"
 	BgpAnnotation                = "fabric.cloudyfolks.io/bgp"
-	SnatAnnotation               = "fabric.cloudyfolks.io/snat"
-	EipAnnotation                = "fabric.cloudyfolks.io/eip"
 	FipFinalizer                 = "fabric.cloudyfolks.io/fip"
 	VipAnnotation                = "fabric.cloudyfolks.io/vip"
 	AAPsAnnotation               = "fabric.cloudyfolks.io/aaps"
@@ -38,7 +36,6 @@ const (
 	ActivationStrategyAnnotation = "fabric.cloudyfolks.io/activation_strategy"
 
 	VpcLbAnnotation   = "fabric.cloudyfolks.io/vpc_lb"
-	VpcExternalLabel  = "fabric.cloudyfolks.io/vpc_external"
 	VpcEipAnnotation  = "fabric.cloudyfolks.io/vpc_eip"
 	VpcDnatEPortLabel = "fabric.cloudyfolks.io/vpc_dnat_eport"
 	VpcNatAnnotation  = "fabric.cloudyfolks.io/vpc_nat"
@@ -147,7 +144,6 @@ const (
 	NetworkTypeVlan   = "vlan"
 	NetworkTypeGeneve = "geneve"
 	NetworkTypeVxlan  = "vxlan"
-	NetworkTypeStt    = "stt"
 
 	LoNic         = "lo"
 	NodeGwNic     = "ovnext0"
@@ -207,7 +203,6 @@ const (
 	DefaultMTU         = 1500
 	GeneveHeaderLength = 100
 	VxlanHeaderLength  = 50
-	SttHeaderLength    = 72
 	TCPIPHeaderLength  = 40
 	// IPv6MinMTU is the minimum MTU required by IPv6 (RFC 8200).
 	// Linux refuses to initialize inet6_dev on interfaces below this value,
@@ -223,9 +218,7 @@ const (
 	SriovNicType = "sriov"
 
 	InterconnectionConfig  = "ovn-ic-config"
-	ExternalGatewayConfig  = "ovn-external-gw-config"
 	InterconnectionSwitch  = "ts"
-	ExternalGatewaySwitch  = "ovn-external"
 	VpcLbNetworkAttachment = "ovn-vpc-lb"
 	VpcDNSConfig           = "vpc-dns-config"
 	VpcDNSDepTemplate      = "vpc-dns-dep"
@@ -358,7 +351,6 @@ const (
 	UnderlaySvcLocalOpenFlowCookieV6 = 0x1001
 
 	MasqueradeExternalLBAccessMac = "00:00:00:01:00:01"
-	MasqueradeCheckIP             = "0.0.0.0"
 )
 
 const (

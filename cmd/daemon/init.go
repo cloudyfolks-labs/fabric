@@ -26,16 +26,3 @@ func initForOS() error {
 	// disable checksum for geneve_sys_6081 as default
 	return daemon.TurnOffNicTxChecksum(util.GeneveNic)
 }
-
-func setVxlanNicTxOff() error {
-	if _, err := netlink.LinkByName(util.VxlanNic); err != nil {
-		if _, ok := err.(netlink.LinkNotFoundError); ok {
-			return nil
-		}
-		klog.Errorf("failed to get link %s: %v", util.VxlanNic, err)
-		return err
-	}
-
-	// disable checksum for vxlan_sys_4789 as default
-	return daemon.TurnOffNicTxChecksum(util.VxlanNic)
-}

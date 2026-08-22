@@ -61,14 +61,11 @@ type Configuration struct {
 	NodeSwitch                string
 	EncapChecksum             bool
 	EnablePprof               bool
-	MacLearningFallback       bool
 	PprofPort                 int32
 	SecureServing             bool
 	NetworkType               string
 	DefaultProviderName       string
 	DefaultInterfaceName      string
-	ExternalGatewayConfigNS   string
-	ExternalGatewaySwitch     string // provider network underlay vlan subnet
 	EnableMetrics             bool
 	EnableOVNIPSec            bool
 	CertManagerIPSecCert      bool
@@ -81,7 +78,6 @@ type Configuration struct {
 	UDPConnCheckPort          int32
 	EnableTProxy              bool
 	OVSVsctlConcurrency       int32
-	SetVxlanTxOff             bool
 	LogPerm                   string
 	EnableNonPrimaryCNI       bool
 
@@ -121,13 +117,10 @@ func ParseFlags() *Configuration {
 		argEnablePprof           = pflag.Bool("enable-pprof", false, "Enable pprof")
 		argPprofPort             = pflag.Int32("pprof-port", 10665, "The port to get profiling data")
 		argSecureServing         = pflag.Bool("secure-serving", false, "Enable secure serving")
-		argMacLearningFallback   = pflag.Bool("mac-learning-fallback", false, "Fallback to the legacy MAC learning mode")
 
 		argsNetworkType              = pflag.String("network-type", util.NetworkTypeGeneve, "Tunnel encapsulation protocol in overlay networks")
 		argsDefaultProviderName      = pflag.String("default-provider-name", "provider", "The vlan or vxlan type default provider interface name")
 		argsDefaultInterfaceName     = pflag.String("default-interface-name", "", "The default host interface name in the vlan/vxlan type")
-		argExternalGatewayConfigNS   = pflag.String("external-gateway-config-ns", "kube-system", "The namespace of configmap external-gateway-config")
-		argExternalGatewaySwitch     = pflag.String("external-gateway-switch", "external", "The name of the external gateway switch, which is an OVS bridge that provides external network access")
 		argEnableMetrics             = pflag.Bool("enable-metrics", true, "Whether to support metrics query")
 		argEnableArpDetectIPConflict = pflag.Bool("enable-arp-detect-ip-conflict", true, "Whether to support arp detect ip conflict in underlay network")
 		argKubeletDir                = pflag.String("kubelet-dir", "/var/lib/kubelet", "Path of the kubelet dir")
@@ -140,7 +133,6 @@ func ParseFlags() *Configuration {
 		argCertManagerIPSecCert      = pflag.Bool("cert-manager-ipsec-cert", false, "Whether to use cert-manager for signing IPSec certificates")
 		argCertManagerIssuerName     = pflag.String("cert-manager-issuer-name", "kube-ovn", "The cert-manager issuer name to request certificates from")
 		argOVNIPSecCertDuration      = pflag.Int("ovn-ipsec-cert-duration", 2*365*24*60*60, "The duration requested for IPSec certificates (seconds)")
-		argSetVxlanTxOff             = pflag.Bool("set-vxlan-tx-off", false, "Whether to set vxlan_sys_4789 tx off")
 		argLogPerm                   = pflag.String("log-perm", "640", "The permission for the log file")
 
 		argTLSMinVersion   = pflag.String("tls-min-version", "", "The minimum TLS version to use for secure serving. Supported values: TLS10, TLS11, TLS12, TLS13. If not set, the default is used based on the Go version.")
@@ -187,7 +179,6 @@ func ParseFlags() *Configuration {
 		EnablePprof:               *argEnablePprof,
 		SecureServing:             *argSecureServing,
 		PprofPort:                 *argPprofPort,
-		MacLearningFallback:       *argMacLearningFallback,
 		NodeName:                  os.Getenv(util.EnvNodeName),
 		PodNamespace:              os.Getenv(util.EnvPodNamespace),
 		PodName:                   os.Getenv(util.EnvPodName),
@@ -198,8 +189,6 @@ func ParseFlags() *Configuration {
 		NetworkType:               *argsNetworkType,
 		DefaultProviderName:       *argsDefaultProviderName,
 		DefaultInterfaceName:      *argsDefaultInterfaceName,
-		ExternalGatewayConfigNS:   *argExternalGatewayConfigNS,
-		ExternalGatewaySwitch:     *argExternalGatewaySwitch,
 		EnableMetrics:             *argEnableMetrics,
 		EnableOVNIPSec:            *argEnableOVNIPSec,
 		EnableArpDetectIPConflict: *argEnableArpDetectIPConflict,
@@ -209,7 +198,6 @@ func ParseFlags() *Configuration {
 		UDPConnCheckPort:          *argUDPConnectivityCheckPort,
 		EnableTProxy:              *argEnableTProxy,
 		OVSVsctlConcurrency:       *argOVSVsctlConcurrency,
-		SetVxlanTxOff:             *argSetVxlanTxOff,
 		LogPerm:                   *argLogPerm,
 		TLSMinVersion:             *argTLSMinVersion,
 		TLSMaxVersion:             *argTLSMaxVersion,
@@ -334,8 +322,6 @@ func (config *Configuration) initNicConfig(nicBridgeMappings map[string]string) 
 			config.MTU = mtu - util.GeneveHeaderLength
 		case util.NetworkTypeVxlan:
 			config.MTU = mtu - util.VxlanHeaderLength
-		case util.NetworkTypeStt:
-			config.MTU = mtu - util.SttHeaderLength
 		default:
 			return fmt.Errorf("invalid network type: %s", config.NetworkType)
 		}

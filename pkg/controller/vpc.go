@@ -29,13 +29,13 @@ import (
 	"github.com/kubeovn/kube-ovn/pkg/util"
 )
 
+var externalGatewayNodeSelector = labels.Set{util.ExGatewayLabel: "true"}.AsSelector()
+
 func (c *Controller) enqueueAddVpc(obj any) {
 	vpc := obj.(*kubeovnv1.Vpc)
 	key := cache.MetaObjectToName(vpc).String()
-	if _, ok := vpc.Labels[util.VpcExternalLabel]; !ok {
-		klog.V(3).Infof("enqueue add vpc %s", key)
-		c.addOrUpdateVpcQueue.Add(key)
-	}
+	klog.V(3).Infof("enqueue add vpc %s", key)
+	c.addOrUpdateVpcQueue.Add(key)
 }
 
 func vpcBFDPortChanged(oldObj, newObj *kubeovnv1.BFDPort) bool {
@@ -52,10 +52,6 @@ func (c *Controller) enqueueUpdateVpc(oldObj, newObj any) {
 	oldVpc := oldObj.(*kubeovnv1.Vpc)
 	newVpc := newObj.(*kubeovnv1.Vpc)
 
-	if newVpc.Labels != nil && newVpc.Labels[util.VpcExternalLabel] == "true" {
-		return
-	}
-
 	if !newVpc.DeletionTimestamp.IsZero() ||
 		!slices.Equal(oldVpc.Spec.Namespaces, newVpc.Spec.Namespaces) ||
 		!reflect.DeepEqual(oldVpc.Spec.StaticRoutes, newVpc.Spec.StaticRoutes) ||
@@ -67,10 +63,7 @@ func (c *Controller) enqueueUpdateVpc(oldObj, newObj any) {
 		oldVpc.Spec.EnableBfd != newVpc.Spec.EnableBfd ||
 		vpcBFDPortChanged(oldVpc.Spec.BFDPort, newVpc.Spec.BFDPort) ||
 		!reflect.DeepEqual(oldVpc.Spec.DynamicRouting, newVpc.Spec.DynamicRouting) ||
-		oldVpc.Labels[util.VpcExternalLabel] != newVpc.Labels[util.VpcExternalLabel] ||
 		!slices.Equal(oldVpc.Status.Subnets, newVpc.Status.Subnets) {
-		// TODO:// label VpcExternalLabel replace with spec enable external
-
 		// recode last policies
 		c.vpcLastPoliciesMap.Store(newVpc.Name, convertPolicies(oldVpc.Spec.PolicyRoutes))
 
@@ -97,10 +90,8 @@ func (c *Controller) enqueueDelVpc(obj any) {
 		return
 	}
 
-	if _, ok := vpc.Labels[util.VpcExternalLabel]; !vpc.Status.Default || !ok {
-		klog.V(3).Infof("enqueue delete vpc %s", vpc.Name)
-		c.delVpcQueue.Add(vpc)
-	}
+	klog.V(3).Infof("enqueue delete vpc %s", vpc.Name)
+	c.delVpcQueue.Add(vpc)
 }
 
 func (c *Controller) handleDelVpc(vpc *kubeovnv1.Vpc) error {
@@ -341,21 +332,18 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		return err
 	}
 
-	var externalSubnet *kubeovnv1.Subnet
 	externalSubnetExist := false
 	externalSubnetGW := ""
-	if c.config.EnableEipSnat {
-		externalSubnet, err = c.subnetsLister.Get(c.config.ExternalGatewaySwitch)
-		if err != nil {
-			klog.Warningf("enable-eip-snat need external subnet %s to be exist: %v", c.config.ExternalGatewaySwitch, err)
+	externalSubnet, err := c.subnetsLister.Get(c.config.ExternalGatewaySwitch)
+	if err != nil {
+		klog.V(3).Infof("failed to get external subnet %s: %v", c.config.ExternalGatewaySwitch, err)
+	} else {
+		if !externalSubnet.Spec.LogicalGateway {
+			// logical gw external subnet can not access external
+			externalSubnetExist = true
+			externalSubnetGW = externalSubnet.Spec.Gateway
 		} else {
-			if !externalSubnet.Spec.LogicalGateway {
-				// logical gw external subnet can not access external
-				externalSubnetExist = true
-				externalSubnetGW = externalSubnet.Spec.Gateway
-			} else {
-				klog.Infof("default external subnet %s using logical gw", c.config.ExternalGatewaySwitch)
-			}
+			klog.Infof("default external subnet %s using logical gw", c.config.ExternalGatewaySwitch)
 		}
 	}
 
@@ -411,55 +399,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 						RouteTable: table,
 					},
 				)
-			}
-		}
-		if c.config.EnableEipSnat {
-			cm, err := c.configMapsLister.ConfigMaps(c.config.ExternalGatewayConfigNS).Get(util.ExternalGatewayConfig)
-			if err == nil {
-				nextHop := cm.Data["external-gw-addr"]
-				if nextHop == "" {
-					if !externalSubnetExist {
-						err = fmt.Errorf("failed to get external subnet %s", c.config.ExternalGatewaySwitch)
-						klog.Error(err)
-						return err
-					}
-					nextHop = externalSubnet.Spec.Gateway
-					if nextHop == "" {
-						err := fmt.Errorf("subnet %s has no gateway configuration", externalSubnet.Name)
-						klog.Error(err)
-						return err
-					}
-				}
-				if strings.Contains(nextHop, "/") {
-					nextHop = strings.Split(nextHop, "/")[0]
-				}
-
-				lr, err := c.OVNNbClient.GetLogicalRouter(vpc.Name, false)
-				if err != nil {
-					klog.Errorf("failed to get logical router %s: %v", vpc.Name, err)
-					return err
-				}
-
-				for _, nat := range lr.Nat {
-					info, err := c.OVNNbClient.GetNATByUUID(nat)
-					if err != nil {
-						klog.Errorf("failed to get nat ip info for vpc %s, %v", vpc.Name, err)
-						return err
-					}
-					if info.LogicalIP != "" {
-						for table := range staticRouteMapping {
-							staticTargetRoutes = append(
-								staticTargetRoutes,
-								&kubeovnv1.StaticRoute{
-									Policy:     kubeovnv1.PolicySrc,
-									CIDR:       info.LogicalIP,
-									NextHopIP:  nextHop,
-									RouteTable: table,
-								},
-							)
-						}
-					}
-				}
 			}
 		}
 	} else {
@@ -655,11 +594,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 }
 
 func (c *Controller) handleUpdateVpcExternal(vpc *kubeovnv1.Vpc, custVpcEnableExternalEcmp, defaultExternalSubnetExist bool, externalSubnetGW string) error {
-	if c.config.EnableEipSnat && vpc.Name == util.DefaultVpc {
-		klog.Infof("external_gw handle ovn default external gw %s", vpc.Name)
-		return nil
-	}
-
 	if !vpc.Spec.EnableExternal && !vpc.Status.EnableExternal {
 		// no need to handle external connection
 		return nil

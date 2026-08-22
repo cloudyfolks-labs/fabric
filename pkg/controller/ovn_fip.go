@@ -192,12 +192,7 @@ func (c *Controller) handleAddOvnFip(key string) error {
 		return err
 	}
 	// ovn add fip
-	var stateless bool
-	if cachedFip.Spec.Type != "" {
-		stateless = (cachedFip.Spec.Type == kubeovnv1.GWDistributedType)
-	} else {
-		stateless = (c.ExternalGatewayType == kubeovnv1.GWDistributedType)
-	}
+	stateless := cachedFip.Spec.Type == kubeovnv1.GWDistributedType
 	options := map[string]string{"stateless": strconv.FormatBool(stateless)}
 
 	// support v4:v4

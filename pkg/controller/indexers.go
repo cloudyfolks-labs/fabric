@@ -8,7 +8,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/util"
 )
 
 const (
@@ -51,9 +50,6 @@ func indexDNSNameResolverByName(obj any) ([]string, error) {
 func indexVpcByBFDPort(obj any) ([]string, error) {
 	vpc, ok := obj.(*kubeovnv1.Vpc)
 	if !ok {
-		return nil, nil
-	}
-	if vpc.Labels != nil && vpc.Labels[util.VpcExternalLabel] == "true" {
 		return nil, nil
 	}
 	if !vpc.Spec.BFDPort.IsEnabled() {

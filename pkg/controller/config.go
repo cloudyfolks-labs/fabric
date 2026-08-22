@@ -138,14 +138,11 @@ type Configuration struct {
 
 	EnableLb                    bool
 	EnableNP                    bool
-	EnableEipSnat               bool
-	EnableExternalVpc           bool
 	EnableEcmp                  bool
 	EnableKeepVMIP              bool
 	EnableLbSvc                 bool
 	EnableOvnLbSvc              bool
 	DefaultLoadBalancerClass    bool
-	EnableOVNLBPreferLocal      bool
 	EnableMetrics               bool
 	EnableANP                   bool
 	EnableDNSNameResolver       bool
@@ -153,10 +150,7 @@ type Configuration struct {
 	CertManagerIPSecCert        bool
 	EnableLiveMigrationOptimize bool
 
-	ExternalGatewaySwitch   string
-	ExternalGatewayConfigNS string
-	ExternalGatewayNet      string
-	ExternalGatewayVlanID   int
+	ExternalGatewaySwitch string
 
 	GCInterval      int
 	InspectInterval int
@@ -248,14 +242,11 @@ func ParseFlags() (*Configuration, error) {
 		argEnableLb                    = pflag.Bool("enable-lb", true, "Enable load balancer")
 		argEnableNP                    = pflag.Bool("enable-np", true, "Enable network policy support")
 		argNPEnforcement               = pflag.String("np-enforcement", "standard", "Network policy enforcement mode: standard or lax")
-		argEnableEipSnat               = pflag.Bool("enable-eip-snat", true, "Enable EIP and SNAT")
-		argEnableExternalVpc           = pflag.Bool("enable-external-vpc", false, "Enable external vpc support")
 		argEnableEcmp                  = pflag.Bool("enable-ecmp", false, "Enable ecmp route for centralized subnet")
 		argKeepVMIP                    = pflag.Bool("keep-vm-ip", true, "Whether to keep ip for kubevirt pod when pod is rebuild")
 		argEnableLbSvc                 = pflag.Bool("enable-lb-svc", false, "Whether to support loadbalancer service")
 		argEnableOvnLbSvc              = pflag.Bool("enable-ovn-lb-svc", false, "Whether to serve loadbalancer services natively with OVN router load balancers")
 		argDefaultLoadBalancerClass    = pflag.Bool("default-load-balancer-class", false, "Whether to claim loadbalancer services without an explicit loadBalancerClass")
-		argEnableOVNLBPreferLocal      = pflag.Bool("enable-ovn-lb-prefer-local", false, "Whether to support ovn loadbalancer prefer local")
 		argEnableMetrics               = pflag.Bool("enable-metrics", true, "Whether to support metrics query")
 		argEnableANP                   = pflag.Bool("enable-anp", false, "Enable support for admin network policy and baseline admin network policy")
 		argEnableDNSNameResolver       = pflag.Bool("enable-dns-name-resolver", false, "Enable support for DNS name resolver")
@@ -263,11 +254,7 @@ func ParseFlags() (*Configuration, error) {
 		argCertManagerIPSecCert        = pflag.Bool("cert-manager-ipsec-cert", false, "Whether to use cert-manager for signing IPSec certificates")
 		argEnableLiveMigrationOptimize = pflag.Bool("enable-live-migration-optimize", true, "Whether to enable kubevirt live migration optimize")
 
-		argExternalGatewayConfigNS = pflag.String("external-gateway-config-ns", "kube-system", "The namespace of configmap external-gateway-config")
-		argExternalGatewaySwitch   = pflag.String("external-gateway-switch", "external", "The name of the external gateway switch, which is an OVS bridge that provides external network access")
-		argExternalGatewayNet      = pflag.String("external-gateway-net", "external", "The name of the external network mapped to an OVS bridge")
-		argExternalGatewayVlanID   = pflag.Int("external-gateway-vlanid", 0, "The VLAN ID of port ln-ovn-external")
-		argNodeLocalDNSIP          = pflag.String("node-local-dns-ip", "", "Comma-separated string of nodelocal DNS ip addresses")
+		argNodeLocalDNSIP = pflag.String("node-local-dns-ip", "", "Comma-separated string of nodelocal DNS ip addresses")
 
 		argGCInterval      = pflag.Int("gc-interval", 360, "The interval in seconds between GC processes. If set to 0, GC will be disabled")
 		argInspectInterval = pflag.Int("inspect-interval", 20, "The interval in seconds between inspect processes")
@@ -353,12 +340,7 @@ func ParseFlags() (*Configuration, error) {
 		LeaderElection:                 leaderElectionConfig,
 		EnableLb:                       *argEnableLb,
 		EnableNP:                       *argEnableNP,
-		EnableEipSnat:                  *argEnableEipSnat,
-		EnableExternalVpc:              *argEnableExternalVpc,
-		ExternalGatewayConfigNS:        *argExternalGatewayConfigNS,
-		ExternalGatewaySwitch:          *argExternalGatewaySwitch,
-		ExternalGatewayNet:             *argExternalGatewayNet,
-		ExternalGatewayVlanID:          *argExternalGatewayVlanID,
+		ExternalGatewaySwitch:          "external",
 		EnableEcmp:                     *argEnableEcmp,
 		EnableKeepVMIP:                 *argKeepVMIP,
 		NodePgProbeTime:                *argNodePgProbeTime,
@@ -367,7 +349,6 @@ func ParseFlags() (*Configuration, error) {
 		EnableLbSvc:                    *argEnableLbSvc,
 		EnableOvnLbSvc:                 *argEnableOvnLbSvc,
 		DefaultLoadBalancerClass:       *argDefaultLoadBalancerClass,
-		EnableOVNLBPreferLocal:         *argEnableOVNLBPreferLocal,
 		EnableMetrics:                  *argEnableMetrics,
 		EnableOVNIPSec:                 *argEnableOVNIPSec,
 		CertManagerIPSecCert:           *argCertManagerIPSecCert,
