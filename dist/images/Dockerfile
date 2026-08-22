@@ -30,6 +30,7 @@ COPY --chmod=0644 logrotate/* /etc/logrotate.d/
 COPY grace_stop_ovn_controller /usr/share/ovn/scripts/grace_stop_ovn_controller
 
 COPY --from=setcap /kube-ovn /kube-ovn
-RUN /kube-ovn/iptables-wrapper-installer.sh --no-sanity-check
+RUN /kube-ovn/iptables-wrapper-installer.sh --no-sanity-check && \
+    setcap CAP_NET_ADMIN+eip "$(readlink -f /usr/bin/ovn-controller)"
 
 WORKDIR /kube-ovn
