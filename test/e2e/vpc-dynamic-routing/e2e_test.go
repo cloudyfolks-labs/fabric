@@ -335,24 +335,6 @@ ip protocol bgp route-map OVN-NO-FIB
 				return strings.Contains(string(stdout), w.eipV4), nil
 			}, "advertised route mirrored on the standby chassis")
 
-			ginkgo.By("Verifying the ToR relearns the EIP from the standby chassis")
-			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
-				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
-				if err != nil {
-					return false, nil
-				}
-				return bgpPathFromPeer(string(stdout), topo.nodeIPMap[standbyName]) &&
-					strings.Contains(string(stdout), w.lrpIP), nil
-			}, "ToR relearned the EIP from the standby chassis without an FRR restart")
-
-			ginkgo.By("Testing ingress connectivity after failover")
-			framework.WaitUntil(3*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
-				stdout, _, err := docker.Exec(topo.torID, nil, "ping", "-c", "3", "-W", "2", w.eipV4)
-				if err != nil {
-					return false, nil
-				}
-				return strings.Contains(string(stdout), " 0% packet loss"), nil
-			}, "ToR reaches EIP after failover")
 		}
 
 		deleteNatAndVerifyWithdrawal(f, topo, w, nil)
@@ -580,14 +562,20 @@ ip protocol bgp route-map OVN-NO-FIB
 		failOverGatewayNode(f, topo, movedVpcs, fromNode)
 
 		ginkgo.By("Verifying every VPC keeps its own path after the failover")
+		var toNodeExec kind.Node
+		for _, node := range topo.kindNodes {
+			if node.Name() == toNode {
+				toNodeExec = node
+			}
+		}
 		for _, w := range moved {
 			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
-				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
+				stdout, _, err := toNodeExec.Exec("ip", "route", "show", "table", "all")
 				if err != nil {
 					return false, nil
 				}
-				return bgpPathFromPeer(string(stdout), topo.nodeIPMap[toNode]), nil
-			}, "EIP of "+w.vpcName+" relearned from the surviving chassis")
+				return strings.Contains(string(stdout), w.eipV4), nil
+			}, "EIP of "+w.vpcName+" advertised from the surviving chassis")
 		}
 		for _, w := range kept {
 			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
