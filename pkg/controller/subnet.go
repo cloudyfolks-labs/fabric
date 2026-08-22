@@ -874,6 +874,14 @@ func (c *Controller) handleDeleteSubnet(subnet *kubeovnv1.Subnet) error {
 		}
 	}
 
+	if vip, err := c.virtualIpsLister.Get(subnet.Name); err == nil && vip.Spec.Subnet == subnet.Name {
+		klog.Infof("delete health check vip %s of subnet %s", vip.Name, subnet.Name)
+		if err = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+			klog.Errorf("failed to delete health check vip %s, %v", vip.Name, err)
+			return err
+		}
+	}
+
 	if subnet.Spec.Vpc != c.config.ClusterRouter {
 		if err := c.deleteCustomVPCPolicyRoutesForSubnet(subnet); err != nil {
 			klog.Errorf("failed to delete custom vpc routes subnet %s, %v", subnet.Name, err)
