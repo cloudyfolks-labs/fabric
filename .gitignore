@@ -10,14 +10,11 @@ dist/images/kube-ovn-controller
 dist/images/kube-ovn-pinger
 dist/images/kube-ovn-webhook
 dist/images/vpc-egress-gateway-observer
-dist/windows/kube-ovn.exe
-dist/windows/kube-ovn-daemon.exe
 ovnnb_db.*.backup
 ovnsb_db.*.backup
 **/kubectl-ko-log/*
 kubectl-ko-log.tar.gz
 kube-apiserver-audit.log
-kube-apiserver-audit.json
 kube-ovn.yaml
 kube-ovn-crd.yaml
 ovn.yaml
@@ -80,3 +77,4 @@ yamls/gen
 /frr/
 
 .claude/*
+__pycache__/
