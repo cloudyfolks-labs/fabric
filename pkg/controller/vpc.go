@@ -118,11 +118,6 @@ func (c *Controller) handleDelVpc(vpc *kubeovnv1.Vpc) error {
 	// clean up vpc last policies cached
 	c.vpcLastPoliciesMap.Delete(vpc.Name)
 
-	if err := c.deleteVpcLb(vpc); err != nil {
-		klog.Error(err)
-		return err
-	}
-
 	if err := c.handleDelVpcExternalSubnet(vpc.Name, c.config.ExternalGatewaySwitch); err != nil {
 		klog.Errorf("failed to delete external connection for vpc %s, error %v", vpc.Name, err)
 		return err
@@ -531,16 +526,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 	}
 	vpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 	if err != nil {
-		klog.Error(err)
-		return err
-	}
-
-	if len(vpc.Annotations) != 0 && strings.ToLower(vpc.Annotations[util.VpcLbAnnotation]) == "on" {
-		if err = c.createVpcLb(vpc); err != nil {
-			klog.Error(err)
-			return err
-		}
-	} else if err = c.deleteVpcLb(vpc); err != nil {
 		klog.Error(err)
 		return err
 	}
@@ -984,7 +969,7 @@ func diffPolicyRouteWithLogical(exists []*ovnnb.LogicalRouterPolicy, target []*k
 	existsMap = make(map[string]*kubeovnv1.PolicyRoute, len(exists))
 
 	for _, item := range exists {
-		if item.ExternalIDs["vpc-egress-gateway"] != "" || item.ExternalIDs["subnet"] != "" ||
+		if item.ExternalIDs["subnet"] != "" ||
 			item.ExternalIDs["isU2ORoutePolicy"] == "true" {
 			continue
 		}

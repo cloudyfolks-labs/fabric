@@ -60,8 +60,6 @@ type Interface interface {
 	Vpcs() VpcInformer
 	// VpcDnses returns a VpcDnsInformer.
 	VpcDnses() VpcDnsInformer
-	// VpcEgressGateways returns a VpcEgressGatewayInformer.
-	VpcEgressGateways() VpcEgressGatewayInformer
 }
 
 type version struct {
@@ -163,9 +161,4 @@ func (v *version) Vpcs() VpcInformer {
 // VpcDnses returns a VpcDnsInformer.
 func (v *version) VpcDnses() VpcDnsInformer {
 	return &vpcDnsInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// VpcEgressGateways returns a VpcEgressGatewayInformer.
-func (v *version) VpcEgressGateways() VpcEgressGatewayInformer {
-	return &vpcEgressGatewayInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

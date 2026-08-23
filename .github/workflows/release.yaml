@@ -69,12 +69,6 @@ jobs:
           docker buildx imagetools create -t "$REGISTRY/fabric:$TAG" \
             "$REGISTRY/fabric:$TAG-amd64" "$REGISTRY/fabric:$TAG-arm64"
 
-      - name: Build and push lb-svc gateway image
-        run: |
-          docker buildx build --platform linux/amd64,linux/arm64 --push \
-            -t "$REGISTRY/vpc-nat-gateway:$TAG" \
-            -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
-
       - name: Build and push dns resolver image
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 --push \

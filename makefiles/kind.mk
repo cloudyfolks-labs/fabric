@@ -3,7 +3,6 @@
 UNTAINT_CONTROL_PLANE ?= true
 TENANT_CONTROL_PLANE_REPLICAS ?= 1
 
-VPC_NAT_GW_IMG = $(REGISTRY)/vpc-nat-gateway:$(VERSION)
 
 # Cilium configuration variables (fallback if not defined in main Makefile)
 CILIUM_VERSION ?= v1.18.5
@@ -214,10 +213,6 @@ kind-init-single-%:
 .PHONY: kind-load-image
 kind-load-image:
 	$(call kind_load_image,kube-ovn,$(REGISTRY)/kube-ovn:$(VERSION))
-
-.PHONY: kind-load-image-vpc-nat-gateway
-kind-load-image-vpc-nat-gateway:
-	$(call kind_load_image,kube-ovn,$(VPC_NAT_GW_IMG))
 
 .PHONY: kind-install-chart
 kind-install-chart: kind-load-image untaint-control-plane install-chart
@@ -554,12 +549,6 @@ kind-install-kubevirt:
 	$(call kubectl_wait_exist_and_ready,kubevirt,daemonset,virt-handler)
 
 	kubectl -n kubevirt wait --timeout=120s --for=jsonpath='{.status.phase}'=Deployed kubevirt/kubevirt
-
-.PHONY: kind-install-lb-svc
-kind-install-lb-svc:
-	@$(MAKE) kind-load-image-vpc-nat-gateway
-	@$(MAKE) ENABLE_LB_SVC=true CNI_CONFIG_PRIORITY=10 kind-install
-	@$(MAKE) kind-install-multus
 
 .PHONY: kind-install-webhook
 kind-install-webhook: kind-install

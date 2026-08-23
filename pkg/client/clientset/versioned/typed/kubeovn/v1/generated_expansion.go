@@ -53,5 +53,3 @@ type VlanExpansion interface{}
 type VpcExpansion interface{}
 
 type VpcDnsExpansion interface{}
-
-type VpcEgressGatewayExpansion interface{}

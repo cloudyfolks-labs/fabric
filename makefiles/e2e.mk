@@ -92,9 +92,7 @@ e2e-build:
 	$(GINKGO_E2E_BUILD) ./test/e2e/ovn-ic
 	$(GINKGO_E2E_BUILD) ./test/e2e/multus
 	$(GINKGO_E2E_BUILD) ./test/e2e/non-primary-cni
-	$(GINKGO_E2E_BUILD) ./test/e2e/lb-svc
 	$(GINKGO_E2E_BUILD) ./test/e2e/vip
-	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-egress-gateway
 	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-dynamic-routing
 	$(GINKGO_E2E_BUILD) ./test/e2e/ovn-vpc-nat-gw
 	$(GINKGO_E2E_BUILD) ./test/e2e/ha
@@ -189,15 +187,6 @@ kube-ovn-non-primary-cni-e2e:
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=15m \
 		--focus="group:non-primary-cni" ./test/e2e/non-primary-cni/non-primary-cni.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-lb-svc-conformance-e2e
-kube-ovn-lb-svc-conformance-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/lb-svc
-	E2E_BRANCH=$(E2E_BRANCH) \
-	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
-	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/lb-svc/lb-svc.test -- $(TEST_BIN_ARGS)
-
 .PHONY: vip-conformance-e2e
 vip-conformance-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/vip
@@ -205,15 +194,6 @@ vip-conformance-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/vip/vip.test -- $(TEST_BIN_ARGS)
-
-.PHONY: vpc-egress-gateway-e2e
-vpc-egress-gateway-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-egress-gateway
-	E2E_BRANCH=$(E2E_BRANCH) \
-	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
-	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m \
-		--focus=CNI:Kube-OVN ./test/e2e/vpc-egress-gateway/vpc-egress-gateway.test -- $(TEST_BIN_ARGS)
 
 .PHONY: vpc-dynamic-routing-e2e
 vpc-dynamic-routing-e2e:

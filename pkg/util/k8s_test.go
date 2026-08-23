@@ -423,7 +423,7 @@ func TestSetOwnerReference(t *testing.T) {
 	}{
 		{
 			name: "base",
-			owner: &kubeovnv1.VpcEgressGateway{
+			owner: &kubeovnv1.Vpc{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("veg-%05d", rand.IntN(10000)),
 					UID:  uuid.NewUUID(),

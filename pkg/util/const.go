@@ -38,7 +38,6 @@ const (
 	VMAnnotation                 = "fabric.cloudyfolks.io/virtualmachine"
 	ActivationStrategyAnnotation = "fabric.cloudyfolks.io/activation_strategy"
 
-	VpcLbAnnotation   = "fabric.cloudyfolks.io/vpc_lb"
 	VpcEipAnnotation  = "fabric.cloudyfolks.io/vpc_eip"
 	VpcDnatEPortLabel = "fabric.cloudyfolks.io/vpc_dnat_eport"
 	VpcNatAnnotation  = "fabric.cloudyfolks.io/vpc_nat"
@@ -134,7 +133,6 @@ const (
 	ACLActionsLogAnnotation            = "fabric.cloudyfolks.io/log_acl_actions"
 	ACLLogMeterAnnotation              = "fabric.cloudyfolks.io/acl_log_meter_rate"
 
-	VpcEgressGatewayLabel  = "fabric.cloudyfolks.io/vpc-egress-gateway"
 	GenerateHashAnnotation = "fabric.cloudyfolks.io/generate-hash"
 
 	ServiceExternalIPFromSubnetAnnotation = "fabric.cloudyfolks.io/service_external_ip_from_subnet"
@@ -225,7 +223,6 @@ const (
 	VpcLbNetworkAttachment = "ovn-vpc-lb"
 	VpcDNSConfig           = "vpc-dns-config"
 	VpcDNSDepTemplate      = "vpc-dns-dep"
-	VpcNatConfig           = "ovn-vpc-nat-config"
 
 	DefaultSecurityGroupName = "default-securitygroup"
 
@@ -425,7 +422,6 @@ var (
 	KindSubnet           = ObjectKind[*kubeovnv1.Subnet]()
 	KindVip              = ObjectKind[*kubeovnv1.Vip]()
 	KindVpc              = ObjectKind[*kubeovnv1.Vpc]()
-	KindVpcEgressGateway = ObjectKind[*kubeovnv1.VpcEgressGateway]()
 
 	KindVirtualMachine                  = ObjectKind[*kubevirtv1.VirtualMachine]()
 	KindVirtualMachineInstance          = ObjectKind[*kubevirtv1.VirtualMachineInstance]()

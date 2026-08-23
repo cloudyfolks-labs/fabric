@@ -8,10 +8,8 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -44,12 +42,6 @@ func (c *Controller) enqueueAddService(obj any) {
 	if c.config.EnableLb {
 		klog.V(3).Infof("enqueue add service %s", key)
 		c.addOrUpdateEndpointSliceQueue.Add(key)
-	}
-
-	// the add service worker also only runs when EnableLb is set
-	if c.config.EnableLb && c.config.EnableLbSvc {
-		klog.V(3).Infof("enqueue add lb service %s", key)
-		c.addServiceQueue.Add(key)
 	}
 
 	if c.ovnLbSvcEnabled() && svc.Spec.Type == v1.ServiceTypeLoadBalancer {
@@ -232,13 +224,6 @@ func (c *Controller) handleDeleteService(service *vpcService) error {
 		}
 	}
 
-	if service.Svc.Spec.Type == v1.ServiceTypeLoadBalancer && c.config.EnableLbSvc {
-		if err := c.deleteLbSvc(service.Svc); err != nil {
-			klog.Errorf("failed to delete service %s, %v", service.Svc.Name, err)
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -403,37 +388,6 @@ func (c *Controller) handleUpdateService(svcObject *updateSvcObject) error {
 		}
 	}
 
-	if c.config.EnableLbSvc && svc.Spec.Type == v1.ServiceTypeLoadBalancer {
-		changed, err := c.checkLbSvcDeployAnnotationChanged(svc)
-		if err != nil {
-			klog.Errorf("failed to check annotation change for lb svc %s: %v", key, err)
-			return err
-		}
-
-		// only process svc.spec.ports update
-		if !changed {
-			klog.Infof("update loadbalancer service %s", key)
-			pod, err := c.getLbSvcPod(name, namespace)
-			if err != nil {
-				klog.Errorf("failed to get pod for lb svc %s: %v", key, err)
-				if strings.Contains(err.Error(), "not found") {
-					return nil
-				}
-				return err
-			}
-
-			toDel := diffSvcPorts(svcObject.oldPorts, svcObject.newPorts)
-			if err := c.delDnatRules(pod, toDel, svc); err != nil {
-				klog.Errorf("failed to delete dnat rules, err: %v", err)
-				return err
-			}
-			if err = c.updatePodAttachNets(pod, svc); err != nil {
-				klog.Errorf("failed to update pod attachment network for lb svc %s: %v", key, err)
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -445,119 +399,6 @@ func parseVipAddr(vip string) string {
 		return ""
 	}
 	return host
-}
-
-func (c *Controller) handleAddService(key string) error {
-	if !c.config.EnableLbSvc {
-		return nil
-	}
-
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		klog.Error(err)
-		utilruntime.HandleError(fmt.Errorf("invalid resource key: %s", key))
-		return nil
-	}
-
-	c.svcKeyMutex.LockKey(key)
-	defer func() { _ = c.svcKeyMutex.UnlockKey(key) }()
-	klog.Infof("handle add service %s", key)
-
-	svc, err := c.servicesLister.Services(namespace).Get(name)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		klog.Error(err)
-		return err
-	}
-	if svc.Spec.Type != v1.ServiceTypeLoadBalancer {
-		return nil
-	}
-	// Skip non kube-ovn lb-svc.
-	if _, ok := svc.Annotations[util.AttachmentProvider]; !ok {
-		return nil
-	}
-
-	klog.Infof("handle add loadbalancer service %s", key)
-
-	if err = c.validateSvc(svc); err != nil {
-		c.recorder.Event(svc, v1.EventTypeWarning, "ValidateSvcFailed", err.Error())
-		klog.Errorf("failed to validate lb svc %s: %v", key, err)
-		return err
-	}
-
-	nad, err := c.getAttachNetworkForService(svc)
-	if err != nil {
-		c.recorder.Event(svc, v1.EventTypeWarning, "GetNADFailed", err.Error())
-		klog.Errorf("failed to check attachment network of lb svc %s: %v", key, err)
-		return err
-	}
-
-	if err = c.createLbSvcPod(svc, nad); err != nil {
-		klog.Errorf("failed to create lb svc pod for %s: %v", key, err)
-		return err
-	}
-
-	var pod *v1.Pod
-	for {
-		pod, err = c.getLbSvcPod(name, namespace)
-		if err != nil {
-			klog.Warningf("pod for lb svc %s is not running: %v", key, err)
-			time.Sleep(time.Second)
-		}
-		if pod != nil {
-			break
-		}
-
-		// It's important here to check existing of svc, used to break the loop.
-		_, err = c.servicesLister.Services(namespace).Get(name)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			klog.Error(err)
-			return err
-		}
-	}
-
-	loadBalancerIP, err := c.getPodAttachIP(pod, svc)
-	if err != nil {
-		klog.Errorf("failed to get loadBalancerIP: %v", err)
-		return err
-	}
-
-	svc, err = c.servicesLister.Services(namespace).Get(name)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		klog.Error(err)
-		return err
-	}
-	targetSvc := svc.DeepCopy()
-	if err = c.updatePodAttachNets(pod, targetSvc); err != nil {
-		klog.Errorf("failed to update pod attachment network for service %s/%s: %v", namespace, name, err)
-		return err
-	}
-
-	// compatible with IPv4 and IPv6 dual stack subnet.
-	var ingress []v1.LoadBalancerIngress
-	for ip := range strings.SplitSeq(loadBalancerIP, ",") {
-		if ip != "" && net.ParseIP(ip) != nil {
-			ingress = append(ingress, v1.LoadBalancerIngress{IP: ip})
-		}
-	}
-	targetSvc.Status.LoadBalancer.Ingress = ingress
-	if !equality.Semantic.DeepEqual(svc.Status, targetSvc.Status) {
-		if _, err = c.config.KubeClient.CoreV1().Services(namespace).
-			UpdateStatus(context.Background(), targetSvc, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("failed to update status of service %s/%s: %v", namespace, name, err)
-			return err
-		}
-	}
-
-	return nil
 }
 
 func serviceAnnotationVips(svc *v1.Service) []string {
@@ -588,23 +429,6 @@ func getVipIps(svc *v1.Service) []string {
 		}
 	}
 	return ips
-}
-
-func diffSvcPorts(oldPorts, newPorts []v1.ServicePort) (toDel []v1.ServicePort) {
-	for _, oldPort := range oldPorts {
-		found := false
-		for _, newPort := range newPorts {
-			if reflect.DeepEqual(oldPort, newPort) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			toDel = append(toDel, oldPort)
-		}
-	}
-
-	return toDel
 }
 
 func (c *Controller) checkServiceLBIPBelongToSubnet(svc *v1.Service) error {

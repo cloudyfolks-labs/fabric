@@ -46,7 +46,6 @@ type FabricV1Interface interface {
 	VlansGetter
 	VpcsGetter
 	VpcDnsesGetter
-	VpcEgressGatewaysGetter
 }
 
 // FabricV1Client is used to interact with features provided by the fabric.cloudyfolks.io group.
@@ -124,10 +123,6 @@ func (c *FabricV1Client) Vpcs() VpcInterface {
 
 func (c *FabricV1Client) VpcDnses() VpcDnsInterface {
 	return newVpcDnses(c)
-}
-
-func (c *FabricV1Client) VpcEgressGateways(namespace string) VpcEgressGatewayInterface {
-	return newVpcEgressGateways(c, namespace)
 }
 
 // NewForConfig creates a new FabricV1Client for the given config.

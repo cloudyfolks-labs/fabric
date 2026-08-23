@@ -2,7 +2,7 @@
 
 COMMIT = git-$(shell git rev-parse --short HEAD)
 DATE = $(shell date +"%Y-%m-%d_%H:%M:%S")
-IMAGE_BUILD_TARGETS = build-kube-ovn build-kube-ovn-dpdk build-dev build-debug base-amd64 base-amd64-dpdk base-arm64 build-kit image-kube-ovn image-kube-ovn-arm64 image-kube-ovn-debug image-kube-ovn-dpdk image-vpc-nat-gateway image-test release release-arm release-arm-debug push-release local-dev
+IMAGE_BUILD_TARGETS = build-kube-ovn build-kube-ovn-dpdk build-dev build-debug base-amd64 base-amd64-dpdk base-arm64 build-kit image-kube-ovn image-kube-ovn-arm64 image-kube-ovn-debug image-kube-ovn-dpdk image-test release release-arm release-arm-debug push-release local-dev
 ifneq ($(filter $(IMAGE_BUILD_TARGETS),$(MAKECMDGOALS)),)
 IMAGE_REVISION ?= $(if $(GITHUB_SHA),$(GITHUB_SHA),$(shell git rev-parse HEAD))
 IMAGE_REF_NAME ?= $(if $(GITHUB_HEAD_REF),$(GITHUB_HEAD_REF),$(if $(GITHUB_REF_NAME),$(GITHUB_REF_NAME),$(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD)))
@@ -64,7 +64,6 @@ build-go:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-bfdd-supervisor -v ./cmd/bfdd_supervisor
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-daemon -v ./cmd/daemon
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-controller -v ./cmd/controller
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/vpc-egress-gateway-observer -v ./cmd/vpc-egress-gateway-observer
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(CURDIR)/dist/images/test-server -v ./test/server
 
 .PHONY: build-go-arm
@@ -74,7 +73,6 @@ build-go-arm:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-bfdd-supervisor -v ./cmd/bfdd_supervisor
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-daemon -v ./cmd/daemon
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-controller -v ./cmd/controller
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/vpc-egress-gateway-observer -v ./cmd/vpc-egress-gateway-observer
 
 .PHONY: build-kube-ovn
 build-kube-ovn: gen-crd build-debug build-go
@@ -131,20 +129,15 @@ image-kube-ovn-debug: gen-crd
 image-kube-ovn-dpdk: gen-crd build-go
 	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG)-dpdk --build-arg VERSION=$(RELEASE_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-dpdk -o type=docker -f dist/images/Dockerfile dist/images/
 
-.PHONY: image-vpc-nat-gateway
-image-vpc-nat-gateway:
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/vpc-nat-gateway:$(RELEASE_TAG) -o type=docker -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
-
 .PHONY: image-test
 image-test: build-go
 	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/test:$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile.test dist/images/
 
 .PHONY: release
-release: lint image-kube-ovn image-vpc-nat-gateway
+release: lint image-kube-ovn
 
 .PHONY: release-arm
 release-arm: release-arm-debug image-kube-ovn-arm64
-	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 -t $(REGISTRY)/vpc-nat-gateway:$(RELEASE_TAG) -o type=docker -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
 
 .PHONY: release-arm-debug
 release-arm-debug:
@@ -167,12 +160,8 @@ tar-kube-ovn:
 tar-kube-ovn-dpdk:
 	docker save $(REGISTRY)/kube-ovn:$(RELEASE_TAG)-dpdk -o kube-ovn-dpdk.tar
 
-.PHONY: tar-vpc-nat-gateway
-tar-vpc-nat-gateway:
-	docker save $(REGISTRY)/vpc-nat-gateway:$(RELEASE_TAG) -o vpc-nat-gateway.tar
-
 .PHONY: tar
-tar: tar-kube-ovn tar-vpc-nat-gateway
+tar: tar-kube-ovn
 
 .PHONY: base-tar-amd64
 base-tar-amd64:
@@ -201,4 +190,3 @@ endif
 .PHONY: scan
 scan:
 	trivy image --exit-code=1 --ignore-unfixed --scanners vuln $(REGISTRY)/kube-ovn:$(RELEASE_TAG)
-	trivy image --exit-code=1 --ignore-unfixed --scanners vuln $(REGISTRY)/vpc-nat-gateway:$(RELEASE_TAG)

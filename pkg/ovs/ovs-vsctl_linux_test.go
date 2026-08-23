@@ -6,14 +6,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
 )
 
 func TestParseAndScaleBandwidthRate(t *testing.T) {
 	t.Parallel()
-	maxBandwidth := strconv.FormatInt(kubeovnv1.MaxBandwidthMbps, 10)
-	overMaxBandwidth := strconv.FormatInt(kubeovnv1.MaxBandwidthMbps+1, 10)
+	maxBandwidth := strconv.FormatInt(maxBandwidthMbps, 10)
+	overMaxBandwidth := strconv.FormatInt(maxBandwidthMbps+1, 10)
 
 	tests := []struct {
 		name    string
@@ -56,7 +54,7 @@ func (suite *OvnClientTestSuite) testSetInterfaceBandwidth() {
 
 func TestSetInterfaceBandwidthRejectsInvalidRatesBeforeOVS(t *testing.T) {
 	t.Parallel()
-	overMaxBandwidth := strconv.FormatInt(kubeovnv1.MaxBandwidthMbps+1, 10)
+	overMaxBandwidth := strconv.FormatInt(maxBandwidthMbps+1, 10)
 
 	tests := []struct {
 		name    string

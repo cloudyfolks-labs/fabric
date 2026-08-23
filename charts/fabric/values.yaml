@@ -213,9 +213,6 @@ features:
   # -- Enable hardware offloads
   # @section -- Opt-in/out Features
   enableHardwareOffload: false
-  # -- Enable Kube-OVN loadbalancer services
-  # @section -- Opt-in/out Features
-  enableLoadbalancerService: false
   # -- Serve loadbalancer services natively with OVN router load balancers
   # @section -- Opt-in/out Features
   enableOvnLbSvc: false
@@ -401,11 +398,6 @@ grafanaDashboards:
   # -- Annotations added to the dashboard ConfigMaps.
   # @section -- Grafana dashboards configuration
   annotations: {}
-
-natGw:
-  image:
-    repository: ghcr.io/cloudyfolks-labs/vpc-nat-gateway
-    tag: v1.0.0
 
 networkPolicies:
   # -- Enforcement level of network policies when they get applied (can be: standard, lax).

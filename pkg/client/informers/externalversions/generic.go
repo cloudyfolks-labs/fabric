@@ -89,8 +89,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().Vpcs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("vpc-dnses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().VpcDnses().Informer()}, nil
-	case v1.SchemeGroupVersion.WithResource("vpc-egress-gateways"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().VpcEgressGateways().Informer()}, nil
 
 	}
 

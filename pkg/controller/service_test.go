@@ -208,13 +208,11 @@ func Test_serviceAnnotationVips(t *testing.T) {
 func Test_enqueueServiceGatedByEnableLb(t *testing.T) {
 	t.Parallel()
 
-	newController := func(enableLb, enableLbSvc bool) *Controller {
+	newController := func(enableLb bool) *Controller {
 		return &Controller{
 			config: &Configuration{
-				EnableLb:    enableLb,
-				EnableLbSvc: enableLbSvc,
+				EnableLb: enableLb,
 			},
-			addServiceQueue:               newTypedRateLimitingQueue[string]("AddService", nil),
 			deleteServiceQueue:            newTypedRateLimitingQueue[*vpcService]("DeleteService", nil),
 			updateServiceQueue:            newTypedRateLimitingQueue[*updateSvcObject]("UpdateService", nil),
 			addOrUpdateEndpointSliceQueue: newTypedRateLimitingQueue[string]("UpdateEndpointSlice", nil),
@@ -257,9 +255,8 @@ func Test_enqueueServiceGatedByEnableLb(t *testing.T) {
 
 	t.Run("EnableLb=false skips enqueueing", func(t *testing.T) {
 		t.Parallel()
-		c := newController(false, false)
+		c := newController(false)
 		enqueueAll(c)
-		require.Zero(t, c.addServiceQueue.Len())
 		require.Zero(t, c.deleteServiceQueue.Len())
 		require.Zero(t, c.updateServiceQueue.Len())
 		require.Zero(t, c.addOrUpdateEndpointSliceQueue.Len())
@@ -267,27 +264,12 @@ func Test_enqueueServiceGatedByEnableLb(t *testing.T) {
 
 	t.Run("EnableLb=true enqueues", func(t *testing.T) {
 		t.Parallel()
-		c := newController(true, false)
+		c := newController(true)
 		enqueueAll(c)
-		require.Zero(t, c.addServiceQueue.Len())
 		require.Equal(t, 1, c.deleteServiceQueue.Len())
 		require.Equal(t, 1, c.updateServiceQueue.Len())
 		// the same service key from the service/endpointSlice events is deduplicated
 		require.Equal(t, 1, c.addOrUpdateEndpointSliceQueue.Len())
-	})
-
-	t.Run("EnableLbSvc=true feeds addServiceQueue only when EnableLb is set", func(t *testing.T) {
-		t.Parallel()
-		c := newController(true, true)
-		c.enqueueAddService(svc)
-		require.Equal(t, 1, c.addServiceQueue.Len())
-		require.Equal(t, 1, c.addOrUpdateEndpointSliceQueue.Len())
-
-		// the add service worker is gated by EnableLb, so the producer must be too
-		c = newController(false, true)
-		c.enqueueAddService(svc)
-		require.Zero(t, c.addServiceQueue.Len())
-		require.Zero(t, c.addOrUpdateEndpointSliceQueue.Len())
 	})
 }
 

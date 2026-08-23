@@ -192,8 +192,6 @@ install-chart:
 		--set global.registry.address=$(REGISTRY) \
 		--set global.images.kubeovn.repository=kube-ovn \
 		--set global.images.kubeovn.tag=$(VERSION) \
-		--set natGw.image.repository=$(REGISTRY)/vpc-nat-gateway \
-		--set natGw.image.tag=$(VERSION) \
 		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
 		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
 		$(HELM_OVN_DB_TLS_ARGS) \
@@ -206,8 +204,6 @@ upgrade-chart:
 		--set global.registry.address=$(REGISTRY) \
 		--set global.images.kubeovn.repository=kube-ovn \
 		--set global.images.kubeovn.tag=$(VERSION) \
-		--set natGw.image.repository=$(REGISTRY)/vpc-nat-gateway \
-		--set natGw.image.tag=$(VERSION) \
 		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
 		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
 		$(HELM_OVN_DB_TLS_ARGS) \
@@ -230,13 +226,13 @@ kubectl-ko-log:
 
 .PHONY: clean
 clean:
-	$(RM) dist/images/kube-ovn dist/images/kube-ovn-cmd dist/images/kube-ovn-bfdd-supervisor dist/images/vpc-egress-gateway-observer
+	$(RM) dist/images/kube-ovn dist/images/kube-ovn-cmd dist/images/kube-ovn-bfdd-supervisor
 	$(RM) yamls/kind.yaml
 	$(RM) ovn.yaml kube-ovn.yaml kube-ovn-crd.yaml
 	$(RM) ovn-ic-config.yaml ovn-ic-0.yaml ovn-ic-1.yaml
 	$(RM) kwok-node.yaml metallb-cr.yaml
 	$(RM) cakey.pem cacert.pem ovn-req.pem ovn-cert.pem ovn-privkey.pem
-	$(RM) kube-ovn.tar kube-ovn-dpdk.tar vpc-nat-gateway.tar image-amd64.tar image-amd64-dpdk.tar image-arm64.tar
+	$(RM) kube-ovn.tar kube-ovn-dpdk.tar image-amd64.tar image-amd64-dpdk.tar image-arm64.tar
 	$(RM) kubectl-ko-log.tar.gz
 	$(RM) -r kubectl-ko-log/
 
@@ -244,5 +240,4 @@ clean:
 local-dev:
 	@DEBUG=1 $(MAKE) build-go
 	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/vpc-nat-gateway:$(RELEASE_TAG) -o type=docker -f dist/images/vpcnatgateway/Dockerfile dist/images/vpcnatgateway
 	@$(MAKE) kind-init kind-install

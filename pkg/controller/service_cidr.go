@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -122,17 +121,6 @@ func (c *Controller) reconcileForServiceCIDRChange() {
 			if s.Spec.U2OInterconnection {
 				c.addOrUpdateSubnetQueue.Add(s.Name)
 			}
-		}
-	}
-
-	vpcs, err := c.vpcsLister.List(labels.Everything())
-	if err != nil {
-		klog.Errorf("failed to list vpcs: %v", err)
-		return
-	}
-	for _, v := range vpcs {
-		if strings.ToLower(v.Annotations[util.VpcLbAnnotation]) == "on" {
-			c.addOrUpdateVpcQueue.Add(v.Name)
 		}
 	}
 }

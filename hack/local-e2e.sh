@@ -14,7 +14,6 @@ context. Suites:
   dynamic-routing   VPC dynamic routing (needs the vrf kernel module)
   metallb           MetalLB underlay + u2o
   rlr               Router LB rules
-  lb-svc            The ovn loadbalancer service mode
 
 On macOS use a colima VM (Docker Desktop's kernel has no vrf support):
 
@@ -79,11 +78,6 @@ case "${SUITE}" in
     n_worker=2 make kind-init-ipv4
     make kind-install-ipv4
     make kube-ovn-rlr-e2e
-    ;;
-  lb-svc)
-    n_worker=2 make kind-init-ipv4
-    make kind-install-lb-svc
-    make kube-ovn-lb-svc-conformance-e2e
     ;;
   *)
     usage

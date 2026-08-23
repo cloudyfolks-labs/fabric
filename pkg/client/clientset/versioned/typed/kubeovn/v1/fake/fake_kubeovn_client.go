@@ -100,10 +100,6 @@ func (c *FakeFabricV1) VpcDnses() v1.VpcDnsInterface {
 	return newFakeVpcDnses(c)
 }
 
-func (c *FakeFabricV1) VpcEgressGateways(namespace string) v1.VpcEgressGatewayInterface {
-	return newFakeVpcEgressGateways(c, namespace)
-}
-
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeFabricV1) RESTClient() rest.Interface {

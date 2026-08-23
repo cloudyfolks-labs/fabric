@@ -67,8 +67,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VpcList{},
 		&VpcDns{},
 		&VpcDnsList{},
-		&VpcEgressGateway{},
-		&VpcEgressGatewayList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

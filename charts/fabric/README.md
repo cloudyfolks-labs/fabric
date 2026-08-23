@@ -1223,7 +1223,6 @@ false
   "enableKeepVmIps": true,
   "enableLiveMigrationOptimization": true,
   "enableLoadbalancer": true,
-  "enableLoadbalancerService": false,
   "enableNetworkPolicies": true,
   "enableOvnInterconnections": false,
   "enableOvnIpsec": false,
@@ -1281,15 +1280,6 @@ true
 </pre>
 </td>
 			<td>Enable Kube-OVN loadbalancers</td>
-		</tr>
-		<tr>
-			<td>features.enableLoadbalancerService</td>
-			<td>bool</td>
-			<td><pre lang="json">
-false
-</pre>
-</td>
-			<td>Enable Kube-OVN loadbalancer services</td>
 		</tr>
 		<tr>
 			<td>features.enableNetworkPolicies</td>
@@ -3221,24 +3211,6 @@ true
 </pre>
 </td>
 		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>natGw.image.repository</td>
-		<td>string</td>
-		<td><pre lang="json">
-"ghcr.io/cloudyfolks-labs/vpc-nat-gateway"
-</pre>
-</td>
-		<td></td>
-	</tr>
-	<tr>
-		<td>natGw.image.tag</td>
-		<td>string</td>
-		<td><pre lang="json">
-"v1.0.0"
-</pre>
-</td>
-		<td></td>
 	</tr>
 	<tr>
 		<td>ovsOvn.upgrade.enabled</td>

@@ -241,10 +241,6 @@ func (c *Controller) enqueueAddPod(obj any) {
 		klog.Infof("enqueue add pod %s", key)
 		c.addOrUpdatePodQueue.Add(key)
 	}
-
-	if err = c.handlePodEventForVpcEgressGateway(p); err != nil {
-		klog.Errorf("failed to handle pod event for vpc egress gateway: %v", err)
-	}
 }
 
 func (c *Controller) getNsLabels(nsName, podName string) map[string]string {
@@ -415,10 +411,6 @@ func (c *Controller) enqueueUpdatePod(oldObj, newObj any) {
 			c.deletePodQueue.AddAfter(key, delay)
 		}()
 		return
-	}
-
-	if err = c.handlePodEventForVpcEgressGateway(newPod); err != nil {
-		klog.Errorf("failed to handle pod event for vpc egress gateway: %v", err)
 	}
 
 	// do not delete statefulset/vm pod unless ownerReferences is deleted
@@ -870,11 +862,6 @@ func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets [
 
 // do the same thing as update pod
 func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kubeovnNet) error {
-	// the lb-svc pod has dependencies on Running state, check it when pod state get updated
-	if err := c.checkAndReInitLbSvcPod(pod); err != nil {
-		klog.Errorf("failed to init iptable rules for load-balancer pod %s/%s: %v", pod.Namespace, pod.Name, err)
-	}
-
 	if len(needRoutePodNets) == 0 {
 		return nil
 	}

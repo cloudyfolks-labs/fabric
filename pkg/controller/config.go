@@ -141,7 +141,6 @@ type Configuration struct {
 	EnableNP                    bool
 	EnableEcmp                  bool
 	EnableKeepVMIP              bool
-	EnableLbSvc                 bool
 	EnableOvnLbSvc              bool
 	DefaultLoadBalancerClass    bool
 	EnableMetrics               bool
@@ -161,11 +160,6 @@ type Configuration struct {
 	BfdDetectMult int
 
 	NodeLocalDNSIPs []string
-
-	// used to set vpc-egress-gateway image
-	Image string
-
-	// used to set FRR image for egress-gateway BGP/EVPN
 
 	// used to set log file permission
 	LogPerm string
@@ -246,7 +240,6 @@ func ParseFlags() (*Configuration, error) {
 		argNPEnforcement               = pflag.String("np-enforcement", "standard", "Network policy enforcement mode: standard or lax")
 		argEnableEcmp                  = pflag.Bool("enable-ecmp", false, "Enable ecmp route for centralized subnet")
 		argKeepVMIP                    = pflag.Bool("keep-vm-ip", true, "Whether to keep ip for kubevirt pod when pod is rebuild")
-		argEnableLbSvc                 = pflag.Bool("enable-lb-svc", false, "Whether to support loadbalancer service")
 		argEnableOvnLbSvc              = pflag.Bool("enable-ovn-lb-svc", false, "Whether to serve loadbalancer services natively with OVN router load balancers")
 		argDefaultLoadBalancerClass    = pflag.Bool("default-load-balancer-class", false, "Whether to claim loadbalancer services without an explicit loadBalancerClass")
 		argEnableMetrics               = pflag.Bool("enable-metrics", true, "Whether to support metrics query")
@@ -264,8 +257,6 @@ func ParseFlags() (*Configuration, error) {
 		argBfdMinTx      = pflag.Int("bfd-min-tx", 100, "This is the minimum interval, in milliseconds, ovn would like to use when transmitting BFD Control packets")
 		argBfdMinRx      = pflag.Int("bfd-min-rx", 100, "This is the minimum interval, in milliseconds, between received BFD Control packets")
 		argBfdDetectMult = pflag.Int("detect-mult", 3, "The negotiated transmit interval, multiplied by this value, provides the Detection Time for the receiving system in Asynchronous mode.")
-
-		argImage = pflag.String("image", "", "The image for vpc-egress-gateway")
 
 		argLogPerm = pflag.String("log-perm", "640", "The permission for the log file")
 
@@ -349,7 +340,6 @@ func ParseFlags() (*Configuration, error) {
 		NodePgProbeTime:                *argNodePgProbeTime,
 		GCInterval:                     *argGCInterval,
 		InspectInterval:                *argInspectInterval,
-		EnableLbSvc:                    *argEnableLbSvc,
 		EnableOvnLbSvc:                 *argEnableOvnLbSvc,
 		DefaultLoadBalancerClass:       *argDefaultLoadBalancerClass,
 		EnableMetrics:                  *argEnableMetrics,
@@ -361,7 +351,6 @@ func ParseFlags() (*Configuration, error) {
 		BfdDetectMult:                  *argBfdDetectMult,
 		EnableANP:                      *argEnableANP,
 		EnableDNSNameResolver:          *argEnableDNSNameResolver,
-		Image:                          *argImage,
 		LogPerm:                        *argLogPerm,
 		TLSMinVersion:                  *argTLSMinVersion,
 		TLSMaxVersion:                  *argTLSMaxVersion,
@@ -379,14 +368,6 @@ func ParseFlags() (*Configuration, error) {
 
 	if config.NetworkType == util.NetworkTypeVlan && config.DefaultHostInterface == "" {
 		return nil, errors.New("no host nic for vlan")
-	}
-
-	if config.EnableLbSvc && !config.EnableLb {
-		klog.Warning("--enable-lb-svc requires --enable-lb, the loadbalancer service feature will not work")
-	}
-
-	if config.EnableLbSvc && config.EnableOvnLbSvc {
-		return nil, errors.New("--enable-lb-svc and --enable-ovn-lb-svc are mutually exclusive")
 	}
 
 	if config.EnableOvnLbSvc && !config.EnableLb {

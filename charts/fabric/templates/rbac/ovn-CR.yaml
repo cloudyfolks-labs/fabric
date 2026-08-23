@@ -12,8 +12,6 @@ rules:
     resources:
       - vpcs
       - vpcs/status
-      - vpc-egress-gateways
-      - vpc-egress-gateways/status
       - loadbalancer-pools
       - loadbalancer-pools/status
       - subnets
