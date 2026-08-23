@@ -9,7 +9,7 @@ IMAGE_REF_NAME ?= $(if $(GITHUB_HEAD_REF),$(GITHUB_HEAD_REF),$(if $(GITHUB_REF_N
 IMAGE_REVISION := $(IMAGE_REVISION)
 IMAGE_REF_NAME := $(IMAGE_REF_NAME)
 endif
-IMAGE_LABELS = --label "org.opencontainers.image.source=github.com/kubeovn/kube-ovn" --label "org.opencontainers.image.revision=$(IMAGE_REVISION)" --label "org.opencontainers.image.ref.name=$(IMAGE_REF_NAME)"
+IMAGE_LABELS = --label "org.opencontainers.image.source=https://github.com/cloudyfolks-labs/fabric" --label "org.opencontainers.image.revision=$(IMAGE_REVISION)" --label "org.opencontainers.image.ref.name=$(IMAGE_REF_NAME)"
 
 GOLDFLAGS = -extldflags '-z now' -X github.com/kubeovn/kube-ovn/versions.COMMIT=$(COMMIT) -X github.com/kubeovn/kube-ovn/versions.VERSION=$(RELEASE_TAG) -X github.com/kubeovn/kube-ovn/versions.BUILDDATE=$(DATE)
 ifdef DEBUG
