@@ -22,7 +22,7 @@ infrastructureJobs = {
     "e2e-selection",
     "e2e-executor-result",
 }
-expectedX86RunnerJobs = 75
+expectedX86RunnerJobs = 71
 mandatorySmoke = [
     {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
     {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},

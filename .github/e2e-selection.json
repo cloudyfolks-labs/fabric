@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "expectedRunnerJobs": 75,
+  "expectedRunnerJobs": 71,
   "forceFull": false,
   "fullThreshold": 3,
   "productionPrefixes": ["cmd/", "pkg/", "versions/"],
@@ -93,7 +93,7 @@
       "reason": "multiple and chained CNI suites"
     },
     {
-      "patterns": ["test/e2e/lb-svc/**", "test/e2e/kube-ovn/switch_lb_rule/**", "test/e2e/metallb/**"],
+      "patterns": ["test/e2e/kube-ovn/switch_lb_rule/**", "test/e2e/metallb/**"],
       "groups": ["service-lb-underlay"],
       "owner": "networking-e2e",
       "reason": "service, load balancer, and underlay suites"
@@ -129,13 +129,13 @@
       "reason": "OVN interconnection reconciliation"
     },
     {
-      "patterns": ["test/e2e/vpc-egress-gateway/**", "test/e2e/ovn-vpc-nat-gw/**", "test/e2e/vip/**"],
+      "patterns": ["test/e2e/ovn-vpc-nat-gw/**", "test/e2e/vip/**"],
       "groups": ["nat-egress"],
       "owner": "networking-e2e",
       "reason": "NAT and egress gateway suites"
     },
     {
-      "patterns": ["pkg/controller/vpc_egress_gateway*.go", "pkg/controller/ovn_*nat*.go", "pkg/controller/ovn_eip.go", "pkg/controller/ovn_fip.go", "pkg/controller/ovn_snat.go", "pkg/controller/ovn_dnat.go"],
+      "patterns": ["pkg/controller/ovn_*nat*.go", "pkg/controller/ovn_eip.go", "pkg/controller/ovn_fip.go", "pkg/controller/ovn_snat.go", "pkg/controller/ovn_dnat.go"],
       "groups": ["nat-egress"],
       "owner": "networking-e2e",
       "reason": "NAT and egress gateway reconciliation"
@@ -192,7 +192,6 @@
       "jobs": [
         {"id": "underlay-logical-gateway-installation-test"},
         {"id": "no-ovn-lb-test"},
-        {"id": "lb-svc-e2e"},
         {"id": "kube-ovn-underlay-metallb-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
         {"id": "router-lb-rule-e2e"}
       ]
@@ -224,7 +223,6 @@
     },
     "nat-egress": {
       "jobs": [
-        {"id": "vpc-egress-gateway-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
         {"id": "ovn-vpc-nat-gw-conformance-e2e"}
       ]
     },
