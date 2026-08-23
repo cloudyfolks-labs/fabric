@@ -339,12 +339,6 @@ func (c *Controller) handleSubnetFinalizer(subnet *kubeovnv1.Subnet) (*kubeovnv1
 		return patchSubnet, false, nil
 	}
 
-	if !subnet.DeletionTimestamp.IsZero() {
-		if err := c.deleteHealthCheckVip(subnet.Name); err != nil {
-			return subnet, false, err
-		}
-	}
-
 	if readyToRemoveFinalizer(subnet) {
 		newSubnet := subnet.DeepCopy()
 		controllerutil.RemoveFinalizer(newSubnet, util.DeprecatedFinalizerName)
@@ -570,6 +564,15 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 		return err
 	}
 	klog.V(3).Infof("handle add or update subnet %s", cachedSubnet.Name)
+
+	if !cachedSubnet.DeletionTimestamp.IsZero() {
+		if err = c.deleteHealthCheckVip(cachedSubnet.Name); err != nil {
+			return err
+		}
+		_, _, err = c.handleSubnetFinalizer(cachedSubnet.DeepCopy())
+		return err
+	}
+
 	subnet, err := c.formatSubnet(cachedSubnet)
 	if err != nil {
 		err := fmt.Errorf("failed to format subnet %s, %w", key, err)
