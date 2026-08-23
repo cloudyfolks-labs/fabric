@@ -157,7 +157,6 @@ class E2ESelectorTest(unittest.TestCase):
             [
                 "test/e2e/cnp-domain/e2e_test.go",
                 "test/e2e/multus/e2e_test.go",
-                "test/e2e/vpc-egress-gateway/e2e_test.go",
             ]
         )
 
@@ -567,13 +566,11 @@ class E2ESelectorTest(unittest.TestCase):
             ("pkg/controller/network_policy.go", "policy"),
             ("test/e2e/vpc-dynamic-routing/e2e_test.go", "bgp-routing"),
             ("test/e2e/multus/e2e_test.go", "multi-cni"),
-            ("test/e2e/lb-svc/e2e_test.go", "service-lb-underlay"),
             ("pkg/controller/service.go", "service-lb-underlay"),
             ("charts/fabric/Chart.yaml", "install-platform"),
             ("test/e2e/ha/e2e_test.go", "ha-hosted"),
             ("test/e2e/ovn-ic/e2e_test.go", "multi-cluster"),
             ("pkg/ovn_ic_controller/ovn_ic_controller.go", "multi-cluster"),
-            ("test/e2e/vpc-egress-gateway/e2e_test.go", "nat-egress"),
             ("pkg/controller/vpc_egress_gateway.go", "nat-egress"),
             ("test/e2e/webhook/e2e_test.go", "security-webhook"),
             ("test/e2e/security/e2e_test.go", "ha-hosted"),

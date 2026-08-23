@@ -647,7 +647,6 @@ getTestNodePortServiceIPPorts() {
 diagnose(){
   gcCommands=()
   kubectl get crd vpcs.fabric.cloudyfolks.io
-  kubectl get crd vpc-egress-gateways.fabric.cloudyfolks.io
   kubectl get crd subnets.fabric.cloudyfolks.io
   kubectl get crd ips.fabric.cloudyfolks.io
   kubectl get crd vlans.fabric.cloudyfolks.io
