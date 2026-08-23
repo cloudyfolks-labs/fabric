@@ -1,4 +1,6 @@
-FROM golang:1.26-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS builder
+
+ARG TARGETARCH
 
 # Set build arguments first
 ARG COREDNS_VERSION=v1.12.3
@@ -13,7 +15,7 @@ RUN git clone https://github.com/coredns/coredns.git /coredns && \
     git checkout $COREDNS_VERSION && \
     go mod download && \
     go generate && \
-    CGO_ENABLED=0 go build -o /coredns/coredns .
+    CGO_ENABLED=0 GOARCH=$TARGETARCH go build -o /coredns/coredns .
 
 # Copy the fabric repo so the plugin's replace directive resolves (this layer changes when code changes)
 COPY . /go/src/fabric/
@@ -33,7 +35,7 @@ RUN cd /coredns && \
     go mod tidy && \
     go generate && \
     go mod tidy && \
-    CGO_ENABLED=0 go build -ldflags "-X github.com/kubeovn/dnsnameresolver.Version=$PLUGIN_VERSION" -o /coredns/coredns .
+    CGO_ENABLED=0 GOARCH=$TARGETARCH go build -ldflags "-X github.com/kubeovn/dnsnameresolver.Version=$PLUGIN_VERSION" -o /coredns/coredns .
 
 # Create the final image with CoreDNS binary
 FROM debian:bookworm
