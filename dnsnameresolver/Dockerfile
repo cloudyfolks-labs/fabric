@@ -1,6 +1,8 @@
 FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS builder
 
 ARG TARGETARCH
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=$GOPROXY
 
 # Set build arguments first
 ARG COREDNS_VERSION=v1.12.3
