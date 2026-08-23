@@ -592,7 +592,11 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			return err
 		}
 		newVpc := current.DeepCopy()
-		newVpc.Status = desiredStatus
+		merged := desiredStatus
+		merged.EnableExternal = newVpc.Status.EnableExternal
+		merged.EnableBfd = newVpc.Status.EnableBfd
+		merged.ExtraExternalSubnets = newVpc.Status.ExtraExternalSubnets
+		newVpc.Status = merged
 		_, err = c.config.KubeOvnClient.FabricV1().Vpcs().UpdateStatus(context.Background(), newVpc, metav1.UpdateOptions{})
 		return err
 	})
