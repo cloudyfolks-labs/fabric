@@ -159,6 +159,7 @@ func NewOvnNbClient(ovnNbAddr string, ovnNbTimeout, ovsDbConTimeout, ovsDbInacti
 		client.WithTable(&ovnnb.AddressSet{}),
 		client.WithTable(&ovnnb.BFD{}),
 		client.WithTable(&ovnnb.DHCPOptions{}),
+		client.WithTable(&ovnnb.DNS{}),
 		client.WithTable(&ovnnb.GatewayChassis{}),
 		client.WithTable(&ovnnb.HAChassis{}),
 		client.WithTable(&ovnnb.HAChassisGroup{}),

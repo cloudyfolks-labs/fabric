@@ -104,8 +104,7 @@ func (c *Controller) handleAddOrUpdateDnsZone(key string) error {
 		return c.patchDnsZoneStatus(zone, 0, corev1.ConditionFalse, "InvalidRecords", err.Error())
 	}
 
-	vpc, err := c.vpcsLister.Get(zone.Spec.Vpc)
-	if err != nil {
+	if _, err = c.vpcsLister.Get(zone.Spec.Vpc); err != nil {
 		klog.Errorf("failed to get vpc %s of dns zone %s: %v", zone.Spec.Vpc, key, err)
 		if patchErr := c.patchDnsZoneStatus(zone, 0, corev1.ConditionFalse, "VpcNotFound", err.Error()); patchErr != nil {
 			klog.Error(patchErr)
@@ -119,8 +118,16 @@ func (c *Controller) handleAddOrUpdateDnsZone(key string) error {
 		return err
 	}
 
-	for _, subnet := range vpc.Status.Subnets {
-		if err = c.OVNNbClient.LogicalSwitchUpdateDnsRecords(subnet, dnsUUID, ovsdb.MutateOperationInsert); err != nil {
+	subnets, err := c.subnetsLister.List(labels.Everything())
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	for _, subnet := range subnets {
+		if subnet.Spec.Vpc != zone.Spec.Vpc {
+			continue
+		}
+		if err = c.OVNNbClient.LogicalSwitchUpdateDnsRecords(subnet.Name, dnsUUID, ovsdb.MutateOperationInsert); err != nil {
 			klog.Error(err)
 			return err
 		}

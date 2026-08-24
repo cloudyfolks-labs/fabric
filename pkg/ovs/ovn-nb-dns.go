@@ -14,7 +14,7 @@ import (
 
 const dnsZoneExternalIDKey = "dns-zone"
 
-func (c *OVNNbClient) GetDnsZone(zone string) (*ovnnb.DNS, error) {
+func (c *OVNNbClient) listDnsZone(zone string) ([]ovnnb.DNS, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
@@ -24,6 +24,14 @@ func (c *OVNNbClient) GetDnsZone(zone string) (*ovnnb.DNS, error) {
 	}).List(ctx, &dnsList); err != nil {
 		return nil, fmt.Errorf("failed to list dns records of zone %s: %w", zone, err)
 	}
+	return dnsList, nil
+}
+
+func (c *OVNNbClient) GetDnsZone(zone string) (*ovnnb.DNS, error) {
+	dnsList, err := c.listDnsZone(zone)
+	if err != nil {
+		return nil, err
+	}
 	if len(dnsList) == 0 {
 		return nil, nil
 	}
@@ -31,9 +39,18 @@ func (c *OVNNbClient) GetDnsZone(zone string) (*ovnnb.DNS, error) {
 }
 
 func (c *OVNNbClient) EnsureDnsZone(zone string, records map[string]string) (string, error) {
-	dns, err := c.GetDnsZone(zone)
+	dnsList, err := c.listDnsZone(zone)
 	if err != nil {
 		return "", err
+	}
+	for i := 1; i < len(dnsList); i++ {
+		if err = c.deleteDnsRow(&dnsList[i]); err != nil {
+			return "", err
+		}
+	}
+	var dns *ovnnb.DNS
+	if len(dnsList) > 0 {
+		dns = &dnsList[0]
 	}
 
 	if dns == nil {
@@ -77,19 +94,25 @@ func (c *OVNNbClient) EnsureDnsZone(zone string, records map[string]string) (str
 }
 
 func (c *OVNNbClient) DeleteDnsZone(zone string) error {
-	dns, err := c.GetDnsZone(zone)
+	dnsList, err := c.listDnsZone(zone)
 	if err != nil {
 		return err
 	}
-	if dns == nil {
-		return nil
+	for i := range dnsList {
+		if err = c.deleteDnsRow(&dnsList[i]); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (c *OVNNbClient) deleteDnsRow(dns *ovnnb.DNS) error {
 	ops, err := c.ovsDbClient.Where(dns).Delete()
 	if err != nil {
-		return fmt.Errorf("failed to generate operations for deleting dns zone %s: %w", zone, err)
+		return fmt.Errorf("failed to generate operations for deleting dns row %s: %w", dns.UUID, err)
 	}
 	if err = c.Transact("dns-del", ops); err != nil {
-		return fmt.Errorf("failed to delete dns zone %s: %w", zone, err)
+		return fmt.Errorf("failed to delete dns row %s: %w", dns.UUID, err)
 	}
 	return nil
 }

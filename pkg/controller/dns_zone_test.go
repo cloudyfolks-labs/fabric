@@ -58,10 +58,12 @@ func Test_handleAddOrUpdateDnsZone(t *testing.T) {
 			{Name: "db.internal", IPs: []string{"10.0.0.5"}},
 		})
 		vpc := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc1"}}
-		vpc.Status.Subnets = []string{"subnet-a", "subnet-b"}
+		subnetA := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}, Spec: kubeovnv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.60.0.0/24"}}
+		subnetB := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: kubeovnv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.60.1.0/24"}}
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			DnsZones: []*kubeovnv1.DnsZone{zone},
 			Vpcs:     []*kubeovnv1.Vpc{vpc},
+			Subnets:  []*kubeovnv1.Subnet{subnetA, subnetB},
 		})
 		require.NoError(t, err)
 
