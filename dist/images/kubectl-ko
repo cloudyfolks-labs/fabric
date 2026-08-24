@@ -653,7 +653,7 @@ diagnose(){
   kubectl get crd provider-networks.fabric.cloudyfolks.io
   kubectl get crd security-groups.fabric.cloudyfolks.io
   kubectl get crd vips.fabric.cloudyfolks.io
-  kubectl get crd vpc-dnses.fabric.cloudyfolks.io
+  kubectl get crd dns-zones.fabric.cloudyfolks.io
   kubectl get crd switch-lb-rules.fabric.cloudyfolks.io
   kubectl get crd ippools.fabric.cloudyfolks.io
   kubectl get crd ovn-eips.fabric.cloudyfolks.io
