@@ -378,7 +378,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		testNetworkConnectivity("https://8.8.8.8", false, "Testing connectivity to 8.8.8.8 after applying ANP (should be blocked by CIDR rule)")
 	})
 
-	framework.ConformanceIt("should create ANP with wildcard domainName rules and verify they work correctly", func() {
+	framework.ConformanceIt("should create ANP with domainName rules scoped to the exact fqdn", func() {
 		f.SkipVersionPriorTo(1, 15, "AdminNetworkPolicy domainName support was introduced in v1.15")
 
 		ginkgo.By("Creating test namespace " + namespaceName)
@@ -397,7 +397,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		testNetworkConnectivity("https://api.baidu.com", true, "Testing connectivity to api.baidu.com before applying ANP (should succeed)")
 		testNetworkConnectivity("https://news.baidu.com", true, "Testing connectivity to news.baidu.com before applying ANP (should succeed)")
 
-		ginkgo.By("Creating AdminNetworkPolicy with wildcard domainName rules")
+		ginkgo.By("Creating AdminNetworkPolicy with an exact fqdn domainName rule")
 		namespaceSelector := &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				corev1.LabelMetadataName: namespaceName,
@@ -408,7 +408,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		}
 
 		domainNames1 := []netpolv1alpha1.DomainName{"www.baidu.com"}
-		egressRule1 := framework.MakeAdminNetworkPolicyEgressRule("deny-baidu-wildcard", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames1)
+		egressRule1 := framework.MakeAdminNetworkPolicyEgressRule("deny-baidu-www", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames1)
 
 		anp := framework.MakeAdminNetworkPolicy(anpName, 85, namespaceSelector,
 			[]netpolv1alpha1.AdminNetworkPolicyEgressRule{egressRule1}, nil)
@@ -421,9 +421,9 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		framework.ExpectEqual(len(anp.Spec.Egress), 1)
 		framework.ExpectEqual(anp.Spec.Priority, int32(85))
 
-		testNetworkConnectivity("https://www.baidu.com", false, "Testing connectivity to www.baidu.com after applying ANP (should be blocked by wildcard)")
-		testNetworkConnectivity("https://api.baidu.com", false, "Testing connectivity to api.baidu.com after applying ANP (should be blocked by wildcard)")
-		testNetworkConnectivity("https://news.baidu.com", false, "Testing connectivity to news.baidu.com after applying ANP (should be blocked by wildcard)")
+		testNetworkConnectivity("https://www.baidu.com", false, "Testing connectivity to www.baidu.com after applying ANP (should be blocked)")
+		testNetworkConnectivity("https://api.baidu.com", true, "Testing connectivity to api.baidu.com after applying ANP (should stay allowed)")
+		testNetworkConnectivity("https://news.baidu.com", true, "Testing connectivity to news.baidu.com after applying ANP (should stay allowed)")
 	})
 })
 
