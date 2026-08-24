@@ -139,7 +139,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		ports := []netpolv1alpha1.AdminNetworkPolicyPort{
 			framework.MakeAdminNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
-		domainNames := []netpolv1alpha1.DomainName{"*.baidu.com."}
+		domainNames := []netpolv1alpha1.DomainName{"www.baidu.com"}
 		egressRule := framework.MakeAdminNetworkPolicyEgressRule("deny-baidu", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames)
 		anp := framework.MakeAdminNetworkPolicy(anpName, 55, namespaceSelector, []netpolv1alpha1.AdminNetworkPolicyEgressRule{egressRule}, nil)
 
@@ -153,7 +153,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		framework.ExpectEqual(len(anpEgressRule.To), 1)
 		peer := anpEgressRule.To[0]
 		framework.ExpectEqual(len(peer.DomainNames), 1)
-		framework.ExpectEqual(string(peer.DomainNames[0]), "*.baidu.com.")
+		framework.ExpectEqual(string(peer.DomainNames[0]), "www.baidu.com")
 
 		framework.ExpectEqual(anp.Spec.Priority, int32(55))
 		framework.ExpectEqual(anp.Spec.Subject.Namespaces.MatchLabels[corev1.LabelMetadataName], namespaceName)
@@ -195,7 +195,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		ports := []netpolv1alpha1.AdminNetworkPolicyPort{
 			framework.MakeAdminNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
-		domainNames1 := []netpolv1alpha1.DomainName{"*.baidu.com."}
+		domainNames1 := []netpolv1alpha1.DomainName{"www.baidu.com"}
 		egressRule1 := framework.MakeAdminNetworkPolicyEgressRule("deny-baidu", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames1)
 		anp1 := framework.MakeAdminNetworkPolicy(anpName, 44, namespaceSelector, []netpolv1alpha1.AdminNetworkPolicyEgressRule{egressRule1}, nil)
 
@@ -204,7 +204,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		framework.Logf("Successfully created first AdminNetworkPolicy: %s", createdANP1.Name)
 
 		ginkgo.By("Creating second AdminNetworkPolicy with domainName to allow google.com")
-		domainNames2 := []netpolv1alpha1.DomainName{"*.google.com."}
+		domainNames2 := []netpolv1alpha1.DomainName{"www.google.com"}
 		egressRule2 := framework.MakeAdminNetworkPolicyEgressRule("allow-google", netpolv1alpha1.AdminNetworkPolicyRuleActionAllow, ports, domainNames2)
 		anp2 := framework.MakeAdminNetworkPolicy(anpName2, 45, namespaceSelector, []netpolv1alpha1.AdminNetworkPolicyEgressRule{egressRule2}, nil)
 
@@ -218,7 +218,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		framework.ExpectEqual(len(anp1EgressRule.To), 1)
 		peer1 := anp1EgressRule.To[0]
 		framework.ExpectEqual(len(peer1.DomainNames), 1)
-		framework.ExpectEqual(string(peer1.DomainNames[0]), "*.baidu.com.")
+		framework.ExpectEqual(string(peer1.DomainNames[0]), "www.baidu.com")
 		framework.ExpectEqual(anp1.Spec.Priority, int32(44))
 
 		framework.ExpectEqual(len(anp2.Spec.Egress), 1)
@@ -226,7 +226,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		framework.ExpectEqual(len(anp2EgressRule.To), 1)
 		peer2 := anp2EgressRule.To[0]
 		framework.ExpectEqual(len(peer2.DomainNames), 1)
-		framework.ExpectEqual(string(peer2.DomainNames[0]), "*.google.com.")
+		framework.ExpectEqual(string(peer2.DomainNames[0]), "www.google.com")
 		framework.ExpectEqual(anp2.Spec.Priority, int32(45))
 
 		testNetworkConnectivity("https://www.baidu.com", false, "Testing connectivity to baidu.com after applying both ANPs (should be blocked)")
@@ -281,7 +281,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		testNetworkConnectivity("https://www.google.com", true, "Testing connectivity to google.com after creating ANP without rules (should succeed)")
 
 		ginkgo.By("Adding domainName deny rule for baidu.com to the existing ANP")
-		domainNames := []netpolv1alpha1.DomainName{"*.baidu.com."}
+		domainNames := []netpolv1alpha1.DomainName{"www.baidu.com"}
 		egressRule := framework.MakeAdminNetworkPolicyEgressRule("deny-baidu", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames)
 
 		createdANP.Spec.Egress = []netpolv1alpha1.AdminNetworkPolicyEgressRule{egressRule}
@@ -292,7 +292,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 		testNetworkConnectivity("https://www.google.com", true, "Testing connectivity to google.com after adding baidu.com deny rule (should still succeed)")
 
 		ginkgo.By("Adding domainName deny rule for google.com to the existing ANP")
-		domainNames2 := []netpolv1alpha1.DomainName{"*.google.com."}
+		domainNames2 := []netpolv1alpha1.DomainName{"www.google.com"}
 		egressRule2 := framework.MakeAdminNetworkPolicyEgressRule("deny-google", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames2)
 
 		updatedANP.Spec.Egress = append(updatedANP.Spec.Egress, egressRule2)
@@ -348,7 +348,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 			framework.MakeAdminNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
 
-		domainNames := []netpolv1alpha1.DomainName{"*.baidu.com."}
+		domainNames := []netpolv1alpha1.DomainName{"www.baidu.com"}
 		egressRule1 := framework.MakeAdminNetworkPolicyEgressRule("deny-baidu", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames)
 
 		egressRule2 := netpolv1alpha1.AdminNetworkPolicyEgressRule{
@@ -407,7 +407,7 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 			framework.MakeAdminNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
 
-		domainNames1 := []netpolv1alpha1.DomainName{"*.baidu.com."}
+		domainNames1 := []netpolv1alpha1.DomainName{"www.baidu.com"}
 		egressRule1 := framework.MakeAdminNetworkPolicyEgressRule("deny-baidu-wildcard", netpolv1alpha1.AdminNetworkPolicyRuleActionDeny, ports, domainNames1)
 
 		anp := framework.MakeAdminNetworkPolicy(anpName, 85, namespaceSelector,

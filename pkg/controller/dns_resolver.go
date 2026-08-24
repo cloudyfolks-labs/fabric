@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	domainResolveInterval = 30 * time.Second
+	domainResolveInterval = 5 * time.Second
 	domainResolveTimeout  = 5 * time.Second
 )
 
@@ -56,10 +57,23 @@ func newDomainResolver(dnsServer func() string, notify func(policy string)) *dom
 	}
 }
 
+func normalizeDomain(domain string) (string, bool) {
+	domain = strings.TrimSuffix(domain, ".")
+	if strings.HasPrefix(domain, "*.") {
+		return "", false
+	}
+	return domain, domain != ""
+}
+
 func (r *domainResolver) setPolicyDomains(policy string, domains []string) {
 	desired := make(map[string]struct{}, len(domains))
 	for _, domain := range domains {
-		desired[domain] = struct{}{}
+		normalized, ok := normalizeDomain(domain)
+		if !ok {
+			klog.Warningf("policy %s: domain %q is not resolvable without query interception, only exact fqdns are supported", policy, domain)
+			continue
+		}
+		desired[normalized] = struct{}{}
 	}
 
 	var added []string
@@ -93,9 +107,13 @@ func (r *domainResolver) setPolicyDomains(policy string, domains []string) {
 }
 
 func (r *domainResolver) addresses(domain string) (v4, v6 []string) {
+	normalized, ok := normalizeDomain(domain)
+	if !ok {
+		return nil, nil
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	entry, ok := r.domains[domain]
+	entry, ok := r.domains[normalized]
 	if !ok {
 		return nil, nil
 	}

@@ -139,7 +139,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		ports := []netpolv1alpha2.ClusterNetworkPolicyPort{
 			framework.MakeClusterNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
-		domainNames := []netpolv1alpha2.DomainName{"*.baidu.com."}
+		domainNames := []netpolv1alpha2.DomainName{"www.baidu.com"}
 		egressRule := framework.MakeClusterNetworkPolicyEgressRule("deny-baidu", netpolv1alpha2.ClusterNetworkPolicyRuleActionDeny, ports, domainNames)
 		cnp := framework.MakeClusterNetworkPolicy(cnpName, 55, namespaceSelector, []netpolv1alpha2.ClusterNetworkPolicyEgressRule{egressRule}, nil)
 
@@ -153,7 +153,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		framework.ExpectEqual(len(cnpEgressRule.To), 1)
 		peer := cnpEgressRule.To[0]
 		framework.ExpectEqual(len(peer.DomainNames), 1)
-		framework.ExpectEqual(string(peer.DomainNames[0]), "*.baidu.com.")
+		framework.ExpectEqual(string(peer.DomainNames[0]), "www.baidu.com")
 
 		framework.ExpectEqual(cnp.Spec.Priority, int32(55))
 		framework.ExpectEqual(cnp.Spec.Subject.Namespaces.MatchLabels["kubernetes.io/metadata.name"], namespaceName)
@@ -195,7 +195,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		ports := []netpolv1alpha2.ClusterNetworkPolicyPort{
 			framework.MakeClusterNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
-		domainNames1 := []netpolv1alpha2.DomainName{"*.baidu.com."}
+		domainNames1 := []netpolv1alpha2.DomainName{"www.baidu.com"}
 		egressRule1 := framework.MakeClusterNetworkPolicyEgressRule("deny-baidu", netpolv1alpha2.ClusterNetworkPolicyRuleActionDeny, ports, domainNames1)
 		cnp1 := framework.MakeClusterNetworkPolicy(cnpName, 44, namespaceSelector, []netpolv1alpha2.ClusterNetworkPolicyEgressRule{egressRule1}, nil)
 
@@ -204,7 +204,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		framework.Logf("Successfully created first ClusterNetworkPolicy: %s", createdcnp1.Name)
 
 		ginkgo.By("Creating second ClusterNetworkPolicy with domainName to allow google.com")
-		domainNames2 := []netpolv1alpha2.DomainName{"*.google.com."}
+		domainNames2 := []netpolv1alpha2.DomainName{"www.google.com"}
 		egressRule2 := framework.MakeClusterNetworkPolicyEgressRule("allow-google", netpolv1alpha2.ClusterNetworkPolicyRuleActionAccept, ports, domainNames2)
 		cnp2 := framework.MakeClusterNetworkPolicy(cnpName2, 45, namespaceSelector, []netpolv1alpha2.ClusterNetworkPolicyEgressRule{egressRule2}, nil)
 
@@ -218,7 +218,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		framework.ExpectEqual(len(cnp1EgressRule.To), 1)
 		peer1 := cnp1EgressRule.To[0]
 		framework.ExpectEqual(len(peer1.DomainNames), 1)
-		framework.ExpectEqual(string(peer1.DomainNames[0]), "*.baidu.com.")
+		framework.ExpectEqual(string(peer1.DomainNames[0]), "www.baidu.com")
 		framework.ExpectEqual(cnp1.Spec.Priority, int32(44))
 
 		framework.ExpectEqual(len(cnp2.Spec.Egress), 1)
@@ -226,7 +226,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		framework.ExpectEqual(len(cnp2EgressRule.To), 1)
 		peer2 := cnp2EgressRule.To[0]
 		framework.ExpectEqual(len(peer2.DomainNames), 1)
-		framework.ExpectEqual(string(peer2.DomainNames[0]), "*.google.com.")
+		framework.ExpectEqual(string(peer2.DomainNames[0]), "www.google.com")
 		framework.ExpectEqual(cnp2.Spec.Priority, int32(45))
 
 		testNetworkConnectivity("https://www.baidu.com", false, "Testing connectivity to baidu.com after applying both CNPs (should be blocked)")
@@ -281,7 +281,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		testNetworkConnectivity("https://www.google.com", true, "Testing connectivity to google.com after creating cnp without rules (should succeed)")
 
 		ginkgo.By("Adding domainName deny rule for baidu.com to the existing CNP")
-		domainNames := []netpolv1alpha2.DomainName{"*.baidu.com."}
+		domainNames := []netpolv1alpha2.DomainName{"www.baidu.com"}
 		egressRule := framework.MakeClusterNetworkPolicyEgressRule("deny-baidu", netpolv1alpha2.ClusterNetworkPolicyRuleActionDeny, ports, domainNames)
 
 		createdCNP.Spec.Egress = []netpolv1alpha2.ClusterNetworkPolicyEgressRule{egressRule}
@@ -292,7 +292,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 		testNetworkConnectivity("https://www.google.com", true, "Testing connectivity to google.com after adding baidu.com deny rule (should still succeed)")
 
 		ginkgo.By("Adding domainName deny rule for google.com to the existing CNP")
-		domainNames2 := []netpolv1alpha2.DomainName{"*.google.com."}
+		domainNames2 := []netpolv1alpha2.DomainName{"www.google.com"}
 		egressRule2 := framework.MakeClusterNetworkPolicyEgressRule("deny-google", netpolv1alpha2.ClusterNetworkPolicyRuleActionDeny, ports, domainNames2)
 
 		updatedCNP.Spec.Egress = append(updatedCNP.Spec.Egress, egressRule2)
@@ -348,7 +348,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 			framework.MakeClusterNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
 
-		domainNames := []netpolv1alpha2.DomainName{"*.baidu.com."}
+		domainNames := []netpolv1alpha2.DomainName{"www.baidu.com"}
 		egressRule1 := framework.MakeClusterNetworkPolicyEgressRule("deny-baidu", netpolv1alpha2.ClusterNetworkPolicyRuleActionDeny, ports, domainNames)
 
 		egressRule2 := netpolv1alpha2.ClusterNetworkPolicyEgressRule{
@@ -407,7 +407,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 			framework.MakeClusterNetworkPolicyPort(443, corev1.ProtocolTCP),
 		}
 
-		domainNames1 := []netpolv1alpha2.DomainName{"*.baidu.com."}
+		domainNames1 := []netpolv1alpha2.DomainName{"www.baidu.com"}
 		egressRule1 := framework.MakeClusterNetworkPolicyEgressRule("deny-baidu-wildcard", netpolv1alpha2.ClusterNetworkPolicyRuleActionDeny, ports, domainNames1)
 
 		cnp := framework.MakeClusterNetworkPolicy(cnpName, 85, namespaceSelector,
