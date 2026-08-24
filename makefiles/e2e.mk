@@ -327,6 +327,16 @@ kube-ovn-underlay-metallb-e2e:
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/metallb/metallb.test -- $(TEST_BIN_ARGS)
 
+.PHONY: kube-ovn-dns-zone-e2e
+kube-ovn-dns-zone-e2e:
+	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
+	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
+	E2E_BRANCH=$(E2E_BRANCH) \
+	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
+	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
+	$(GINKGO_E2E_RUN) --timeout=20m \
+		--focus="\[group:dns-zone\]" ./test/e2e/kube-ovn/kube-ovn.test -- $(TEST_BIN_ARGS)
+
 .PHONY: kube-ovn-rlr-e2e
 kube-ovn-rlr-e2e:
 	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)

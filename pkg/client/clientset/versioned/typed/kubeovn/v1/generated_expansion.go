@@ -20,6 +20,8 @@ package v1
 
 type BgpConfExpansion interface{}
 
+type DnsZoneExpansion interface{}
+
 type IPExpansion interface{}
 
 type IPPoolExpansion interface{}
@@ -49,5 +51,3 @@ type VipExpansion interface{}
 type VlanExpansion interface{}
 
 type VpcExpansion interface{}
-
-type VpcDnsExpansion interface{}

@@ -33,37 +33,37 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// VpcDnsInformer provides access to a shared informer and lister for
-// VpcDnses.
-type VpcDnsInformer interface {
+// DnsZoneInformer provides access to a shared informer and lister for
+// DnsZones.
+type DnsZoneInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() kubeovnv1.VpcDnsLister
+	Lister() kubeovnv1.DnsZoneLister
 }
 
-type vpcDnsInformer struct {
+type dnsZoneInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewVpcDnsInformer constructs a new informer for VpcDns type.
+// NewDnsZoneInformer constructs a new informer for DnsZone type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewVpcDnsInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewVpcDnsInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+func NewDnsZoneInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewDnsZoneInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
 }
 
-// NewFilteredVpcDnsInformer constructs a new informer for VpcDns type.
+// NewFilteredDnsZoneInformer constructs a new informer for DnsZone type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredVpcDnsInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewVpcDnsInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+func NewFilteredDnsZoneInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return NewDnsZoneInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
 }
 
-// NewVpcDnsInformerWithOptions constructs a new informer for VpcDns type with additional options.
+// NewDnsZoneInformerWithOptions constructs a new informer for DnsZone type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewVpcDnsInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
-	gvr := schema.GroupVersionResource{Group: "fabric.cloudyfolks.io", Version: "v1", Resource: "vpcdnss"}
+func NewDnsZoneInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "fabric.cloudyfolks.io", Version: "v1", Resource: "dnszones"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
 	return cache.NewSharedIndexInformerWithOptions(
@@ -72,28 +72,28 @@ func NewVpcDnsInformerWithOptions(client versioned.Interface, options internalin
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().VpcDnses().List(context.Background(), opts)
+				return client.FabricV1().DnsZones().List(context.Background(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().VpcDnses().Watch(context.Background(), opts)
+				return client.FabricV1().DnsZones().Watch(context.Background(), opts)
 			},
 			ListWithContextFunc: func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().VpcDnses().List(ctx, opts)
+				return client.FabricV1().DnsZones().List(ctx, opts)
 			},
 			WatchFuncWithContext: func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().VpcDnses().Watch(ctx, opts)
+				return client.FabricV1().DnsZones().Watch(ctx, opts)
 			},
 		}, client),
-		&apiskubeovnv1.VpcDns{},
+		&apiskubeovnv1.DnsZone{},
 		cache.SharedIndexInformerOptions{
 			ResyncPeriod: options.ResyncPeriod,
 			Indexers:     options.Indexers,
@@ -102,14 +102,14 @@ func NewVpcDnsInformerWithOptions(client versioned.Interface, options internalin
 	)
 }
 
-func (f *vpcDnsInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewVpcDnsInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+func (f *dnsZoneInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewDnsZoneInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
-func (f *vpcDnsInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apiskubeovnv1.VpcDns{}, f.defaultInformer)
+func (f *dnsZoneInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apiskubeovnv1.DnsZone{}, f.defaultInformer)
 }
 
-func (f *vpcDnsInformer) Lister() kubeovnv1.VpcDnsLister {
-	return kubeovnv1.NewVpcDnsLister(f.Informer().GetIndexer())
+func (f *dnsZoneInformer) Lister() kubeovnv1.DnsZoneLister {
+	return kubeovnv1.NewDnsZoneLister(f.Informer().GetIndexer())
 }

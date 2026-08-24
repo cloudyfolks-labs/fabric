@@ -44,10 +44,8 @@ rules:
         resources:
           - vpcs
           - vpcs/status
-          - vpc-egress-gateways
-          - vpc-egress-gateways/status
-          - vpc-dnses
-          - vpc-dnses/status
+          - dns-zones
+          - dns-zones/status
           - subnets
           - subnets/status
           - ippools

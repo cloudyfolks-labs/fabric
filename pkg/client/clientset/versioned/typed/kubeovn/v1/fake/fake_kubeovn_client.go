@@ -32,6 +32,10 @@ func (c *FakeFabricV1) BgpConves() v1.BgpConfInterface {
 	return newFakeBgpConves(c)
 }
 
+func (c *FakeFabricV1) DnsZones() v1.DnsZoneInterface {
+	return newFakeDnsZones(c)
+}
+
 func (c *FakeFabricV1) IPs() v1.IPInterface {
 	return newFakeIPs(c)
 }
@@ -90,10 +94,6 @@ func (c *FakeFabricV1) Vlans() v1.VlanInterface {
 
 func (c *FakeFabricV1) Vpcs() v1.VpcInterface {
 	return newFakeVpcs(c)
-}
-
-func (c *FakeFabricV1) VpcDnses() v1.VpcDnsInterface {
-	return newFakeVpcDnses(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

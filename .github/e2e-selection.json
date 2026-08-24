@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "expectedRunnerJobs": 71,
+  "expectedRunnerJobs": 72,
   "forceFull": false,
   "fullThreshold": 3,
   "productionPrefixes": ["cmd/", "pkg/", "versions/"],
@@ -193,7 +193,8 @@
         {"id": "underlay-logical-gateway-installation-test"},
         {"id": "no-ovn-lb-test"},
         {"id": "kube-ovn-underlay-metallb-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
-        {"id": "router-lb-rule-e2e"}
+        {"id": "router-lb-rule-e2e"},
+        {"id": "dns-zone-e2e"}
       ]
     },
     "install-platform": {

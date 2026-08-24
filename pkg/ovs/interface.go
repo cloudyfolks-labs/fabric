@@ -41,6 +41,10 @@ type LogicalRouter interface {
 	UpdateLogicalRouter(lr *ovnnb.LogicalRouter, fields ...any) error
 	DeleteLogicalRouter(lrName string) error
 	LogicalRouterUpdateLoadBalancers(lrName string, op ovsdb.Mutator, lbNames ...string) error
+	EnsureDnsZone(zone string, records map[string]string) (string, error)
+	DeleteDnsZone(zone string) error
+	ListDnsZoneNames() ([]string, error)
+	LogicalSwitchUpdateDnsRecords(lsName, dnsUUID string, op ovsdb.Mutator) error
 	GetLogicalRouter(lrName string, ignoreNotFound bool) (*ovnnb.LogicalRouter, error)
 	ListLogicalRouter(needVendorFilter bool, filter func(lr *ovnnb.LogicalRouter) bool) ([]ovnnb.LogicalRouter, error)
 	ListLogicalRouterNames(needVendorFilter bool, filter func(lr *ovnnb.LogicalRouter) bool) ([]string, error)

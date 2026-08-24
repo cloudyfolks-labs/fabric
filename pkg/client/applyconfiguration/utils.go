@@ -52,6 +52,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kubeovnv1.ConditionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CustomInterface"):
 		return &kubeovnv1.CustomInterfaceApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DnsZone"):
+		return &kubeovnv1.DnsZoneApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DnsZoneRecord"):
+		return &kubeovnv1.DnsZoneRecordApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DnsZoneSpec"):
+		return &kubeovnv1.DnsZoneSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DnsZoneStatus"):
+		return &kubeovnv1.DnsZoneStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IP"):
 		return &kubeovnv1.IPApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPPool"):
@@ -156,12 +164,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kubeovnv1.VlanStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Vpc"):
 		return &kubeovnv1.VpcApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("VpcDns"):
-		return &kubeovnv1.VpcDnsApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("VpcDNSSpec"):
-		return &kubeovnv1.VpcDNSSpecApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("VpcDNSStatus"):
-		return &kubeovnv1.VpcDNSStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VpcDynamicRouting"):
 		return &kubeovnv1.VpcDynamicRoutingApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VpcPeering"):

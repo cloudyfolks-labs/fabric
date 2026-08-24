@@ -371,6 +371,20 @@ func (mr *MockLogicalRouterMockRecorder) CreateLogicalRouter(lrName any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateLogicalRouter", reflect.TypeOf((*MockLogicalRouter)(nil).CreateLogicalRouter), lrName)
 }
 
+// DeleteDnsZone mocks base method.
+func (m *MockLogicalRouter) DeleteDnsZone(zone string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteDnsZone", zone)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteDnsZone indicates an expected call of DeleteDnsZone.
+func (mr *MockLogicalRouterMockRecorder) DeleteDnsZone(zone any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDnsZone", reflect.TypeOf((*MockLogicalRouter)(nil).DeleteDnsZone), zone)
+}
+
 // DeleteLogicalRouter mocks base method.
 func (m *MockLogicalRouter) DeleteLogicalRouter(lrName string) error {
 	m.ctrl.T.Helper()
@@ -383,6 +397,21 @@ func (m *MockLogicalRouter) DeleteLogicalRouter(lrName string) error {
 func (mr *MockLogicalRouterMockRecorder) DeleteLogicalRouter(lrName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLogicalRouter", reflect.TypeOf((*MockLogicalRouter)(nil).DeleteLogicalRouter), lrName)
+}
+
+// EnsureDnsZone mocks base method.
+func (m *MockLogicalRouter) EnsureDnsZone(zone string, records map[string]string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureDnsZone", zone, records)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnsureDnsZone indicates an expected call of EnsureDnsZone.
+func (mr *MockLogicalRouterMockRecorder) EnsureDnsZone(zone, records any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDnsZone", reflect.TypeOf((*MockLogicalRouter)(nil).EnsureDnsZone), zone, records)
 }
 
 // GetLogicalRouter mocks base method.
@@ -398,6 +427,21 @@ func (m *MockLogicalRouter) GetLogicalRouter(lrName string, ignoreNotFound bool)
 func (mr *MockLogicalRouterMockRecorder) GetLogicalRouter(lrName, ignoreNotFound any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogicalRouter", reflect.TypeOf((*MockLogicalRouter)(nil).GetLogicalRouter), lrName, ignoreNotFound)
+}
+
+// ListDnsZoneNames mocks base method.
+func (m *MockLogicalRouter) ListDnsZoneNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDnsZoneNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDnsZoneNames indicates an expected call of ListDnsZoneNames.
+func (mr *MockLogicalRouterMockRecorder) ListDnsZoneNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDnsZoneNames", reflect.TypeOf((*MockLogicalRouter)(nil).ListDnsZoneNames))
 }
 
 // ListLogicalRouter mocks base method.
@@ -462,6 +506,20 @@ func (mr *MockLogicalRouterMockRecorder) LogicalRouterUpdateLoadBalancers(lrName
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{lrName, op}, lbNames...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogicalRouterUpdateLoadBalancers", reflect.TypeOf((*MockLogicalRouter)(nil).LogicalRouterUpdateLoadBalancers), varargs...)
+}
+
+// LogicalSwitchUpdateDnsRecords mocks base method.
+func (m *MockLogicalRouter) LogicalSwitchUpdateDnsRecords(lsName, dnsUUID string, op ovsdb.Mutator) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LogicalSwitchUpdateDnsRecords", lsName, dnsUUID, op)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LogicalSwitchUpdateDnsRecords indicates an expected call of LogicalSwitchUpdateDnsRecords.
+func (mr *MockLogicalRouterMockRecorder) LogicalSwitchUpdateDnsRecords(lsName, dnsUUID, op any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogicalSwitchUpdateDnsRecords", reflect.TypeOf((*MockLogicalRouter)(nil).LogicalSwitchUpdateDnsRecords), lsName, dnsUUID, op)
 }
 
 // UpdateLogicalRouter mocks base method.
@@ -4053,6 +4111,20 @@ func (mr *MockNbClientMockRecorder) DeleteDHCPOptionsForPort(portName any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDHCPOptionsForPort", reflect.TypeOf((*MockNbClient)(nil).DeleteDHCPOptionsForPort), portName)
 }
 
+// DeleteDnsZone mocks base method.
+func (m *MockNbClient) DeleteDnsZone(zone string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteDnsZone", zone)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteDnsZone indicates an expected call of DeleteDnsZone.
+func (mr *MockNbClientMockRecorder) DeleteDnsZone(zone any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDnsZone", reflect.TypeOf((*MockNbClient)(nil).DeleteDnsZone), zone)
+}
+
 // DeleteGatewayChassisByChassisName mocks base method.
 func (m *MockNbClient) DeleteGatewayChassisByChassisName(chassisName string) error {
 	m.ctrl.T.Helper()
@@ -4435,6 +4507,21 @@ func (mr *MockNbClientMockRecorder) EnablePortLayer2forward(lspName any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnablePortLayer2forward", reflect.TypeOf((*MockNbClient)(nil).EnablePortLayer2forward), lspName)
 }
 
+// EnsureDnsZone mocks base method.
+func (m *MockNbClient) EnsureDnsZone(zone string, records map[string]string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureDnsZone", zone, records)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnsureDnsZone indicates an expected call of EnsureDnsZone.
+func (mr *MockNbClientMockRecorder) EnsureDnsZone(zone, records any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDnsZone", reflect.TypeOf((*MockNbClient)(nil).EnsureDnsZone), zone, records)
+}
+
 // EnsureSnat mocks base method.
 func (m *MockNbClient) EnsureSnat(lrName, externalIP, logicalIP string) error {
 	m.ctrl.T.Helper()
@@ -4717,6 +4804,21 @@ func (m *MockNbClient) ListDHCPOptions(needVendorFilter bool, externalIDs map[st
 func (mr *MockNbClientMockRecorder) ListDHCPOptions(needVendorFilter, externalIDs any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDHCPOptions", reflect.TypeOf((*MockNbClient)(nil).ListDHCPOptions), needVendorFilter, externalIDs)
+}
+
+// ListDnsZoneNames mocks base method.
+func (m *MockNbClient) ListDnsZoneNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDnsZoneNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDnsZoneNames indicates an expected call of ListDnsZoneNames.
+func (mr *MockNbClientMockRecorder) ListDnsZoneNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDnsZoneNames", reflect.TypeOf((*MockNbClient)(nil).ListDnsZoneNames))
 }
 
 // ListDownBFDs mocks base method.
@@ -5214,6 +5316,20 @@ func (m *MockNbClient) LogicalSwitchPortExists(name string) (bool, error) {
 func (mr *MockNbClientMockRecorder) LogicalSwitchPortExists(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogicalSwitchPortExists", reflect.TypeOf((*MockNbClient)(nil).LogicalSwitchPortExists), name)
+}
+
+// LogicalSwitchUpdateDnsRecords mocks base method.
+func (m *MockNbClient) LogicalSwitchUpdateDnsRecords(lsName, dnsUUID string, op ovsdb.Mutator) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LogicalSwitchUpdateDnsRecords", lsName, dnsUUID, op)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LogicalSwitchUpdateDnsRecords indicates an expected call of LogicalSwitchUpdateDnsRecords.
+func (mr *MockNbClientMockRecorder) LogicalSwitchUpdateDnsRecords(lsName, dnsUUID, op any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogicalSwitchUpdateDnsRecords", reflect.TypeOf((*MockNbClient)(nil).LogicalSwitchUpdateDnsRecords), lsName, dnsUUID, op)
 }
 
 // LogicalSwitchUpdateLoadBalancers mocks base method.

@@ -826,6 +826,8 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 		}
 	}
 
+	c.enqueueDnsZonesForVpc(subnet.Spec.Vpc)
+
 	return nil
 }
 

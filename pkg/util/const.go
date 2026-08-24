@@ -125,7 +125,6 @@ const (
 	NodeExtGwLabel                     = "fabric.cloudyfolks.io/node-ext-gw"
 	IPReservedLabel                    = "fabric.cloudyfolks.io/ip_reserved"
 	VpcLbLabel                         = "fabric.cloudyfolks.io/vpc_lb"
-	VpcDNSNameLabel                    = "fabric.cloudyfolks.io/vpc-dns"
 	NodeNameLabel                      = "fabric.cloudyfolks.io/node-name"
 	NetworkPolicyLogAnnotation         = "fabric.cloudyfolks.io/enable_log"
 	NetworkPolicyEnforcementAnnotation = "fabric.cloudyfolks.io/network_policy_enforcement"
@@ -221,8 +220,6 @@ const (
 	InterconnectionConfig  = "ovn-ic-config"
 	InterconnectionSwitch  = "ts"
 	VpcLbNetworkAttachment = "ovn-vpc-lb"
-	VpcDNSConfig           = "vpc-dns-config"
-	VpcDNSDepTemplate      = "vpc-dns-dep"
 
 	DefaultSecurityGroupName = "default-securitygroup"
 

@@ -97,6 +97,12 @@ type Controller struct {
 	updateVpcStatusQueue workqueue.TypedRateLimitingInterface[string]
 	vpcKeyMutex          keymutex.KeyMutex
 
+	dnsZoneLister           kubeovnlister.DnsZoneLister
+	dnsZoneSynced           cache.InformerSynced
+	addOrUpdateDnsZoneQueue workqueue.TypedRateLimitingInterface[string]
+	delDnsZoneQueue         workqueue.TypedRateLimitingInterface[string]
+	dnsZoneKeyMutex         keymutex.KeyMutex
+
 	routerLBRuleLister      kubeovnlister.RouterLBRuleLister
 	routerLBRuleSynced      cache.InformerSynced
 	addRouterLBRuleQueue    workqueue.TypedRateLimitingInterface[string]
@@ -113,11 +119,6 @@ type Controller struct {
 	addSwitchLBRuleQueue    workqueue.TypedRateLimitingInterface[string]
 	updateSwitchLBRuleQueue workqueue.TypedRateLimitingInterface[*SwitchLBRuleInfo]
 	delSwitchLBRuleQueue    workqueue.TypedRateLimitingInterface[*SwitchLBRuleInfo]
-
-	vpcDNSLister           kubeovnlister.VpcDnsLister
-	vpcDNSSynced           cache.InformerSynced
-	addOrUpdateVpcDNSQueue workqueue.TypedRateLimitingInterface[string]
-	delVpcDNSQueue         workqueue.TypedRateLimitingInterface[string]
 
 	subnetsLister           kubeovnlister.SubnetLister
 	subnetSynced            cache.InformerSynced
@@ -378,10 +379,10 @@ func Run(ctx context.Context, config *Configuration) {
 	deploymentInformer := deployInformerFactory.Apps().V1().Deployments()
 	configMapInformer := cmInformerFactory.Core().V1().ConfigMaps()
 	npInformer := informerFactory.Networking().V1().NetworkPolicies()
+	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DnsZones()
 	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
 	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
 	switchLBRuleInformer := kubeovnInformerFactory.Fabric().V1().SwitchLBRules()
-	vpcDNSInformer := kubeovnInformerFactory.Fabric().V1().VpcDnses()
 	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
 	ovnFipInformer := kubeovnInformerFactory.Fabric().V1().OvnFips()
 	ovnSnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnSnatRules()
@@ -597,11 +598,6 @@ func Run(ctx context.Context, config *Configuration) {
 				&workqueue.TypedBucketRateLimiter[*SwitchLBRuleInfo]{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
 			),
 		)
-
-		controller.vpcDNSLister = vpcDNSInformer.Lister()
-		controller.vpcDNSSynced = vpcDNSInformer.Informer().HasSynced
-		controller.addOrUpdateVpcDNSQueue = newTypedRateLimitingQueue("AddOrUpdateVpcDns", custCrdRateLimiter)
-		controller.delVpcDNSQueue = newTypedRateLimitingQueue("DeleteVpcDns", custCrdRateLimiter)
 	}
 
 	if config.EnableOvnLbSvc && config.EnableLb {
@@ -648,6 +644,12 @@ func Run(ctx context.Context, config *Configuration) {
 		controller.deleteCnpQueue = newTypedRateLimitingQueue[*netpolv1alpha2.ClusterNetworkPolicy]("DeleteClusterNetworkPolicy", nil)
 		controller.cnpKeyMutex = keymutex.NewHashed(numKeyLocks)
 	}
+
+	controller.dnsZoneLister = dnsZoneInformer.Lister()
+	controller.dnsZoneSynced = dnsZoneInformer.Informer().HasSynced
+	controller.addOrUpdateDnsZoneQueue = newTypedRateLimitingQueue[string]("AddOrUpdateDnsZone", custCrdRateLimiter)
+	controller.delDnsZoneQueue = newTypedRateLimitingQueue[string]("DeleteDnsZone", custCrdRateLimiter)
+	controller.dnsZoneKeyMutex = keymutex.NewHashed(numKeyLocks)
 
 	controller.domainResolver = newDomainResolver(func() string {
 		svc, err := controller.servicesLister.Services("kube-system").Get("kube-dns")
@@ -698,7 +700,10 @@ func Run(ctx context.Context, config *Configuration) {
 		controller.ovnDnatRuleSynced,
 	}
 	if controller.config.EnableLb {
-		cacheSyncs = append(cacheSyncs, controller.routerLBRuleSynced, controller.switchLBRuleSynced, controller.vpcDNSSynced)
+		cacheSyncs = append(cacheSyncs, controller.routerLBRuleSynced, controller.switchLBRuleSynced)
+	}
+	cacheSyncs = append(cacheSyncs, controller.dnsZoneSynced)
+	if controller.config.EnableLb {
 	}
 	if controller.ovnLbSvcEnabled() {
 		cacheSyncs = append(cacheSyncs, controller.loadBalancerPoolSynced)
@@ -759,6 +764,14 @@ func Run(ctx context.Context, config *Configuration) {
 		DeleteFunc: controller.enqueueDelVpc,
 	}); err != nil {
 		util.LogFatalAndExit(err, "failed to add vpc event handler")
+	}
+
+	if _, err = dnsZoneInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.enqueueAddDnsZone,
+		UpdateFunc: controller.enqueueUpdateDnsZone,
+		DeleteFunc: controller.enqueueDeleteDnsZone,
+	}); err != nil {
+		util.LogFatalAndExit(err, "failed to add dns zone event handler")
 	}
 
 	if _, err = subnetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -856,14 +869,6 @@ func Run(ctx context.Context, config *Configuration) {
 			DeleteFunc: controller.enqueueDeleteSwitchLBRule,
 		}); err != nil {
 			util.LogFatalAndExit(err, "failed to add switch lb rule event handler")
-		}
-
-		if _, err = vpcDNSInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    controller.enqueueAddVpcDNS,
-			UpdateFunc: controller.enqueueUpdateVpcDNS,
-			DeleteFunc: controller.enqueueDeleteVPCDNS,
-		}); err != nil {
-			util.LogFatalAndExit(err, "failed to add vpc dns event handler")
 		}
 	}
 
@@ -1095,9 +1100,6 @@ func (c *Controller) shutdown() {
 		c.addSwitchLBRuleQueue.ShutDown()
 		c.delSwitchLBRuleQueue.ShutDown()
 		c.updateSwitchLBRuleQueue.ShutDown()
-
-		c.addOrUpdateVpcDNSQueue.ShutDown()
-		c.delVpcDNSQueue.ShutDown()
 	}
 
 	if c.ovnLbSvcEnabled() {
@@ -1149,6 +1151,8 @@ func (c *Controller) shutdown() {
 		c.deleteCnpQueue.ShutDown()
 	}
 
+	c.addOrUpdateDnsZoneQueue.ShutDown()
+	c.delDnsZoneQueue.ShutDown()
 	c.addOrUpdateSgQueue.ShutDown()
 	c.delSgQueue.ShutDown()
 	c.syncSgPortsQueue.ShutDown()
@@ -1225,12 +1229,6 @@ func (c *Controller) startWorkers(ctx context.Context) {
 		go wait.Until(runWorker("add/update switch lb rule", c.addSwitchLBRuleQueue, c.handleAddOrUpdateSwitchLBRule), time.Second, ctx.Done())
 		go wait.Until(runWorker("delete switch lb rule", c.delSwitchLBRuleQueue, c.handleDelSwitchLBRule), time.Second, ctx.Done())
 		go wait.Until(runWorker("delete switch lb rule", c.updateSwitchLBRuleQueue, c.handleUpdateSwitchLBRule), time.Second, ctx.Done())
-
-		go wait.Until(runWorker("add/update vpc dns", c.addOrUpdateVpcDNSQueue, c.handleAddOrUpdateVPCDNS), time.Second, ctx.Done())
-		go wait.Until(runWorker("delete vpc dns", c.delVpcDNSQueue, c.handleDelVpcDNS), time.Second, ctx.Done())
-		go wait.Until(func() {
-			c.resyncVpcDNSConfig()
-		}, 5*time.Second, ctx.Done())
 	}
 
 	if c.ovnLbSvcEnabled() {
@@ -1330,6 +1328,8 @@ func (c *Controller) startWorkers(ctx context.Context) {
 		go wait.Until(runWorker("delete cluster network policy", c.deleteCnpQueue, c.handleDeleteCnp), time.Second, ctx.Done())
 	}
 
+	go wait.Until(runWorker("add/update dns zone", c.addOrUpdateDnsZoneQueue, c.handleAddOrUpdateDnsZone), time.Second, ctx.Done())
+	go wait.Until(runWorker("delete dns zone", c.delDnsZoneQueue, c.handleDelDnsZone), time.Second, ctx.Done())
 	go c.domainResolver.run(ctx)
 
 	if c.config.EnableLiveMigrationOptimize {
@@ -1369,12 +1369,6 @@ func (c *Controller) initResourceOnce() {
 	}
 	if err := c.syncSecurityGroup(); err != nil {
 		util.LogFatalAndExit(err, "failed to sync security group")
-	}
-
-	if c.config.EnableLb {
-		if err := c.initVpcDNSConfig(); err != nil {
-			util.LogFatalAndExit(err, "failed to initialize vpc-dns")
-		}
 	}
 
 	// remove resources in ovndb that not exist any more in kubernetes resources

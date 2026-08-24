@@ -18,38 +18,36 @@ limitations under the License.
 
 package v1
 
-// VpcDNSStatusApplyConfiguration represents a declarative configuration of the VpcDNSStatus type for use
+// DnsZoneStatusApplyConfiguration represents a declarative configuration of the DnsZoneStatus type for use
 // with apply.
-type VpcDNSStatusApplyConfiguration struct {
-	// Conditions represent the latest state of the VPC DNS
-	Conditions []ConditionApplyConfiguration `json:"conditions,omitempty"`
-	// Whether the VPC DNS service is active
-	Active *bool `json:"active,omitempty"`
+type DnsZoneStatusApplyConfiguration struct {
+	ActiveRecords *int32                        `json:"activeRecords,omitempty"`
+	Conditions    []ConditionApplyConfiguration `json:"conditions,omitempty"`
 }
 
-// VpcDNSStatusApplyConfiguration constructs a declarative configuration of the VpcDNSStatus type for use with
+// DnsZoneStatusApplyConfiguration constructs a declarative configuration of the DnsZoneStatus type for use with
 // apply.
-func VpcDNSStatus() *VpcDNSStatusApplyConfiguration {
-	return &VpcDNSStatusApplyConfiguration{}
+func DnsZoneStatus() *DnsZoneStatusApplyConfiguration {
+	return &DnsZoneStatusApplyConfiguration{}
+}
+
+// WithActiveRecords sets the ActiveRecords field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ActiveRecords field is set to the value of the last call.
+func (b *DnsZoneStatusApplyConfiguration) WithActiveRecords(value int32) *DnsZoneStatusApplyConfiguration {
+	b.ActiveRecords = &value
+	return b
 }
 
 // WithConditions adds the given value to the Conditions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Conditions field.
-func (b *VpcDNSStatusApplyConfiguration) WithConditions(values ...*ConditionApplyConfiguration) *VpcDNSStatusApplyConfiguration {
+func (b *DnsZoneStatusApplyConfiguration) WithConditions(values ...*ConditionApplyConfiguration) *DnsZoneStatusApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithConditions")
 		}
 		b.Conditions = append(b.Conditions, *values[i])
 	}
-	return b
-}
-
-// WithActive sets the Active field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the Active field is set to the value of the last call.
-func (b *VpcDNSStatusApplyConfiguration) WithActive(value bool) *VpcDNSStatusApplyConfiguration {
-	b.Active = &value
 	return b
 }

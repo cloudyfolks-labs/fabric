@@ -25,24 +25,24 @@ import (
 	gentype "k8s.io/client-go/gentype"
 )
 
-// fakeVpcDnses implements VpcDnsInterface
-type fakeVpcDnses struct {
-	*gentype.FakeClientWithListAndApply[*v1.VpcDns, *v1.VpcDnsList, *kubeovnv1.VpcDnsApplyConfiguration]
+// fakeDnsZones implements DnsZoneInterface
+type fakeDnsZones struct {
+	*gentype.FakeClientWithListAndApply[*v1.DnsZone, *v1.DnsZoneList, *kubeovnv1.DnsZoneApplyConfiguration]
 	Fake *FakeFabricV1
 }
 
-func newFakeVpcDnses(fake *FakeFabricV1) typedkubeovnv1.VpcDnsInterface {
-	return &fakeVpcDnses{
-		gentype.NewFakeClientWithListAndApply[*v1.VpcDns, *v1.VpcDnsList, *kubeovnv1.VpcDnsApplyConfiguration](
+func newFakeDnsZones(fake *FakeFabricV1) typedkubeovnv1.DnsZoneInterface {
+	return &fakeDnsZones{
+		gentype.NewFakeClientWithListAndApply[*v1.DnsZone, *v1.DnsZoneList, *kubeovnv1.DnsZoneApplyConfiguration](
 			fake.Fake,
 			"",
-			v1.SchemeGroupVersion.WithResource("vpc-dnses"),
-			v1.SchemeGroupVersion.WithKind("VpcDns"),
-			func() *v1.VpcDns { return &v1.VpcDns{} },
-			func() *v1.VpcDnsList { return &v1.VpcDnsList{} },
-			func(dst, src *v1.VpcDnsList) { dst.ListMeta = src.ListMeta },
-			func(list *v1.VpcDnsList) []*v1.VpcDns { return gentype.ToPointerSlice(list.Items) },
-			func(list *v1.VpcDnsList, items []*v1.VpcDns) { list.Items = gentype.FromPointerSlice(items) },
+			v1.SchemeGroupVersion.WithResource("dns-zones"),
+			v1.SchemeGroupVersion.WithKind("DnsZone"),
+			func() *v1.DnsZone { return &v1.DnsZone{} },
+			func() *v1.DnsZoneList { return &v1.DnsZoneList{} },
+			func(dst, src *v1.DnsZoneList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.DnsZoneList) []*v1.DnsZone { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1.DnsZoneList, items []*v1.DnsZone) { list.Items = gentype.FromPointerSlice(items) },
 		),
 		fake,
 	}

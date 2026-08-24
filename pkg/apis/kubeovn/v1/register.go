@@ -61,10 +61,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VipList{},
 		&Vlan{},
 		&VlanList{},
+		&DnsZone{},
+		&DnsZoneList{},
 		&Vpc{},
 		&VpcList{},
-		&VpcDns{},
-		&VpcDnsList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

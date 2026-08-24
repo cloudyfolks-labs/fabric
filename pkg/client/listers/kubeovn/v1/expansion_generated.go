@@ -22,6 +22,10 @@ package v1
 // BgpConfLister.
 type BgpConfListerExpansion interface{}
 
+// DnsZoneListerExpansion allows custom methods to be added to
+// DnsZoneLister.
+type DnsZoneListerExpansion interface{}
+
 // IPListerExpansion allows custom methods to be added to
 // IPLister.
 type IPListerExpansion interface{}
@@ -81,7 +85,3 @@ type VlanListerExpansion interface{}
 // VpcListerExpansion allows custom methods to be added to
 // VpcLister.
 type VpcListerExpansion interface{}
-
-// VpcDnsListerExpansion allows custom methods to be added to
-// VpcDnsLister.
-type VpcDnsListerExpansion interface{}

@@ -13,6 +13,7 @@ import (
 
 	// Import tests.
 	_ "github.com/kubeovn/kube-ovn/test/e2e/kube-ovn/crd"
+	_ "github.com/kubeovn/kube-ovn/test/e2e/kube-ovn/dns_zone"
 	_ "github.com/kubeovn/kube-ovn/test/e2e/kube-ovn/ipam"
 	_ "github.com/kubeovn/kube-ovn/test/e2e/kube-ovn/kubectl-ko"
 	_ "github.com/kubeovn/kube-ovn/test/e2e/kube-ovn/network-policy"

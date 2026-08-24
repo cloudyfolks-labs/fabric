@@ -29,6 +29,7 @@ import (
 type FabricV1Interface interface {
 	RESTClient() rest.Interface
 	BgpConvesGetter
+	DnsZonesGetter
 	IPsGetter
 	IPPoolsGetter
 	LoadBalancerPoolsGetter
@@ -44,7 +45,6 @@ type FabricV1Interface interface {
 	VipsGetter
 	VlansGetter
 	VpcsGetter
-	VpcDnsesGetter
 }
 
 // FabricV1Client is used to interact with features provided by the fabric.cloudyfolks.io group.
@@ -54,6 +54,10 @@ type FabricV1Client struct {
 
 func (c *FabricV1Client) BgpConves() BgpConfInterface {
 	return newBgpConves(c)
+}
+
+func (c *FabricV1Client) DnsZones() DnsZoneInterface {
+	return newDnsZones(c)
 }
 
 func (c *FabricV1Client) IPs() IPInterface {
@@ -114,10 +118,6 @@ func (c *FabricV1Client) Vlans() VlanInterface {
 
 func (c *FabricV1Client) Vpcs() VpcInterface {
 	return newVpcs(c)
-}
-
-func (c *FabricV1Client) VpcDnses() VpcDnsInterface {
-	return newVpcDnses(c)
 }
 
 // NewForConfig creates a new FabricV1Client for the given config.

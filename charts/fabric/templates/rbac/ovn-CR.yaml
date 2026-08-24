@@ -39,8 +39,8 @@ rules:
       - switch-lb-rules/status
       - router-lb-rules
       - router-lb-rules/status
-      - vpc-dnses
-      - vpc-dnses/status
+      - dns-zones
+      - dns-zones/status
       - bgp-confs
       - bgp-confs/status
     verbs:

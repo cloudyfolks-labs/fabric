@@ -59,8 +59,8 @@ func TestDeepCopyObject(t *testing.T) {
 	deepCopyObjectTestHelper(t, &VipList{})
 	deepCopyObjectTestHelper(t, &Vlan{})
 	deepCopyObjectTestHelper(t, &VlanList{})
+	deepCopyObjectTestHelper(t, &DnsZone{})
+	deepCopyObjectTestHelper(t, &DnsZoneList{})
 	deepCopyObjectTestHelper(t, &Vpc{})
 	deepCopyObjectTestHelper(t, &VpcList{})
-	deepCopyObjectTestHelper(t, &VpcDns{})
-	deepCopyObjectTestHelper(t, &VpcDnsList{})
 }

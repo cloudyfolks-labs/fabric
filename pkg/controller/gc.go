@@ -40,6 +40,7 @@ func (c *Controller) gc() error {
 		c.gcCustomLogicalRouter,
 		// The lsp gc is processed periodically by markAndCleanLSP, will not gc lsp when init
 		c.gcLoadBalancer,
+		c.gcDnsZones,
 		c.gcNetworkPolicy,
 		c.gcSecurityGroup,
 		c.gcAddressSet,
@@ -49,7 +50,6 @@ func (c *Controller) gc() error {
 		c.gcIP,
 		c.gcVip,
 		c.gcLbSvcPods,
-		c.gcVPCDNS,
 		c.gcRouterLBRules,
 		c.gcOvnLbSvcEips,
 	}
@@ -1170,74 +1170,6 @@ func (c *Controller) gcLbSvcPods() error {
 		}
 	}
 	klog.Infof("finish to gc lb svc pods")
-	return nil
-}
-
-func (c *Controller) gcVPCDNS() error {
-	if !c.config.EnableLb {
-		return nil
-	}
-
-	klog.Infof("start to gc vpc dns")
-	vds, err := c.vpcDNSLister.List(labels.Everything())
-	if err != nil {
-		klog.Errorf("failed to list vpc-dns, %v", err)
-		return err
-	}
-
-	labelSelector := labels.Set{util.VpcDNSNameLabel: "true"}.AsSelector()
-	deps, err := c.config.KubeClient.AppsV1().Deployments(c.config.PodNamespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
-	})
-	if err != nil {
-		klog.Errorf("failed to list vpc-dns deployment, %s", err)
-		return err
-	}
-
-	for _, dep := range deps.Items {
-		canFind := false
-		for _, vd := range vds {
-			name := genVpcDNSDpName(vd.Name)
-			if dep.Name == name {
-				canFind = true
-				break
-			}
-		}
-		if !canFind {
-			err := c.config.KubeClient.AppsV1().Deployments(c.config.PodNamespace).Delete(context.Background(),
-				dep.Name, metav1.DeleteOptions{})
-			if err != nil {
-				klog.Errorf("failed to delete vpc-dns deployment, %s", err)
-				return err
-			}
-		}
-	}
-
-	slrs, err := c.switchLBRuleLister.List(labelSelector)
-	if err != nil {
-		klog.Errorf("failed to list vpc-dns SwitchLBRules, %s", err)
-		return err
-	}
-
-	for _, slr := range slrs {
-		canFind := false
-		for _, vd := range vds {
-			name := genVpcDNSDpName(vd.Name)
-			if slr.Name == name {
-				canFind = true
-				break
-			}
-		}
-		if !canFind {
-			err := c.config.KubeOvnClient.FabricV1().SwitchLBRules().Delete(context.Background(),
-				slr.Name, metav1.DeleteOptions{})
-			if err != nil {
-				klog.Errorf("failed to delete vpc-dns SwitchLBRule, %s", err)
-				return err
-			}
-		}
-	}
-	klog.Infof("finish to gc vpc dns")
 	return nil
 }
 

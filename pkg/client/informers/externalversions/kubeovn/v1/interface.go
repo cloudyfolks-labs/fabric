@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// BgpConves returns a BgpConfInformer.
 	BgpConves() BgpConfInformer
+	// DnsZones returns a DnsZoneInformer.
+	DnsZones() DnsZoneInformer
 	// IPs returns a IPInformer.
 	IPs() IPInformer
 	// IPPools returns a IPPoolInformer.
@@ -56,8 +58,6 @@ type Interface interface {
 	Vlans() VlanInformer
 	// Vpcs returns a VpcInformer.
 	Vpcs() VpcInformer
-	// VpcDnses returns a VpcDnsInformer.
-	VpcDnses() VpcDnsInformer
 }
 
 type version struct {
@@ -74,6 +74,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // BgpConves returns a BgpConfInformer.
 func (v *version) BgpConves() BgpConfInformer {
 	return &bgpConfInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// DnsZones returns a DnsZoneInformer.
+func (v *version) DnsZones() DnsZoneInformer {
+	return &dnsZoneInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // IPs returns a IPInformer.
@@ -149,9 +154,4 @@ func (v *version) Vlans() VlanInformer {
 // Vpcs returns a VpcInformer.
 func (v *version) Vpcs() VpcInformer {
 	return &vpcInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// VpcDnses returns a VpcDnsInformer.
-func (v *version) VpcDnses() VpcDnsInformer {
-	return &vpcDnsInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
