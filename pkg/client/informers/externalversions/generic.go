@@ -55,8 +55,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=fabric.cloudyfolks.io, Version=v1
 	case v1.SchemeGroupVersion.WithResource("bgp-confs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().BgpConves().Informer()}, nil
-	case v1.SchemeGroupVersion.WithResource("dnsnameresolvers"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().DNSNameResolvers().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ips"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().IPs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ippools"):

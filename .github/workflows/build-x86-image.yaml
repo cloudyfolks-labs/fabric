@@ -2733,15 +2733,9 @@ jobs:
           pipx install jinjanator
           make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
 
-      - name: Build DNSNameResolver image
-        run: |
-          cd dnsnameresolver
-          make build
-          make install
-
       - name: Install Kube-OVN
         id: install
-        run: make kind-install-anp-dns-resolver
+        run: make kind-install-anp
 
       - name: Run CNP Domain E2E
         id: e2e
@@ -2877,15 +2871,9 @@ jobs:
           pipx install jinjanator
           make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
 
-      - name: Build DNSNameResolver image
-        run: |
-          cd dnsnameresolver
-          make build
-          make install
-
       - name: Install Kube-OVN
         id: install
-        run: make kind-install-anp-dns-resolver
+        run: make kind-install-anp
 
       - name: Run ANP Domain E2E
         id: e2e

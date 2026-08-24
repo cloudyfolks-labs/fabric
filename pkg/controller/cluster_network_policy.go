@@ -217,13 +217,7 @@ func (c *Controller) handleAddCnp(key string) (err error) {
 		return err
 	}
 
-	// Reconcile DNSNameResolvers for all collected domain names
-	if c.config.EnableDNSNameResolver {
-		if err := c.reconcileDNSNameResolversForANP(cnpName, getCnpDomainsNames(cnp)); err != nil {
-			klog.Errorf("failed to reconcile DNSNameResolvers for CNP %s: %v", cnp.Name, err)
-			return err
-		}
-	}
+	c.domainResolver.setPolicyDomains(cnpName, getCnpDomainsNames(cnp))
 
 	// hasCnpDomainNames is invariant across egress rules, so compute it once
 	hasDomainNames := hasCnpDomainNames(cnp)
@@ -336,7 +330,7 @@ func (c *Controller) handleUpdateCnp(changed *ClusterNetworkPolicyChangedDelta) 
 			needAddrSetUpdate := rule.Name == changed.ruleNames[index].curRuleName || changed.DNSReconcileDone
 
 			// Check if we need to reconcile DNS resolvers (DNS feature enabled and not already done)
-			needDNSReconcile := c.config.EnableDNSNameResolver && !changed.DNSReconcileDone
+			needDNSReconcile := !changed.DNSReconcileDone
 
 			if needAddrSetUpdate {
 				if err := c.setAddrSetForCnpRule(cnpName, pgName, rule.Name, index, []v1alpha2.ClusterNetworkPolicyIngressPeer{}, rule.To, false, false); err != nil {
@@ -345,10 +339,7 @@ func (c *Controller) handleUpdateCnp(changed *ClusterNetworkPolicyChangedDelta) 
 				}
 
 				if needDNSReconcile {
-					if err := c.reconcileDNSNameResolversForANP(cnpName, getCnpDomainsNames(desiredCnp)); err != nil {
-						klog.Errorf("failed to reconcile DNSNameResolvers for egress rule %s/%s, %v", cnpName, rule.Name, err)
-						return err
-					}
+					c.domainResolver.setPolicyDomains(cnpName, getCnpDomainsNames(desiredCnp))
 				}
 			}
 		}
@@ -398,13 +389,7 @@ func (c *Controller) handleDeleteCnp(cnp *v1alpha2.ClusterNetworkPolicy) error {
 		klog.Errorf("failed to delete egress address set for cnp %s: %v", cnp.Name, err)
 	}
 
-	// Delete all DNSNameResolver CRs associated with this CNP
-	if c.config.EnableDNSNameResolver {
-		if err := c.reconcileDNSNameResolversForANP(cnpName, []string{}); err != nil {
-			// Do not exit on errors, try to go as far as possible in the deletion
-			klog.Errorf("failed to delete DNSNameResolver CRs for cnp %s: %v", cnpName, err)
-		}
-	}
+	c.domainResolver.setPolicyDomains(cnpName, nil)
 
 	return nil
 }
@@ -658,16 +643,8 @@ func (c *Controller) fetchEgressSelectedAddressesCommonByCnp(namespaces *metav1.
 	case len(networks) != 0:
 		v4Addresses, v6Addresses = fetchCnpCIDRAddresses(networks)
 	case len(domainNames) != 0:
-		// DomainNames field is present - resolve addresses from DNSNameResolver
-		if !c.config.EnableDNSNameResolver {
-			return nil, nil, fmt.Errorf("DNSNameResolver is disabled but domain names are specified: %v", domainNames)
-		}
 		klog.Infof("DomainNames detected in egress peer: %v", domainNames)
-		var err error
-		v4Addresses, v6Addresses, err = c.resolveDomainNamesForCnp(domainNames)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to resolve domain names: %w", err)
-		}
+		v4Addresses, v6Addresses = c.resolveDomainNamesForCnp(domainNames)
 	default:
 		return nil, nil, errors.New("at least one egressPeer must be specified")
 	}
@@ -740,38 +717,14 @@ func (c *Controller) setAddrSetForCnpRuleCommon(anpName, pgName, ruleName string
 	return nil
 }
 
-// resolveDomainNames resolves domain names to IP addresses using DNSNameResolver lister
-func (c *Controller) resolveDomainNamesForCnp(domainNames []v1alpha2.DomainName) ([]string, []string, error) {
+func (c *Controller) resolveDomainNamesForCnp(domainNames []v1alpha2.DomainName) ([]string, []string) {
 	var allV4Addresses, allV6Addresses []string
-
 	for _, domainName := range domainNames {
-		// O(1) lookup via the Spec.Name informer index instead of listing all resolvers
-		objs, err := c.dnsNameResolverIndexer.ByIndex(IndexDNSNameResolverByName, string(domainName))
-		if err != nil {
-			klog.Errorf("failed to query DNSNameResolver index for domain %s: %v", domainName, err)
-			continue
-		}
-		if len(objs) == 0 {
-			klog.V(3).Infof("no DNSNameResolver found for domain %s, skipping", domainName)
-			continue
-		}
-		foundResolver, ok := objs[0].(*kubeovnv1.DNSNameResolver)
-		if !ok {
-			continue
-		}
-
-		// Get resolved addresses from DNSNameResolver
-		v4Addresses, v6Addresses, err := getResolvedAddressesFromDNSNameResolver(foundResolver)
-		if err != nil {
-			klog.Errorf("failed to get resolved addresses from DNSNameResolver %s: %v", foundResolver.Name, err)
-			continue
-		}
-
+		v4Addresses, v6Addresses := c.domainResolver.addresses(string(domainName))
 		allV4Addresses = append(allV4Addresses, v4Addresses...)
 		allV6Addresses = append(allV6Addresses, v6Addresses...)
 	}
-
-	return allV4Addresses, allV6Addresses, nil
+	return allV4Addresses, allV6Addresses
 }
 
 func (c *Controller) updateCnpsByLabelsMatch(nsLabels, podLabels map[string]string) {

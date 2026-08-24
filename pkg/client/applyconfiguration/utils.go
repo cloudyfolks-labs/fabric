@@ -52,16 +52,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kubeovnv1.ConditionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CustomInterface"):
 		return &kubeovnv1.CustomInterfaceApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DNSNameResolver"):
-		return &kubeovnv1.DNSNameResolverApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DNSNameResolverResolvedAddress"):
-		return &kubeovnv1.DNSNameResolverResolvedAddressApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DNSNameResolverResolvedName"):
-		return &kubeovnv1.DNSNameResolverResolvedNameApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DNSNameResolverSpec"):
-		return &kubeovnv1.DNSNameResolverSpecApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DNSNameResolverStatus"):
-		return &kubeovnv1.DNSNameResolverStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IP"):
 		return &kubeovnv1.IPApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPPool"):

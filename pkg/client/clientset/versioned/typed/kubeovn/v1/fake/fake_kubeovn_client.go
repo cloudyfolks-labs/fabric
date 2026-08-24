@@ -32,10 +32,6 @@ func (c *FakeFabricV1) BgpConves() v1.BgpConfInterface {
 	return newFakeBgpConves(c)
 }
 
-func (c *FakeFabricV1) DNSNameResolvers() v1.DNSNameResolverInterface {
-	return newFakeDNSNameResolvers(c)
-}
-
 func (c *FakeFabricV1) IPs() v1.IPInterface {
 	return newFakeIPs(c)
 }

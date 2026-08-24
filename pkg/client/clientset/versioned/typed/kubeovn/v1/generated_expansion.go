@@ -20,8 +20,6 @@ package v1
 
 type BgpConfExpansion interface{}
 
-type DNSNameResolverExpansion interface{}
-
 type IPExpansion interface{}
 
 type IPPoolExpansion interface{}

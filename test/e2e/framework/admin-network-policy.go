@@ -2,8 +2,6 @@ package framework
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	netpolv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
@@ -11,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	netpolv1alpha1 "sigs.k8s.io/network-policy-api/apis/v1alpha1"
 	anpclient "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
 	cnpclient "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
@@ -171,42 +168,5 @@ func (c *AnpClient) Delete(name string) {
 // CreateSync creates the AdminNetworkPolicy and waits for it to be ready.
 func (c *AnpClient) CreateSync(anp *netpolv1alpha1.AdminNetworkPolicy) *netpolv1alpha1.AdminNetworkPolicy {
 	ginkgo.GinkgoHelper()
-	anp = c.Create(anp)
-
-	// Wait for DNSNameResolver CRs to be created if the ANP has domain names
-	if c.hasDomainNames(anp) {
-		c.waitForDNSNameResolvers(anp.Name)
-	}
-
-	return anp
-}
-
-// hasDomainNames checks if the ANP has any domain names in its egress rules
-func (c *AnpClient) hasDomainNames(anp *netpolv1alpha1.AdminNetworkPolicy) bool {
-	for _, egressRule := range anp.Spec.Egress {
-		for _, peer := range egressRule.To {
-			if len(peer.DomainNames) > 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// waitForDNSNameResolvers waits for DNSNameResolver CRs to be created for the ANP
-func (c *AnpClient) waitForDNSNameResolvers(anpName string) {
-	ginkgo.GinkgoHelper()
-
-	// Get DNSNameResolver client
-	dnsNameResolverClient := c.f.DNSNameResolverClient()
-
-	// Wait for at least one DNSNameResolver to be created with the ANP label
-	expectedLabel := fmt.Sprintf("anp=%s", anpName)
-
-	err := wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, 30*time.Second, true, func(_ context.Context) (bool, error) {
-		dnsNameResolverList := dnsNameResolverClient.ListByLabel(expectedLabel)
-		return len(dnsNameResolverList.Items) > 0, nil
-	})
-
-	ExpectNoError(err, "Failed to wait for DNSNameResolver CRs to be created for ANP %s", anpName)
+	return c.Create(anp)
 }

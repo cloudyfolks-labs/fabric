@@ -33,8 +33,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&BgpConf{},
 		&BgpConfList{},
-		&DNSNameResolver{},
-		&DNSNameResolverList{},
 		&IP{},
 		&IPList{},
 		&IPPool{},

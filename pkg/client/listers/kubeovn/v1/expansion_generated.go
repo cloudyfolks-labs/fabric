@@ -22,10 +22,6 @@ package v1
 // BgpConfLister.
 type BgpConfListerExpansion interface{}
 
-// DNSNameResolverListerExpansion allows custom methods to be added to
-// DNSNameResolverLister.
-type DNSNameResolverListerExpansion interface{}
-
 // IPListerExpansion allows custom methods to be added to
 // IPLister.
 type IPListerExpansion interface{}

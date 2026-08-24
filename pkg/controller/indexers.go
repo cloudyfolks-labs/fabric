@@ -11,12 +11,11 @@ import (
 )
 
 const (
-	IndexPodByNode             = "byNodeName"
-	IndexEPSByService          = "byServiceName"
-	IndexDNSNameResolverByName = "byDNSName"
-	IndexIPBySubnet            = "bySubnet"
-	IndexVpcByBFDPort          = "byBFDPort"
-	IndexVpcBFDPortEnabled     = "enabled"
+	IndexPodByNode         = "byNodeName"
+	IndexEPSByService      = "byServiceName"
+	IndexIPBySubnet        = "bySubnet"
+	IndexVpcByBFDPort      = "byBFDPort"
+	IndexVpcBFDPortEnabled = "enabled"
 )
 
 func indexPodByNode(obj any) ([]string, error) {
@@ -37,14 +36,6 @@ func indexEPSByService(obj any) ([]string, error) {
 		return nil, nil
 	}
 	return []string{eps.Namespace + "/" + svc}, nil
-}
-
-func indexDNSNameResolverByName(obj any) ([]string, error) {
-	r, ok := obj.(*kubeovnv1.DNSNameResolver)
-	if !ok || r.Spec.Name == "" {
-		return nil, nil
-	}
-	return []string{string(r.Spec.Name)}, nil
 }
 
 func indexVpcByBFDPort(obj any) ([]string, error) {

@@ -26,8 +26,6 @@ import (
 type Interface interface {
 	// BgpConves returns a BgpConfInformer.
 	BgpConves() BgpConfInformer
-	// DNSNameResolvers returns a DNSNameResolverInformer.
-	DNSNameResolvers() DNSNameResolverInformer
 	// IPs returns a IPInformer.
 	IPs() IPInformer
 	// IPPools returns a IPPoolInformer.
@@ -76,11 +74,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // BgpConves returns a BgpConfInformer.
 func (v *version) BgpConves() BgpConfInformer {
 	return &bgpConfInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// DNSNameResolvers returns a DNSNameResolverInformer.
-func (v *version) DNSNameResolvers() DNSNameResolverInformer {
-	return &dNSNameResolverInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // IPs returns a IPInformer.

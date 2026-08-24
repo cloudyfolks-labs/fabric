@@ -29,7 +29,6 @@ import (
 type FabricV1Interface interface {
 	RESTClient() rest.Interface
 	BgpConvesGetter
-	DNSNameResolversGetter
 	IPsGetter
 	IPPoolsGetter
 	LoadBalancerPoolsGetter
@@ -55,10 +54,6 @@ type FabricV1Client struct {
 
 func (c *FabricV1Client) BgpConves() BgpConfInterface {
 	return newBgpConves(c)
-}
-
-func (c *FabricV1Client) DNSNameResolvers() DNSNameResolverInterface {
-	return newDNSNameResolvers(c)
 }
 
 func (c *FabricV1Client) IPs() IPInterface {

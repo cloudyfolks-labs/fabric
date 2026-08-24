@@ -41,8 +41,6 @@ rules:
       - router-lb-rules/status
       - vpc-dnses
       - vpc-dnses/status
-      - dnsnameresolvers
-      - dnsnameresolvers/status
       - bgp-confs
       - bgp-confs/status
     verbs:
