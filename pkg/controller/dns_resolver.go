@@ -31,12 +31,28 @@ type domainResolver struct {
 	notify  func(policy string)
 }
 
-func newDomainResolver(notify func(policy string)) *domainResolver {
-	resolver := &net.Resolver{}
+func newDomainResolver(dnsServer func() string, notify func(policy string)) *domainResolver {
+	fallback := &net.Resolver{}
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			if server := dnsServer(); server != "" {
+				address = server
+			}
+			var dialer net.Dialer
+			return dialer.DialContext(ctx, network, address)
+		},
+	}
 	return &domainResolver{
 		domains: make(map[string]*domainEntry),
-		lookup:  resolver.LookupIPAddr,
-		notify:  notify,
+		lookup: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			addrs, err := resolver.LookupIPAddr(ctx, host)
+			if err != nil && dnsServer() == "" {
+				return fallback.LookupIPAddr(ctx, host)
+			}
+			return addrs, err
+		},
+		notify: notify,
 	}
 }
 

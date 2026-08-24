@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
 	"runtime"
 	"strings"
 	"sync"
@@ -648,7 +649,13 @@ func Run(ctx context.Context, config *Configuration) {
 		controller.cnpKeyMutex = keymutex.NewHashed(numKeyLocks)
 	}
 
-	controller.domainResolver = newDomainResolver(func(policy string) {
+	controller.domainResolver = newDomainResolver(func() string {
+		svc, err := controller.servicesLister.Services("kube-system").Get("kube-dns")
+		if err != nil || svc.Spec.ClusterIP == "" || svc.Spec.ClusterIP == corev1.ClusterIPNone {
+			return ""
+		}
+		return net.JoinHostPort(svc.Spec.ClusterIP, "53")
+	}, func(policy string) {
 		if !controller.config.EnableANP {
 			return
 		}

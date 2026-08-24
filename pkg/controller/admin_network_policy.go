@@ -391,7 +391,9 @@ func (c *Controller) handleDeleteAnp(anp *v1alpha1.AdminNetworkPolicy) error {
 		return err
 	}
 
-	c.domainResolver.setPolicyDomains(anpName, nil)
+	if _, err := c.anpsLister.Get(anpName); err != nil {
+		c.domainResolver.setPolicyDomains(anpName, nil)
+	}
 
 	return nil
 }

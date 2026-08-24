@@ -20,7 +20,6 @@ import (
 	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
 	"github.com/kubeovn/kube-ovn/pkg/util"
 
-	"sigs.k8s.io/network-policy-api/apis/v1alpha1"
 	"sigs.k8s.io/network-policy-api/apis/v1alpha2"
 )
 
@@ -316,7 +315,7 @@ func (c *Controller) handleUpdateCnp(changed *ClusterNetworkPolicyChangedDelta) 
 		for index, rule := range desiredCnp.Spec.Ingress {
 			// Make sure the rule is changed and go on update
 			if rule.Name == changed.ruleNames[index].curRuleName {
-				if err := c.setAddrSetForCnpRule(cnpName, pgName, rule.Name, index, rule.From, []v1alpha2.ClusterNetworkPolicyEgressPeer{}, true, false); err != nil {
+				if err := c.setAddrSetForCnpRule(cnpName, pgName, rule.Name, index, rule.From, []v1alpha2.ClusterNetworkPolicyEgressPeer{}, true); err != nil {
 					klog.Errorf("failed to set ingress address-set for cnp rule %s/%s, %v", cnpName, rule.Name, err)
 					return err
 				}
@@ -333,7 +332,7 @@ func (c *Controller) handleUpdateCnp(changed *ClusterNetworkPolicyChangedDelta) 
 			needDNSReconcile := !changed.DNSReconcileDone
 
 			if needAddrSetUpdate {
-				if err := c.setAddrSetForCnpRule(cnpName, pgName, rule.Name, index, []v1alpha2.ClusterNetworkPolicyIngressPeer{}, rule.To, false, false); err != nil {
+				if err := c.setAddrSetForCnpRule(cnpName, pgName, rule.Name, index, []v1alpha2.ClusterNetworkPolicyIngressPeer{}, rule.To, false); err != nil {
 					klog.Errorf("failed to set egress address-set for cnp rule %s/%s, %v", cnpName, rule.Name, err)
 					return err
 				}
@@ -389,7 +388,9 @@ func (c *Controller) handleDeleteCnp(cnp *v1alpha2.ClusterNetworkPolicy) error {
 		klog.Errorf("failed to delete egress address set for cnp %s: %v", cnp.Name, err)
 	}
 
-	c.domainResolver.setPolicyDomains(cnpName, nil)
+	if _, err := c.cnpsLister.Get(cnpName); err != nil {
+		c.domainResolver.setPolicyDomains(cnpName, nil)
+	}
 
 	return nil
 }
@@ -652,11 +653,7 @@ func (c *Controller) fetchEgressSelectedAddressesCommonByCnp(namespaces *metav1.
 	return v4Addresses, v6Addresses, nil
 }
 
-func (c *Controller) setAddrSetForCnpRule(anpName, pgName, ruleName string, index int, from []v1alpha2.ClusterNetworkPolicyIngressPeer, to []v1alpha2.ClusterNetworkPolicyEgressPeer, isIngress, isBanp bool) error {
-	return c.setAddrSetForCnpRuleCommon(anpName, pgName, ruleName, index, from, to, nil, isIngress, isBanp)
-}
-
-func (c *Controller) setAddrSetForCnpRuleCommon(anpName, pgName, ruleName string, index int, from []v1alpha2.ClusterNetworkPolicyIngressPeer, to []v1alpha2.ClusterNetworkPolicyEgressPeer, baselineTo []v1alpha1.BaselineAdminNetworkPolicyEgressPeer, isIngress, isBanp bool) error {
+func (c *Controller) setAddrSetForCnpRule(anpName, pgName, ruleName string, index int, from []v1alpha2.ClusterNetworkPolicyIngressPeer, to []v1alpha2.ClusterNetworkPolicyEgressPeer, isIngress bool) error {
 	// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
 
 	var v4Addrs, v4Addr, v6Addrs, v6Addr []string
@@ -673,42 +670,31 @@ func (c *Controller) setAddrSetForCnpRuleCommon(anpName, pgName, ruleName string
 		klog.Infof("update anp/banp ingress rule %s, selected v4 address %v, v6 address %v", ruleName, v4Addrs, v6Addrs)
 
 		gressAsV4Name, gressAsV6Name := getAnpAddressSetName(pgName, ruleName, index, true)
-		if err = c.createAsForAnpRule(anpName, ruleName, "ingress", gressAsV4Name, v4Addrs, isBanp); err != nil {
+		if err = c.createCnpAddressSet(anpName, ruleName, "ingress", gressAsV4Name, v4Addrs); err != nil {
 			klog.Error(err)
 			return err
 		}
-		if err = c.createAsForAnpRule(anpName, ruleName, "ingress", gressAsV6Name, v6Addrs, isBanp); err != nil {
+		if err = c.createCnpAddressSet(anpName, ruleName, "ingress", gressAsV6Name, v6Addrs); err != nil {
 			klog.Error(err)
 			return err
 		}
 	} else {
-		if to != nil {
-			for _, anprpeer := range to {
-				if v4Addr, v6Addr, err = c.fetchEgressSelectedAddressesByCnp(&anprpeer); err != nil {
-					klog.Errorf("failed to fetch anp/banp egress selected addresses, %v", err)
-					return err
-				}
-				v4Addrs = append(v4Addrs, v4Addr...)
-				v6Addrs = append(v6Addrs, v6Addr...)
+		for _, anprpeer := range to {
+			if v4Addr, v6Addr, err = c.fetchEgressSelectedAddressesByCnp(&anprpeer); err != nil {
+				klog.Errorf("failed to fetch anp/banp egress selected addresses, %v", err)
+				return err
 			}
-		} else {
-			for _, anprpeer := range baselineTo {
-				if v4Addr, v6Addr, err = c.fetchBaselineEgressSelectedAddresses(&anprpeer); err != nil {
-					klog.Errorf("failed to fetch baseline anp/banp egress selected addresses, %v", err)
-					return err
-				}
-				v4Addrs = append(v4Addrs, v4Addr...)
-				v6Addrs = append(v6Addrs, v6Addr...)
-			}
+			v4Addrs = append(v4Addrs, v4Addr...)
+			v6Addrs = append(v6Addrs, v6Addr...)
 		}
 		klog.Infof("update anp/banp egress rule %s, selected v4 address %v, v6 address %v", ruleName, v4Addrs, v6Addrs)
 
 		gressAsV4Name, gressAsV6Name := getAnpAddressSetName(pgName, ruleName, index, false)
-		if err = c.createAsForAnpRule(anpName, ruleName, "egress", gressAsV4Name, v4Addrs, isBanp); err != nil {
+		if err = c.createCnpAddressSet(anpName, ruleName, "egress", gressAsV4Name, v4Addrs); err != nil {
 			klog.Error(err)
 			return err
 		}
-		if err = c.createAsForAnpRule(anpName, ruleName, "egress", gressAsV6Name, v6Addrs, isBanp); err != nil {
+		if err = c.createCnpAddressSet(anpName, ruleName, "egress", gressAsV6Name, v6Addrs); err != nil {
 			klog.Error(err)
 			return err
 		}
