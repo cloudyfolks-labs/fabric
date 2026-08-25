@@ -17,7 +17,7 @@ index 30665ac0ef..1619d4b5b1 100644
                  continue;
              }
 +            const char *vendor = smap_get(&iface_rec->external_ids, "vendor");
-+            if (vendor && !strcmp(vendor, "fabric")) {
++            if (vendor && !strcmp(vendor, "kube-ovn")) {
 +                continue;
 +            }
              const struct sbrec_port_binding *pb

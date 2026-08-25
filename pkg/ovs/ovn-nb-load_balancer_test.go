@@ -722,7 +722,7 @@ func (suite *OvnClientTestSuite) testSetLoadBalancerVIPExternalTrafficLocal() {
 
 	lb, err := nbClient.GetLoadBalancer(lbName, false)
 	require.NoError(t, err)
-	require.Equal(t, util.CniTypeName, lb.ExternalIDs["vendor"])
+	require.Equal(t, util.VendorTag, lb.ExternalIDs["vendor"])
 	require.Equal(t, "node-worker-1", lb.ExternalIDs[localExternalVIPKeyPrefix+vipA])
 	require.Equal(t, "node-worker-2", lb.ExternalIDs[localExternalVIPKeyPrefix+vipB])
 
@@ -741,7 +741,7 @@ func (suite *OvnClientTestSuite) testSetLoadBalancerVIPExternalTrafficLocal() {
 	_, exists := lb.ExternalIDs[localExternalVIPKeyPrefix+vipA]
 	require.False(t, exists)
 	require.Equal(t, "node-worker-2", lb.ExternalIDs[localExternalVIPKeyPrefix+vipB])
-	require.Equal(t, util.CniTypeName, lb.ExternalIDs["vendor"])
+	require.Equal(t, util.VendorTag, lb.ExternalIDs["vendor"])
 }
 
 func (suite *OvnClientTestSuite) testLoadBalancerAddIPPortMapping() {

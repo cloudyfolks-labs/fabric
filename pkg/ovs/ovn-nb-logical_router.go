@@ -30,7 +30,7 @@ func (c *OVNNbClient) CreateLogicalRouter(lrName string) error {
 
 	lr := &ovnnb.LogicalRouter{
 		Name:        lrName,
-		ExternalIDs: map[string]string{"vendor": util.CniTypeName},
+		ExternalIDs: map[string]string{"vendor": util.VendorTag},
 	}
 
 	op, err := c.Create(lr)
@@ -132,7 +132,7 @@ func (c *OVNNbClient) ListLogicalRouter(needVendorFilter bool, filter func(lr *o
 
 	var lrList []ovnnb.LogicalRouter
 	if err := c.ovsDbClient.WhereCache(func(lr *ovnnb.LogicalRouter) bool {
-		if needVendorFilter && (len(lr.ExternalIDs) == 0 || lr.ExternalIDs["vendor"] != util.CniTypeName) {
+		if needVendorFilter && (len(lr.ExternalIDs) == 0 || lr.ExternalIDs["vendor"] != util.VendorTag) {
 			return false
 		}
 

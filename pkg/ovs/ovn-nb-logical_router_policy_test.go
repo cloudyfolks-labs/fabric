@@ -211,7 +211,7 @@ func (suite *OvnClientTestSuite) testDeleteLogicalRouterPolicies() {
 	nextHops := []string{"100.64.0.2"}
 
 	externalIDs := map[string]string{
-		"vendor":           util.CniTypeName,
+		"vendor":           util.VendorTag,
 		"subnet":           "test-subnet",
 		"isU2ORoutePolicy": "true",
 	}

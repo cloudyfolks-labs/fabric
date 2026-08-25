@@ -27,7 +27,7 @@ func (c *OVNNbClient) CreatePortGroup(pgName string, externalIDs map[string]stri
 	// Create new map with vendor tag to avoid modifying caller's map
 	finalExternalIDs := make(map[string]string, len(externalIDs)+1)
 	maps.Copy(finalExternalIDs, externalIDs)
-	finalExternalIDs["vendor"] = util.CniTypeName
+	finalExternalIDs["vendor"] = util.VendorTag
 
 	if pg != nil {
 		if !maps.Equal(pg.ExternalIDs, finalExternalIDs) {

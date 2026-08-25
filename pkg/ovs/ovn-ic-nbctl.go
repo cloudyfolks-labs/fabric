@@ -52,7 +52,7 @@ func (c LegacyClient) GetTs() ([]string, error) {
 	cmd := []string{
 		"--format=csv", "--data=bare", "--no-heading", "--columns=name",
 		"find", "Transit_Switch",
-		fmt.Sprintf("external-ids:%s=%s", ExternalIDVendor, util.CniTypeName),
+		fmt.Sprintf("external-ids:%s=%s", ExternalIDVendor, util.VendorTag),
 	}
 	output, err := c.ovnIcNbCommand(cmd...)
 	if err != nil {

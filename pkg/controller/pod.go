@@ -1007,7 +1007,7 @@ func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kube
 							NextHopIP: pod.Annotations[util.NorthGatewayAnnotation],
 						},
 						map[string]string{
-							"vendor": util.CniTypeName,
+							"vendor": util.VendorTag,
 							"subnet": subnet.Name,
 						},
 					); err != nil {

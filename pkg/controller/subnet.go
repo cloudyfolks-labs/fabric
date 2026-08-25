@@ -2177,7 +2177,7 @@ func getIPSuffix(protocol string) string {
 
 func buildPolicyRouteExternalIDs(subnetName string, extraIDs map[string]string) map[string]string {
 	externalIDs := map[string]string{
-		"vendor": util.CniTypeName,
+		"vendor": util.VendorTag,
 		"subnet": subnetName,
 	}
 	maps.Copy(externalIDs, extraIDs)
@@ -2249,7 +2249,7 @@ func (c *Controller) createPortGroupForDistributedSubnet(node *v1.Node, subnet *
 	externalIDs := map[string]string{
 		"subnet":         subnet.Name,
 		"node":           node.Name,
-		"vendor":         util.CniTypeName,
+		"vendor":         util.VendorTag,
 		networkPolicyKey: subnet.Name + "/" + node.Name,
 	}
 	if err := c.OVNNbClient.CreatePortGroup(pgName, externalIDs); err != nil {
@@ -2711,7 +2711,7 @@ func (c *Controller) deleteStaleU2ORoutePolicies(subnet *kubeovnv1.Subnet, desir
 
 	policies, err := c.OVNNbClient.ListLogicalRouterPolicies(lr, -1, map[string]string{
 		"isU2ORoutePolicy": "true",
-		"vendor":           util.CniTypeName,
+		"vendor":           util.VendorTag,
 		"subnet":           subnet.Name,
 	}, true)
 	if err != nil {
@@ -2743,7 +2743,7 @@ func (c *Controller) deletePolicyRouteForU2OInterconn(subnet *kubeovnv1.Subnet) 
 	}
 	policies, err := c.OVNNbClient.ListLogicalRouterPolicies(subnet.Spec.Vpc, -1, map[string]string{
 		"isU2ORoutePolicy": "true",
-		"vendor":           util.CniTypeName,
+		"vendor":           util.VendorTag,
 		"subnet":           subnet.Name,
 	}, true)
 	if err != nil {
@@ -2945,7 +2945,7 @@ func (c *Controller) reconcilePolicyRouteForCidrChangedSubnet(subnet *kubeovnv1.
 	}
 
 	policies, err := c.OVNNbClient.ListLogicalRouterPolicies(subnet.Spec.Vpc, priority, map[string]string{
-		"vendor": util.CniTypeName,
+		"vendor": util.VendorTag,
 		"subnet": subnet.Name,
 	}, true)
 	if err != nil {
@@ -3006,7 +3006,7 @@ func (c *Controller) addPolicyRouteForU2ONoLoadBalancer(subnet *kubeovnv1.Subnet
 	if c.logicalRouterExists(subnet.Spec.Vpc) {
 		if err := c.OVNNbClient.DeleteLogicalRouterPolicies(subnet.Spec.Vpc, -1, map[string]string{
 			"isU2ONoLBRoutePolicy": "true",
-			"vendor":               util.CniTypeName,
+			"vendor":               util.VendorTag,
 			"subnet":               subnet.Name,
 		}); err != nil {
 			klog.Errorf("failed to clean stale u2o no-lb policies for subnet %s: %v", subnet.Name, err)
@@ -3099,7 +3099,7 @@ func (c *Controller) deletePolicyRouteForU2ONoLoadBalancer(subnet *kubeovnv1.Sub
 	}
 	policies, err := c.OVNNbClient.ListLogicalRouterPolicies(subnet.Spec.Vpc, -1, map[string]string{
 		"isU2ONoLBRoutePolicy": "true",
-		"vendor":               util.CniTypeName,
+		"vendor":               util.VendorTag,
 		"subnet":               subnet.Name,
 	}, true)
 	if err != nil {

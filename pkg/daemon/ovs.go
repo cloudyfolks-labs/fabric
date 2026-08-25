@@ -305,7 +305,7 @@ func (c *Controller) configExternalBridge(provider, bridge, nic string, exchange
 	}
 	cmd := []string{
 		ovs.MayExist, "add-br", bridge,
-		"--", "set", "bridge", bridge, "external_ids:vendor=" + util.CniTypeName,
+		"--", "set", "bridge", bridge, "external_ids:vendor=" + util.VendorTag,
 		"--", "set", "bridge", bridge, fmt.Sprintf("external_ids:exchange-link-name=%v", exchangeLinkName),
 	}
 	if !brExists {

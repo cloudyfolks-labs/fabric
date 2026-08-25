@@ -78,7 +78,7 @@ func (c *Controller) gcLogicalRouterPort() error {
 	}
 
 	if err = c.OVNNbClient.DeleteLogicalRouterPorts(
-		map[string]string{"vendor": util.CniTypeName},
+		map[string]string{"vendor": util.VendorTag},
 		logicalRouterPortFilter(exceptPeerPorts)); err != nil {
 		klog.Errorf("delete non-existent peer logical router port: %v", err)
 		return err
@@ -196,12 +196,12 @@ func (c *Controller) gcNode() error {
 		}
 	}
 
-	policies, err := c.OVNNbClient.ListLogicalRouterPolicies(c.config.ClusterRouter, util.NodeRouterPolicyPriority, map[string]string{"vendor": util.CniTypeName}, false)
+	policies, err := c.OVNNbClient.ListLogicalRouterPolicies(c.config.ClusterRouter, util.NodeRouterPolicyPriority, map[string]string{"vendor": util.VendorTag}, false)
 	if err != nil {
 		klog.Errorf("failed to list logical router policies on lr %s: %v", c.config.ClusterRouter, err)
 		return err
 	}
-	gatewayRouterPolicies, err := c.OVNNbClient.ListLogicalRouterPolicies(c.config.ClusterRouter, util.GatewayRouterPolicyPriority, map[string]string{"vendor": util.CniTypeName}, false)
+	gatewayRouterPolicies, err := c.OVNNbClient.ListLogicalRouterPolicies(c.config.ClusterRouter, util.GatewayRouterPolicyPriority, map[string]string{"vendor": util.VendorTag}, false)
 	if err != nil {
 		klog.Errorf("failed to list logical router policies priority %d on lr %s: %v", util.GatewayRouterPolicyPriority, c.config.ClusterRouter, err)
 		return err
@@ -581,10 +581,10 @@ func (c *Controller) gcLoadBalancer() error {
 			}
 		}
 		// lbs will remove from logical switch automatically when delete lbs
-		// Only delete load balancers that belong to fabric (vendor=fabric)
+		// Only delete load balancers that belong to fabric (vendor=VendorTag)
 		// This prevents deleting load balancers managed by external systems like OpenStack Neutron
 		if err = c.OVNNbClient.DeleteLoadBalancers(func(lb *ovnnb.LoadBalancer) bool {
-			if lb.ExternalIDs["vendor"] != util.CniTypeName {
+			if lb.ExternalIDs["vendor"] != util.VendorTag {
 				return false
 			}
 			return !vpcLbs.Has(lb.Name)
@@ -733,9 +733,9 @@ func (c *Controller) gcLoadBalancer() error {
 
 func (c *Controller) gcAddressSet() error {
 	klog.Infof("start to gc address set")
-	// Only list address sets that belong to fabric (vendor=fabric)
+	// Only list address sets that belong to fabric (vendor=VendorTag)
 	// This prevents deleting address sets managed by external systems like OpenStack Neutron
-	addressSets, err := c.OVNNbClient.ListAddressSets(map[string]string{"vendor": util.CniTypeName})
+	addressSets, err := c.OVNNbClient.ListAddressSets(map[string]string{"vendor": util.VendorTag})
 	if err != nil {
 		klog.Errorf("failed to list address set,%v", err)
 		return err
@@ -780,9 +780,9 @@ func (c *Controller) gcSecurityGroup() error {
 		sgSet.Add(sg.Name)
 	}
 
-	// Only list port groups that belong to fabric (vendor=fabric)
+	// Only list port groups that belong to fabric (vendor=VendorTag)
 	// This prevents deleting port groups managed by external systems like OpenStack Neutron
-	pgs, err := c.OVNNbClient.ListPortGroups(map[string]string{"vendor": util.CniTypeName})
+	pgs, err := c.OVNNbClient.ListPortGroups(map[string]string{"vendor": util.VendorTag})
 	if err != nil {
 		klog.Errorf("failed to list port group,%v", err)
 		return err
@@ -1231,9 +1231,9 @@ func (c *Controller) gcRouterLBRules() error {
 
 func logicalRouterPortFilter(exceptPeerPorts *strset.Set) func(lrp *ovnnb.LogicalRouterPort) bool {
 	return func(lrp *ovnnb.LogicalRouterPort) bool {
-		// Only delete logical router ports that belong to fabric (vendor=fabric)
+		// Only delete logical router ports that belong to fabric (vendor=VendorTag)
 		// This prevents deleting LRPs managed by external systems like OpenStack Neutron
-		if lrp.ExternalIDs["vendor"] != util.CniTypeName {
+		if lrp.ExternalIDs["vendor"] != util.VendorTag {
 			return false
 		}
 

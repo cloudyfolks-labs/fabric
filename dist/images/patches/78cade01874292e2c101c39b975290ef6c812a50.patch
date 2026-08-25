@@ -24,7 +24,7 @@ index 14d61cfd1..0fe23af69 100644
      }
  
 +    if (!lflow_kube_ovn_skip_ct) {
-+        const char *hint = smap_get(&lflow->external_ids, "fabric-hint");
++        const char *hint = smap_get(&lflow->external_ids, "kube-ovn-hint");
 +        if (hint && !strcmp(hint, OVN_LFLOW_HINT_KUBE_OVN_SKIP_CT)) {
 +            VLOG_DBG("lflow "UUID_FMT
 +                      " is not compatible with current kernel version, skip",
@@ -128,7 +128,7 @@ index 1d4f853e0..f6f4d8ec5 100644
  #define ROUTE_ORIGIN_CONNECTED "connected"
  #define ROUTE_ORIGIN_STATIC "static"
  
-+#define OVN_LFLOW_HINT_KUBE_OVN_SKIP_CT "fabric: skip conntrack"
++#define OVN_LFLOW_HINT_KUBE_OVN_SKIP_CT "kube-ovn: skip conntrack"
 +
  #define ETH_CRC_LENGTH 4
  #define ETHERNET_OVERHEAD (ETH_HEADER_LEN + ETH_CRC_LENGTH)
@@ -231,7 +231,7 @@ index eb795180c..da66f6b70 100644
              smap_add(&ids, "stage-hint", lflow->stage_hint);
          }
 +        if (lflow->kube_ovn_hint) {
-+            smap_add(&ids, "fabric-hint", lflow->kube_ovn_hint);
++            smap_add(&ids, "kube-ovn-hint", lflow->kube_ovn_hint);
 +        }
          sbrec_logical_flow_set_external_ids(sbflow, &ids);
          smap_destroy(&ids);
@@ -241,7 +241,7 @@ index eb795180c..da66f6b70 100644
              const char *stage_hint = smap_get_def(&sbflow->external_ids,
                                                    "stage-hint", "");
 +            const char *kube_ovn_hint = smap_get_def(&sbflow->external_ids,
-+                                                     "fabric-hint", "");
++                                                     "kube-ovn-hint", "");
              const char *source = smap_get_def(&sbflow->external_ids,
                                                "source", "");
  
@@ -252,7 +252,7 @@ index eb795180c..da66f6b70 100644
 +            if (lflow->kube_ovn_hint) {
 +                if (strcmp(kube_ovn_hint, lflow->kube_ovn_hint)) {
 +                    sbrec_logical_flow_update_external_ids_setkey(sbflow,
-+                    "fabric-hint", lflow->kube_ovn_hint);
++                    "kube-ovn-hint", lflow->kube_ovn_hint);
 +                }
 +            }
              if (lflow->where) {

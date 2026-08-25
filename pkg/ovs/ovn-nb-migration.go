@@ -112,7 +112,7 @@ func (c *OVNNbClient) needsVendorMigration() (bool, error) {
 	return false, nil
 }
 
-// MigrateVendorExternalIDs adds vendor=fabric externalID to existing fabric OVN resources
+// MigrateVendorExternalIDs adds vendor=VendorTag externalID to existing fabric OVN resources
 // that don't already have it. This is called during controller initialization to handle
 // upgrades from versions prior to vendor tagging (v1.15.0).
 //
@@ -200,8 +200,8 @@ func (c *OVNNbClient) getKubeOvnRouterNames() (map[string]bool, error) {
 
 	var lrList []ovnnb.LogicalRouter
 	if err := c.ovsDbClient.WhereCache(func(lr *ovnnb.LogicalRouter) bool {
-		// Include routers that already have vendor=fabric
-		if len(lr.ExternalIDs) > 0 && lr.ExternalIDs["vendor"] == util.CniTypeName {
+		// Include routers that already have vendor=VendorTag
+		if len(lr.ExternalIDs) > 0 && lr.ExternalIDs["vendor"] == util.VendorTag {
 			return true
 		}
 		return false
@@ -223,8 +223,8 @@ func (c *OVNNbClient) getKubeOvnSwitchNames() (map[string]bool, error) {
 
 	var lsList []ovnnb.LogicalSwitch
 	if err := c.ovsDbClient.WhereCache(func(ls *ovnnb.LogicalSwitch) bool {
-		// Include switches that already have vendor=fabric
-		if len(ls.ExternalIDs) > 0 && ls.ExternalIDs["vendor"] == util.CniTypeName {
+		// Include switches that already have vendor=VendorTag
+		if len(ls.ExternalIDs) > 0 && ls.ExternalIDs["vendor"] == util.VendorTag {
 			return true
 		}
 		return false
@@ -247,7 +247,7 @@ func (c *OVNNbClient) migrateLogicalRouterPorts(kubeOvnRouters map[string]bool) 
 	var lrpList []ovnnb.LogicalRouterPort
 	if err := c.ovsDbClient.WhereCache(func(lrp *ovnnb.LogicalRouterPort) bool {
 		// Skip if already has vendor tag
-		if len(lrp.ExternalIDs) > 0 && lrp.ExternalIDs["vendor"] == util.CniTypeName {
+		if len(lrp.ExternalIDs) > 0 && lrp.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 		// Include if it has 'lr' externalID pointing to a fabric router
@@ -274,7 +274,7 @@ func (c *OVNNbClient) migrateLogicalRouterPorts(kubeOvnRouters map[string]bool) 
 		if lrp.ExternalIDs == nil {
 			lrp.ExternalIDs = make(map[string]string)
 		}
-		lrp.ExternalIDs["vendor"] = util.CniTypeName
+		lrp.ExternalIDs["vendor"] = util.VendorTag
 
 		op, err := c.Where(lrp).Update(lrp, &lrp.ExternalIDs)
 		if err != nil {
@@ -304,7 +304,7 @@ func (c *OVNNbClient) migratePortGroups() error {
 	var pgList []ovnnb.PortGroup
 	if err := c.ovsDbClient.WhereCache(func(pg *ovnnb.PortGroup) bool {
 		// Skip if already has vendor tag
-		if len(pg.ExternalIDs) > 0 && pg.ExternalIDs["vendor"] == util.CniTypeName {
+		if len(pg.ExternalIDs) > 0 && pg.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
@@ -345,7 +345,7 @@ func (c *OVNNbClient) migratePortGroups() error {
 		if pg.ExternalIDs == nil {
 			pg.ExternalIDs = make(map[string]string)
 		}
-		pg.ExternalIDs["vendor"] = util.CniTypeName
+		pg.ExternalIDs["vendor"] = util.VendorTag
 
 		op, err := c.Where(pg).Update(pg, &pg.ExternalIDs)
 		if err != nil {
@@ -375,7 +375,7 @@ func (c *OVNNbClient) migrateAddressSets() error {
 	var asList []ovnnb.AddressSet
 	if err := c.ovsDbClient.WhereCache(func(as *ovnnb.AddressSet) bool {
 		// Skip if already has vendor tag
-		if len(as.ExternalIDs) > 0 && as.ExternalIDs["vendor"] == util.CniTypeName {
+		if len(as.ExternalIDs) > 0 && as.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
@@ -414,7 +414,7 @@ func (c *OVNNbClient) migrateAddressSets() error {
 		if as.ExternalIDs == nil {
 			as.ExternalIDs = make(map[string]string)
 		}
-		as.ExternalIDs["vendor"] = util.CniTypeName
+		as.ExternalIDs["vendor"] = util.VendorTag
 
 		op, err := c.Where(as).Update(as, &as.ExternalIDs)
 		if err != nil {
@@ -444,7 +444,7 @@ func (c *OVNNbClient) migrateLoadBalancers() error {
 	var lbList []ovnnb.LoadBalancer
 	if err := c.ovsDbClient.WhereCache(func(lb *ovnnb.LoadBalancer) bool {
 		// Skip if already has vendor tag
-		if len(lb.ExternalIDs) > 0 && lb.ExternalIDs["vendor"] == util.CniTypeName {
+		if len(lb.ExternalIDs) > 0 && lb.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
@@ -476,7 +476,7 @@ func (c *OVNNbClient) migrateLoadBalancers() error {
 		if lb.ExternalIDs == nil {
 			lb.ExternalIDs = make(map[string]string)
 		}
-		lb.ExternalIDs["vendor"] = util.CniTypeName
+		lb.ExternalIDs["vendor"] = util.VendorTag
 
 		op, err := c.Where(lb).Update(lb, &lb.ExternalIDs)
 		if err != nil {
@@ -508,7 +508,7 @@ func (c *OVNNbClient) migrateACLs(kubeOvnSwitches map[string]bool) error {
 	var pgList []ovnnb.PortGroup
 	if err := c.ovsDbClient.WhereCache(func(pg *ovnnb.PortGroup) bool {
 		// Include port groups with vendor tag
-		if len(pg.ExternalIDs) > 0 && pg.ExternalIDs["vendor"] == util.CniTypeName {
+		if len(pg.ExternalIDs) > 0 && pg.ExternalIDs["vendor"] == util.VendorTag {
 			return true
 		}
 		// Include port groups matching fabric patterns
@@ -537,7 +537,7 @@ func (c *OVNNbClient) migrateACLs(kubeOvnSwitches map[string]bool) error {
 	var aclList []ovnnb.ACL
 	if err := c.ovsDbClient.WhereCache(func(acl *ovnnb.ACL) bool {
 		// Skip if already has vendor tag
-		if len(acl.ExternalIDs) > 0 && acl.ExternalIDs["vendor"] == util.CniTypeName {
+		if len(acl.ExternalIDs) > 0 && acl.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
@@ -572,7 +572,7 @@ func (c *OVNNbClient) migrateACLs(kubeOvnSwitches map[string]bool) error {
 		if acl.ExternalIDs == nil {
 			acl.ExternalIDs = make(map[string]string)
 		}
-		acl.ExternalIDs["vendor"] = util.CniTypeName
+		acl.ExternalIDs["vendor"] = util.VendorTag
 
 		op, err := c.Where(acl).Update(acl, &acl.ExternalIDs)
 		if err != nil {

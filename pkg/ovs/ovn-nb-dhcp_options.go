@@ -429,7 +429,7 @@ func newDHCPOptionsEntry(lsName, portName, cidr, options string) (*ovnnb.DHCPOpt
 	externalIDs := map[string]string{
 		LogicalSwitchKey: lsName,
 		"protocol":       protocol,
-		"vendor":         util.CniTypeName,
+		"vendor":         util.VendorTag,
 	}
 	if portName != "" {
 		externalIDs[PortKey] = portName
@@ -447,7 +447,7 @@ func newDHCPOptionsEntry(lsName, portName, cidr, options string) (*ovnnb.DHCPOpt
 // result should include all dhcp options which externalIDs[key] is not empty when externalIDs[key] is ""
 func dhcpOptionsFilter(needVendorFilter bool, externalIDs map[string]string) func(dhcpOpt *ovnnb.DHCPOptions) bool {
 	return func(dhcpOpt *ovnnb.DHCPOptions) bool {
-		if needVendorFilter && (len(dhcpOpt.ExternalIDs) == 0 || dhcpOpt.ExternalIDs["vendor"] != util.CniTypeName) {
+		if needVendorFilter && (len(dhcpOpt.ExternalIDs) == 0 || dhcpOpt.ExternalIDs["vendor"] != util.VendorTag) {
 			return false
 		}
 

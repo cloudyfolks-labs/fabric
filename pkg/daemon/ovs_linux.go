@@ -126,7 +126,7 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 			fmt.Sprintf("options:dpdk-devargs=%s,representor=[%d]", pfPci, vfID),
 			fmt.Sprintf("mtu_request=%d", mtu),
 			"external_ids:iface-id=" + ifaceID,
-			"external_ids:vendor=" + util.CniTypeName,
+			"external_ids:vendor=" + util.VendorTag,
 			"external_ids:pod_name=" + podName,
 			"external_ids:pod_namespace=" + podNamespace,
 			"external_ids:pod_netns=" + netns,
@@ -146,7 +146,7 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 		args := []string{
 			ovs.MayExist, "add-port", "br-int", hostNicName, "--",
 			"set", "interface", hostNicName, "external_ids:iface-id=" + ifaceID,
-			"external_ids:vendor=" + util.CniTypeName,
+			"external_ids:vendor=" + util.VendorTag,
 			"external_ids:pod_name=" + podName,
 			"external_ids:pod_namespace=" + podNamespace,
 			"external_ids:pod_netns=" + netns,
@@ -1616,7 +1616,7 @@ func (c *Controller) configProviderNic(nicName, brName string, trunks []string) 
 		}
 
 		if _, err = ovs.Exec(ovs.MayExist, "add-port", brName, nicName,
-			"--", "set", "port", nicName, "trunks="+strings.Join(trunks, ","), "external_ids:vendor="+util.CniTypeName); err != nil {
+			"--", "set", "port", nicName, "trunks="+strings.Join(trunks, ","), "external_ids:vendor="+util.VendorTag); err != nil {
 			klog.Errorf("failed to add %s to OVS bridge %s: %v", nicName, brName, err)
 			return 0, err
 		}
@@ -2343,7 +2343,7 @@ func providerVlanPortArgs(brName, vlanIfName string, vlanID int) (string, []stri
 		ovs.MayExist, "add-port", brName, internalPortName,
 		"--", "set", "interface", internalPortName, "type=internal",
 		"--", "set", "port", internalPortName, fmt.Sprintf("tag=%d", vlanID),
-		"external_ids:vendor=" + util.CniTypeName,
+		"external_ids:vendor=" + util.VendorTag,
 		"external_ids:" + providerVlanInterfaceExternalID + "=" + vlanIfName,
 	}
 	return internalPortName, args

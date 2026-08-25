@@ -715,7 +715,7 @@ func updateTS() error {
 				ovs.MayExist, "ts-add", tsName,
 				"--", "set", "Transit_Switch", tsName,
 				fmt.Sprintf(`external_ids:subnet="%s"`, subnet),
-				fmt.Sprintf(`external_ids:vendor="%s"`, util.CniTypeName),
+				fmt.Sprintf(`external_ids:vendor="%s"`, util.VendorTag),
 			)
 			cmd = exec.Command("ovn-ic-nbctl", args...) // #nosec G204 G702
 			output, err := cmd.CombinedOutput()

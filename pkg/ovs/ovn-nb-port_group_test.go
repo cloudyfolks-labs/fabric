@@ -37,7 +37,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		expectedExternalIDs := map[string]string{
 			"type":   "test",
 			"key":    "value",
-			"vendor": util.CniTypeName,
+			"vendor": util.VendorTag,
 		}
 		require.Equal(t, expectedExternalIDs, pg.ExternalIDs)
 	})
@@ -62,7 +62,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		// vendor is automatically added by CreatePortGroup
 		expectedExternalIDs := map[string]string{
 			"new":    "data",
-			"vendor": util.CniTypeName,
+			"vendor": util.VendorTag,
 		}
 		require.Equal(t, expectedExternalIDs, pg.ExternalIDs)
 	})
@@ -76,7 +76,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		require.NoError(t, err)
 		require.Equal(t, pgName, pg.Name)
 		// vendor is automatically added by CreatePortGroup even with nil input
-		require.Equal(t, map[string]string{"vendor": util.CniTypeName}, pg.ExternalIDs)
+		require.Equal(t, map[string]string{"vendor": util.VendorTag}, pg.ExternalIDs)
 	})
 
 	t.Run("create port group with empty externalIDs", func(t *testing.T) {
@@ -88,7 +88,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		require.NoError(t, err)
 		require.Equal(t, pgName, pg.Name)
 		// vendor is automatically added by CreatePortGroup even with empty input
-		require.Equal(t, map[string]string{"vendor": util.CniTypeName}, pg.ExternalIDs)
+		require.Equal(t, map[string]string{"vendor": util.VendorTag}, pg.ExternalIDs)
 	})
 }
 

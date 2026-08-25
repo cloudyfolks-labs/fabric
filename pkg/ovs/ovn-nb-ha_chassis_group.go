@@ -30,7 +30,7 @@ func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, exte
 		group = &ovnnb.HAChassisGroup{
 			UUID:        ovsclient.NamedUUID(),
 			Name:        name,
-			ExternalIDs: map[string]string{"vendor": util.CniTypeName},
+			ExternalIDs: map[string]string{"vendor": util.VendorTag},
 		}
 		maps.Insert(group.ExternalIDs, maps.All(externalIDs))
 		createOps, err := c.Create(group)
@@ -40,7 +40,7 @@ func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, exte
 		}
 		ops = append(ops, createOps...)
 	} else {
-		group.ExternalIDs = map[string]string{"vendor": util.CniTypeName}
+		group.ExternalIDs = map[string]string{"vendor": util.VendorTag}
 		maps.Insert(group.ExternalIDs, maps.All(externalIDs))
 		updateOps, err := c.Where(group).Update(group, &group.ExternalIDs)
 		if err != nil {
@@ -106,7 +106,7 @@ func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, exte
 			UUID:        ovsclient.NamedUUID(),
 			ChassisName: chassis,
 			Priority:    priority,
-			ExternalIDs: map[string]string{"group": name, "vendor": util.CniTypeName},
+			ExternalIDs: map[string]string{"group": name, "vendor": util.VendorTag},
 		}
 		createOps, err := c.Create(haChassis)
 		if err != nil {

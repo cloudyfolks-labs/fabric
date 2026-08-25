@@ -318,10 +318,10 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		staticExistedRoutes []*ovnnb.LogicalRouterStaticRoute
 		staticTargetRoutes  []*kubeovnv1.StaticRoute
 		staticRouteMapping  map[string][]*kubeovnv1.StaticRoute
-		externalIDs         = map[string]string{"vendor": util.CniTypeName}
+		externalIDs         = map[string]string{"vendor": util.VendorTag}
 	)
 
-	// only manage static routes which are fabric managed, by filtering for vendor util.CniTypeName
+	// only manage static routes which are fabric managed, by filtering for vendor util.VendorTag
 	staticExistedRoutes, err = c.OVNNbClient.ListLogicalRouterStaticRoutes(vpc.Name, nil, nil, "", externalIDs)
 	if err != nil {
 		klog.Errorf("failed to get vpc %s static route list, %v", vpc.Name, err)
@@ -872,7 +872,7 @@ func (c *Controller) batchDeletePolicyRouteFromVpc(name string, policies []*kube
 }
 
 func (c *Controller) addStaticRouteToVpc(name string, route *kubeovnv1.StaticRoute) error {
-	externalIDs := map[string]string{"vendor": util.CniTypeName}
+	externalIDs := map[string]string{"vendor": util.VendorTag}
 	if route.BfdID != "" {
 		klog.Infof("vpc %s add static ecmp route: %+v", name, route)
 		if err := c.OVNNbClient.AddLogicalRouterStaticRoute(

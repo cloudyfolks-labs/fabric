@@ -181,7 +181,7 @@ func Get(table, record, column, key string, ifExists bool) (string, error) {
 
 // Bridges returns bridges created by Kube-OVN
 func Bridges() ([]string, error) {
-	return ovsFind("bridge", "name", "external-ids:vendor="+util.CniTypeName)
+	return ovsFind("bridge", "name", "external-ids:vendor="+util.VendorTag)
 }
 
 // BridgeExists checks whether the bridge already exists
@@ -333,9 +333,9 @@ func CleanDuplicatePort(ifaceID, portName string) {
 	}
 }
 
-// ValidatePortVendor returns true if the port's external_ids:vendor=fabric
+// ValidatePortVendor returns true if the port has external_ids:vendor=VendorTag
 func ValidatePortVendor(port string) (bool, error) {
-	output, err := ovsFind("Port", "name", "external_ids:vendor="+util.CniTypeName)
+	output, err := ovsFind("Port", "name", "external_ids:vendor="+util.VendorTag)
 	return slices.Contains(output, port), err
 }
 

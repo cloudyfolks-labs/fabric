@@ -27,7 +27,7 @@ func newLogicalRouterPort(lrName, lrpName, mac string, networks []string) *ovnnb
 		Networks: networks,
 		ExternalIDs: map[string]string{
 			"lr":     lrName,
-			"vendor": util.CniTypeName,
+			"vendor": util.VendorTag,
 		},
 	}
 }
@@ -65,11 +65,11 @@ func TestGcSecurityGroupSkipsVpcEgressGatewayPortGroup(t *testing.T) {
 	ctrl := fakeController.fakeController
 	mockOvnClient := fakeController.mockOvnClient
 
-	mockOvnClient.EXPECT().ListPortGroups(map[string]string{"vendor": util.CniTypeName}).Return([]ovnnb.PortGroup{{
+	mockOvnClient.EXPECT().ListPortGroups(map[string]string{"vendor": util.VendorTag}).Return([]ovnnb.PortGroup{{
 		Name: "VEG.0b5177562709",
 		ExternalIDs: map[string]string{
 			"af":                           "4",
-			ovs.ExternalIDVendor:           util.CniTypeName,
+			ovs.ExternalIDVendor:           util.VendorTag,
 			ovs.ExternalIDVpcEgressGateway: "default/egress-ha-a",
 		},
 	}}, nil)

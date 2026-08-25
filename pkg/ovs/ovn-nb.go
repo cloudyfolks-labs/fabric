@@ -178,7 +178,7 @@ func (c *OVNNbClient) CreateRouterPortOp(lsName, lrName, lspName, lrpName, ip, m
 		Networks: strings.Split(ip, ","),
 		MAC:      mac,
 		ExternalIDs: map[string]string{
-			"vendor": util.CniTypeName,
+			"vendor": util.VendorTag,
 		},
 	}
 

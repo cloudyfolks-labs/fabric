@@ -617,7 +617,7 @@ func (c *Controller) syncOneRouteToPolicy(key, value string) {
 			match = util.MatchV6Dst + " == " + prefix
 		}
 
-		if err = c.OVNNbClient.AddLogicalRouterPolicy(lr.Name, util.OvnICPolicyPriority, match, ovnnb.LogicalRouterPolicyActionAllow, nil, nil, map[string]string{key: value, "vendor": util.CniTypeName}); err != nil {
+		if err = c.OVNNbClient.AddLogicalRouterPolicy(lr.Name, util.OvnICPolicyPriority, match, ovnnb.LogicalRouterPolicyActionAllow, nil, nil, map[string]string{key: value, "vendor": util.VendorTag}); err != nil {
 			klog.Errorf("failed to add router policy: %v", err)
 		}
 

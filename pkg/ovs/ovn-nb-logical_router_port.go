@@ -190,7 +190,7 @@ func (c *OVNNbClient) CreateLogicalRouterPort(lrName, lrpName, mac string, netwo
 		MAC:      mac,
 		Networks: networks,
 		ExternalIDs: map[string]string{
-			"vendor": util.CniTypeName,
+			"vendor": util.VendorTag,
 		},
 	}
 
@@ -346,7 +346,7 @@ func (c *OVNNbClient) CreateLogicalRouterPortOp(lrp *ovnnb.LogicalRouterPort, lr
 
 	// attach necessary info
 	lrp.ExternalIDs[logicalRouterKey] = lrName
-	lrp.ExternalIDs["vendor"] = util.CniTypeName
+	lrp.ExternalIDs["vendor"] = util.VendorTag
 
 	/* create logical router port */
 	lrpCreateOp, err := c.Create(lrp)

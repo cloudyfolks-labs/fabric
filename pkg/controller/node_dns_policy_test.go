@@ -54,7 +54,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 		Action:   string(kubeovnv1.PolicyRouteActionReroute),
 		Nexthops: []string{nodeIPv4},
 		ExternalIDs: map[string]string{
-			"vendor":          util.CniTypeName,
+			"vendor":          util.VendorTag,
 			"node":            nodeName,
 			"address-family":  "4",
 			"isLocalDNSCache": "true",
@@ -68,7 +68,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 		Action:   string(kubeovnv1.PolicyRouteActionReroute),
 		Nexthops: []string{nodeIPv6},
 		ExternalIDs: map[string]string{
-			"vendor":          util.CniTypeName,
+			"vendor":          util.VendorTag,
 			"node":            nodeName,
 			"address-family":  "6",
 			"isLocalDNSCache": "true",
@@ -80,7 +80,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 		// so only the v4 policy is returned. The v6 policy is never seen.
 		mockOvnClient.EXPECT().
 			ListLogicalRouterPolicies(ctrl.config.ClusterRouter, -1, map[string]string{
-				"vendor":          util.CniTypeName,
+				"vendor":          util.VendorTag,
 				"node":            nodeName,
 				"address-family":  "4",
 				"isLocalDNSCache": "true",
@@ -99,7 +99,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 		// After fix: only af=6 policies are returned
 		mockOvnClient.EXPECT().
 			ListLogicalRouterPolicies(ctrl.config.ClusterRouter, -1, map[string]string{
-				"vendor":          util.CniTypeName,
+				"vendor":          util.VendorTag,
 				"node":            nodeName,
 				"address-family":  "6",
 				"isLocalDNSCache": "true",
@@ -139,13 +139,13 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing
 	matchV6 := fmt.Sprintf("ip6.src == $%s && ip6.dst == %s", pgAs(nodePortName, 6), dnsIPv6)
 
 	externalIDsV4 := map[string]string{
-		"vendor":          util.CniTypeName,
+		"vendor":          util.VendorTag,
 		"node":            nodeName,
 		"address-family":  "4",
 		"isLocalDNSCache": "true",
 	}
 	externalIDsV6 := map[string]string{
-		"vendor":          util.CniTypeName,
+		"vendor":          util.VendorTag,
 		"node":            nodeName,
 		"address-family":  "6",
 		"isLocalDNSCache": "true",
@@ -224,7 +224,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DeletesStalePolicy(t *testing.T) {
 	newMatchV4 := fmt.Sprintf("ip4.src == $%s && ip4.dst == %s", pgAs(nodePortName, 4), newDNSIPv4)
 
 	externalIDsV4 := map[string]string{
-		"vendor":          util.CniTypeName,
+		"vendor":          util.VendorTag,
 		"node":            nodeName,
 		"address-family":  strconv.Itoa(4),
 		"isLocalDNSCache": "true",

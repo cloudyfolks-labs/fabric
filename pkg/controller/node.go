@@ -295,7 +295,7 @@ func (c *Controller) handleAddNode(key string) error {
 				match       = fmt.Sprintf("ip%d.dst == %s", af, nodeIP)
 				action      = kubeovnv1.PolicyRouteActionReroute
 				externalIDs = map[string]string{
-					"vendor":         util.CniTypeName,
+					"vendor":         util.VendorTag,
 					"node":           node.Name,
 					"address-family": strconv.Itoa(af),
 				}
@@ -1024,8 +1024,8 @@ func (c *Controller) UpdateChassisTag(node *v1.Node) error {
 		return err
 	}
 
-	if chassis.ExternalIDs == nil || chassis.ExternalIDs["vendor"] != util.CniTypeName {
-		klog.Infof("init tag %s for node %s chassis %s", util.CniTypeName, node.Name, chassis.Name)
+	if chassis.ExternalIDs == nil || chassis.ExternalIDs["vendor"] != util.VendorTag {
+		klog.Infof("init tag %s for node %s chassis %s", util.VendorTag, node.Name, chassis.Name)
 		if err = c.OVNSbClient.UpdateChassisTag(chassis.Name, node.Name); err != nil {
 			err := fmt.Errorf("failed to init chassis tag, %w", err)
 			klog.Error(err)
@@ -1217,7 +1217,7 @@ func (c *Controller) addPolicyRouteForLocalDNSCacheOnNode(dnsIPs []string, nodeP
 
 	var (
 		externalIDs = map[string]string{
-			"vendor":          util.CniTypeName,
+			"vendor":          util.VendorTag,
 			"node":            nodeName,
 			"address-family":  strconv.Itoa(af),
 			"isLocalDNSCache": "true",
@@ -1272,7 +1272,7 @@ func (c *Controller) addPolicyRouteForLocalDNSCacheOnNode(dnsIPs []string, nodeP
 
 func (c *Controller) deletePolicyRouteForLocalDNSCacheOnNode(nodeName string, af int) error {
 	policies, err := c.OVNNbClient.ListLogicalRouterPolicies(c.config.ClusterRouter, -1, map[string]string{
-		"vendor":          util.CniTypeName,
+		"vendor":          util.VendorTag,
 		"node":            nodeName,
 		"address-family":  strconv.Itoa(af),
 		"isLocalDNSCache": "true",

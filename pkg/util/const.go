@@ -15,6 +15,7 @@ const (
 	ReservedRoutingTableIDEnd   = 255
 
 	CniTypeName = "fabric"
+	VendorTag   = "kube-ovn"
 
 	DeprecatedFinalizerName    = "kube-ovn-controller"
 	LegacyControllerFinalizer  = "kubeovn.io/kube-ovn-controller"

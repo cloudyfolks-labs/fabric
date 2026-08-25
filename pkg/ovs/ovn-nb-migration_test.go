@@ -127,17 +127,17 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 	// Verify LRP has vendor tag
 	migratedLrp, err := nbClient.GetLogicalRouterPort(lrpName, false)
 	require.NoError(t, err)
-	require.Equal(t, util.CniTypeName, migratedLrp.ExternalIDs["vendor"])
+	require.Equal(t, util.VendorTag, migratedLrp.ExternalIDs["vendor"])
 
 	// Verify port group has vendor tag
 	migratedPg, err := nbClient.GetPortGroup(sgPgName, false)
 	require.NoError(t, err)
-	require.Equal(t, util.CniTypeName, migratedPg.ExternalIDs["vendor"])
+	require.Equal(t, util.VendorTag, migratedPg.ExternalIDs["vendor"])
 
 	// Verify load balancer has vendor tag
 	migratedLb, err := nbClient.GetLoadBalancer(lbName, false)
 	require.NoError(t, err)
-	require.Equal(t, util.CniTypeName, migratedLb.ExternalIDs["vendor"])
+	require.Equal(t, util.VendorTag, migratedLb.ExternalIDs["vendor"])
 
 	// Verify version was stored
 	storedVersion, err := nbClient.GetKubeOvnVersion()
@@ -280,7 +280,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsSkipsNonKubeOvn() {
 	migratedPg, err := nbClient.GetPortGroup(neutronPgName, false)
 	require.NoError(t, err)
 	// Should not have vendor tag
-	require.NotEqual(t, util.CniTypeName, migratedPg.ExternalIDs["vendor"])
+	require.NotEqual(t, util.VendorTag, migratedPg.ExternalIDs["vendor"])
 }
 
 func TestSecurityGroupPatterns(t *testing.T) {

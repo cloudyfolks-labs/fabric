@@ -1017,7 +1017,7 @@ func (c *OVNNbClient) newACL(parent, direction, priority, match, action string, 
 		Priority:  intPriority,
 		ExternalIDs: map[string]string{
 			aclParentKey: parent,
-			"vendor":     util.CniTypeName,
+			"vendor":     util.VendorTag,
 		},
 		Tier: tier,
 	}
@@ -1051,7 +1051,7 @@ func (c *OVNNbClient) newACLWithoutCheck(parent, direction, priority, match, act
 		Priority:  intPriority,
 		ExternalIDs: map[string]string{
 			aclParentKey: parent,
-			"vendor":     util.CniTypeName,
+			"vendor":     util.VendorTag,
 		},
 		Tier: tier,
 	}
@@ -1969,14 +1969,14 @@ func (c *OVNNbClient) CleanNoParentKeyAcls() error {
 
 	var aclList []ovnnb.ACL
 	if err := c.ovsDbClient.WhereCache(func(acl *ovnnb.ACL) bool {
-		// Only clean ACLs that belong to fabric (vendor=fabric) but are missing the parent key.
+		// Only clean ACLs that belong to fabric (vendor=VendorTag) but are missing the parent key.
 		// This ensures we never touch ACLs created by external systems like OpenStack Neutron.
 		// ACLs without vendor tag or with a different vendor are left untouched.
 		if len(acl.ExternalIDs) == 0 {
 			return false
 		}
 		// Skip ACLs that don't belong to fabric
-		if acl.ExternalIDs["vendor"] != util.CniTypeName {
+		if acl.ExternalIDs["vendor"] != util.VendorTag {
 			return false
 		}
 		// Only target fabric ACLs that are missing the parent key

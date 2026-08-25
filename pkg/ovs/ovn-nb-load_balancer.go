@@ -47,7 +47,7 @@ func (c *OVNNbClient) CreateLoadBalancer(lbName, protocol string, selectFields .
 		Name:     lbName,
 		Protocol: &protocol,
 		ExternalIDs: map[string]string{
-			"vendor": util.CniTypeName,
+			"vendor": util.VendorTag,
 		},
 	}
 

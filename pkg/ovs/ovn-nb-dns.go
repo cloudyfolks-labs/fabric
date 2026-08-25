@@ -10,6 +10,7 @@ import (
 
 	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 const dnsZoneExternalIDKey = "dns-zone"
@@ -57,7 +58,7 @@ func (c *OVNNbClient) EnsureDNSZone(zone string, records map[string]string) (str
 		dns = &ovnnb.DNS{
 			UUID: ovsclient.NamedUUID(),
 			ExternalIDs: map[string]string{
-				"vendor":             "fabric",
+				"vendor":             util.VendorTag,
 				dnsZoneExternalIDKey: zone,
 			},
 			Records: records,

@@ -96,14 +96,14 @@ func (c *OVNNbClient) createMeterWithBand(name string, unit ovnnb.MeterUnit, rat
 		Action:      ovnnb.MeterBandActionDrop,
 		Rate:        rate,
 		BurstSize:   burst,
-		ExternalIDs: map[string]string{"vendor": util.CniTypeName},
+		ExternalIDs: map[string]string{"vendor": util.VendorTag},
 	}
 	meter := &ovnnb.Meter{
 		UUID:        ovsclient.NamedUUID(),
 		Name:        name,
 		Unit:        unit,
 		Bands:       []string{band.UUID},
-		ExternalIDs: map[string]string{"vendor": util.CniTypeName},
+		ExternalIDs: map[string]string{"vendor": util.VendorTag},
 	}
 
 	ops := make([]ovsdb.Operation, 0, 2)
@@ -165,7 +165,7 @@ func (c *OVNNbClient) updateMeterAndBand(meter *ovnnb.Meter, unit ovnnb.MeterUni
 			Action:      ovnnb.MeterBandActionDrop,
 			Rate:        rate,
 			BurstSize:   burst,
-			ExternalIDs: map[string]string{"vendor": util.CniTypeName},
+			ExternalIDs: map[string]string{"vendor": util.VendorTag},
 		}
 		createBandOps, err := c.Create(band)
 		if err != nil {

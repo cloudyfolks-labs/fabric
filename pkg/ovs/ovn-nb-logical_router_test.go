@@ -43,7 +43,7 @@ func (suite *OvnClientTestSuite) testCreateLogicalRouter() {
 		require.NoError(t, err)
 		require.Equal(t, name, lr.Name)
 		require.NotEmpty(t, lr.UUID)
-		require.Equal(t, util.CniTypeName, lr.ExternalIDs["vendor"])
+		require.Equal(t, util.VendorTag, lr.ExternalIDs["vendor"])
 	})
 
 	t.Run("test create existing logical router", func(t *testing.T) {
@@ -258,7 +258,7 @@ func (suite *OvnClientTestSuite) testListLogicalRouter() {
 		t.Parallel()
 
 		filter := func(lr *ovnnb.LogicalRouter) bool {
-			return len(lr.ExternalIDs) == 0 || lr.ExternalIDs["vendor"] != util.CniTypeName
+			return len(lr.ExternalIDs) == 0 || lr.ExternalIDs["vendor"] != util.VendorTag
 		}
 		lrs, err := nbClient.ListLogicalRouter(false, filter)
 		require.NoError(t, err)

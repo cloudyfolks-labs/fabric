@@ -17,7 +17,7 @@ func (c *VswitchClient) ListBridge(needVendorFilter bool, filter func(bridge *vs
 
 	var bridgeList []vswitch.Bridge
 	if err := c.ovsDbClient.WhereCache(func(bridge *vswitch.Bridge) bool {
-		if needVendorFilter && (len(bridge.ExternalIDs) == 0 || bridge.ExternalIDs[ExternalIDVendor] != util.CniTypeName) {
+		if needVendorFilter && (len(bridge.ExternalIDs) == 0 || bridge.ExternalIDs[ExternalIDVendor] != util.VendorTag) {
 			return false
 		}
 		if filter != nil {

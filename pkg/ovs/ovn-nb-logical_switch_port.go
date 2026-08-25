@@ -50,7 +50,7 @@ func buildLogicalSwitchPort(lspName, lsName, ip, mac, podName, namespace string,
 			lsp.PortSecurity = []string{strings.TrimSpace(strings.Join(addresses, " "))}
 		}
 	}
-	lsp.ExternalIDs["vendor"] = util.CniTypeName
+	lsp.ExternalIDs["vendor"] = util.VendorTag
 
 	// set security groups
 	if len(securityGroups) != 0 {
@@ -80,7 +80,7 @@ func buildLogicalSwitchPort(lspName, lsName, ip, mac, podName, namespace string,
 
 	// attach necessary info
 	lsp.ExternalIDs[LogicalSwitchKey] = lsName
-	lsp.ExternalIDs["vendor"] = util.CniTypeName
+	lsp.ExternalIDs["vendor"] = util.VendorTag
 
 	// set dhcp options
 	if enableDHCP && dhcpOptions != nil {
@@ -153,7 +153,7 @@ func (c *OVNNbClient) CreateLocalnetLogicalSwitchPort(lsName, lspName, provider,
 
 	if lsp != nil {
 		externalIDs[LogicalSwitchKey] = lsName
-		externalIDs["vendor"] = util.CniTypeName
+		externalIDs["vendor"] = util.VendorTag
 		options := map[string]string{
 			"network_name": provider,
 		}
@@ -978,7 +978,7 @@ func (c *OVNNbClient) CreateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, ls
 
 	// attach necessary info
 	lsp.ExternalIDs[LogicalSwitchKey] = lsName
-	lsp.ExternalIDs["vendor"] = util.CniTypeName
+	lsp.ExternalIDs["vendor"] = util.VendorTag
 
 	/* create logical switch port */
 	klog.V(3).Infof("create logical switch port %s in logical switch %s", lsp.Name, lsName)
@@ -1042,7 +1042,7 @@ func (c *OVNNbClient) UpdateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, fi
 // logicalSwitchPortFilter filter logical_switch_port which match the given externalIDs and the custom filter
 func logicalSwitchPortFilter(needVendorFilter bool, externalIDs map[string]string, filter func(lsp *ovnnb.LogicalSwitchPort) bool) func(lsp *ovnnb.LogicalSwitchPort) bool {
 	return func(lsp *ovnnb.LogicalSwitchPort) bool {
-		if needVendorFilter && (len(lsp.ExternalIDs) == 0 || lsp.ExternalIDs["vendor"] != util.CniTypeName) {
+		if needVendorFilter && (len(lsp.ExternalIDs) == 0 || lsp.ExternalIDs["vendor"] != util.VendorTag) {
 			return false
 		}
 		if len(lsp.ExternalIDs) < len(externalIDs) {

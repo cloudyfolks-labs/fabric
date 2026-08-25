@@ -176,7 +176,7 @@ func TestAddPolicyRouteForU2OInterconn_OverlayOnlyRouting(t *testing.T) {
 	mockOvnClient.EXPECT().GetLogicalRouter(util.DefaultVpc, true).Return(&ovnnb.LogicalRouter{Name: util.DefaultVpc}, nil)
 	mockOvnClient.EXPECT().ListLogicalRouterPolicies(util.DefaultVpc, -1, map[string]string{
 		"isU2ORoutePolicy": "true",
-		"vendor":           util.CniTypeName,
+		"vendor":           util.VendorTag,
 		"subnet":           subnet.Name,
 	}, true).Return(nil, nil)
 
@@ -257,7 +257,7 @@ func TestAddPolicyRouteForU2OInterconn_OverlayOnlyRoutingDeletesLegacyPolicies(t
 	mockOvnClient.EXPECT().GetLogicalRouter(util.DefaultVpc, true).Return(&ovnnb.LogicalRouter{Name: util.DefaultVpc}, nil)
 	mockOvnClient.EXPECT().ListLogicalRouterPolicies(util.DefaultVpc, -1, map[string]string{
 		"isU2ORoutePolicy": "true",
-		"vendor":           util.CniTypeName,
+		"vendor":           util.VendorTag,
 		"subnet":           subnet.Name,
 	}, true).Return([]*ovnnb.LogicalRouterPolicy{
 		{
@@ -355,7 +355,7 @@ func TestAddPolicyRouteForU2OInterconn_LegacyRoutingDeletesOverlayOnlyPolicies(t
 	mockOvnClient.EXPECT().GetLogicalRouter(util.DefaultVpc, true).Return(&ovnnb.LogicalRouter{Name: util.DefaultVpc}, nil)
 	mockOvnClient.EXPECT().ListLogicalRouterPolicies(util.DefaultVpc, -1, map[string]string{
 		"isU2ORoutePolicy": "true",
-		"vendor":           util.CniTypeName,
+		"vendor":           util.VendorTag,
 		"subnet":           subnet.Name,
 	}, true).Return([]*ovnnb.LogicalRouterPolicy{
 		{
