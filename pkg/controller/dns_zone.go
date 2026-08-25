@@ -27,7 +27,7 @@ func (c *Controller) enqueueAddDnsZone(obj any) {
 func (c *Controller) enqueueUpdateDnsZone(oldObj, newObj any) {
 	oldZone := oldObj.(*kubeovnv1.DnsZone)
 	newZone := newObj.(*kubeovnv1.DnsZone)
-	if oldZone.ResourceVersion == newZone.ResourceVersion {
+	if oldZone.Generation == newZone.Generation {
 		return
 	}
 	key := cache.MetaObjectToName(newZone).String()
@@ -145,6 +145,12 @@ func (c *Controller) handleDelDnsZone(name string) error {
 }
 
 func (c *Controller) patchDnsZoneStatus(zone *kubeovnv1.DnsZone, activeRecords int32, ready corev1.ConditionStatus, reason, message string) error {
+	if zone.Status.ActiveRecords == activeRecords && len(zone.Status.Conditions) == 1 {
+		cond := zone.Status.Conditions[0]
+		if cond.Type == "Ready" && cond.Status == ready && cond.Reason == reason && cond.Message == message {
+			return nil
+		}
+	}
 	newZone := zone.DeepCopy()
 	newZone.Status.ActiveRecords = activeRecords
 	newZone.Status.Conditions = []kubeovnv1.Condition{{
