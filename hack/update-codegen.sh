@@ -780,6 +780,6 @@ kube::codegen::gen_client \
   --with-watch \
   --with-applyconfig \
   --output-dir pkg/client \
-  --output-pkg github.com/kubeovn/kube-ovn/pkg/client \
+  --output-pkg github.com/cloudyfolks-labs/fabric/pkg/client \
   --boilerplate ${KUBE_CODEGEN_ROOT}/../hack/boilerplate.go.txt \
   pkg/apis

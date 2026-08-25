@@ -20,10 +20,10 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	apiv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
 const (

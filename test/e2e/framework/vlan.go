@@ -11,10 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	apiv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	clientset "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned"
-	v1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 // VlanClient is a struct for vlan client.

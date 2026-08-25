@@ -24,9 +24,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned"
-	internalinterfaces "github.com/kubeovn/kube-ovn/pkg/client/informers/externalversions/internalinterfaces"
-	kubeovn "github.com/kubeovn/kube-ovn/pkg/client/informers/externalversions/kubeovn"
+	versioned "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions/internalinterfaces"
+	kubeovn "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions/kubeovn"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

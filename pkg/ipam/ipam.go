@@ -10,9 +10,9 @@ import (
 
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/internal"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/internal"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 var (

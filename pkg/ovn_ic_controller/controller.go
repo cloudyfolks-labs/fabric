@@ -15,11 +15,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	kubeovninformer "github.com/kubeovn/kube-ovn/pkg/client/informers/externalversions"
-	kubeovnlister "github.com/kubeovn/kube-ovn/pkg/client/listers/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	kubeovnlister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 const controllerAgentName = "ovn-ic-controller"

@@ -8,8 +8,8 @@ import (
 	"github.com/ovn-kubernetes/libovsdb/model"
 	"k8s.io/klog/v2"
 
-	ovsclient "github.com/kubeovn/kube-ovn/pkg/ovsdb/client"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/vswitch"
+	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
 )
 
 // VswitchClient is a client for interacting with the vswitch database

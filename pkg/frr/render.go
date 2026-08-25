@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
 )
 
 const (

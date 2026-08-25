@@ -12,9 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/vswitch"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 // default max fdb age is 300s in ovs-vswitchd

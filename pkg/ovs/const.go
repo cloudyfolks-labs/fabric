@@ -1,6 +1,6 @@
 package ovs
 
-import "github.com/kubeovn/kube-ovn/pkg/util"
+import "github.com/cloudyfolks-labs/fabric/pkg/util"
 
 func CmdSSLArgs() []string {
 	return []string{

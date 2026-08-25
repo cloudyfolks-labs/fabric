@@ -12,9 +12,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/internal"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/internal"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func makeLbSvc(namespace, name string, class *string, svcType corev1.ServiceType) *corev1.Service {

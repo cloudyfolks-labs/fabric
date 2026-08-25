@@ -16,9 +16,9 @@ import (
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 	"k8s.io/klog/v2"
 
-	ovsclient "github.com/kubeovn/kube-ovn/pkg/ovsdb/client"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnsb"
+	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnsb"
 )
 
 // LegacyClient is the legacy ovn client

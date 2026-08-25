@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kubeovn/kube-ovn/pkg/bfddsupervisor"
+	"github.com/cloudyfolks-labs/fabric/pkg/bfddsupervisor"
 )
 
 type commandTestControl struct{}

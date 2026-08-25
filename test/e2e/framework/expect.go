@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 var (

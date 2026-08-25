@@ -6,7 +6,7 @@ import (
 	"github.com/ovn-kubernetes/libovsdb/model"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/vswitch"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
 )
 
 func TestNewVswitchClientWithLegacySchema(t *testing.T) {

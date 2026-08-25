@@ -10,11 +10,11 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	apiv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/request"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework/iproute"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/request"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/iproute"
 )
 
 var _ = framework.SerialDescribe("[group:pod]", func() {

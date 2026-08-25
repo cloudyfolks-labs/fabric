@@ -13,9 +13,9 @@ import (
 	"github.com/moby/moby/api/types/container"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework/docker"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework/iproute"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/docker"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/iproute"
 )
 
 const NetworkName = "kind"

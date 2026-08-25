@@ -5,10 +5,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ovsclient "github.com/kubeovn/kube-ovn/pkg/ovsdb/client"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/versions"
+	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/versions"
 )
 
 // ensureNbGlobalExists creates NBGlobal if it doesn't exist (needed for migration tests)

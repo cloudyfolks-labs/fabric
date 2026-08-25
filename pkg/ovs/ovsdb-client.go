@@ -13,7 +13,7 @@ import (
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 // OvsdbServerAddress constructs the ovsdb-server address based on the given host and port.

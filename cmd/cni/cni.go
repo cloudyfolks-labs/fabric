@@ -12,11 +12,11 @@ import (
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/netconf"
-	"github.com/kubeovn/kube-ovn/pkg/request"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/versions"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/netconf"
+	"github.com/cloudyfolks-labs/fabric/pkg/request"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/versions"
 )
 
 func main() {

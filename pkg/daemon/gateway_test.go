@@ -10,10 +10,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	kubeovnfake "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/fake"
-	kubeovninformerfactory "github.com/kubeovn/kube-ovn/pkg/client/informers/externalversions"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	kubeovnfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
+	kubeovninformerfactory "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 type errSubnetLister struct{}

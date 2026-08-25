@@ -5,7 +5,7 @@ each tenant a real VPC with its own router, its own address space, and a
 BGP path to the physical network.
 
 fabric started as a fork of
-[kube-ovn](https://github.com/kubeovn/kube-ovn) and is now a standalone
+[kube-ovn](https://github.com/cloudyfolks-labs/fabric) and is now a standalone
 project. The OVN substrate and the CNI come from that import; fabric
 develops independently and does not track upstream.
 

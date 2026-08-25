@@ -9,8 +9,8 @@ import (
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 	"github.com/stretchr/testify/require"
 
-	ovsclient "github.com/kubeovn/kube-ovn/pkg/ovsdb/client"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
+	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
 
 func (suite *OvnClientTestSuite) testAddLoadBalancerHealthCheck() {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
 var _ = framework.Describe("[group:pod]", func() {
@@ -27,7 +27,7 @@ var _ = framework.Describe("[group:pod]", func() {
 	})
 
 	framework.ConformanceIt("Should support statefulset scale Replica", func() {
-		// add this case for pr https://github.com/kubeovn/kube-ovn/pull/3777
+		// add this case for pr https://github.com/cloudyfolks-labs/fabric/pull/3777
 		replicas := 3
 		labels := map[string]string{"app": stsName}
 

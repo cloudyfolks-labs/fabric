@@ -13,8 +13,8 @@ import (
 	"k8s.io/klog/v2"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/kubeovn/kube-ovn/pkg/informer"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/informer"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddVMIMigration(obj any) {
@@ -190,7 +190,7 @@ func (c *Controller) handleAddOrUpdateVMIMigration(key string) error {
 				// in the Scheduling phase; this produces no further phase-change event, so
 				// return an error to requeue with rate limiting and retry once scheduling
 				// completes, instead of dropping the event.
-				// https://github.com/kubeovn/kube-ovn/issues/6823
+				// https://github.com/cloudyfolks-labs/fabric/issues/6823
 				if sourceNode == "" || targetPod.Spec.NodeName == "" {
 					return fmt.Errorf("VM pod %s/%s migration setup deferred, source node %q, target node %q not ready yet (migration job UID %s)",
 						targetPod.Namespace, targetPod.Name, sourceNode, targetPod.Spec.NodeName, vmiMigration.UID)

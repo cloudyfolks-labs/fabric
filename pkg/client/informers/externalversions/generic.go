@@ -21,7 +21,7 @@ package externalversions
 import (
 	fmt "fmt"
 
-	v1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

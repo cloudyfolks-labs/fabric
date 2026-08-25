@@ -141,7 +141,7 @@ download_source() {
     log "Downloading source code for version $VERSION"
     
     # Download main kube-ovn source code
-    local source_url="https://github.com/kubeovn/kube-ovn/archive/refs/tags/${VERSION}.tar.gz"
+    local source_url="https://github.com/cloudyfolks-labs/fabric/archive/refs/tags/${VERSION}.tar.gz"
     local source_file="$BACKUP_DIR/source/kube-ovn-${VERSION}.tar.gz"
     
     if curl -L -o "$source_file" "$source_url"; then

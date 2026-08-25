@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 // computeIngressPolicingBurstKbit returns the ingress_policing_burst value (kbit) to write.
@@ -182,7 +182,7 @@ func ClearHtbQosQueue(podName, podNamespace, iface string) error {
 		}
 	}
 
-	// https://github.com/kubeovn/kube-ovn/issues/1191
+	// https://github.com/cloudyfolks-labs/fabric/issues/1191
 	qosQueueMap, err := ListQosQueueIDs()
 	if err != nil {
 		klog.Error(err)

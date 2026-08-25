@@ -19,7 +19,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 type PodClient struct {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnsb"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnsb"
 )
 
 const (

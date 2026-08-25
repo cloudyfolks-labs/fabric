@@ -17,7 +17,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
 // ServiceCIDR (KEP-1880) became GA in K8s 1.33. The kube-ovn integration ships

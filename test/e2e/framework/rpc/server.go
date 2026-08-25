@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
 type Server struct {

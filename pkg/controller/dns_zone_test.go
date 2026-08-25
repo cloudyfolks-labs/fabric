@@ -9,7 +9,7 @@ import (
 
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
 )
 
 func makeDNSZone(name, vpc string, records []kubeovnv1.DNSZoneRecord) *kubeovnv1.DNSZone {

@@ -1,4 +1,4 @@
-module github.com/kubeovn/kube-ovn
+module github.com/cloudyfolks-labs/fabric
 
 go 1.26.6
 

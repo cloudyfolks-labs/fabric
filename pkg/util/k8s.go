@@ -27,7 +27,7 @@ import (
 	"k8s.io/utils/set"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/scheme"
+	"github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/scheme"
 )
 
 // APIResourceExists checks if all specified kinds exist in the given group version.

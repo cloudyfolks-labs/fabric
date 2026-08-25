@@ -12,9 +12,9 @@ import (
 	"github.com/onsi/ginkgo/v2"
 
 	// Import tests.
-	_ "github.com/kubeovn/kube-ovn/test/e2e/webhook/pod"
-	_ "github.com/kubeovn/kube-ovn/test/e2e/webhook/subnet"
-	_ "github.com/kubeovn/kube-ovn/test/e2e/webhook/vip"
+	_ "github.com/cloudyfolks-labs/fabric/test/e2e/webhook/pod"
+	_ "github.com/cloudyfolks-labs/fabric/test/e2e/webhook/subnet"
+	_ "github.com/cloudyfolks-labs/fabric/test/e2e/webhook/vip"
 )
 
 func init() {

@@ -11,7 +11,7 @@ IMAGE_REF_NAME := $(IMAGE_REF_NAME)
 endif
 IMAGE_LABELS = --label "org.opencontainers.image.source=https://github.com/cloudyfolks-labs/fabric" --label "org.opencontainers.image.revision=$(IMAGE_REVISION)" --label "org.opencontainers.image.ref.name=$(IMAGE_REF_NAME)"
 
-GOLDFLAGS = -extldflags '-z now' -X github.com/kubeovn/kube-ovn/versions.COMMIT=$(COMMIT) -X github.com/kubeovn/kube-ovn/versions.VERSION=$(RELEASE_TAG) -X github.com/kubeovn/kube-ovn/versions.BUILDDATE=$(DATE)
+GOLDFLAGS = -extldflags '-z now' -X github.com/cloudyfolks-labs/fabric/versions.COMMIT=$(COMMIT) -X github.com/cloudyfolks-labs/fabric/versions.VERSION=$(RELEASE_TAG) -X github.com/cloudyfolks-labs/fabric/versions.BUILDDATE=$(DATE)
 ifdef DEBUG
 GO_BUILD_FLAGS = -ldflags "$(GOLDFLAGS)"
 else
@@ -23,7 +23,7 @@ ifeq ($(strip $(GO_MOD_VERSION)),)
 $(error failed to determine Go version from go.mod)
 endif
 GOTOOLCHAIN_VERSION := go$(GO_MOD_VERSION)
-MODERNIZE_EXCLUDE := github.com/kubeovn/kube-ovn/mocks|github.com/kubeovn/kube-ovn/pkg/apis/kubeovn|github.com/kubeovn/kube-ovn/pkg/client
+MODERNIZE_EXCLUDE := github.com/cloudyfolks-labs/fabric/mocks|github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn|github.com/cloudyfolks-labs/fabric/pkg/client
 
 .PHONY: gen-crd
 gen-crd:

@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kubeovn/kube-ovn/cmd/pinger"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/pkg/util/profiling"
+	"github.com/cloudyfolks-labs/fabric/cmd/pinger"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util/profiling"
 )
 
 const (

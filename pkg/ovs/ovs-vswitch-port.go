@@ -6,7 +6,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/vswitch"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
 )
 
 // ListPort lists ovs ports

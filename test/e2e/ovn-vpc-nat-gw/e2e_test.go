@@ -20,13 +20,13 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework/docker"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework/iproute"
-	"github.com/kubeovn/kube-ovn/test/e2e/framework/kind"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/docker"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/iproute"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/kind"
 )
 
 const dockerNetworkName = "kube-ovn-vlan"

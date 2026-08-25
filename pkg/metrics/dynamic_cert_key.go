@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog/v2"
 	netutil "k8s.io/utils/net"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 var (

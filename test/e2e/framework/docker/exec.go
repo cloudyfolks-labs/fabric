@@ -10,7 +10,7 @@ import (
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/client"
 
-	"github.com/kubeovn/kube-ovn/test/e2e/framework"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
 type ErrNonZeroExitCode struct {

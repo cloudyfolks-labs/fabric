@@ -6,8 +6,8 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/vswitch"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 // ListBridge lists ovs bridges

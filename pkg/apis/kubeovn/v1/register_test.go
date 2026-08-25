@@ -16,7 +16,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kubeovn/kube-ovn/pkg/apis/kubeovn"
+	"github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn"
 )
 
 func TestKind(t *testing.T) {

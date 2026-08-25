@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kubeovn/kube-ovn/test/e2e/framework/docker"
+	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/docker"
 )
 
 type LinkInfo struct {

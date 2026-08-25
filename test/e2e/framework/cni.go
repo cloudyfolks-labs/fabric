@@ -9,9 +9,9 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/netconf"
-	"github.com/kubeovn/kube-ovn/pkg/request"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/netconf"
+	"github.com/cloudyfolks-labs/fabric/pkg/request"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 const CNIVersion = "0.3.1"

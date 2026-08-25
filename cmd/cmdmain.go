@@ -4,13 +4,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kubeovn/kube-ovn/cmd/frr"
-	"github.com/kubeovn/kube-ovn/cmd/ovn_ic_controller"
-	"github.com/kubeovn/kube-ovn/cmd/ovn_leader_checker"
-	"github.com/kubeovn/kube-ovn/cmd/ovn_monitor"
-	"github.com/kubeovn/kube-ovn/cmd/webhook"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/pkg/util/profiling"
+	"github.com/cloudyfolks-labs/fabric/cmd/frr"
+	"github.com/cloudyfolks-labs/fabric/cmd/ovn_ic_controller"
+	"github.com/cloudyfolks-labs/fabric/cmd/ovn_leader_checker"
+	"github.com/cloudyfolks-labs/fabric/cmd/ovn_monitor"
+	"github.com/cloudyfolks-labs/fabric/cmd/webhook"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util/profiling"
 )
 
 const (

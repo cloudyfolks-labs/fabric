@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kubeovn/kube-ovn/pkg/internal"
+	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 )
 
 func TestNewIPRange(t *testing.T) {

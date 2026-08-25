@@ -21,8 +21,8 @@ package v1
 import (
 	http "net/http"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	scheme "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/scheme"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	scheme "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

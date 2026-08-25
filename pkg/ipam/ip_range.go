@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"net"
 
-	"github.com/kubeovn/kube-ovn/pkg/internal"
+	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 )
 
 // IPRange represents an IP range of [start, end]

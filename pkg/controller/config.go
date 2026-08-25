@@ -20,8 +20,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	anpclientset "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
 
-	clientset "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 const (

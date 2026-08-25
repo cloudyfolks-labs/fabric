@@ -8,7 +8,7 @@ import (
 	"github.com/kubeovn/ovsdb"
 	"k8s.io/klog/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 )
 
 const metricNamespace = "kube_ovn"

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kubeovn/kube-ovn/pkg/request"
+	"github.com/cloudyfolks-labs/fabric/pkg/request"
 )
 
 // PodProviderRoutes represents configured routes for a provider/interface

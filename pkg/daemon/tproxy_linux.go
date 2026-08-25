@@ -18,10 +18,10 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	goTProxy "github.com/kubeovn/kube-ovn/pkg/tproxy"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
+	goTProxy "github.com/cloudyfolks-labs/fabric/pkg/tproxy"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 var (

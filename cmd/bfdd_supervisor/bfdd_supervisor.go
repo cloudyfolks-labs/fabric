@@ -17,7 +17,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/bfddsupervisor"
+	"github.com/cloudyfolks-labs/fabric/pkg/bfddsupervisor"
 )
 
 const (

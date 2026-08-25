@@ -1,6 +1,6 @@
 package netconf
 
-import "github.com/kubeovn/kube-ovn/pkg/request"
+import "github.com/cloudyfolks-labs/fabric/pkg/request"
 
 type IPAMConf struct {
 	Type         string          `json:"type"`

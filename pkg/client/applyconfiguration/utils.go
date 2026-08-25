@@ -19,9 +19,9 @@ limitations under the License.
 package applyconfiguration
 
 import (
-	v1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	internal "github.com/kubeovn/kube-ovn/pkg/client/applyconfiguration/internal"
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/client/applyconfiguration/kubeovn/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	internal "github.com/cloudyfolks-labs/fabric/pkg/client/applyconfiguration/internal"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/client/applyconfiguration/kubeovn/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	managedfields "k8s.io/apimachinery/pkg/util/managedfields"

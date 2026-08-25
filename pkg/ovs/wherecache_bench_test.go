@@ -8,7 +8,7 @@ import (
 	"github.com/ovn-kubernetes/libovsdb/client"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
 
 // benchNatSink keeps benchmark results live so the compiler can't elide the work.

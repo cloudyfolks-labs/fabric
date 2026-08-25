@@ -14,10 +14,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	ctrlwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	ovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	ovnwebhook "github.com/kubeovn/kube-ovn/pkg/webhook"
-	"github.com/kubeovn/kube-ovn/versions"
+	ovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	ovnwebhook "github.com/cloudyfolks-labs/fabric/pkg/webhook"
+	"github.com/cloudyfolks-labs/fabric/versions"
 )
 
 const hookServerCertDir = "/tmp/k8s-webhook-server/serving-certs"

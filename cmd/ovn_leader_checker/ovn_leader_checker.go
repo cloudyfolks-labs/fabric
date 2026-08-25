@@ -1,8 +1,8 @@
 package ovn_leader_checker
 
 import (
-	"github.com/kubeovn/kube-ovn/pkg/ovn_leader_checker"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovn_leader_checker"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func CmdMain() {

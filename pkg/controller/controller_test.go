@@ -33,13 +33,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/keymutex"
 
-	mockovs "github.com/kubeovn/kube-ovn/mocks/pkg/ovs"
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	kubeovnfake "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/fake"
-	kubeovninformerfactory "github.com/kubeovn/kube-ovn/pkg/client/informers/externalversions"
-	kubeovninformer "github.com/kubeovn/kube-ovn/pkg/client/informers/externalversions/kubeovn/v1"
-	ovnipam "github.com/kubeovn/kube-ovn/pkg/ipam"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	mockovs "github.com/cloudyfolks-labs/fabric/mocks/pkg/ovs"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	kubeovnfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
+	kubeovninformerfactory "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions/kubeovn/v1"
+	ovnipam "github.com/cloudyfolks-labs/fabric/pkg/ipam"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func TestMain(m *testing.M) {

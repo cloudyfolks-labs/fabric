@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
 )
 
 // StaticRouteApplyConfiguration represents a declarative configuration of the StaticRoute type for use

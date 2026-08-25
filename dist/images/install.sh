@@ -5773,4 +5773,4 @@ echo "
 "
 echo "Thanks for choosing Kube-OVN!
 For more advanced features, please read https://kubeovn.github.io/docs/stable/en/
-If you have any question, please file an issue https://github.com/kubeovn/kube-ovn/issues/new/choose"
+If you have any question, please file an issue https://github.com/cloudyfolks-labs/fabric/issues/new/choose"

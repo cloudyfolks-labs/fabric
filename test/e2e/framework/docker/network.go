@@ -14,7 +14,7 @@ import (
 	"github.com/moby/moby/client"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 const MTU = 1500

@@ -14,8 +14,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	ovsclient "github.com/kubeovn/kube-ovn/pkg/ovsdb/client"
-	"github.com/kubeovn/kube-ovn/pkg/ovsdb/ovnnb"
+	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
 
 // AddLogicalRouterPolicy add a policy route to logical router

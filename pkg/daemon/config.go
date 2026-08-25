@@ -24,9 +24,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
-	clientset "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned"
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 // Configuration is the daemon conf

@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	internal "github.com/kubeovn/kube-ovn/pkg/internal"
+	internal "github.com/cloudyfolks-labs/fabric/pkg/internal"
 )
 
 // SubnetStatusApplyConfiguration represents a declarative configuration of the SubnetStatus type for use

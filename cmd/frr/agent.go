@@ -9,10 +9,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	frragent "github.com/kubeovn/kube-ovn/pkg/frr"
-	"github.com/kubeovn/kube-ovn/pkg/metrics"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/kubeovn/kube-ovn/versions"
+	frragent "github.com/cloudyfolks-labs/fabric/pkg/frr"
+	"github.com/cloudyfolks-labs/fabric/pkg/metrics"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
+	"github.com/cloudyfolks-labs/fabric/versions"
 )
 
 func AgentMain() {
