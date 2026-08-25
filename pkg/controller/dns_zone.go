@@ -134,11 +134,8 @@ func (c *Controller) handleAddOrUpdateDNSZone(key string) error {
 		}
 	}
 
-	activeRecords := len(records)
-	if activeRecords > math.MaxInt32 {
-		activeRecords = math.MaxInt32
-	}
-	return c.patchDNSZoneStatus(zone, int32(activeRecords), corev1.ConditionTrue, "Reconciled", "")
+	activeRecords := int32(min(len(records), math.MaxInt32))
+	return c.patchDNSZoneStatus(zone, activeRecords, corev1.ConditionTrue, "Reconciled", "")
 }
 
 func (c *Controller) handleDelDNSZone(name string) error {
