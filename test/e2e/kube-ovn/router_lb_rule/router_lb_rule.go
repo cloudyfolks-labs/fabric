@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	dockerNetworkName = "fabric-vlan"
+	dockerNetworkName = "kube-ovn-vlan"
 	backendLabel      = "rlr-backend"
 	backendPort       = int32(80)
 	rlrFrontPort      = int32(8090)

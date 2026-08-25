@@ -29,7 +29,7 @@ import (
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/kind"
 )
 
-const dockerNetworkName = "fabric-vlan"
+const dockerNetworkName = "kube-ovn-vlan"
 
 const dockerExtraNetworkName = "fabric-extra-vlan"
 

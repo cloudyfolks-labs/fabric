@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	dockerNetworkName            = "fabric-vlan"
+	dockerNetworkName            = "kube-ovn-vlan"
 	curlListenPort               = 8081
 	underlayReservedStartIPCount = 20
 )
