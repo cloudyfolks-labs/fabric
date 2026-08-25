@@ -58,7 +58,7 @@ var _ = framework.Describe("[group:dns-zone]", func() {
 
 	lookup := func(pod *corev1.Pod, name string) string {
 		stdout, _, err := framework.ExecCommandInContainer(f, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name,
-			"sh", "-c", fmt.Sprintf("nslookup -timeout=2 %s 2>&1 || true", name))
+			"sh", "-c", fmt.Sprintf("nslookup -type=a -timeout=2 %s. 2>&1 || true", name))
 		if err != nil {
 			return ""
 		}
