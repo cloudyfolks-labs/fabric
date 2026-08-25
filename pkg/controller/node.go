@@ -1220,7 +1220,7 @@ func (c *Controller) addPolicyRouteForLocalDNSCacheOnNode(dnsIPs []string, nodeP
 			"vendor":          util.CniTypeName,
 			"node":            nodeName,
 			"address-family":  strconv.Itoa(af),
-			"isLocalDnsCache": "true",
+			"isLocalDNSCache": "true",
 		}
 		pgAs     = strings.ReplaceAll(fmt.Sprintf("%s_ip%d", nodePortName, af), "-", ".")
 		action   = kubeovnv1.PolicyRouteActionReroute
@@ -1275,7 +1275,7 @@ func (c *Controller) deletePolicyRouteForLocalDNSCacheOnNode(nodeName string, af
 		"vendor":          util.CniTypeName,
 		"node":            nodeName,
 		"address-family":  strconv.Itoa(af),
-		"isLocalDnsCache": "true",
+		"isLocalDNSCache": "true",
 	}, true)
 	if err != nil {
 		klog.Errorf("failed to list logical router policies: %v", err)

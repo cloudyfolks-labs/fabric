@@ -18,23 +18,23 @@ limitations under the License.
 
 package v1
 
-// DnsZoneStatusApplyConfiguration represents a declarative configuration of the DnsZoneStatus type for use
+// DNSZoneStatusApplyConfiguration represents a declarative configuration of the DNSZoneStatus type for use
 // with apply.
-type DnsZoneStatusApplyConfiguration struct {
+type DNSZoneStatusApplyConfiguration struct {
 	ActiveRecords *int32                        `json:"activeRecords,omitempty"`
 	Conditions    []ConditionApplyConfiguration `json:"conditions,omitempty"`
 }
 
-// DnsZoneStatusApplyConfiguration constructs a declarative configuration of the DnsZoneStatus type for use with
+// DNSZoneStatusApplyConfiguration constructs a declarative configuration of the DNSZoneStatus type for use with
 // apply.
-func DnsZoneStatus() *DnsZoneStatusApplyConfiguration {
-	return &DnsZoneStatusApplyConfiguration{}
+func DNSZoneStatus() *DNSZoneStatusApplyConfiguration {
+	return &DNSZoneStatusApplyConfiguration{}
 }
 
 // WithActiveRecords sets the ActiveRecords field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ActiveRecords field is set to the value of the last call.
-func (b *DnsZoneStatusApplyConfiguration) WithActiveRecords(value int32) *DnsZoneStatusApplyConfiguration {
+func (b *DNSZoneStatusApplyConfiguration) WithActiveRecords(value int32) *DNSZoneStatusApplyConfiguration {
 	b.ActiveRecords = &value
 	return b
 }
@@ -42,7 +42,7 @@ func (b *DnsZoneStatusApplyConfiguration) WithActiveRecords(value int32) *DnsZon
 // WithConditions adds the given value to the Conditions field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Conditions field.
-func (b *DnsZoneStatusApplyConfiguration) WithConditions(values ...*ConditionApplyConfiguration) *DnsZoneStatusApplyConfiguration {
+func (b *DNSZoneStatusApplyConfiguration) WithConditions(values ...*ConditionApplyConfiguration) *DNSZoneStatusApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithConditions")

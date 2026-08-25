@@ -57,8 +57,12 @@ var _ = framework.Describe("[group:dns-zone]", func() {
 	}
 
 	lookup := func(pod *corev1.Pod, name string) string {
+		queryType := "a"
+		if f.IsIPv6() {
+			queryType = "aaaa"
+		}
 		stdout, _, err := framework.ExecCommandInContainer(f, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name,
-			"sh", "-c", fmt.Sprintf("nslookup -type=a -timeout=2 %s. 2>&1 || true", name))
+			"sh", "-c", fmt.Sprintf("nslookup -type=%s -timeout=2 %s. 2>&1 || true", queryType, name))
 		if err != nil {
 			return ""
 		}
@@ -73,44 +77,48 @@ var _ = framework.Describe("[group:dns-zone]", func() {
 	}
 
 	framework.ConformanceIt("should serve split-horizon records from the datapath", func() {
-		pod1 := setupVpcPod(vpc1Name, subnet1Name, pod1Name, "10.60.0.0/24")
-		pod2 := setupVpcPod(vpc2Name, subnet2Name, pod2Name, "10.60.0.0/24")
+		cidr, answer1, answer2, answer3 := "10.60.0.0/24", "10.60.0.101", "10.60.0.202", "10.60.0.111"
+		if f.IsIPv6() {
+			cidr, answer1, answer2, answer3 = "fd00:10:60::/120", "fd00:10:60::101", "fd00:10:60::202", "fd00:10:60::111"
+		}
+		pod1 := setupVpcPod(vpc1Name, subnet1Name, pod1Name, cidr)
+		pod2 := setupVpcPod(vpc2Name, subnet2Name, pod2Name, cidr)
 
 		ginkgo.By("Creating dns zone " + zone1Name + " for vpc " + vpc1Name)
-		zone1 := framework.MakeDnsZone(zone1Name, vpc1Name, map[string][]string{
-			"db.internal": {"10.60.0.101"},
+		zone1 := framework.MakeDNSZone(zone1Name, vpc1Name, map[string][]string{
+			"db.internal": {answer1},
 		})
-		_ = f.DnsZoneClient().Create(zone1)
+		_ = f.DNSZoneClient().Create(zone1)
 		ginkgo.DeferCleanup(func() {
-			f.DnsZoneClient().Delete(zone1Name)
+			f.DNSZoneClient().Delete(zone1Name)
 		})
 
 		ginkgo.By("Creating dns zone " + zone2Name + " for vpc " + vpc2Name + " with the same name and a different answer")
-		zone2 := framework.MakeDnsZone(zone2Name, vpc2Name, map[string][]string{
-			"db.internal": {"10.60.0.202"},
+		zone2 := framework.MakeDNSZone(zone2Name, vpc2Name, map[string][]string{
+			"db.internal": {answer2},
 		})
-		_ = f.DnsZoneClient().Create(zone2)
+		_ = f.DNSZoneClient().Create(zone2)
 		ginkgo.DeferCleanup(func() {
-			f.DnsZoneClient().Delete(zone2Name)
+			f.DNSZoneClient().Delete(zone2Name)
 		})
 
 		ginkgo.By("Verifying each vpc sees its own answer")
-		waitLookup(pod1, "db.internal", "10.60.0.101")
-		waitLookup(pod2, "db.internal", "10.60.0.202")
+		waitLookup(pod1, "db.internal", answer1)
+		waitLookup(pod2, "db.internal", answer2)
 
 		ginkgo.By("Updating the record of zone " + zone1Name)
-		updated := f.DnsZoneClient().Get(zone1Name)
-		updated.Spec.Records = []apiv1.DnsZoneRecord{{Name: "db.internal", IPs: []string{"10.60.0.111"}}}
-		_ = f.DnsZoneClient().Update(updated)
-		waitLookup(pod1, "db.internal", "10.60.0.111")
+		updated := f.DNSZoneClient().Get(zone1Name)
+		updated.Spec.Records = []apiv1.DNSZoneRecord{{Name: "db.internal", IPs: []string{answer3}}}
+		_ = f.DNSZoneClient().Update(updated)
+		waitLookup(pod1, "db.internal", answer3)
 
 		ginkgo.By("Verifying the other vpc still sees its own answer")
-		waitLookup(pod2, "db.internal", "10.60.0.202")
+		waitLookup(pod2, "db.internal", answer2)
 
 		ginkgo.By("Deleting zone " + zone1Name + " and verifying its answer disappears")
-		f.DnsZoneClient().Delete(zone1Name)
+		f.DNSZoneClient().Delete(zone1Name)
 		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
-			return !strings.Contains(lookup(pod1, "db.internal"), "10.60.0.111"), nil
+			return !strings.Contains(lookup(pod1, "db.internal"), answer3), nil
 		}, "the record of the deleted zone is gone")
 	})
 })

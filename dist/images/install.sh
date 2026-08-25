@@ -546,8 +546,8 @@ metadata:
 spec:
   group: fabric.cloudyfolks.io
   names:
-    kind: DnsZone
-    listKind: DnsZoneList
+    kind: DNSZone
+    listKind: DNSZoneList
     plural: dns-zones
     singular: dns-zone
   scope: Cluster

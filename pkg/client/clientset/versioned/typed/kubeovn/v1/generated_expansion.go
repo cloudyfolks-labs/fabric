@@ -20,7 +20,7 @@ package v1
 
 type BgpConfExpansion interface{}
 
-type DnsZoneExpansion interface{}
+type DNSZoneExpansion interface{}
 
 type IPExpansion interface{}
 

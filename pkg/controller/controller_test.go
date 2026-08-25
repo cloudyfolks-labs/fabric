@@ -91,7 +91,7 @@ type FakeControllerOptions struct {
 	OvnDnatRules       []*kubeovnv1.OvnDnatRule
 	OvnFipRules        []*kubeovnv1.OvnFip
 	OvnSnatRules       []*kubeovnv1.OvnSnatRule
-	DnsZones           []*kubeovnv1.DnsZone
+	DNSZones           []*kubeovnv1.DNSZone
 }
 
 // newFakeControllerWithOptions creates a fake controller with optional pre-populated objects
@@ -190,8 +190,8 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 			return nil, err
 		}
 	}
-	for _, zone := range opts.DnsZones {
-		_, err := kubeovnClient.FabricV1().DnsZones().Create(
+	for _, zone := range opts.DNSZones {
+		_, err := kubeovnClient.FabricV1().DNSZones().Create(
 			context.Background(), zone, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
@@ -262,7 +262,7 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	providerNetworkInformer := kubeovnInformerFactory.Fabric().V1().ProviderNetworks()
 	ippoolInformer := kubeovnInformerFactory.Fabric().V1().IPPools()
 	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
-	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DnsZones()
+	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DNSZones()
 	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
 	ovnDnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnDnatRules()
 	ovnFipInformer := kubeovnInformerFactory.Fabric().V1().OvnFips()
@@ -306,8 +306,8 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		dnsZoneLister:           dnsZoneInformer.Lister(),
 		dnsZoneSynced:           alwaysReady,
 		dnsZoneKeyMutex:         keymutex.NewHashed(0),
-		addOrUpdateDnsZoneQueue: newTypedRateLimitingQueue[string]("AddOrUpdateDnsZone", nil),
-		delDnsZoneQueue:         newTypedRateLimitingQueue[string]("DeleteDnsZone", nil),
+		addOrUpdateDNSZoneQueue: newTypedRateLimitingQueue[string]("AddOrUpdateDNSZone", nil),
+		delDNSZoneQueue:         newTypedRateLimitingQueue[string]("DeleteDNSZone", nil),
 		ovnEipsLister:           ovnEipInformer.Lister(),
 		ovnEipSynced:            alwaysReady,
 		ovnDnatRulesLister:      ovnDnatRuleInformer.Lister(),

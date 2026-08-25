@@ -25,24 +25,24 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// DnsZoneLister helps list DnsZones.
+// DNSZoneLister helps list DNSZones.
 // All objects returned here must be treated as read-only.
-type DnsZoneLister interface {
-	// List lists all DnsZones in the indexer.
+type DNSZoneLister interface {
+	// List lists all DNSZones in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*kubeovnv1.DnsZone, err error)
-	// Get retrieves the DnsZone from the index for a given name.
+	List(selector labels.Selector) (ret []*kubeovnv1.DNSZone, err error)
+	// Get retrieves the DNSZone from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*kubeovnv1.DnsZone, error)
-	DnsZoneListerExpansion
+	Get(name string) (*kubeovnv1.DNSZone, error)
+	DNSZoneListerExpansion
 }
 
-// dnsZoneLister implements the DnsZoneLister interface.
+// dnsZoneLister implements the DNSZoneLister interface.
 type dnsZoneLister struct {
-	listers.ResourceIndexer[*kubeovnv1.DnsZone]
+	listers.ResourceIndexer[*kubeovnv1.DNSZone]
 }
 
-// NewDnsZoneLister returns a new DnsZoneLister.
-func NewDnsZoneLister(indexer cache.Indexer) DnsZoneLister {
-	return &dnsZoneLister{listers.New[*kubeovnv1.DnsZone](indexer, kubeovnv1.Resource("dnszone"))}
+// NewDNSZoneLister returns a new DNSZoneLister.
+func NewDNSZoneLister(indexer cache.Indexer) DNSZoneLister {
+	return &dnsZoneLister{listers.New[*kubeovnv1.DNSZone](indexer, kubeovnv1.Resource("dnszone"))}
 }

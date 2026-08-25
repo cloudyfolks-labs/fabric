@@ -11,56 +11,56 @@ import (
 	v1 "github.com/kubeovn/kube-ovn/pkg/client/clientset/versioned/typed/kubeovn/v1"
 )
 
-type DnsZoneClient struct {
+type DNSZoneClient struct {
 	f *Framework
-	v1.DnsZoneInterface
+	v1.DNSZoneInterface
 }
 
-func (f *Framework) DnsZoneClient() *DnsZoneClient {
-	return &DnsZoneClient{
+func (f *Framework) DNSZoneClient() *DNSZoneClient {
+	return &DNSZoneClient{
 		f:                f,
-		DnsZoneInterface: f.KubeOVNClientSet.FabricV1().DnsZones(),
+		DNSZoneInterface: f.KubeOVNClientSet.FabricV1().DNSZones(),
 	}
 }
 
-func (c *DnsZoneClient) Get(name string) *apiv1.DnsZone {
+func (c *DNSZoneClient) Get(name string) *apiv1.DNSZone {
 	ginkgo.GinkgoHelper()
-	zone, err := c.DnsZoneInterface.Get(context.TODO(), name, metav1.GetOptions{})
+	zone, err := c.DNSZoneInterface.Get(context.TODO(), name, metav1.GetOptions{})
 	ExpectNoError(err)
 	return zone
 }
 
-func (c *DnsZoneClient) Create(zone *apiv1.DnsZone) *apiv1.DnsZone {
+func (c *DNSZoneClient) Create(zone *apiv1.DNSZone) *apiv1.DNSZone {
 	ginkgo.GinkgoHelper()
-	created, err := c.DnsZoneInterface.Create(context.TODO(), zone, metav1.CreateOptions{})
+	created, err := c.DNSZoneInterface.Create(context.TODO(), zone, metav1.CreateOptions{})
 	ExpectNoError(err, "Error creating dns zone")
 	return created.DeepCopy()
 }
 
-func (c *DnsZoneClient) Update(zone *apiv1.DnsZone) *apiv1.DnsZone {
+func (c *DNSZoneClient) Update(zone *apiv1.DNSZone) *apiv1.DNSZone {
 	ginkgo.GinkgoHelper()
-	updated, err := c.DnsZoneInterface.Update(context.TODO(), zone, metav1.UpdateOptions{})
+	updated, err := c.DNSZoneInterface.Update(context.TODO(), zone, metav1.UpdateOptions{})
 	ExpectNoError(err, "Error updating dns zone")
 	return updated.DeepCopy()
 }
 
-func (c *DnsZoneClient) Delete(name string) {
+func (c *DNSZoneClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
-	err := c.DnsZoneInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
+	err := c.DNSZoneInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		ExpectNoError(err, "Error deleting dns zone")
 	}
 }
 
-func MakeDnsZone(name, vpc string, records map[string][]string) *apiv1.DnsZone {
-	zone := &apiv1.DnsZone{
+func MakeDNSZone(name, vpc string, records map[string][]string) *apiv1.DNSZone {
+	zone := &apiv1.DNSZone{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: apiv1.DnsZoneSpec{
+		Spec: apiv1.DNSZoneSpec{
 			Vpc: vpc,
 		},
 	}
 	for recordName, ips := range records {
-		zone.Spec.Records = append(zone.Spec.Records, apiv1.DnsZoneRecord{Name: recordName, IPs: ips})
+		zone.Spec.Records = append(zone.Spec.Records, apiv1.DNSZoneRecord{Name: recordName, IPs: ips})
 	}
 	return zone
 }

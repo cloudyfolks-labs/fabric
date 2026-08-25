@@ -18,23 +18,23 @@ limitations under the License.
 
 package v1
 
-// DnsZoneSpecApplyConfiguration represents a declarative configuration of the DnsZoneSpec type for use
+// DNSZoneSpecApplyConfiguration represents a declarative configuration of the DNSZoneSpec type for use
 // with apply.
-type DnsZoneSpecApplyConfiguration struct {
+type DNSZoneSpecApplyConfiguration struct {
 	Vpc     *string                           `json:"vpc,omitempty"`
-	Records []DnsZoneRecordApplyConfiguration `json:"records,omitempty"`
+	Records []DNSZoneRecordApplyConfiguration `json:"records,omitempty"`
 }
 
-// DnsZoneSpecApplyConfiguration constructs a declarative configuration of the DnsZoneSpec type for use with
+// DNSZoneSpecApplyConfiguration constructs a declarative configuration of the DNSZoneSpec type for use with
 // apply.
-func DnsZoneSpec() *DnsZoneSpecApplyConfiguration {
-	return &DnsZoneSpecApplyConfiguration{}
+func DNSZoneSpec() *DNSZoneSpecApplyConfiguration {
+	return &DNSZoneSpecApplyConfiguration{}
 }
 
 // WithVpc sets the Vpc field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Vpc field is set to the value of the last call.
-func (b *DnsZoneSpecApplyConfiguration) WithVpc(value string) *DnsZoneSpecApplyConfiguration {
+func (b *DNSZoneSpecApplyConfiguration) WithVpc(value string) *DNSZoneSpecApplyConfiguration {
 	b.Vpc = &value
 	return b
 }
@@ -42,7 +42,7 @@ func (b *DnsZoneSpecApplyConfiguration) WithVpc(value string) *DnsZoneSpecApplyC
 // WithRecords adds the given value to the Records field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Records field.
-func (b *DnsZoneSpecApplyConfiguration) WithRecords(values ...*DnsZoneRecordApplyConfiguration) *DnsZoneSpecApplyConfiguration {
+func (b *DNSZoneSpecApplyConfiguration) WithRecords(values ...*DNSZoneRecordApplyConfiguration) *DNSZoneSpecApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithRecords")

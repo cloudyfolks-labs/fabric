@@ -14,7 +14,7 @@ import (
 
 const dnsZoneExternalIDKey = "dns-zone"
 
-func (c *OVNNbClient) listDnsZone(zone string) ([]ovnnb.DNS, error) {
+func (c *OVNNbClient) listDNSZone(zone string) ([]ovnnb.DNS, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
@@ -27,8 +27,8 @@ func (c *OVNNbClient) listDnsZone(zone string) ([]ovnnb.DNS, error) {
 	return dnsList, nil
 }
 
-func (c *OVNNbClient) GetDnsZone(zone string) (*ovnnb.DNS, error) {
-	dnsList, err := c.listDnsZone(zone)
+func (c *OVNNbClient) GetDNSZone(zone string) (*ovnnb.DNS, error) {
+	dnsList, err := c.listDNSZone(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -38,13 +38,13 @@ func (c *OVNNbClient) GetDnsZone(zone string) (*ovnnb.DNS, error) {
 	return &dnsList[0], nil
 }
 
-func (c *OVNNbClient) EnsureDnsZone(zone string, records map[string]string) (string, error) {
-	dnsList, err := c.listDnsZone(zone)
+func (c *OVNNbClient) EnsureDNSZone(zone string, records map[string]string) (string, error) {
+	dnsList, err := c.listDNSZone(zone)
 	if err != nil {
 		return "", err
 	}
 	for i := 1; i < len(dnsList); i++ {
-		if err = c.deleteDnsRow(&dnsList[i]); err != nil {
+		if err = c.deleteDNSRow(&dnsList[i]); err != nil {
 			return "", err
 		}
 	}
@@ -69,7 +69,7 @@ func (c *OVNNbClient) EnsureDnsZone(zone string, records map[string]string) (str
 		if err = c.Transact("dns-create", ops); err != nil {
 			return "", fmt.Errorf("failed to create dns zone %s: %w", zone, err)
 		}
-		dns, err = c.GetDnsZone(zone)
+		dns, err = c.GetDNSZone(zone)
 		if err != nil {
 			return "", err
 		}
@@ -93,20 +93,20 @@ func (c *OVNNbClient) EnsureDnsZone(zone string, records map[string]string) (str
 	return dns.UUID, nil
 }
 
-func (c *OVNNbClient) DeleteDnsZone(zone string) error {
-	dnsList, err := c.listDnsZone(zone)
+func (c *OVNNbClient) DeleteDNSZone(zone string) error {
+	dnsList, err := c.listDNSZone(zone)
 	if err != nil {
 		return err
 	}
 	for i := range dnsList {
-		if err = c.deleteDnsRow(&dnsList[i]); err != nil {
+		if err = c.deleteDNSRow(&dnsList[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *OVNNbClient) deleteDnsRow(dns *ovnnb.DNS) error {
+func (c *OVNNbClient) deleteDNSRow(dns *ovnnb.DNS) error {
 	ops, err := c.ovsDbClient.Where(dns).Delete()
 	if err != nil {
 		return fmt.Errorf("failed to generate operations for deleting dns row %s: %w", dns.UUID, err)
@@ -117,7 +117,7 @@ func (c *OVNNbClient) deleteDnsRow(dns *ovnnb.DNS) error {
 	return nil
 }
 
-func (c *OVNNbClient) LogicalSwitchUpdateDnsRecords(lsName, dnsUUID string, op ovsdb.Mutator) error {
+func (c *OVNNbClient) LogicalSwitchUpdateDNSRecords(lsName, dnsUUID string, op ovsdb.Mutator) error {
 	ls, err := c.GetLogicalSwitch(lsName, true)
 	if err != nil {
 		return err
@@ -140,7 +140,7 @@ func (c *OVNNbClient) LogicalSwitchUpdateDnsRecords(lsName, dnsUUID string, op o
 	return nil
 }
 
-func (c *OVNNbClient) ListDnsZoneNames() ([]string, error) {
+func (c *OVNNbClient) ListDNSZoneNames() ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 

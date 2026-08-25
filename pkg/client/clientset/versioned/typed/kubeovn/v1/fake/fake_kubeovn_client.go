@@ -32,8 +32,8 @@ func (c *FakeFabricV1) BgpConves() v1.BgpConfInterface {
 	return newFakeBgpConves(c)
 }
 
-func (c *FakeFabricV1) DnsZones() v1.DnsZoneInterface {
-	return newFakeDnsZones(c)
+func (c *FakeFabricV1) DNSZones() v1.DNSZoneInterface {
+	return newFakeDNSZones(c)
 }
 
 func (c *FakeFabricV1) IPs() v1.IPInterface {

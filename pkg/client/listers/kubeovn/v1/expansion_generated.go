@@ -22,9 +22,9 @@ package v1
 // BgpConfLister.
 type BgpConfListerExpansion interface{}
 
-// DnsZoneListerExpansion allows custom methods to be added to
-// DnsZoneLister.
-type DnsZoneListerExpansion interface{}
+// DNSZoneListerExpansion allows custom methods to be added to
+// DNSZoneLister.
+type DNSZoneListerExpansion interface{}
 
 // IPListerExpansion allows custom methods to be added to
 // IPLister.

@@ -57,7 +57,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 			"vendor":          util.CniTypeName,
 			"node":            nodeName,
 			"address-family":  "4",
-			"isLocalDnsCache": "true",
+			"isLocalDNSCache": "true",
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 			"vendor":          util.CniTypeName,
 			"node":            nodeName,
 			"address-family":  "6",
-			"isLocalDnsCache": "true",
+			"isLocalDNSCache": "true",
 		},
 	}
 
@@ -83,7 +83,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 				"vendor":          util.CniTypeName,
 				"node":            nodeName,
 				"address-family":  "4",
-				"isLocalDnsCache": "true",
+				"isLocalDNSCache": "true",
 			}, true).
 			Return([]*ovnnb.LogicalRouterPolicy{existingV4Policy}, nil)
 
@@ -102,7 +102,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 				"vendor":          util.CniTypeName,
 				"node":            nodeName,
 				"address-family":  "6",
-				"isLocalDnsCache": "true",
+				"isLocalDNSCache": "true",
 			}, true).
 			Return([]*ovnnb.LogicalRouterPolicy{existingV6Policy}, nil)
 
@@ -142,13 +142,13 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing
 		"vendor":          util.CniTypeName,
 		"node":            nodeName,
 		"address-family":  "4",
-		"isLocalDnsCache": "true",
+		"isLocalDNSCache": "true",
 	}
 	externalIDsV6 := map[string]string{
 		"vendor":          util.CniTypeName,
 		"node":            nodeName,
 		"address-family":  "6",
-		"isLocalDnsCache": "true",
+		"isLocalDNSCache": "true",
 	}
 
 	t.Run("step1_af4_creates_policy", func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DeletesStalePolicy(t *testing.T) {
 		"vendor":          util.CniTypeName,
 		"node":            nodeName,
 		"address-family":  strconv.Itoa(4),
-		"isLocalDnsCache": "true",
+		"isLocalDNSCache": "true",
 	}
 
 	stalePolicy := &ovnnb.LogicalRouterPolicy{

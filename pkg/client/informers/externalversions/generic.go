@@ -56,7 +56,7 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case v1.SchemeGroupVersion.WithResource("bgp-confs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().BgpConves().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("dns-zones"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().DnsZones().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().DNSZones().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ips"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().IPs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ippools"):

@@ -61,8 +61,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VipList{},
 		&Vlan{},
 		&VlanList{},
-		&DnsZone{},
-		&DnsZoneList{},
+		&DNSZone{},
+		&DNSZoneList{},
 		&Vpc{},
 		&VpcList{},
 	)

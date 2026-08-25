@@ -30,45 +30,45 @@ import (
 	gentype "k8s.io/client-go/gentype"
 )
 
-// DnsZonesGetter has a method to return a DnsZoneInterface.
+// DNSZonesGetter has a method to return a DNSZoneInterface.
 // A group's client should implement this interface.
-type DnsZonesGetter interface {
-	DnsZones() DnsZoneInterface
+type DNSZonesGetter interface {
+	DNSZones() DNSZoneInterface
 }
 
-// DnsZoneInterface has methods to work with DnsZone resources.
-type DnsZoneInterface interface {
-	Create(ctx context.Context, dnsZone *kubeovnv1.DnsZone, opts metav1.CreateOptions) (*kubeovnv1.DnsZone, error)
-	Update(ctx context.Context, dnsZone *kubeovnv1.DnsZone, opts metav1.UpdateOptions) (*kubeovnv1.DnsZone, error)
+// DNSZoneInterface has methods to work with DNSZone resources.
+type DNSZoneInterface interface {
+	Create(ctx context.Context, dnsZone *kubeovnv1.DNSZone, opts metav1.CreateOptions) (*kubeovnv1.DNSZone, error)
+	Update(ctx context.Context, dnsZone *kubeovnv1.DNSZone, opts metav1.UpdateOptions) (*kubeovnv1.DNSZone, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, dnsZone *kubeovnv1.DnsZone, opts metav1.UpdateOptions) (*kubeovnv1.DnsZone, error)
+	UpdateStatus(ctx context.Context, dnsZone *kubeovnv1.DNSZone, opts metav1.UpdateOptions) (*kubeovnv1.DNSZone, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*kubeovnv1.DnsZone, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*kubeovnv1.DnsZoneList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*kubeovnv1.DNSZone, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*kubeovnv1.DNSZoneList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kubeovnv1.DnsZone, err error)
-	Apply(ctx context.Context, dnsZone *applyconfigurationkubeovnv1.DnsZoneApplyConfiguration, opts metav1.ApplyOptions) (result *kubeovnv1.DnsZone, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kubeovnv1.DNSZone, err error)
+	Apply(ctx context.Context, dnsZone *applyconfigurationkubeovnv1.DNSZoneApplyConfiguration, opts metav1.ApplyOptions) (result *kubeovnv1.DNSZone, err error)
 	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, dnsZone *applyconfigurationkubeovnv1.DnsZoneApplyConfiguration, opts metav1.ApplyOptions) (result *kubeovnv1.DnsZone, err error)
-	DnsZoneExpansion
+	ApplyStatus(ctx context.Context, dnsZone *applyconfigurationkubeovnv1.DNSZoneApplyConfiguration, opts metav1.ApplyOptions) (result *kubeovnv1.DNSZone, err error)
+	DNSZoneExpansion
 }
 
-// dnsZones implements DnsZoneInterface
+// dnsZones implements DNSZoneInterface
 type dnsZones struct {
-	*gentype.ClientWithListAndApply[*kubeovnv1.DnsZone, *kubeovnv1.DnsZoneList, *applyconfigurationkubeovnv1.DnsZoneApplyConfiguration]
+	*gentype.ClientWithListAndApply[*kubeovnv1.DNSZone, *kubeovnv1.DNSZoneList, *applyconfigurationkubeovnv1.DNSZoneApplyConfiguration]
 }
 
-// newDnsZones returns a DnsZones
-func newDnsZones(c *FabricV1Client) *dnsZones {
+// newDNSZones returns a DNSZones
+func newDNSZones(c *FabricV1Client) *dnsZones {
 	return &dnsZones{
-		gentype.NewClientWithListAndApply[*kubeovnv1.DnsZone, *kubeovnv1.DnsZoneList, *applyconfigurationkubeovnv1.DnsZoneApplyConfiguration](
+		gentype.NewClientWithListAndApply[*kubeovnv1.DNSZone, *kubeovnv1.DNSZoneList, *applyconfigurationkubeovnv1.DNSZoneApplyConfiguration](
 			"dns-zones",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *kubeovnv1.DnsZone { return &kubeovnv1.DnsZone{} },
-			func() *kubeovnv1.DnsZoneList { return &kubeovnv1.DnsZoneList{} },
+			func() *kubeovnv1.DNSZone { return &kubeovnv1.DNSZone{} },
+			func() *kubeovnv1.DNSZoneList { return &kubeovnv1.DNSZoneList{} },
 		),
 	}
 }

@@ -3,11 +3,11 @@ package v1
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type DnsZoneList struct {
+type DNSZoneList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []DnsZone `json:"items"`
+	Items []DNSZone `json:"items"`
 }
 
 // +genclient
@@ -19,23 +19,23 @@ type DnsZoneList struct {
 // +kubebuilder:printcolumn:name="Vpc",type=string,JSONPath=`.spec.vpc`
 // +kubebuilder:printcolumn:name="Records",type=integer,JSONPath=`.status.activeRecords`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
-type DnsZone struct {
+type DNSZone struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   DnsZoneSpec   `json:"spec"`
-	Status DnsZoneStatus `json:"status,omitempty"`
+	Spec   DNSZoneSpec   `json:"spec"`
+	Status DNSZoneStatus `json:"status,omitempty"`
 }
 
-type DnsZoneSpec struct {
+type DNSZoneSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Vpc string `json:"vpc"`
 	// +optional
-	Records []DnsZoneRecord `json:"records,omitempty"`
+	Records []DNSZoneRecord `json:"records,omitempty"`
 }
 
-type DnsZoneRecord struct {
+type DNSZoneRecord struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
@@ -44,7 +44,7 @@ type DnsZoneRecord struct {
 	IPs []string `json:"ips"`
 }
 
-type DnsZoneStatus struct {
+type DNSZoneStatus struct {
 	// +optional
 	ActiveRecords int32 `json:"activeRecords,omitempty"`
 	// +optional

@@ -52,14 +52,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &kubeovnv1.ConditionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CustomInterface"):
 		return &kubeovnv1.CustomInterfaceApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DnsZone"):
-		return &kubeovnv1.DnsZoneApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DnsZoneRecord"):
-		return &kubeovnv1.DnsZoneRecordApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DnsZoneSpec"):
-		return &kubeovnv1.DnsZoneSpecApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("DnsZoneStatus"):
-		return &kubeovnv1.DnsZoneStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DNSZone"):
+		return &kubeovnv1.DNSZoneApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DNSZoneRecord"):
+		return &kubeovnv1.DNSZoneRecordApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DNSZoneSpec"):
+		return &kubeovnv1.DNSZoneSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("DNSZoneStatus"):
+		return &kubeovnv1.DNSZoneStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IP"):
 		return &kubeovnv1.IPApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPPool"):

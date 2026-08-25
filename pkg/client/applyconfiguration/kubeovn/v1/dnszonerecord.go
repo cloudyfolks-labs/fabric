@@ -18,23 +18,23 @@ limitations under the License.
 
 package v1
 
-// DnsZoneRecordApplyConfiguration represents a declarative configuration of the DnsZoneRecord type for use
+// DNSZoneRecordApplyConfiguration represents a declarative configuration of the DNSZoneRecord type for use
 // with apply.
-type DnsZoneRecordApplyConfiguration struct {
+type DNSZoneRecordApplyConfiguration struct {
 	Name *string  `json:"name,omitempty"`
 	IPs  []string `json:"ips,omitempty"`
 }
 
-// DnsZoneRecordApplyConfiguration constructs a declarative configuration of the DnsZoneRecord type for use with
+// DNSZoneRecordApplyConfiguration constructs a declarative configuration of the DNSZoneRecord type for use with
 // apply.
-func DnsZoneRecord() *DnsZoneRecordApplyConfiguration {
-	return &DnsZoneRecordApplyConfiguration{}
+func DNSZoneRecord() *DNSZoneRecordApplyConfiguration {
+	return &DNSZoneRecordApplyConfiguration{}
 }
 
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *DnsZoneRecordApplyConfiguration) WithName(value string) *DnsZoneRecordApplyConfiguration {
+func (b *DNSZoneRecordApplyConfiguration) WithName(value string) *DNSZoneRecordApplyConfiguration {
 	b.Name = &value
 	return b
 }
@@ -42,7 +42,7 @@ func (b *DnsZoneRecordApplyConfiguration) WithName(value string) *DnsZoneRecordA
 // WithIPs adds the given value to the IPs field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the IPs field.
-func (b *DnsZoneRecordApplyConfiguration) WithIPs(values ...string) *DnsZoneRecordApplyConfiguration {
+func (b *DNSZoneRecordApplyConfiguration) WithIPs(values ...string) *DNSZoneRecordApplyConfiguration {
 	for i := range values {
 		b.IPs = append(b.IPs, values[i])
 	}

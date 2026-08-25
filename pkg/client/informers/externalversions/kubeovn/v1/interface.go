@@ -26,8 +26,8 @@ import (
 type Interface interface {
 	// BgpConves returns a BgpConfInformer.
 	BgpConves() BgpConfInformer
-	// DnsZones returns a DnsZoneInformer.
-	DnsZones() DnsZoneInformer
+	// DNSZones returns a DNSZoneInformer.
+	DNSZones() DNSZoneInformer
 	// IPs returns a IPInformer.
 	IPs() IPInformer
 	// IPPools returns a IPPoolInformer.
@@ -76,8 +76,8 @@ func (v *version) BgpConves() BgpConfInformer {
 	return &bgpConfInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// DnsZones returns a DnsZoneInformer.
-func (v *version) DnsZones() DnsZoneInformer {
+// DNSZones returns a DNSZoneInformer.
+func (v *version) DNSZones() DNSZoneInformer {
 	return &dnsZoneInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 

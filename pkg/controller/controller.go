@@ -97,10 +97,10 @@ type Controller struct {
 	updateVpcStatusQueue workqueue.TypedRateLimitingInterface[string]
 	vpcKeyMutex          keymutex.KeyMutex
 
-	dnsZoneLister           kubeovnlister.DnsZoneLister
+	dnsZoneLister           kubeovnlister.DNSZoneLister
 	dnsZoneSynced           cache.InformerSynced
-	addOrUpdateDnsZoneQueue workqueue.TypedRateLimitingInterface[string]
-	delDnsZoneQueue         workqueue.TypedRateLimitingInterface[string]
+	addOrUpdateDNSZoneQueue workqueue.TypedRateLimitingInterface[string]
+	delDNSZoneQueue         workqueue.TypedRateLimitingInterface[string]
 	dnsZoneKeyMutex         keymutex.KeyMutex
 
 	routerLBRuleLister      kubeovnlister.RouterLBRuleLister
@@ -379,7 +379,7 @@ func Run(ctx context.Context, config *Configuration) {
 	deploymentInformer := deployInformerFactory.Apps().V1().Deployments()
 	configMapInformer := cmInformerFactory.Core().V1().ConfigMaps()
 	npInformer := informerFactory.Networking().V1().NetworkPolicies()
-	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DnsZones()
+	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DNSZones()
 	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
 	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
 	switchLBRuleInformer := kubeovnInformerFactory.Fabric().V1().SwitchLBRules()
@@ -647,8 +647,8 @@ func Run(ctx context.Context, config *Configuration) {
 
 	controller.dnsZoneLister = dnsZoneInformer.Lister()
 	controller.dnsZoneSynced = dnsZoneInformer.Informer().HasSynced
-	controller.addOrUpdateDnsZoneQueue = newTypedRateLimitingQueue[string]("AddOrUpdateDnsZone", custCrdRateLimiter)
-	controller.delDnsZoneQueue = newTypedRateLimitingQueue[string]("DeleteDnsZone", custCrdRateLimiter)
+	controller.addOrUpdateDNSZoneQueue = newTypedRateLimitingQueue[string]("AddOrUpdateDNSZone", custCrdRateLimiter)
+	controller.delDNSZoneQueue = newTypedRateLimitingQueue[string]("DeleteDNSZone", custCrdRateLimiter)
 	controller.dnsZoneKeyMutex = keymutex.NewHashed(numKeyLocks)
 
 	controller.domainResolver = newDomainResolver(func() string {
@@ -703,8 +703,6 @@ func Run(ctx context.Context, config *Configuration) {
 		cacheSyncs = append(cacheSyncs, controller.routerLBRuleSynced, controller.switchLBRuleSynced)
 	}
 	cacheSyncs = append(cacheSyncs, controller.dnsZoneSynced)
-	if controller.config.EnableLb {
-	}
 	if controller.ovnLbSvcEnabled() {
 		cacheSyncs = append(cacheSyncs, controller.loadBalancerPoolSynced)
 	}
@@ -767,9 +765,9 @@ func Run(ctx context.Context, config *Configuration) {
 	}
 
 	if _, err = dnsZoneInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.enqueueAddDnsZone,
-		UpdateFunc: controller.enqueueUpdateDnsZone,
-		DeleteFunc: controller.enqueueDeleteDnsZone,
+		AddFunc:    controller.enqueueAddDNSZone,
+		UpdateFunc: controller.enqueueUpdateDNSZone,
+		DeleteFunc: controller.enqueueDeleteDNSZone,
 	}); err != nil {
 		util.LogFatalAndExit(err, "failed to add dns zone event handler")
 	}
@@ -1151,8 +1149,8 @@ func (c *Controller) shutdown() {
 		c.deleteCnpQueue.ShutDown()
 	}
 
-	c.addOrUpdateDnsZoneQueue.ShutDown()
-	c.delDnsZoneQueue.ShutDown()
+	c.addOrUpdateDNSZoneQueue.ShutDown()
+	c.delDNSZoneQueue.ShutDown()
 	c.addOrUpdateSgQueue.ShutDown()
 	c.delSgQueue.ShutDown()
 	c.syncSgPortsQueue.ShutDown()
@@ -1328,8 +1326,8 @@ func (c *Controller) startWorkers(ctx context.Context) {
 		go wait.Until(runWorker("delete cluster network policy", c.deleteCnpQueue, c.handleDeleteCnp), time.Second, ctx.Done())
 	}
 
-	go wait.Until(runWorker("add/update dns zone", c.addOrUpdateDnsZoneQueue, c.handleAddOrUpdateDnsZone), time.Second, ctx.Done())
-	go wait.Until(runWorker("delete dns zone", c.delDnsZoneQueue, c.handleDelDnsZone), time.Second, ctx.Done())
+	go wait.Until(runWorker("add/update dns zone", c.addOrUpdateDNSZoneQueue, c.handleAddOrUpdateDNSZone), time.Second, ctx.Done())
+	go wait.Until(runWorker("delete dns zone", c.delDNSZoneQueue, c.handleDelDNSZone), time.Second, ctx.Done())
 	go c.domainResolver.run(ctx)
 
 	if c.config.EnableLiveMigrationOptimize {

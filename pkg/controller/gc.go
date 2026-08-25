@@ -40,7 +40,7 @@ func (c *Controller) gc() error {
 		c.gcCustomLogicalRouter,
 		// The lsp gc is processed periodically by markAndCleanLSP, will not gc lsp when init
 		c.gcLoadBalancer,
-		c.gcDnsZones,
+		c.gcDNSZones,
 		c.gcNetworkPolicy,
 		c.gcSecurityGroup,
 		c.gcAddressSet,

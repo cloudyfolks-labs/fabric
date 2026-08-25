@@ -29,7 +29,7 @@ import (
 type FabricV1Interface interface {
 	RESTClient() rest.Interface
 	BgpConvesGetter
-	DnsZonesGetter
+	DNSZonesGetter
 	IPsGetter
 	IPPoolsGetter
 	LoadBalancerPoolsGetter
@@ -56,8 +56,8 @@ func (c *FabricV1Client) BgpConves() BgpConfInterface {
 	return newBgpConves(c)
 }
 
-func (c *FabricV1Client) DnsZones() DnsZoneInterface {
-	return newDnsZones(c)
+func (c *FabricV1Client) DNSZones() DNSZoneInterface {
+	return newDNSZones(c)
 }
 
 func (c *FabricV1Client) IPs() IPInterface {

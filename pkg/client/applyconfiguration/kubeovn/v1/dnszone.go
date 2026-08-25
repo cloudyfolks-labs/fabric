@@ -24,31 +24,31 @@ import (
 	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// DnsZoneApplyConfiguration represents a declarative configuration of the DnsZone type for use
+// DNSZoneApplyConfiguration represents a declarative configuration of the DNSZone type for use
 // with apply.
-type DnsZoneApplyConfiguration struct {
+type DNSZoneApplyConfiguration struct {
 	metav1.TypeMetaApplyConfiguration    `json:",inline"`
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
-	Spec                                 *DnsZoneSpecApplyConfiguration   `json:"spec,omitempty"`
-	Status                               *DnsZoneStatusApplyConfiguration `json:"status,omitempty"`
+	Spec                                 *DNSZoneSpecApplyConfiguration   `json:"spec,omitempty"`
+	Status                               *DNSZoneStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// DnsZone constructs a declarative configuration of the DnsZone type for use with
+// DNSZone constructs a declarative configuration of the DNSZone type for use with
 // apply.
-func DnsZone(name string) *DnsZoneApplyConfiguration {
-	b := &DnsZoneApplyConfiguration{}
+func DNSZone(name string) *DNSZoneApplyConfiguration {
+	b := &DNSZoneApplyConfiguration{}
 	b.WithName(name)
-	b.WithKind("DnsZone")
+	b.WithKind("DNSZone")
 	b.WithAPIVersion("fabric.cloudyfolks.io/v1")
 	return b
 }
 
-func (b DnsZoneApplyConfiguration) IsApplyConfiguration() {}
+func (b DNSZoneApplyConfiguration) IsApplyConfiguration() {}
 
 // WithKind sets the Kind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Kind field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithKind(value string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithKind(value string) *DNSZoneApplyConfiguration {
 	b.TypeMetaApplyConfiguration.Kind = &value
 	return b
 }
@@ -56,7 +56,7 @@ func (b *DnsZoneApplyConfiguration) WithKind(value string) *DnsZoneApplyConfigur
 // WithAPIVersion sets the APIVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the APIVersion field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithAPIVersion(value string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithAPIVersion(value string) *DNSZoneApplyConfiguration {
 	b.TypeMetaApplyConfiguration.APIVersion = &value
 	return b
 }
@@ -64,7 +64,7 @@ func (b *DnsZoneApplyConfiguration) WithAPIVersion(value string) *DnsZoneApplyCo
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithName(value string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithName(value string) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Name = &value
 	return b
@@ -73,7 +73,7 @@ func (b *DnsZoneApplyConfiguration) WithName(value string) *DnsZoneApplyConfigur
 // WithGenerateName sets the GenerateName field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the GenerateName field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithGenerateName(value string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithGenerateName(value string) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.GenerateName = &value
 	return b
@@ -82,7 +82,7 @@ func (b *DnsZoneApplyConfiguration) WithGenerateName(value string) *DnsZoneApply
 // WithNamespace sets the Namespace field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Namespace field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithNamespace(value string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithNamespace(value string) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Namespace = &value
 	return b
@@ -91,7 +91,7 @@ func (b *DnsZoneApplyConfiguration) WithNamespace(value string) *DnsZoneApplyCon
 // WithUID sets the UID field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the UID field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithUID(value types.UID) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithUID(value types.UID) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.UID = &value
 	return b
@@ -100,7 +100,7 @@ func (b *DnsZoneApplyConfiguration) WithUID(value types.UID) *DnsZoneApplyConfig
 // WithResourceVersion sets the ResourceVersion field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ResourceVersion field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithResourceVersion(value string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithResourceVersion(value string) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.ResourceVersion = &value
 	return b
@@ -109,7 +109,7 @@ func (b *DnsZoneApplyConfiguration) WithResourceVersion(value string) *DnsZoneAp
 // WithGeneration sets the Generation field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Generation field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithGeneration(value int64) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithGeneration(value int64) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.Generation = &value
 	return b
@@ -118,7 +118,7 @@ func (b *DnsZoneApplyConfiguration) WithGeneration(value int64) *DnsZoneApplyCon
 // WithCreationTimestamp sets the CreationTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CreationTimestamp field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithCreationTimestamp(value apismetav1.Time) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithCreationTimestamp(value apismetav1.Time) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.CreationTimestamp = &value
 	return b
@@ -127,7 +127,7 @@ func (b *DnsZoneApplyConfiguration) WithCreationTimestamp(value apismetav1.Time)
 // WithDeletionTimestamp sets the DeletionTimestamp field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionTimestamp field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithDeletionTimestamp(value apismetav1.Time) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithDeletionTimestamp(value apismetav1.Time) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.DeletionTimestamp = &value
 	return b
@@ -136,7 +136,7 @@ func (b *DnsZoneApplyConfiguration) WithDeletionTimestamp(value apismetav1.Time)
 // WithDeletionGracePeriodSeconds sets the DeletionGracePeriodSeconds field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the DeletionGracePeriodSeconds field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	b.ObjectMetaApplyConfiguration.DeletionGracePeriodSeconds = &value
 	return b
@@ -146,7 +146,7 @@ func (b *DnsZoneApplyConfiguration) WithDeletionGracePeriodSeconds(value int64) 
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Labels field,
 // overwriting an existing map entries in Labels field with the same key.
-func (b *DnsZoneApplyConfiguration) WithLabels(entries map[string]string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithLabels(entries map[string]string) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.ObjectMetaApplyConfiguration.Labels == nil && len(entries) > 0 {
 		b.ObjectMetaApplyConfiguration.Labels = make(map[string]string, len(entries))
@@ -161,7 +161,7 @@ func (b *DnsZoneApplyConfiguration) WithLabels(entries map[string]string) *DnsZo
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, the entries provided by each call will be put on the Annotations field,
 // overwriting an existing map entries in Annotations field with the same key.
-func (b *DnsZoneApplyConfiguration) WithAnnotations(entries map[string]string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithAnnotations(entries map[string]string) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	if b.ObjectMetaApplyConfiguration.Annotations == nil && len(entries) > 0 {
 		b.ObjectMetaApplyConfiguration.Annotations = make(map[string]string, len(entries))
@@ -175,7 +175,7 @@ func (b *DnsZoneApplyConfiguration) WithAnnotations(entries map[string]string) *
 // WithOwnerReferences adds the given value to the OwnerReferences field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the OwnerReferences field.
-func (b *DnsZoneApplyConfiguration) WithOwnerReferences(values ...*metav1.OwnerReferenceApplyConfiguration) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithOwnerReferences(values ...*metav1.OwnerReferenceApplyConfiguration) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		if values[i] == nil {
@@ -189,7 +189,7 @@ func (b *DnsZoneApplyConfiguration) WithOwnerReferences(values ...*metav1.OwnerR
 // WithFinalizers adds the given value to the Finalizers field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the Finalizers field.
-func (b *DnsZoneApplyConfiguration) WithFinalizers(values ...string) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithFinalizers(values ...string) *DNSZoneApplyConfiguration {
 	b.ensureObjectMetaApplyConfigurationExists()
 	for i := range values {
 		b.ObjectMetaApplyConfiguration.Finalizers = append(b.ObjectMetaApplyConfiguration.Finalizers, values[i])
@@ -197,7 +197,7 @@ func (b *DnsZoneApplyConfiguration) WithFinalizers(values ...string) *DnsZoneApp
 	return b
 }
 
-func (b *DnsZoneApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
+func (b *DNSZoneApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 	if b.ObjectMetaApplyConfiguration == nil {
 		b.ObjectMetaApplyConfiguration = &metav1.ObjectMetaApplyConfiguration{}
 	}
@@ -206,7 +206,7 @@ func (b *DnsZoneApplyConfiguration) ensureObjectMetaApplyConfigurationExists() {
 // WithSpec sets the Spec field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Spec field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithSpec(value *DnsZoneSpecApplyConfiguration) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithSpec(value *DNSZoneSpecApplyConfiguration) *DNSZoneApplyConfiguration {
 	b.Spec = value
 	return b
 }
@@ -214,29 +214,29 @@ func (b *DnsZoneApplyConfiguration) WithSpec(value *DnsZoneSpecApplyConfiguratio
 // WithStatus sets the Status field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Status field is set to the value of the last call.
-func (b *DnsZoneApplyConfiguration) WithStatus(value *DnsZoneStatusApplyConfiguration) *DnsZoneApplyConfiguration {
+func (b *DNSZoneApplyConfiguration) WithStatus(value *DNSZoneStatusApplyConfiguration) *DNSZoneApplyConfiguration {
 	b.Status = value
 	return b
 }
 
 // GetKind retrieves the value of the Kind field in the declarative configuration.
-func (b *DnsZoneApplyConfiguration) GetKind() *string {
+func (b *DNSZoneApplyConfiguration) GetKind() *string {
 	return b.TypeMetaApplyConfiguration.Kind
 }
 
 // GetAPIVersion retrieves the value of the APIVersion field in the declarative configuration.
-func (b *DnsZoneApplyConfiguration) GetAPIVersion() *string {
+func (b *DNSZoneApplyConfiguration) GetAPIVersion() *string {
 	return b.TypeMetaApplyConfiguration.APIVersion
 }
 
 // GetName retrieves the value of the Name field in the declarative configuration.
-func (b *DnsZoneApplyConfiguration) GetName() *string {
+func (b *DNSZoneApplyConfiguration) GetName() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
 	return b.ObjectMetaApplyConfiguration.Name
 }
 
 // GetNamespace retrieves the value of the Namespace field in the declarative configuration.
-func (b *DnsZoneApplyConfiguration) GetNamespace() *string {
+func (b *DNSZoneApplyConfiguration) GetNamespace() *string {
 	b.ensureObjectMetaApplyConfigurationExists()
 	return b.ObjectMetaApplyConfiguration.Namespace
 }

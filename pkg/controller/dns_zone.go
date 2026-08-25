@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"strings"
 
@@ -18,40 +19,40 @@ import (
 	kubeovnv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
 )
 
-func (c *Controller) enqueueAddDnsZone(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.DnsZone)).String()
+func (c *Controller) enqueueAddDNSZone(obj any) {
+	key := cache.MetaObjectToName(obj.(*kubeovnv1.DNSZone)).String()
 	klog.V(3).Infof("enqueue add dns zone %s", key)
-	c.addOrUpdateDnsZoneQueue.Add(key)
+	c.addOrUpdateDNSZoneQueue.Add(key)
 }
 
-func (c *Controller) enqueueUpdateDnsZone(oldObj, newObj any) {
-	oldZone := oldObj.(*kubeovnv1.DnsZone)
-	newZone := newObj.(*kubeovnv1.DnsZone)
+func (c *Controller) enqueueUpdateDNSZone(oldObj, newObj any) {
+	oldZone := oldObj.(*kubeovnv1.DNSZone)
+	newZone := newObj.(*kubeovnv1.DNSZone)
 	if oldZone.Generation == newZone.Generation {
 		return
 	}
 	key := cache.MetaObjectToName(newZone).String()
 	klog.V(3).Infof("enqueue update dns zone %s", key)
-	c.addOrUpdateDnsZoneQueue.Add(key)
+	c.addOrUpdateDNSZoneQueue.Add(key)
 }
 
-func (c *Controller) enqueueDeleteDnsZone(obj any) {
-	zone, ok := obj.(*kubeovnv1.DnsZone)
+func (c *Controller) enqueueDeleteDNSZone(obj any) {
+	zone, ok := obj.(*kubeovnv1.DNSZone)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			return
 		}
-		zone, ok = tombstone.Obj.(*kubeovnv1.DnsZone)
+		zone, ok = tombstone.Obj.(*kubeovnv1.DNSZone)
 		if !ok {
 			return
 		}
 	}
 	klog.V(3).Infof("enqueue delete dns zone %s", zone.Name)
-	c.delDnsZoneQueue.Add(zone.Name)
+	c.delDNSZoneQueue.Add(zone.Name)
 }
 
-func (c *Controller) enqueueDnsZonesForVpc(vpcName string) {
+func (c *Controller) enqueueDNSZonesForVpc(vpcName string) {
 	if c.dnsZoneLister == nil {
 		return
 	}
@@ -62,12 +63,12 @@ func (c *Controller) enqueueDnsZonesForVpc(vpcName string) {
 	}
 	for _, zone := range zones {
 		if zone.Spec.Vpc == vpcName {
-			c.addOrUpdateDnsZoneQueue.Add(zone.Name)
+			c.addOrUpdateDNSZoneQueue.Add(zone.Name)
 		}
 	}
 }
 
-func dnsZoneRecords(zone *kubeovnv1.DnsZone) (map[string]string, error) {
+func dnsZoneRecords(zone *kubeovnv1.DNSZone) (map[string]string, error) {
 	records := make(map[string]string, len(zone.Spec.Records))
 	for _, record := range zone.Spec.Records {
 		name := strings.ToLower(strings.TrimSuffix(record.Name, "."))
@@ -84,7 +85,7 @@ func dnsZoneRecords(zone *kubeovnv1.DnsZone) (map[string]string, error) {
 	return records, nil
 }
 
-func (c *Controller) handleAddOrUpdateDnsZone(key string) error {
+func (c *Controller) handleAddOrUpdateDNSZone(key string) error {
 	c.dnsZoneKeyMutex.LockKey(key)
 	defer func() { _ = c.dnsZoneKeyMutex.UnlockKey(key) }()
 
@@ -101,18 +102,18 @@ func (c *Controller) handleAddOrUpdateDnsZone(key string) error {
 	records, err := dnsZoneRecords(zone)
 	if err != nil {
 		klog.Error(err)
-		return c.patchDnsZoneStatus(zone, 0, corev1.ConditionFalse, "InvalidRecords", err.Error())
+		return c.patchDNSZoneStatus(zone, 0, corev1.ConditionFalse, "InvalidRecords", err.Error())
 	}
 
 	if _, err = c.vpcsLister.Get(zone.Spec.Vpc); err != nil {
 		klog.Errorf("failed to get vpc %s of dns zone %s: %v", zone.Spec.Vpc, key, err)
-		if patchErr := c.patchDnsZoneStatus(zone, 0, corev1.ConditionFalse, "VpcNotFound", err.Error()); patchErr != nil {
+		if patchErr := c.patchDNSZoneStatus(zone, 0, corev1.ConditionFalse, "VpcNotFound", err.Error()); patchErr != nil {
 			klog.Error(patchErr)
 		}
 		return err
 	}
 
-	dnsUUID, err := c.OVNNbClient.EnsureDnsZone(zone.Name, records)
+	dnsUUID, err := c.OVNNbClient.EnsureDNSZone(zone.Name, records)
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -127,24 +128,28 @@ func (c *Controller) handleAddOrUpdateDnsZone(key string) error {
 		if subnet.Spec.Vpc != zone.Spec.Vpc {
 			continue
 		}
-		if err = c.OVNNbClient.LogicalSwitchUpdateDnsRecords(subnet.Name, dnsUUID, ovsdb.MutateOperationInsert); err != nil {
+		if err = c.OVNNbClient.LogicalSwitchUpdateDNSRecords(subnet.Name, dnsUUID, ovsdb.MutateOperationInsert); err != nil {
 			klog.Error(err)
 			return err
 		}
 	}
 
-	return c.patchDnsZoneStatus(zone, int32(len(records)), corev1.ConditionTrue, "Reconciled", "")
+	activeRecords := len(records)
+	if activeRecords > math.MaxInt32 {
+		activeRecords = math.MaxInt32
+	}
+	return c.patchDNSZoneStatus(zone, int32(activeRecords), corev1.ConditionTrue, "Reconciled", "")
 }
 
-func (c *Controller) handleDelDnsZone(name string) error {
+func (c *Controller) handleDelDNSZone(name string) error {
 	c.dnsZoneKeyMutex.LockKey(name)
 	defer func() { _ = c.dnsZoneKeyMutex.UnlockKey(name) }()
 
 	klog.Infof("handle delete dns zone %s", name)
-	return c.OVNNbClient.DeleteDnsZone(name)
+	return c.OVNNbClient.DeleteDNSZone(name)
 }
 
-func (c *Controller) patchDnsZoneStatus(zone *kubeovnv1.DnsZone, activeRecords int32, ready corev1.ConditionStatus, reason, message string) error {
+func (c *Controller) patchDNSZoneStatus(zone *kubeovnv1.DNSZone, activeRecords int32, ready corev1.ConditionStatus, reason, message string) error {
 	if zone.Status.ActiveRecords == activeRecords && len(zone.Status.Conditions) == 1 {
 		cond := zone.Status.Conditions[0]
 		if cond.Type == "Ready" && cond.Status == ready && cond.Reason == reason && cond.Message == message {
@@ -167,13 +172,13 @@ func (c *Controller) patchDnsZoneStatus(zone *kubeovnv1.DnsZone, activeRecords i
 		}
 	}
 
-	if _, err := c.config.KubeOvnClient.FabricV1().DnsZones().UpdateStatus(context.Background(), newZone, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.config.KubeOvnClient.FabricV1().DNSZones().UpdateStatus(context.Background(), newZone, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update status of dns zone %s: %w", zone.Name, err)
 	}
 	return nil
 }
 
-func (c *Controller) gcDnsZones() error {
+func (c *Controller) gcDNSZones() error {
 	klog.Infof("start to gc dns zones")
 	zones, err := c.dnsZoneLister.List(labels.Everything())
 	if err != nil {
@@ -183,7 +188,7 @@ func (c *Controller) gcDnsZones() error {
 	for _, zone := range zones {
 		names[zone.Name] = struct{}{}
 	}
-	staleZones, err := c.OVNNbClient.ListDnsZoneNames()
+	staleZones, err := c.OVNNbClient.ListDNSZoneNames()
 	if err != nil {
 		return err
 	}
@@ -192,7 +197,7 @@ func (c *Controller) gcDnsZones() error {
 			continue
 		}
 		klog.Infof("gc dns zone %s", name)
-		if err = c.OVNNbClient.DeleteDnsZone(name); err != nil {
+		if err = c.OVNNbClient.DeleteDNSZone(name); err != nil {
 			return err
 		}
 	}
