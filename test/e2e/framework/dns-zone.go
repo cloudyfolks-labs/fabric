@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/onsi/ginkgo/v2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apiv1 "github.com/kubeovn/kube-ovn/pkg/apis/kubeovn/v1"
@@ -46,7 +47,9 @@ func (c *DnsZoneClient) Update(zone *apiv1.DnsZone) *apiv1.DnsZone {
 func (c *DnsZoneClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.DnsZoneInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
-	ExpectNoError(err, "Error deleting dns zone")
+	if err != nil && !apierrors.IsNotFound(err) {
+		ExpectNoError(err, "Error deleting dns zone")
+	}
 }
 
 func MakeDnsZone(name, vpc string, records map[string][]string) *apiv1.DnsZone {
