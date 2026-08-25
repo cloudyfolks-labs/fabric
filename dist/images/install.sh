@@ -610,7 +610,7 @@ spec:
           status:
             properties:
               activeRecords:
-                format: int32
+                format: int64
                 type: integer
               conditions:
                 items:

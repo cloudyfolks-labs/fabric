@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"math"
 	"net"
 	"strings"
 
@@ -134,8 +133,7 @@ func (c *Controller) handleAddOrUpdateDNSZone(key string) error {
 		}
 	}
 
-	activeRecords := int32(min(len(records), math.MaxInt32))
-	return c.patchDNSZoneStatus(zone, activeRecords, corev1.ConditionTrue, "Reconciled", "")
+	return c.patchDNSZoneStatus(zone, int64(len(records)), corev1.ConditionTrue, "Reconciled", "")
 }
 
 func (c *Controller) handleDelDNSZone(name string) error {
@@ -146,7 +144,7 @@ func (c *Controller) handleDelDNSZone(name string) error {
 	return c.OVNNbClient.DeleteDNSZone(name)
 }
 
-func (c *Controller) patchDNSZoneStatus(zone *kubeovnv1.DNSZone, activeRecords int32, ready corev1.ConditionStatus, reason, message string) error {
+func (c *Controller) patchDNSZoneStatus(zone *kubeovnv1.DNSZone, activeRecords int64, ready corev1.ConditionStatus, reason, message string) error {
 	if zone.Status.ActiveRecords == activeRecords && len(zone.Status.Conditions) == 1 {
 		cond := zone.Status.Conditions[0]
 		if cond.Type == "Ready" && cond.Status == ready && cond.Reason == reason && cond.Message == message {

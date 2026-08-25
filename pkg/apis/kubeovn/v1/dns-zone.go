@@ -46,7 +46,7 @@ type DNSZoneRecord struct {
 
 type DNSZoneStatus struct {
 	// +optional
-	ActiveRecords int32 `json:"activeRecords,omitempty"`
+	ActiveRecords int64 `json:"activeRecords,omitempty"`
 	// +optional
 	// +patchStrategy=merge
 	// +patchMergeKey=type

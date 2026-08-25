@@ -21,7 +21,7 @@ package v1
 // DNSZoneStatusApplyConfiguration represents a declarative configuration of the DNSZoneStatus type for use
 // with apply.
 type DNSZoneStatusApplyConfiguration struct {
-	ActiveRecords *int32                        `json:"activeRecords,omitempty"`
+	ActiveRecords *int64                        `json:"activeRecords,omitempty"`
 	Conditions    []ConditionApplyConfiguration `json:"conditions,omitempty"`
 }
 
@@ -34,7 +34,7 @@ func DNSZoneStatus() *DNSZoneStatusApplyConfiguration {
 // WithActiveRecords sets the ActiveRecords field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the ActiveRecords field is set to the value of the last call.
-func (b *DNSZoneStatusApplyConfiguration) WithActiveRecords(value int32) *DNSZoneStatusApplyConfiguration {
+func (b *DNSZoneStatusApplyConfiguration) WithActiveRecords(value int64) *DNSZoneStatusApplyConfiguration {
 	b.ActiveRecords = &value
 	return b
 }

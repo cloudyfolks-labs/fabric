@@ -1,0 +1,328 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ovn
+  namespace: kube-system
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.k8s.io/system-only: "true"
+  name: system:ovn
+rules:
+  - apiGroups:
+      - "fabric.cloudyfolks.io"
+    resources:
+      - vpcs
+      - vpcs/status
+      - loadbalancer-pools
+      - loadbalancer-pools/status
+      - subnets
+      - subnets/status
+      - ippools
+      - ippools/status
+      - ips
+      - vips
+      - vips/status
+      - vlans
+      - vlans/status
+      - provider-networks
+      - provider-networks/status
+      - security-groups
+      - security-groups/status
+      - ovn-eips
+      - ovn-fips
+      - ovn-snat-rules
+      - ovn-eips/status
+      - ovn-fips/status
+      - ovn-snat-rules/status
+      - ovn-dnat-rules
+      - ovn-dnat-rules/status
+      - switch-lb-rules
+      - switch-lb-rules/status
+      - router-lb-rules
+      - router-lb-rules/status
+      - dns-zones
+      - dns-zones/status
+      - bgp-confs
+      - bgp-confs/status
+    verbs:
+      - create
+      - get
+      - list
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - namespaces
+    verbs:
+      - get
+      - list
+      - patch
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods/exec
+    verbs:
+      - create
+  - apiGroups:
+      - "k8s.cni.cncf.io"
+    resources:
+      - network-attachment-definitions
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - servicecidrs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - monitoring.coreos.com
+    resources:
+      - servicemonitors
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+    verbs:
+      - get
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - deployments/scale
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - services/status
+    verbs:
+      - get
+      - list
+      - update
+      - patch
+      - create
+      - delete
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - create
+      - update
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - metallb.io
+    resources:
+      - servicel2statuses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - update
+      - patch
+      - get
+      - watch
+  - apiGroups:
+      - "kubevirt.io"
+    resources:
+      - virtualmachines
+      - virtualmachineinstances
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "policy.networking.k8s.io"
+    resources:
+      - adminnetworkpolicies
+      - baselineadminnetworkpolicies
+      - clusternetworkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - authentication.k8s.io
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - authorization.k8s.io
+    resources:
+      - subjectaccessreviews
+    verbs:
+      - create
+  - apiGroups:
+      - "certificates.k8s.io"
+    resources:
+      - "certificatesigningrequests"
+    verbs:
+      - "get"
+      - "list"
+      - "watch"
+  - apiGroups:
+    - certificates.k8s.io
+    resources:
+    - certificatesigningrequests/status
+    - certificatesigningrequests/approval
+    verbs:
+    - update
+  - apiGroups:
+    - ""
+    resources:
+    - secrets
+    verbs:
+    - get
+    - create
+  - apiGroups:
+    - ""
+    resourceNames:
+    - fabric-tls
+    resources:
+    - secrets
+    verbs:
+    - update
+  - apiGroups:
+    - certificates.k8s.io
+    resourceNames:
+    - fabric.cloudyfolks.io/signer
+    resources:
+    - signers
+    verbs:
+    - approve
+    - sign
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachineinstancemigrations
+    verbs:
+      - "list"
+      - "watch"
+      - "get"
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ovn
+roleRef:
+  name: system:ovn
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: ovn
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ovn
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+  - kind: ServiceAccount
+    name: ovn
+    namespace: kube-system
