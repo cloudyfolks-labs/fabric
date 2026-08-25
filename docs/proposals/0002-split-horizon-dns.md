@@ -60,3 +60,7 @@ with different answers and each workload only ever sees its own view.
   recursion, or wildcard matching; upstream resolution stays with the
   resolver the workload already uses.
 - PTR records are not synthesized in the first version.
+- The match is on the exact query name. A pod resolver with a search
+  list and a high `ndots` value expands short names before it sends the
+  absolute query. Query the record as an FQDN with a trailing dot, or
+  tune `dnsConfig` so the absolute query is sent first.
