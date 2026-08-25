@@ -417,7 +417,7 @@ func TestFakeControllerWithOptions(t *testing.T) {
 				Namespace: metav1.NamespaceDefault,
 			},
 			Spec: nadv1.NetworkAttachmentDefinitionSpec{
-				Config: `{"cniVersion": "0.3.1", "name": "net1", "type": "kube-ovn"}`,
+				Config: `{"cniVersion": "0.3.1", "name": "net1", "type": "fabric"}`,
 			},
 		}},
 		Pods: []*corev1.Pod{{

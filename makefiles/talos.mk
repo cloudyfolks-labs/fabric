@@ -274,10 +274,10 @@ talos-clean: talos-libvirt-clean
 
 .PHONY: talos-install-prepare
 talos-install-prepare:
-	$(eval IMAGE_REPO = 127.0.0.1:$(TALOS_REGISTRY_MIRROR_PORT)/$(REGISTRY)/kube-ovn:$(VERSION))
+	$(eval IMAGE_REPO = 127.0.0.1:$(TALOS_REGISTRY_MIRROR_PORT)/$(REGISTRY)/fabric:$(VERSION))
 	@echo ">>> Installing Kube-OVN with version $(VERSION)..."
 	@echo ">>>>>> Tagging Kube-OVN image..."
-	@docker tag "$(REGISTRY)/kube-ovn:$(VERSION)" "$(IMAGE_REPO)"
+	@docker tag "$(REGISTRY)/fabric:$(VERSION)" "$(IMAGE_REPO)"
 	@echo ">>>>>> Pushing Kube-OVN image..."
 	@docker push --quiet "$(IMAGE_REPO)"
 

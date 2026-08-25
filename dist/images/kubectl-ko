@@ -9,7 +9,7 @@ OVN_IC_NB_POD=
 OVN_IC_SB_POD=
 OVN_NORTHD_POD=
 KUBE_OVN_VERSION=
-REGISTRY="docker.io/kubeovn"
+REGISTRY="ghcr.io/cloudyfolks-labs"
 PERF_TIMES=5
 PERF_LABEL="PerfTest"
 CONN_CHECK_LABEL="conn-check"
@@ -38,8 +38,8 @@ showHelp(){
   echo "    {trace|ovn-trace} {node//nodename} {target ip address} [target mac address] arp {request|reply}                        trace ARP request/reply"
   echo "  diagnose {all|node|subnet|IPPorts} [nodename|subnetName|{proto1}-{IP1}-{Port1},{proto2}-{IP2}-{Port2}]    diagnose connectivity of all nodes or a specific node or specify subnet's ds pod or IPPorts like 'tcp-172.18.0.2-53,udp-172.18.0.3-53'"
   echo "  env-check    check the environment configuration"
-  echo "  reload    restart all kube-ovn components"
-  echo "  log {kube-ovn|ovn|ovs|linux|all}    save log to ./kubectl-ko-log/"
+  echo "  reload    restart all fabric components"
+  echo "  log {fabric|ovn|ovs|linux|all}    save log to ./kubectl-ko-log/"
   echo "  perf [image] performance test default image is docker.io/kubeovn/test:v1.13.0"
   echo "  icnbctl [ovn-nbctl options ...]    invoke ovn-ic-nbctl"
   echo "  icsbctl [ovn-sbctl options ...]    invoke ovn-ic-sbctl"
@@ -177,9 +177,9 @@ tcpdump(){
     fi
     podNicType=$(kubectl get pod "$podName" -n "$namespace" -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/pod_nic_type})
     podNetNs=$(kubectl exec "$ovsPod" -n $KUBE_OVN_NS -- ovs-vsctl --data=bare --no-heading get interface "$nicName" external-ids:pod_netns | tr -d '\r' | sed -e 's/^"//' -e 's/"$//')
-    ovnCni=$(kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
+    ovnCni=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
     if [ -z "$ovnCni" ]; then
-      echo "kube-ovn-cni not exist on node $nodeName"
+      echo "fabric-cni not exist on node $nodeName"
       exit 1
     fi
     set -x
@@ -318,9 +318,9 @@ trace(){
         exit 1
       fi
 
-      ovnCni=$(kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
+      ovnCni=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
       if [ -z "$ovnCni" ]; then
-        echo "kube-ovn-cni not exist on node $node"
+        echo "fabric-cni not exist on node $node"
         exit 1
       fi
 
@@ -544,7 +544,7 @@ applyConnServerDaemonset(){
     exit 1
   fi
 
-  imageID=$(kubectl get ds -n $KUBE_OVN_NS kube-ovn-pinger -o jsonpath={.spec.template.spec.containers[0].image})
+  imageID=$(kubectl get ds -n $KUBE_OVN_NS fabric-pinger -o jsonpath={.spec.template.spec.containers[0].image})
   cat <<EOF | kubectl apply -f -
 kind: DaemonSet
 apiVersion: apps/v1
@@ -564,7 +564,7 @@ spec:
       labels:
         app: $CONN_CHECK_LABEL
     spec:
-      serviceAccountName: kube-ovn-app
+      serviceAccountName: fabric-app
       automountServiceAccountToken: true
       securityContext:
         seccompProfile:
@@ -574,7 +574,7 @@ spec:
           imagePullPolicy: IfNotPresent
           image: $imageID
           command:
-            - /kube-ovn/kube-ovn-pinger
+            - /fabric/fabric-pinger
           args:
             - --enable-verbose-conn-check=true
             - --tcp-conn-check-port=$TCP_CONN_CHECK_PORT
@@ -622,9 +622,9 @@ spec:
     - port: 60001
       protocol: TCP
       targetPort: 8080
-      name: kube-ovn-pinger
+      name: fabric-pinger
   selector:
-    app: kube-ovn-pinger
+    app: fabric-pinger
 EOF
 }
 
@@ -694,8 +694,8 @@ diagnose(){
   fi
 
   checkDeployment ovn-central
-  checkDeployment kube-ovn-controller
-  checkDaemonSet kube-ovn-cni
+  checkDeployment fabric-controller
+  checkDaemonSet fabric-cni
   checkDaemonSet ovs-ovn
   checkDeployment coredns
 
@@ -722,12 +722,12 @@ diagnose(){
 
   case $type in
     all)
-      echo "### kube-ovn-controller recent log"
+      echo "### fabric-controller recent log"
       set +e
-      kubectl logs -n $KUBE_OVN_NS -l app=kube-ovn-controller --tail=100 | grep E$(date +%m%d)
+      kubectl logs -n $KUBE_OVN_NS -l app=fabric-controller --tail=100 | grep E$(date +%m%d)
       set -e
       echo ""
-      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=kube-ovn-pinger)
+      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
       for pinger in $pingers
       do
         nodeName=$(kubectl get pod "$pinger" -n "$KUBE_OVN_NS" -o jsonpath={.spec.nodeName})
@@ -742,7 +742,7 @@ diagnose(){
         kubectl exec -n $KUBE_OVN_NS "$pinger" -- ovs-vsctl show
         echo ""
         echo "#### pinger diagnose results:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- /kube-ovn/kube-ovn-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
+        kubectl exec -n $KUBE_OVN_NS "$pinger" -- /fabric/fabric-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
         echo "### finish diagnose node $nodeName"
         echo ""
       done
@@ -750,11 +750,11 @@ diagnose(){
     node)
       nodeName="$2"
       kubectl get no "$nodeName" > /dev/null
-      echo "### make sure kube-ovn-pinger running on node $nodeName"
-      kubectl -n $KUBE_OVN_NS get po -l app=kube-ovn-pinger
-      pinger=$(kubectl -n $KUBE_OVN_NS get po -l app=kube-ovn-pinger -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
+      echo "### make sure fabric-pinger running on node $nodeName"
+      kubectl -n $KUBE_OVN_NS get po -l app=fabric-pinger
+      pinger=$(kubectl -n $KUBE_OVN_NS get po -l app=fabric-pinger -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
       if [ ! -n "$pinger" ]; then
-        echo "Error: No kube-ovn-pinger running on node $nodeName"
+        echo "Error: No fabric-pinger running on node $nodeName"
         exit 1
       fi
       echo "### start to diagnose node $nodeName"
@@ -764,7 +764,7 @@ diagnose(){
       echo "#### ovs-vswitchd log:"
       kubectl exec -n $KUBE_OVN_NS "$pinger" -- tail /var/log/openvswitch/ovs-vswitchd.log
       echo ""
-      kubectl exec -n $KUBE_OVN_NS "$pinger" -- /kube-ovn/kube-ovn-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
+      kubectl exec -n $KUBE_OVN_NS "$pinger" -- /fabric/fabric-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
       echo "### finish diagnose node $nodeName"
       echo ""
       ;;
@@ -773,13 +773,13 @@ diagnose(){
       gcCommands+=("kubectl delete ds -l app=$CONN_CHECK_LABEL -n $KUBE_OVN_NS")
       applyConnServerDaemonset $subnetName
 
-      if [ $(kubectl get ds kube-ovn-cni -n $KUBE_OVN_NS -oyaml | grep enable-verbose-conn-check | wc -l) -eq 0 ]; then
-        echo "Warning: kube-ovn-cni not have args enable-verbose-conn-check, it will fail when check node tcp/udp connectivity"
+      if [ $(kubectl get ds fabric-cni -n $KUBE_OVN_NS -oyaml | grep enable-verbose-conn-check | wc -l) -eq 0 ]; then
+        echo "Warning: fabric-cni not have args enable-verbose-conn-check, it will fail when check node tcp/udp connectivity"
       fi
 
-      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=kube-ovn-pinger)
+      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
       cmd=(
-        /kube-ovn/kube-ovn-pinger --mode=job
+        /fabric/fabric-pinger --mode=job
         --tcp-conn-check-port=$TCP_CONN_CHECK_PORT --udp-conn-check-port=$UDP_CONN_CHECK_PORT
         --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
       )
@@ -793,11 +793,11 @@ diagnose(){
     IPPorts)
       targetIPPorts="$2"
 
-      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=kube-ovn-pinger)
+      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
       for pinger in $pingers
       do
         echo "#### pinger $pinger on namespace $KUBE_OVN_NS diagnose results:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- /kube-ovn/kube-ovn-pinger --mode=job --target-ip-ports=$targetIPPorts
+        kubectl exec -n $KUBE_OVN_NS "$pinger" -- /fabric/fabric-pinger --mode=job --target-ip-ports=$targetIPPorts
         echo ""
       done
       ;;
@@ -830,9 +830,9 @@ getOvnCentralPod(){
     OVN_NB_POD=$(getLeaderPod "ovn-nb-leader" "nb")
     OVN_SB_POD=$(getLeaderPod "ovn-sb-leader" "sb")
     OVN_NORTHD_POD=$(getLeaderPod "ovn-northd-leader" "northd")
-    image=$(kubectl -n $KUBE_OVN_NS get pods -l app=kube-ovn-cni -o jsonpath='{.items[0].spec.containers[0].image}')
+    image=$(kubectl -n $KUBE_OVN_NS get pods -l app=fabric-cni -o jsonpath='{.items[0].spec.containers[0].image}')
     if [ -z "$image" ]; then
-          echo "cannot get kube-ovn image"
+          echo "cannot get fabric image"
           exit 1
     fi
     REGISTRY=$(dirname $image)
@@ -915,8 +915,8 @@ checkKubeProxy(){
     checkDaemonSet kube-proxy
   else
     for node in $(kubectl get node --no-headers -o custom-columns=NAME:.metadata.name); do
-      local pod=$(kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
-      local ip=$(kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].status.podIP}')
+      local pod=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
+      local ip=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].status.podIP}')
       local arg=""
       if [[ $ip =~ .*:.* ]]; then
         arg="g6"
@@ -970,7 +970,7 @@ dbtool(){
             nodeIpVals=`kubectl get deployment -n $KUBE_OVN_NS ovn-central -o jsonpath='{.spec.template.spec.containers[0].env[1].value}'`
             nodeIps=(${nodeIpVals//,/ })
           else
-            nodeIps=`kubectl get node -lkube-ovn/role=master -o wide | grep -v "INTERNAL-IP" | awk '{print $6}'`
+            nodeIps=`kubectl get node -lfabric/role=master -o wide | grep -v "INTERNAL-IP" | awk '{print $6}'`
           fi
           firstIP=${nodeIps[0]}
           podNames=`kubectl get pod -n $KUBE_OVN_NS | grep ovs-ovn | awk '{print $1}'`
@@ -1058,33 +1058,33 @@ reload(){
   kubectl delete pod -n $KUBE_OVN_NS -l app=ovn-central
   kubectl rollout status deployment/ovn-central -n $KUBE_OVN_NS
   kubectl rollout restart daemonset/ovs-ovn -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=kube-ovn-controller
-  kubectl rollout status deployment/kube-ovn-controller -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=kube-ovn-cni
-  kubectl rollout status daemonset/kube-ovn-cni -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=kube-ovn-pinger
-  kubectl rollout status daemonset/kube-ovn-pinger -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=kube-ovn-monitor
-  kubectl rollout status deployment/kube-ovn-monitor -n $KUBE_OVN_NS
+  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-controller
+  kubectl rollout status deployment/fabric-controller -n $KUBE_OVN_NS
+  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-cni
+  kubectl rollout status daemonset/fabric-cni -n $KUBE_OVN_NS
+  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-pinger
+  kubectl rollout status daemonset/fabric-pinger -n $KUBE_OVN_NS
+  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-monitor
+  kubectl rollout status deployment/fabric-monitor -n $KUBE_OVN_NS
 }
 
 env-check(){
   set +e
 
   KUBE_OVN_NS=${KUBE_OVN_NS:-kube-system}
-  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[*].metadata.name}'`
+  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
   for pod in $podNames; do
     nodeName=$(kubectl get pod $pod -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
     echo "************************************************"
     echo "Start environment check for node $nodeName"
     echo "************************************************"
-    kubectl exec -it -n $KUBE_OVN_NS $pod -c cni-server -- bash /kube-ovn/env-check.sh
+    kubectl exec -it -n $KUBE_OVN_NS $pod -c cni-server -- bash /fabric/env-check.sh
   done
 }
 
 init_dir() {
     mkdir -p kubectl-ko-log
-    podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[*].metadata.name}'`
+    podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
     for pod in $podNames; do
       nodeName=$(kubectl get pod "$pod" -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
       mkdir -p ./kubectl-ko-log/$nodeName/
@@ -1092,12 +1092,12 @@ init_dir() {
 }
 
 log_kube_ovn(){
-  echo "Collecting kube-ovn logging files"
-  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[*].metadata.name}'`
+  echo "Collecting fabric logging files"
+  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
   for pod in $podNames; do
     nodeName=$(kubectl get pod "$pod" -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
-    mkdir -p ./kubectl-ko-log/$nodeName/kube-ovn
-    kubectl cp $pod:/var/log/kube-ovn ./kubectl-ko-log/$nodeName/kube-ovn -n $KUBE_OVN_NS -c cni-server > /dev/null || :
+    mkdir -p ./kubectl-ko-log/$nodeName/fabric
+    kubectl cp $pod:/var/log/fabric ./kubectl-ko-log/$nodeName/fabric -n $KUBE_OVN_NS -c cni-server > /dev/null || :
   done
 }
 
@@ -1116,7 +1116,7 @@ log_linux(){
   component_param=$1
   sub_component_param=$2
   echo "Collecting $component_param $sub_component_param files"
-  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=kube-ovn-cni -o 'jsonpath={.items[*].metadata.name}'`
+  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
   for pod in $podNames; do
     nodeName=$(kubectl get pod "$pod" -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
     mkdir -p ./kubectl-ko-log/$nodeName/$component_param
@@ -1201,7 +1201,7 @@ log_linux(){
 log(){
   component="$1"
   components=(
-    kube-ovn
+    fabric
     ovs
     ovn
     linux
@@ -1232,7 +1232,7 @@ log(){
 
   init_dir
 
-  if [[ "$component" == "kube-ovn" || "$component" == "all" ]]; then
+  if [[ "$component" == "fabric" || "$component" == "all" ]]; then
     log_kube_ovn
   fi
 

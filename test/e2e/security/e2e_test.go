@@ -80,7 +80,7 @@ func checkPods(f *framework.Framework, pods []corev1.Pod, process string, ports 
 	framework.ExpectNoError(err)
 
 	if listenPodIP &&
-		(len(pods[0].Status.PodIPs) != 1 && (!strings.HasPrefix(process, "kube-ovn-") || f.VersionPriorTo(1, 13))) &&
+		(len(pods[0].Status.PodIPs) != 1 && (!strings.HasPrefix(process, "fabric-") || f.VersionPriorTo(1, 13))) &&
 		(process != "ovsdb-server" || f.VersionPriorTo(1, 12)) {
 		// ovn db processes support listening on both ipv4 and ipv6 addresses in versions >= 1.12
 		listenPodIP = false
@@ -182,7 +182,7 @@ func containerEnvValues(pods []corev1.Pod, containerName string) map[string]stri
 }
 
 const ovnDBSSLConfigCommand = `set -euo pipefail
-. /kube-ovn/ovn-db-ssl-options.sh
+. /fabric/ovn-db-ssl-options.sh
 expected() {
   ovn_db_ssl_args /var/run/tls | sed -n "s/^--ovn-$1-db-ssl-$2=//p" | head -n1
 }
@@ -310,7 +310,7 @@ var _ = framework.Describe("[group:security]", func() {
 
 		envs := containerEnvValues(pods.Items, "ovn-central")
 		if envs["ENABLE_SSL"] != "true" {
-			ginkgo.Skip("kube-ovn TLS is disabled")
+			ginkgo.Skip("fabric TLS is disabled")
 		}
 		if envs["TLS_MIN_VERSION"] == "" && envs["TLS_MAX_VERSION"] == "" && envs["TLS_CIPHER_SUITES"] == "" {
 			ginkgo.Skip("OVN DB server TLS options are not configured")
@@ -322,32 +322,32 @@ var _ = framework.Describe("[group:security]", func() {
 		}
 	})
 
-	framework.ConformanceIt("kube-ovn-controller should listen on specified addresses", func() {
-		checkDeployment(f, "kube-ovn-controller", "kube-ovn-controller", "10660")
+	framework.ConformanceIt("fabric-controller should listen on specified addresses", func() {
+		checkDeployment(f, "fabric-controller", "fabric-controller", "10660")
 	})
 
-	framework.ConformanceIt("kube-ovn-monitor should listen on specified addresses", func() {
-		checkDeployment(f, "kube-ovn-monitor", "kube-ovn-monitor", "10661")
+	framework.ConformanceIt("fabric-monitor should listen on specified addresses", func() {
+		checkDeployment(f, "fabric-monitor", "fabric-monitor", "10661")
 	})
 
-	framework.ConformanceIt("kube-ovn-cni should listen on specified addresses", func() {
+	framework.ConformanceIt("fabric-cni should listen on specified addresses", func() {
 		ginkgo.By("Getting nodes")
 		nodeList, err := e2enode.GetReadySchedulableNodes(context.Background(), cs)
 		framework.ExpectNoError(err)
 		framework.ExpectNotEmpty(nodeList.Items)
 
-		ginkgo.By("Getting daemonset kube-ovn-cni")
+		ginkgo.By("Getting daemonset fabric-cni")
 		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
-		ds := daemonSetClient.Get("kube-ovn-cni")
+		ds := daemonSetClient.Get("fabric-cni")
 
-		ginkgo.By("Getting kube-ovn-cni pods")
+		ginkgo.By("Getting fabric-cni pods")
 		pods := make([]corev1.Pod, 0, len(nodeList.Items))
 		for _, node := range nodeList.Items {
 			pod, err := daemonSetClient.GetPodOnNode(ds, node.Name)
-			framework.ExpectNoError(err, "failed to get kube-ovn-cni pod running on node %s", node.Name)
+			framework.ExpectNoError(err, "failed to get fabric-cni pod running on node %s", node.Name)
 			pods = append(pods, *pod)
 		}
 
-		checkPods(f, pods, "kube-ovn-daemon", "10665")
+		checkPods(f, pods, "fabric-daemon", "10665")
 	})
 })

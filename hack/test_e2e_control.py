@@ -59,7 +59,7 @@ class E2EControlTest(unittest.TestCase):
             "action": "created",
             "comment": {"id": 1001, "body": body, "user": {"login": "maintainer"}},
             "issue": {"number": 7231, "pull_request": {"url": "https://api.example/pr/7231"}},
-            "repository": {"full_name": "kubeovn/kube-ovn"},
+            "repository": {"full_name": "cloudyfolks-labs/fabric"},
         }
         pullRequest = {
             "number": 7231,
@@ -514,7 +514,7 @@ class E2EControlTest(unittest.TestCase):
                         "action": "created",
                         "comment": {"id": 1001, "body": "/test e2e policy", "user": {"login": "maintainer"}},
                         "issue": {"number": 7231, "pull_request": {"url": "https://api.example/pr/7231"}},
-                        "repository": {"full_name": "kubeovn/kube-ovn"},
+                        "repository": {"full_name": "cloudyfolks-labs/fabric"},
                     }
                 )
             )
@@ -770,7 +770,7 @@ class E2EControlTest(unittest.TestCase):
         )
         self.assertIn(
             "matrix: ${{ fromJSON(needs.e2e-selection.outputs.kubeOvnConformanceMatrix) }}",
-            blocks["kube-ovn-conformance-e2e"],
+            blocks["fabric-conformance-e2e"],
         )
         self.assertIn(
             "if: github.event_name == 'push'\n        uses: actions/cache@v6",

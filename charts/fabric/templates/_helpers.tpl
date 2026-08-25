@@ -1,7 +1,7 @@
 {/*
 Expand the name of the chart.
 */}}
-{{- define "kubeovn.name" -}}
+{{- define "fabric.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "kubeovn.fullname" -}}
+{{- define "fabric.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,15 +26,15 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "kubeovn.chart" -}}
+{{- define "fabric.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "kubeovn.labels" -}}
-helm.sh/chart: {{ include "kubeovn.chart" . }}
+{{- define "fabric.labels" -}}
+helm.sh/chart: {{ include "fabric.chart" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,9 +45,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "kubeovn.serviceAccountName" -}}
+{{- define "fabric.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "kubeovn.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "fabric.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -58,7 +58,7 @@ Create the name of the service account to use
 Get IP-addresses of master nodes. If no nodes are returned, we assume this is
 a dry-run/template call and return nothing.
 */}}
-{{- define "kubeovn.nodeIPs" -}}
+{{- define "fabric.nodeIPs" -}}
 {{- $nodes := lookup "v1" "Node" "" "" -}}
 {{- if $nodes -}}
 {{- $ips := list -}}
@@ -82,12 +82,12 @@ a dry-run/template call and return nothing.
 {{- end -}}
 
 {{/*
-Build hardcodedRequired list for kube-ovn.affinities.nodeAffinity from masterNodesLabels.
+Build hardcodedRequired list for fabric.affinities.nodeAffinity from masterNodesLabels.
 Each label gets its own nodeSelectorTerm so multiple labels use OR semantics
-(matching the kubeovn.nodeIPs helper which also uses OR).
+(matching the fabric.nodeIPs helper which also uses OR).
 Uses Exists operator for empty/nil-value labels and In for specific values.
 */}}
-{{- define "kubeovn.masterNodeRequired" -}}
+{{- define "fabric.masterNodeRequired" -}}
 {{- $terms := list -}}
 {{- range $key, $value := .Values.masterNodesLabels -}}
   {{- if eq ($value | toString) "" -}}
@@ -102,21 +102,21 @@ Uses Exists operator for empty/nil-value labels and In for specific values.
 {{/*
 Number of master nodes
 */}}
-{{- define "kubeovn.nodeCount" -}}
-  {{- len (split "," ((join "," .Values.masterNodes) | default (include "kubeovn.nodeIPs" .))) }}
+{{- define "fabric.nodeCount" -}}
+  {{- len (split "," ((join "," .Values.masterNodes) | default (include "fabric.nodeIPs" .))) }}
 {{- end -}}
 
 {{/*
 Get IPs of master nodes from values
 */}}
-{{- define "kubeovn.masterNodes" -}}
+{{- define "fabric.masterNodes" -}}
   {{- join "," .Values.masterNodes }}
 {{- end -}}
 
 {{/*
 Environment variables used by the OVN NB/SB database server TLS setup.
 */}}
-{{- define "kubeovn.ovnCentralTLSEnv" -}}
+{{- define "fabric.ovnCentralTLSEnv" -}}
 - name: ENABLE_SSL
   value: {{ .Values.networking.enableSsl | quote }}
 - name: TLS_MIN_VERSION
@@ -128,9 +128,9 @@ Environment variables used by the OVN NB/SB database server TLS setup.
 {{- end -}}
 
 {{/*
-TLS arguments for kube-ovn components that expose HTTPS endpoints.
+TLS arguments for fabric components that expose HTTPS endpoints.
 */}}
-{{- define "kubeovn.componentTLSArgs" -}}
+{{- define "fabric.componentTLSArgs" -}}
 {{- if .Values.networking.tlsMinVersion }}
 - --tls-min-version={{ .Values.networking.tlsMinVersion }}
 {{- end }}
@@ -144,7 +144,7 @@ TLS arguments for kube-ovn components that expose HTTPS endpoints.
 {{- end }}
 {{- end -}}
 
-{{- define "kubeovn.centralNamespace" -}}
+{{- define "fabric.centralNamespace" -}}
 {{- if .Values.central.hcp.enabled -}}
 {{- default .Values.namespace .Values.central.hcp.namespace -}}
 {{- else -}}
@@ -152,16 +152,16 @@ TLS arguments for kube-ovn components that expose HTTPS endpoints.
 {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.centralReplicas" -}}
+{{- define "fabric.centralReplicas" -}}
 {{- if .Values.central.hcp.enabled -}}
 {{- .Values.central.hcp.replicas -}}
 {{- else -}}
-{{- include "kubeovn.nodeCount" . -}}
+{{- include "fabric.nodeCount" . -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.centralRaftAddresses" -}}
-{{- $namespace := include "kubeovn.centralNamespace" . -}}
+{{- define "fabric.centralRaftAddresses" -}}
+{{- $namespace := include "fabric.centralNamespace" . -}}
 {{- $addresses := list -}}
 {{- range $i := until (int .Values.central.hcp.replicas) -}}
 {{- $addresses = append $addresses (printf "ovn-central-%d.ovn-central.%s.svc" $i $namespace) -}}
@@ -169,66 +169,66 @@ TLS arguments for kube-ovn components that expose HTTPS endpoints.
 {{- join "," $addresses -}}
 {{- end -}}
 
-{{- define "kubeovn.ovnDbAddresses" -}}
-{{- include "kubeovn.masterNodes" . | default (include "kubeovn.nodeIPs" .) -}}
+{{- define "fabric.ovnDbAddresses" -}}
+{{- include "fabric.masterNodes" . | default (include "fabric.nodeIPs" .) -}}
 {{- end -}}
 
-{{- define "kubeovn.ovnNbAddress" -}}
+{{- define "fabric.ovnNbAddress" -}}
 {{- if not .Values.central.hcp.nbAddress -}}
 {{- fail "central.hcp.nbAddress must be set when central.hcp.enabled is true" -}}
 {{- end -}}
 {{- .Values.central.hcp.nbAddress -}}
 {{- end -}}
 
-{{- define "kubeovn.ovnSbAddress" -}}
+{{- define "fabric.ovnSbAddress" -}}
 {{- if not .Values.central.hcp.sbAddress -}}
 {{- fail "central.hcp.sbAddress must be set when central.hcp.enabled is true" -}}
 {{- end -}}
 {{- .Values.central.hcp.sbAddress -}}
 {{- end -}}
 
-{{- define "kubeovn.installMode" -}}
+{{- define "fabric.installMode" -}}
 {{- .Values.installMode | default "full" -}}
 {{- end -}}
 
-{{- define "kubeovn.renderControlPlane" -}}
-{{- $mode := include "kubeovn.installMode" . -}}
+{{- define "fabric.renderControlPlane" -}}
+{{- $mode := include "fabric.installMode" . -}}
 {{- if or (eq $mode "full") (eq $mode "controlPlaneOnly") -}}
 true
 {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.renderDataPlane" -}}
-{{- $mode := include "kubeovn.installMode" . -}}
+{{- define "fabric.renderDataPlane" -}}
+{{- $mode := include "fabric.installMode" . -}}
 {{- if or (eq $mode "full") (eq $mode "dataPlaneOnly") -}}
 true
 {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.renderFullOnly" -}}
-{{- if eq (include "kubeovn.installMode" .) "full" -}}
+{{- define "fabric.renderFullOnly" -}}
+{{- if eq (include "fabric.installMode" .) "full" -}}
 true
 {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.k8sNodeCount" -}}
+{{- define "fabric.k8sNodeCount" -}}
 {{- $nodes := lookup "v1" "Node" "" "" -}}
 {{- if and $nodes $nodes.items -}}
 {{- len $nodes.items -}}
 {{- else -}}
-{{- include "kubeovn.nodeCount" . -}}
+{{- include "fabric.nodeCount" . -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.controllerReplicas" -}}
-{{- if eq (include "kubeovn.installMode" .) "dataPlaneOnly" -}}
-{{- min 2 (include "kubeovn.k8sNodeCount" . | int) -}}
+{{- define "fabric.controllerReplicas" -}}
+{{- if eq (include "fabric.installMode" .) "dataPlaneOnly" -}}
+{{- min 2 (include "fabric.k8sNodeCount" . | int) -}}
 {{- else -}}
-{{- include "kubeovn.nodeCount" . -}}
+{{- include "fabric.nodeCount" . -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.ovs-ovn.updateStrategy" -}}
+{{- define "fabric.ovs-ovn.updateStrategy" -}}
   {{- $ds := lookup "apps/v1" "DaemonSet" $.Values.namespace "ovs-ovn" -}}
   {{- if $ds -}}
     {{- if eq $ds.spec.updateStrategy.type "RollingUpdate" -}}
@@ -254,7 +254,7 @@ true
 {{- end -}}
 
 
-{{- define "kubeovn.runAsUser" -}}
+{{- define "fabric.runAsUser" -}}
   {{- if $.Values.features.enableOvnIpsec -}}
     0
   {{- else -}}
@@ -262,12 +262,12 @@ true
   {{- end -}}
 {{- end -}}
 
-{{- define "kubeovn.imageSpec" -}}
+{{- define "fabric.imageSpec" -}}
   {{- $root := .root -}}
   {{- $image := .image | default dict -}}
   {{- $address := get $image "registry" | default $root.Values.global.registry.address -}}
-  {{- $repository := .defaultRepository | default $root.Values.global.images.kubeovn.repository -}}
-  {{- $tag := .defaultTag | default $root.Values.global.images.kubeovn.tag -}}
+  {{- $repository := .defaultRepository | default $root.Values.global.images.fabric.repository -}}
+  {{- $tag := .defaultTag | default $root.Values.global.images.fabric.tag -}}
   {{- $prefix := "" -}}
   {{- if $address -}}
     {{- $prefix = printf "%s/" $address -}}
@@ -283,9 +283,9 @@ true
 
 {{/*
 Merge hardcoded node affinity expressions with user-provided values.
-Usage: include "kube-ovn.affinities.nodeAffinity" (dict "hardcodedPreferred" $hardcodedPreferred "hardcodedRequired" $hardcodedRequired "userPreferred" .Values.component.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.component.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution)
+Usage: include "fabric.affinities.nodeAffinity" (dict "hardcodedPreferred" $hardcodedPreferred "hardcodedRequired" $hardcodedRequired "userPreferred" .Values.component.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.component.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution)
 */}}
-{{- define "kube-ovn.affinities.nodeAffinity" -}}
+{{- define "fabric.affinities.nodeAffinity" -}}
 {{- $hardcodedPreferred := .hardcodedPreferred | default list -}}
 {{- $hardcodedRequired := .hardcodedRequired | default list -}}
 {{- $userPreferred := .userPreferred | default list -}}

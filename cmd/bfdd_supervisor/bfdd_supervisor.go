@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	defaultSocketPath     = "/var/run/kube-ovn/bfdd-supervisor/control.sock"
-	defaultStatePath      = "/var/run/kube-ovn/bfdd-supervisor/state.json"
+	defaultSocketPath     = "/var/run/fabric/bfdd-supervisor/control.sock"
+	defaultStatePath      = "/var/run/fabric/bfdd-supervisor/state.json"
 	defaultMetricsAddress = ":10669"
 )
 
@@ -43,7 +43,7 @@ func runMain() int {
 
 func runCommand(ctx context.Context, args []string, output io.Writer) error {
 	if len(args) != 1 {
-		return errors.New("usage: kube-ovn-bfdd-supervisor <run|live|ready|status>")
+		return errors.New("usage: fabric-bfdd-supervisor <run|live|ready|status>")
 	}
 	command := args[0]
 	if command == "run" {

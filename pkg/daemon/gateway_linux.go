@@ -572,7 +572,7 @@ func (c *Controller) updateIptablesChain(ipt *iptables.IPTables, table, chain, p
 		klog.Infof("created iptables chain %s in table %s", chain, table)
 	}
 	if parent != "" {
-		comment := fmt.Sprintf("kube-ovn %s rules", strings.ToLower(parent))
+		comment := fmt.Sprintf("fabric %s rules", strings.ToLower(parent))
 		rule := util.IPTableRule{
 			Table: table,
 			Chain: parent,
@@ -669,7 +669,7 @@ func (c *Controller) setIptables() error {
 		v4Rules = []util.IPTableRule{
 			// mark packets from pod to service
 			{Table: NAT, Chain: OvnPrerouting, Rule: strings.Fields(`-i ` + util.NodeNic + ` -m set --match-set ovn40subnets src -m set --match-set ovn40services dst -j MARK --set-xmark 0x4000/0x4000`)},
-			// nat packets marked by kube-proxy or kube-ovn
+			// nat packets marked by kube-proxy or fabric
 			{Table: NAT, Chain: OvnPostrouting, Rule: strings.Fields(`-m mark --mark 0x4000/0x4000 -j ` + OvnMasquerade)},
 			// nat service traffic
 			{Table: NAT, Chain: OvnPostrouting, Rule: strings.Fields(`-m set --match-set ovn40subnets src -m set --match-set ovn40subnets dst -j ` + OvnMasquerade)},
@@ -710,7 +710,7 @@ func (c *Controller) setIptables() error {
 		v6Rules = []util.IPTableRule{
 			// mark packets from pod to service
 			{Table: NAT, Chain: OvnPrerouting, Rule: strings.Fields(`-i ` + util.NodeNic + ` -m set --match-set ovn60subnets src -m set --match-set ovn60services dst -j MARK --set-xmark 0x4000/0x4000`)},
-			// nat packets marked by kube-proxy or kube-ovn
+			// nat packets marked by kube-proxy or fabric
 			{Table: NAT, Chain: OvnPostrouting, Rule: strings.Fields(`-m mark --mark 0x4000/0x4000 -j ` + OvnMasquerade)},
 			// nat service traffic
 			{Table: NAT, Chain: OvnPostrouting, Rule: strings.Fields(`-m set --match-set ovn60subnets src -m set --match-set ovn60subnets dst -j ` + OvnMasquerade)},
@@ -980,7 +980,7 @@ func (c *Controller) cleanupIptablesInNonPrimaryCNIMode() error {
 
 	for _, protocol := range getProtocols(c.protocol) {
 		// Clean up both the default (nft) and legacy iptables backends to handle
-		// environments where kube-ovn previously ran in legacy mode.
+		// environments where fabric previously ran in legacy mode.
 		iptInstances := []*iptables.IPTables{c.iptables[protocol]}
 		if c.iptablesObsolete != nil {
 			if ipt := c.iptablesObsolete[protocol]; ipt != nil {
@@ -1086,11 +1086,11 @@ func getKubeOVNBaseIptablesRulesForCleanup(protocol string) []util.IPTableRule {
 
 func getKubeOVNJumpRulesForCleanup() []util.IPTableRule {
 	return []util.IPTableRule{
-		{Table: NAT, Chain: Prerouting, Rule: []string{"-m", "comment", "--comment", "kube-ovn prerouting rules", "-j", OvnPrerouting}},
-		{Table: NAT, Chain: Postrouting, Rule: []string{"-m", "comment", "--comment", "kube-ovn postrouting rules", "-j", OvnPostrouting}},
-		{Table: MANGLE, Chain: Prerouting, Rule: []string{"-m", "comment", "--comment", "kube-ovn prerouting rules", "-j", OvnPrerouting}},
-		{Table: MANGLE, Chain: Postrouting, Rule: []string{"-m", "comment", "--comment", "kube-ovn postrouting rules", "-j", OvnPostrouting}},
-		{Table: MANGLE, Chain: Output, Rule: []string{"-m", "comment", "--comment", "kube-ovn output rules", "-j", OvnOutput}},
+		{Table: NAT, Chain: Prerouting, Rule: []string{"-m", "comment", "--comment", "fabric prerouting rules", "-j", OvnPrerouting}},
+		{Table: NAT, Chain: Postrouting, Rule: []string{"-m", "comment", "--comment", "fabric postrouting rules", "-j", OvnPostrouting}},
+		{Table: MANGLE, Chain: Prerouting, Rule: []string{"-m", "comment", "--comment", "fabric prerouting rules", "-j", OvnPrerouting}},
+		{Table: MANGLE, Chain: Postrouting, Rule: []string{"-m", "comment", "--comment", "fabric postrouting rules", "-j", OvnPostrouting}},
+		{Table: MANGLE, Chain: Output, Rule: []string{"-m", "comment", "--comment", "fabric output rules", "-j", OvnOutput}},
 	}
 }
 
@@ -1386,7 +1386,7 @@ func clearObsoleteIptablesChain(ipt *iptables.IPTables, table, chain, parent str
 		return nil
 	}
 
-	rule := fmt.Sprintf(`-m comment --comment "kube-ovn %s rules" -j %s`, strings.ToLower(parent), chain)
+	rule := fmt.Sprintf(`-m comment --comment "fabric %s rules" -j %s`, strings.ToLower(parent), chain)
 	if err = deleteIptablesRule(ipt, util.IPTableRule{Table: table, Chain: parent, Rule: util.DoubleQuotedFields(rule)}); err != nil {
 		klog.Error(err)
 		return err
@@ -1408,7 +1408,7 @@ func (c *Controller) cleanObsoleteIptablesRules(protocol string, rules []util.IP
 			{Table: NAT, Chain: Postrouting, Rule: strings.Fields(`-m mark --mark 0x40000/0x40000 -j MASQUERADE`)},
 			{Table: "mangle", Chain: Prerouting, Rule: strings.Fields(`-i ` + util.NodeNic + ` -m set --match-set ovn40subnets src -m set --match-set ovn40services dst -j MARK --set-xmark 0x40000/0x40000`)},
 			// legacy rules
-			// nat packets marked by kube-proxy or kube-ovn
+			// nat packets marked by kube-proxy or fabric
 			{Table: NAT, Chain: Postrouting, Rule: strings.Fields(`-m mark --mark 0x4000/0x4000 -j MASQUERADE`)},
 			// nat service traffic
 			{Table: NAT, Chain: Postrouting, Rule: strings.Fields(`-m set --match-set ovn40subnets src -m set --match-set ovn40subnets dst -j MASQUERADE`)},
@@ -1442,7 +1442,7 @@ func (c *Controller) cleanObsoleteIptablesRules(protocol string, rules []util.IP
 			{Table: NAT, Chain: Postrouting, Rule: strings.Fields(`-m mark --mark 0x40000/0x40000 -j MASQUERADE`)},
 			{Table: "mangle", Chain: Prerouting, Rule: strings.Fields(`-i ` + util.NodeNic + ` -m set --match-set ovn60subnets src -m set --match-set ovn60services dst -j MARK --set-xmark 0x40000/0x40000`)},
 			// legacy rules
-			// nat packets marked by kube-proxy or kube-ovn
+			// nat packets marked by kube-proxy or fabric
 			{Table: NAT, Chain: Postrouting, Rule: strings.Fields(`-m mark --mark 0x4000/0x4000 -j MASQUERADE`)},
 			// nat service traffic
 			{Table: NAT, Chain: Postrouting, Rule: strings.Fields(`-m set --match-set ovn60subnets src -m set --match-set ovn60subnets dst -j MASQUERADE`)},

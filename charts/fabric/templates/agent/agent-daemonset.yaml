@@ -1,9 +1,9 @@
-{{- if include "kubeovn.renderDataPlane" . -}}
-{{- $agentImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.agent.image) | fromYaml -}}
+{{- if include "fabric.renderDataPlane" . -}}
+{{- $agentImage := include "fabric.imageSpec" (dict "root" . "image" .Values.agent.image) | fromYaml -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: {{ .Values.namespace }}
   {{- with .Values.agent.annotations }}
   annotations:
@@ -16,8 +16,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-cni
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/name: fabric-cni
+      app.kubernetes.io/part-of: fabric
   template:
     metadata:
       {{- with .Values.agent.podAnnotations }}
@@ -25,13 +25,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: kube-ovn-cni
-        app.kubernetes.io/part-of: kube-ovn
+        app.kubernetes.io/name: fabric-cni
+        app.kubernetes.io/part-of: fabric
         {{- with .Values.agent.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
         # Legacy labels
-        app: kube-ovn-cni
+        app: fabric-cni
         component: network
         type: infra
     spec:
@@ -43,7 +43,7 @@ spec:
         - key: CriticalAddonsOnly
           operator: Exists
       priorityClassName: system-node-critical
-      serviceAccountName: kube-ovn-cni
+      serviceAccountName: fabric-cni
       automountServiceAccountToken: true
       hostNetwork: true
       hostPID: true
@@ -77,16 +77,16 @@ spec:
           - mountPath: /var/run/netns
             name: host-ns
             readOnly: false
-          - name: kube-ovn-log
-            mountPath: /var/log/kube-ovn
+          - name: fabric-log
+            mountPath: /var/log/fabric
       - name: install-cni
         image: {{ $agentImage.prefix }}{{ $agentImage.repository }}:{{ $agentImage.tag }}
         imagePullPolicy: {{ $agentImage.pullPolicy }}
         command:
-          - /kube-ovn/install-cni.sh
+          - /fabric/install-cni.sh
           - --cni-conf-dir={{ .Values.cni.mountConfigDirectory }}
           - --cni-conf-file={{ .Values.cni.localConfigFile }}
-          - --cni-conf-name={{- .Values.cni.configPriority -}}-kube-ovn.conflist
+          - --cni-conf-name={{- .Values.cni.configPriority -}}-fabric.conflist
         env:
           - name: POD_IPS
             valueFrom:
@@ -110,7 +110,7 @@ spec:
         imagePullPolicy: {{ $agentImage.pullPolicy }}
         command:
           - bash
-          - /kube-ovn/start-cniserver.sh
+          - /fabric/start-cniserver.sh
         args:
           - --enable-mirror={{- .Values.agent.mirroring.enabled }}
           - --mirror-iface={{- .Values.agent.mirroring.interface }}
@@ -137,7 +137,7 @@ spec:
           - --default-interface-name={{- .Values.networking.vlan.interfaceName }}
           - --logtostderr=false
           - --alsologtostderr=true
-          - --log_file=/var/log/kube-ovn/kube-ovn-cni.log
+          - --log_file=/var/log/fabric/fabric-cni.log
           - --log_file_max_size=200
           - --enable-metrics={{- .Values.networking.enableMetrics }}
           - --kubelet-dir={{ .Values.kubelet.directory }}
@@ -145,7 +145,7 @@ spec:
           - --ovs-vsctl-concurrency={{ .Values.performance.ovsVsctlConcurrency }}
           - --secure-serving={{- .Values.features.enableSecureServing }}
           {{- if or .Values.networking.tlsMinVersion .Values.networking.tlsMaxVersion .Values.networking.tlsCipherSuites }}
-          {{- include "kubeovn.componentTLSArgs" . | nindent 10 }}
+          {{- include "fabric.componentTLSArgs" . | nindent 10 }}
           {{- end }}
           - --enable-ovn-ipsec={{- .Values.features.enableOvnIpsec }}
           - --host-tunnel-src={{- .Values.features.enableHostTunnelSrc | default false }}
@@ -217,8 +217,8 @@ spec:
           - mountPath: /var/run/netns
             name: host-ns
             mountPropagation: HostToContainer
-          - mountPath: /var/log/kube-ovn
-            name: kube-ovn-log
+          - mountPath: /var/log/fabric
+            name: fabric-log
           - mountPath: /var/log/openvswitch
             name: host-log-ovs
           - mountPath: /var/log/ovn
@@ -289,9 +289,9 @@ spec:
         - name: host-dbus
           hostPath:
             path: /var/run/dbus
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: {{ .Values.logging.directory }}/kube-ovn
+            path: {{ .Values.logging.directory }}/fabric
         - name: localtime
           hostPath:
             path: /etc/localtime

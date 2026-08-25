@@ -581,7 +581,7 @@ func (c *Controller) gcLoadBalancer() error {
 			}
 		}
 		// lbs will remove from logical switch automatically when delete lbs
-		// Only delete load balancers that belong to kube-ovn (vendor=kube-ovn)
+		// Only delete load balancers that belong to fabric (vendor=fabric)
 		// This prevents deleting load balancers managed by external systems like OpenStack Neutron
 		if err = c.OVNNbClient.DeleteLoadBalancers(func(lb *ovnnb.LoadBalancer) bool {
 			if lb.ExternalIDs["vendor"] != util.CniTypeName {
@@ -733,7 +733,7 @@ func (c *Controller) gcLoadBalancer() error {
 
 func (c *Controller) gcAddressSet() error {
 	klog.Infof("start to gc address set")
-	// Only list address sets that belong to kube-ovn (vendor=kube-ovn)
+	// Only list address sets that belong to fabric (vendor=fabric)
 	// This prevents deleting address sets managed by external systems like OpenStack Neutron
 	addressSets, err := c.OVNNbClient.ListAddressSets(map[string]string{"vendor": util.CniTypeName})
 	if err != nil {
@@ -780,7 +780,7 @@ func (c *Controller) gcSecurityGroup() error {
 		sgSet.Add(sg.Name)
 	}
 
-	// Only list port groups that belong to kube-ovn (vendor=kube-ovn)
+	// Only list port groups that belong to fabric (vendor=fabric)
 	// This prevents deleting port groups managed by external systems like OpenStack Neutron
 	pgs, err := c.OVNNbClient.ListPortGroups(map[string]string{"vendor": util.CniTypeName})
 	if err != nil {
@@ -1017,7 +1017,7 @@ func (c *Controller) gcChassis() error {
 	for _, node := range nodes {
 		chassisName := node.Annotations[util.ChassisAnnotation]
 		if chassisName == "" {
-			// kube-ovn-cni not ready to set chassis annotation
+			// fabric-cni not ready to set chassis annotation
 			continue
 		}
 		if hostname, exist := chassisNodes[chassisName]; exist {
@@ -1231,7 +1231,7 @@ func (c *Controller) gcRouterLBRules() error {
 
 func logicalRouterPortFilter(exceptPeerPorts *strset.Set) func(lrp *ovnnb.LogicalRouterPort) bool {
 	return func(lrp *ovnnb.LogicalRouterPort) bool {
-		// Only delete logical router ports that belong to kube-ovn (vendor=kube-ovn)
+		// Only delete logical router ports that belong to fabric (vendor=fabric)
 		// This prevents deleting LRPs managed by external systems like OpenStack Neutron
 		if lrp.ExternalIDs["vendor"] != util.CniTypeName {
 			return false

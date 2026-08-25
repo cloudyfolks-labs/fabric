@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Set up / tear down a local Kamaji-backed tenant cluster environment to
-# exercise kube-ovn's hosted OVN central Helm flow end to end.
+# exercise fabric's hosted OVN central Helm flow end to end.
 #
 # Kamaji provides the tenant Kubernetes control plane. Kube-OVN HCP is the
 # chart path under test (`central.hcp.enabled=true`); it is not the same
@@ -10,14 +10,14 @@
 # Layout the script produces:
 #
 #   kind cluster `mgmt`         -- runs Kamaji + cert-manager + MetalLB.
-#       └── kube-ovn controlPlaneOnly + central.hcp.enabled install:
+#       └── fabric controlPlaneOnly + central.hcp.enabled install:
 #           ovn-central StatefulSet (single-replica in CI, PVC-backed) plus
-#           ovn-nb/ovn-sb NodePort Services in the kube-ovn HCP namespace.
+#           ovn-nb/ovn-sb NodePort Services in the fabric HCP namespace.
 #   docker container `tenant-worker-0`
 #       └── kubeadm-joined to the Kamaji-hosted tenant apiserver (also on a
 #           MetalLB VIP; single-replica or three-replica HA depending on
-#           TENANT_CONTROL_PLANE_REPLICAS), running ovs-ovn / kube-ovn-cni /
-#           kube-ovn-controller via the dataPlaneOnly install pointed at the
+#           TENANT_CONTROL_PLANE_REPLICAS), running ovs-ovn / fabric-cni /
+#           fabric-controller via the dataPlaneOnly install pointed at the
 #           HCP OVN DB addresses.
 #
 # The accompanying Ginkgo suite under test/e2e/kamaji verifies the resulting
@@ -63,7 +63,7 @@ KAMAJI_CHART_SOURCE_COMMIT=${KAMAJI_CHART_SOURCE_COMMIT:-5ce3f6c337edc63347a32b2
 KAMAJI_CHART_SHA256=${KAMAJI_CHART_SHA256:-2e642a485eae8bd964c0a363b4ce01bd8379d05b42960b7919676f96f7c63b36}
 KAMAJI_CHART_URL=${KAMAJI_CHART_URL:-https://raw.githubusercontent.com/clastix/charts/$KAMAJI_CHART_SOURCE_COMMIT/kamaji-$KAMAJI_CHART_VERSION.tgz}
 
-KUBEOVN_IMAGE=${KUBEOVN_IMAGE:-kubeovn/kube-ovn:dev}
+KUBEOVN_IMAGE=${KUBEOVN_IMAGE:-cloudyfolks-labs/fabric:dev}
 JOB_DIR=${JOB_DIR:-/tmp/kamaji-e2e}
 REGISTRY_NAME=${REGISTRY_NAME:-kamaji-e2e-reg}
 
@@ -114,7 +114,7 @@ tenant_control_plane_scheduling_yaml() {
 
   cat <<EOF
       nodeSelector:
-        kube-ovn/tenant-control-plane: "true"
+        fabric/tenant-control-plane: "true"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -238,10 +238,10 @@ image:
 
 global:
   registry:
-    address: docker.io/kubeovn
+    address: ghcr.io/cloudyfolks-labs
   images:
-    kubeovn:
-      repository: kube-ovn
+    fabric:
+      repository: fabric
       tag: dev
 
 central:
@@ -277,10 +277,10 @@ image:
 
 global:
   registry:
-    address: docker.io/kubeovn
+    address: ghcr.io/cloudyfolks-labs
   images:
-    kubeovn:
-      repository: kube-ovn
+    fabric:
+      repository: fabric
       tag: dev
 
 central:
@@ -561,7 +561,7 @@ install_tenant_kube_proxy() {
 }
 
 cmd_render_tenant_kubeovn_image() {
-  echo "docker.io/kubeovn/kube-ovn:dev"
+  echo "docker.io/cloudyfolks-labs/fabric:dev"
 }
 
 cmd_render_tenant_e2e_images() {
@@ -569,12 +569,12 @@ cmd_render_tenant_e2e_images() {
 }
 
 local_registry_kubeovn_image() {
-  echo "localhost:5000/kubeovn/kube-ovn:dev"
+  echo "localhost:5000/cloudyfolks-labs/fabric:dev"
 }
 
 tenant_registry_kubeovn_image() {
   local reg_ip=$1
-  echo "$reg_ip:5000/kubeovn/kube-ovn:dev"
+  echo "$reg_ip:5000/cloudyfolks-labs/fabric:dev"
 }
 
 cmd_render_tenant_worker_docker_args() {
@@ -614,7 +614,7 @@ EOF
   - role: worker
     image: $MGMT_KIND_NODE_IMAGE
     labels:
-      kube-ovn/tenant-control-plane: "true"
+      fabric/tenant-control-plane: "true"
 EOF
     rendered_workers=$((rendered_workers + 1))
   done
@@ -625,7 +625,7 @@ setup_mgmt_cluster() {
   cmd_render_mgmt_kind_config > "$JOB_DIR/mgmt-kind.yaml"
   kind create cluster --config "$JOB_DIR/mgmt-kind.yaml"
   kubectl --context="kind-$MGMT_KIND_NAME" label node "$MGMT_KIND_NAME-control-plane" \
-    kube-ovn/role=master --overwrite
+    fabric/role=master --overwrite
   kind load docker-image "$KUBEOVN_IMAGE" --name "$MGMT_KIND_NAME"
 }
 
@@ -678,12 +678,12 @@ EOF
 }
 
 install_control_plane() {
-  echo ">>> Installing kube-ovn hosted OVN central on mgmt..."
+  echo ">>> Installing fabric hosted OVN central on mgmt..."
   kubectl --context="kind-$MGMT_KIND_NAME" create namespace "$HCP_NAMESPACE" \
     --dry-run=client -o yaml | kubectl --context="kind-$MGMT_KIND_NAME" apply -f -
   cmd_render_mgmt_values > "$JOB_DIR/mgmt-values.yaml"
   helm install --kube-context="kind-$MGMT_KIND_NAME" \
-    kube-ovn "$CHART_DIR" \
+    fabric "$CHART_DIR" \
     -n kube-system -f "$JOB_DIR/mgmt-values.yaml"
   if ! kubectl --context="kind-$MGMT_KIND_NAME" wait --for=condition=Ready \
     pod -n "$HCP_NAMESPACE" -l app=ovn-central --timeout=300s; then
@@ -779,7 +779,7 @@ diagnose_tenant_worker() {
     echo "### selected crictl logs"
     docker exec tenant-worker-0 sh -c '
       crictl ps -a --no-trunc 2>/dev/null |
-        awk "NR > 1 && /kube-proxy|kube-ovn-controller|cni-server|openvswitch|ovs-ovn|pinger|coredns/ {print \$1, \$NF}" |
+        awk "NR > 1 && /kube-proxy|fabric-controller|cni-server|openvswitch|ovs-ovn|pinger|coredns/ {print \$1, \$NF}" |
         while read -r cid cname; do
           [ -n "$cid" ] || continue
           echo "----- $cname $cid -----"
@@ -863,12 +863,12 @@ diagnose_tenant_cluster() {
     echo
     echo "### kube-system logs"
     KUBECONFIG="$JOB_DIR/tenant.kubeconfig" kubectl -n kube-system logs \
-      -l 'app in (kube-ovn-cni,kube-ovn-controller,ovs,kube-ovn-pinger,kube-proxy,kube-dns)' \
+      -l 'app in (fabric-cni,fabric-controller,ovs,fabric-pinger,kube-proxy,kube-dns)' \
       --all-containers --tail=200 || true
     echo
     echo "### kube-system previous logs"
     KUBECONFIG="$JOB_DIR/tenant.kubeconfig" kubectl -n kube-system logs \
-      -l 'app in (kube-ovn-cni,kube-ovn-controller,ovs,kube-ovn-pinger,kube-proxy,kube-dns)' \
+      -l 'app in (fabric-cni,fabric-controller,ovs,fabric-pinger,kube-proxy,kube-dns)' \
       --all-containers --previous --tail=200 || true
     echo
     echo "### tenant events"
@@ -975,10 +975,10 @@ join_tenant_worker() {
 }
 
 install_data_plane() {
-  echo ">>> Installing kube-ovn (HCP data plane) on tenant..."
+  echo ">>> Installing fabric (HCP data plane) on tenant..."
   cmd_render_tenant_values > "$JOB_DIR/tenant-values.yaml"
   if ! helm install --kubeconfig "$JOB_DIR/tenant.kubeconfig" \
-    kube-ovn "$CHART_DIR" \
+    fabric "$CHART_DIR" \
     -n kube-system --create-namespace -f "$JOB_DIR/tenant-values.yaml"; then
     diagnose_tenant_cluster
     diagnose_tenant_worker
@@ -986,9 +986,9 @@ install_data_plane() {
   fi
 
   if [ "$E2E_IP_FAMILY" = "ipv6" ]; then
-    echo ">>> Patching kube-ovn-pinger for IPv6-only tenant bootstrap..."
+    echo ">>> Patching fabric-pinger for IPv6-only tenant bootstrap..."
     if ! kubectl --kubeconfig "$JOB_DIR/tenant.kubeconfig" -n kube-system \
-      patch daemonset kube-ovn-pinger --type merge \
+      patch daemonset fabric-pinger --type merge \
       -p '{"spec":{"template":{"spec":{"hostNetwork":true,"dnsPolicy":"Default"}}}}'; then
       diagnose_tenant_cluster
       diagnose_tenant_worker
@@ -998,7 +998,7 @@ install_data_plane() {
 
   echo ">>> Waiting for tenant data-plane components..."
   if ! KUBECONFIG="$JOB_DIR/tenant.kubeconfig" kubectl -n kube-system rollout status \
-    deploy/kube-ovn-controller --timeout=300s; then
+    deploy/fabric-controller --timeout=300s; then
     diagnose_tenant_cluster
     diagnose_tenant_worker
     return 1
@@ -1010,14 +1010,14 @@ install_data_plane() {
     return 1
   fi
   if ! KUBECONFIG="$JOB_DIR/tenant.kubeconfig" kubectl -n kube-system rollout status \
-    ds/kube-ovn-cni --timeout=300s; then
+    ds/fabric-cni --timeout=300s; then
     diagnose_tenant_cluster
     diagnose_tenant_worker
     return 1
   fi
   if [ "$E2E_IP_FAMILY" = "ipv6" ]; then
     if ! KUBECONFIG="$JOB_DIR/tenant.kubeconfig" kubectl -n kube-system rollout status \
-      ds/kube-ovn-pinger --timeout=300s; then
+      ds/fabric-pinger --timeout=300s; then
       diagnose_tenant_cluster
       diagnose_tenant_worker
       return 1
@@ -1070,7 +1070,7 @@ case "${1:-}" in
 Usage: $0 <setup|teardown|kubeconfig|vars|render-mgmt-values|render-tenant-values|render-tenant-control-plane|render-mgmt-kind-config|render-tenant-kube-proxy-manifest|render-tenant-worker-docker-args|render-tenant-worker-kubelet-env|render-tenant-kubeovn-image|render-tenant-e2e-images>
 
   setup       Bring up the mgmt kind cluster + Kamaji + tenant worker and
-              install both halves of kube-ovn.
+              install both halves of fabric.
   teardown    Tear everything down.
   kubeconfig  Print the path to the tenant kubeconfig (used by the e2e job).
   vars        Print the env vars consumed by the Ginkgo e2e suite.
@@ -1089,7 +1089,7 @@ Usage: $0 <setup|teardown|kubeconfig|vars|render-mgmt-values|render-tenant-value
   render-tenant-worker-kubelet-env
               Print the kubelet env file used by the tenant worker.
   render-tenant-kubeovn-image
-              Print the kube-ovn image reference rendered by tenant Helm values.
+              Print the fabric image reference rendered by tenant Helm values.
   render-tenant-e2e-images
               Print the tenant worker E2E images pre-pulled by setup.
 USAGE

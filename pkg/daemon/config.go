@@ -98,15 +98,15 @@ func ParseFlags() *Configuration {
 	var (
 		argInstallCNIConfig = pflag.Bool("install-cni-config", false, "Install CNI config")
 		argCniConfDir       = pflag.String("cni-conf-dir", "/etc/cni/net.d", "Path of the CNI config directory.")
-		argCniConfFile      = pflag.String("cni-conf-file", "/kube-ovn/01-kube-ovn.conflist", "Path of the CNI config file.")
-		argsCniConfName     = pflag.String("cni-conf-name", "01-kube-ovn.conflist", "Specify the name of kube ovn conflist name in dir /etc/cni/net.d/")
+		argCniConfFile      = pflag.String("cni-conf-file", "/fabric/01-fabric.conflist", "Path of the CNI config file.")
+		argsCniConfName     = pflag.String("cni-conf-name", "01-fabric.conflist", "Specify the name of kube ovn conflist name in dir /etc/cni/net.d/")
 
 		argIface                 = pflag.String("iface", "", "The interface used for inter-host pod communication; may be a NIC name or comma-separated regular expressions. When empty, the interface that owns POD_IP or a node internal IP is used. The node tunnel interface annotation and DPDK mode take precedence")
 		argHostTunnelSrc         = pflag.Bool("host-tunnel-src", false, "Enable /32 address selection for the tunnel source, excludes localhost addresses unless explicitly allowed.")
 		argDPDKTunnelIface       = pflag.String("dpdk-tunnel-iface", "br-phy", "Specifies the name of the dpdk tunnel iface.")
 		argMTU                   = pflag.Int("mtu", 0, "The pod interface MTU. When set to 0, it is derived from the selected interface MTU based on the network type and IP family")
 		argEnableMirror          = pflag.Bool("enable-mirror", false, "Enable traffic mirror")
-		argMirrorNic             = pflag.String("mirror-iface", "mirror0", "The mirror nic name that will be created by kube-ovn")
+		argMirrorNic             = pflag.String("mirror-iface", "mirror0", "The mirror nic name that will be created by fabric")
 		argBindSocket            = pflag.String("bind-socket", defaultBindSocket, "The socket daemon bind to.")
 		argOvsSocket             = pflag.String("ovs-socket", "", "The socket to local ovs-server")
 		argKubeConfigFile        = pflag.String("kubeconfig", "", "Path to kubeconfig file with authorization and master location information. If not set use the inCluster token.")
@@ -131,7 +131,7 @@ func ParseFlags() *Configuration {
 		argOVSVsctlConcurrency       = pflag.Int32("ovs-vsctl-concurrency", 100, "concurrency limit of ovs-vsctl")
 		argEnableOVNIPSec            = pflag.Bool("enable-ovn-ipsec", false, "Whether to enable ovn ipsec")
 		argCertManagerIPSecCert      = pflag.Bool("cert-manager-ipsec-cert", false, "Whether to use cert-manager for signing IPSec certificates")
-		argCertManagerIssuerName     = pflag.String("cert-manager-issuer-name", "kube-ovn", "The cert-manager issuer name to request certificates from")
+		argCertManagerIssuerName     = pflag.String("cert-manager-issuer-name", "fabric", "The cert-manager issuer name to request certificates from")
 		argOVNIPSecCertDuration      = pflag.Int("ovn-ipsec-cert-duration", 2*365*24*60*60, "The duration requested for IPSec certificates (seconds)")
 		argLogPerm                   = pflag.String("log-perm", "640", "The permission for the log file")
 

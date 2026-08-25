@@ -29,9 +29,9 @@ import (
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/kind"
 )
 
-const dockerNetworkName = "kube-ovn-vlan"
+const dockerNetworkName = "fabric-vlan"
 
-const dockerExtraNetworkName = "kube-ovn-extra-vlan"
+const dockerExtraNetworkName = "fabric-extra-vlan"
 
 func makeProviderNetwork(providerNetworkName string, exchangeLinkName bool, linkMap map[string]*iproute.Link) *kubeovnv1.ProviderNetwork {
 	var defaultInterface string

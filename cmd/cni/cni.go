@@ -29,7 +29,7 @@ func main() {
 		Add: cmdAdd,
 		Del: cmdDel,
 	}
-	about := "CNI kube-ovn plugin " + versions.VERSION
+	about := "CNI fabric plugin " + versions.VERSION
 	skel.PluginMainFuncs(funcs, version.All, about)
 }
 

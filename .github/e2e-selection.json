@@ -5,8 +5,8 @@
   "fullThreshold": 3,
   "productionPrefixes": ["cmd/", "pkg/", "versions/"],
   "smoke": [
-    {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
-    {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},
+    {"job": "fabric-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
+    {"job": "fabric-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},
     {"job": "k8s-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"}
   ],
   "fullPaths": [
@@ -163,8 +163,8 @@
     "core": {
       "jobs": [
         {"id": "k8s-conformance-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]}},
-        {"id": "kube-ovn-conformance-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]}},
-        {"id": "kube-ovn-connectivity-test", "matrix": {"mode": ["overlay", "underlay"]}}
+        {"id": "fabric-conformance-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]}},
+        {"id": "fabric-connectivity-test", "matrix": {"mode": ["overlay", "underlay"]}}
       ]
     },
     "policy": {
@@ -172,8 +172,8 @@
         {"id": "k8s-netpol-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "np-enforcement": ["standard", "lax"]}},
         {"id": "cyclonus-netpol-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "np-enforcement": ["standard", "lax"]}},
         {"id": "no-np-test"},
-        {"id": "kube-ovn-cnp-domain-e2e", "matrix": {"ip-family": ["ipv4"], "mode": ["overlay"]}},
-        {"id": "kube-ovn-anp-domain-e2e", "matrix": {"ip-family": ["ipv4"], "mode": ["overlay"]}}
+        {"id": "fabric-cnp-domain-e2e", "matrix": {"ip-family": ["ipv4"], "mode": ["overlay"]}},
+        {"id": "fabric-anp-domain-e2e", "matrix": {"ip-family": ["ipv4"], "mode": ["overlay"]}}
       ]
     },
     "bgp-routing": {
@@ -192,7 +192,7 @@
       "jobs": [
         {"id": "underlay-logical-gateway-installation-test"},
         {"id": "no-ovn-lb-test"},
-        {"id": "kube-ovn-underlay-metallb-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
+        {"id": "fabric-underlay-metallb-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
         {"id": "router-lb-rule-e2e"},
         {"id": "dns-zone-e2e"}
       ]
@@ -205,7 +205,7 @@
     },
     "ha-hosted": {
       "jobs": [
-        {"id": "kube-ovn-hosted-ovn-central-e2e", "include": [
+        {"id": "fabric-hosted-ovn-central-e2e", "include": [
           {"ip-family": "ipv4", "tenant-control-plane": "single", "tenant-control-plane-replicas": 1},
           {"ip-family": "ipv6", "tenant-control-plane": "single", "tenant-control-plane-replicas": 1},
           {"ip-family": "dual", "tenant-control-plane": "single", "tenant-control-plane-replicas": 1},
@@ -213,13 +213,13 @@
           {"ip-family": "ipv6", "tenant-control-plane": "ha", "tenant-control-plane-replicas": 3},
           {"ip-family": "dual", "tenant-control-plane": "ha", "tenant-control-plane-replicas": 3}
         ]},
-        {"id": "kube-ovn-ha-e2e", "matrix": {"ssl": ["true", "false"], "bind-local": ["true", "false"], "ip-family": ["ipv4", "ipv6", "dual"]}}
+        {"id": "fabric-ha-e2e", "matrix": {"ssl": ["true", "false"], "bind-local": ["true", "false"], "ip-family": ["ipv4", "ipv6", "dual"]}}
       ]
     },
     "multi-cluster": {
       "jobs": [
-        {"id": "kube-ovn-ic-conformance-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
-        {"id": "kube-ovn-submariner-conformance-e2e"}
+        {"id": "fabric-ic-conformance-e2e", "matrix": {"ip-family": ["ipv4", "ipv6", "dual"]}},
+        {"id": "fabric-submariner-conformance-e2e"}
       ]
     },
     "nat-egress": {
@@ -230,8 +230,8 @@
     "security-webhook": {
       "jobs": [
         {"id": "webhook-e2e"},
-        {"id": "kube-ovn-ipsec-e2e"},
-        {"id": "kube-ovn-ipsec-cert-mgr-e2e"}
+        {"id": "fabric-ipsec-e2e"},
+        {"id": "fabric-ipsec-cert-mgr-e2e"}
       ]
     }
   }

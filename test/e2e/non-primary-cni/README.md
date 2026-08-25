@@ -73,24 +73,24 @@ Each configuration file should contain NetworkAttachmentDefinition and other req
 
 ### Run All Non-Primary CNI Tests
 ```bash
-make kube-ovn-non-primary-cni-e2e
+make fabric-non-primary-cni-e2e
 ```
 
 ### Run Individual Test Suites
 
 #### VPC Simple Tests
 ```bash
-make kube-ovn-non-primary-cni-vpc-simple-e2e
+make fabric-non-primary-cni-vpc-simple-e2e
 ```
 
 #### VPC NAT Gateway Tests
 ```bash
-make kube-ovn-non-primary-cni-vpc-nat-gw-e2e
+make fabric-non-primary-cni-vpc-nat-gw-e2e
 ```
 
 #### Logical Network Simple Tests
 ```bash
-make kube-ovn-non-primary-cni-lnet-simple-e2e
+make fabric-non-primary-cni-lnet-simple-e2e
 ```
 
 ## Environment Variables
@@ -138,7 +138,7 @@ The tests use the Ginkgo BDD framework and follow these patterns:
 ### Verbose Output
 Use Ginkgo's verbose flag for detailed test output:
 ```bash
-GINKGO_OUTPUT_OPT="-v" make kube-ovn-non-primary-cni-e2e
+GINKGO_OUTPUT_OPT="-v" make fabric-non-primary-cni-e2e
 ```
 
 ### Focus on Specific Tests

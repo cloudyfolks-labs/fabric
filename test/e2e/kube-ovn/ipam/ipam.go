@@ -292,7 +292,7 @@ var _ = framework.Describe("[group:ipam]", func() {
 		_ = podClient.Create(pod)
 
 		ginkgo.By("Waiting for pod " + podName + " to have event indicating IP family mismatch")
-		events := f.EventClient().WaitToHaveEvent(util.KindPod, podName, corev1.EventTypeWarning, "AcquireAddressFailed", "kube-ovn-controller", "")
+		events := f.EventClient().WaitToHaveEvent(util.KindPod, podName, corev1.EventTypeWarning, "AcquireAddressFailed", "fabric-controller", "")
 		framework.ExpectContainSubstring(events[0].Message, fmt.Sprintf("requested ip family %s does not match subnet %s protocol %s", requestedFamily, subnetName, subnet.Spec.Protocol))
 
 		ginkgo.By("Validating pod " + podName + " is not allocated")
@@ -952,7 +952,7 @@ var _ = framework.Describe("[group:ipam]", func() {
 
 		ginkgo.By("Waiting for pod " + podName + " to have event indicating IP allocation failure")
 		eventClient := f.EventClient()
-		_ = eventClient.WaitToHaveEvent(util.KindPod, podName, corev1.EventTypeWarning, "AcquireAddressFailed", "kube-ovn-controller", "")
+		_ = eventClient.WaitToHaveEvent(util.KindPod, podName, corev1.EventTypeWarning, "AcquireAddressFailed", "fabric-controller", "")
 	})
 
 	framework.ConformanceIt("should not allocate newly excluded addresses from a named IPPool", func() {
@@ -978,7 +978,7 @@ var _ = framework.Describe("[group:ipam]", func() {
 		_ = podClient.Create(pod)
 
 		ginkgo.By("Waiting for pod " + podName + " to report IP allocation failure")
-		_ = f.EventClient().WaitToHaveEvent(util.KindPod, podName, corev1.EventTypeWarning, "AcquireAddressFailed", "kube-ovn-controller", "")
+		_ = f.EventClient().WaitToHaveEvent(util.KindPod, podName, corev1.EventTypeWarning, "AcquireAddressFailed", "fabric-controller", "")
 		pod = podClient.GetPod(podName)
 		framework.ExpectNotHaveKey(pod.Annotations, util.AllocatedAnnotation)
 

@@ -29,54 +29,54 @@ import (
 )
 
 const (
-	kubeOVNTLSSecretName        = "kube-ovn-tls"
+	kubeOVNTLSSecretName        = "fabric-tls"
 	kubeOVNSSLEnabled           = "ENABLE_SSL"
-	kubeOVNControllerDeployment = "kube-ovn-controller"
-	kubeOVNControllerContainer  = "kube-ovn-controller"
-	kubeOVNMonitorDeployment    = "kube-ovn-monitor"
-	kubeOVNMonitorContainer     = "kube-ovn-monitor"
-	kubeOVNPingerDaemonSet      = "kube-ovn-pinger"
+	kubeOVNControllerDeployment = "fabric-controller"
+	kubeOVNControllerContainer  = "fabric-controller"
+	kubeOVNMonitorDeployment    = "fabric-monitor"
+	kubeOVNMonitorContainer     = "fabric-monitor"
+	kubeOVNPingerDaemonSet      = "fabric-pinger"
 	kubeOVNPingerContainer      = "pinger"
 	ovnCentralDeployment        = "ovn-central"
 	ovnCentralContainer         = "ovn-central"
 	ovsOVNDaemonSet             = "ovs-ovn"
-	ovnCentralTLSHashFile       = "/tmp/kube-ovn-central-tls.hash"
-	ovsOVNTLSHashFile           = "/tmp/kube-ovn-tls.hash"
+	ovnCentralTLSHashFile       = "/tmp/fabric-central-tls.hash"
+	ovsOVNTLSHashFile           = "/tmp/fabric-tls.hash"
 
 	kubeOVNTLSCertHashAnnotation = "fabric.cloudyfolks.io/tls-cert-hash"
 )
 
 var kubeOVNTLSDataKeys = []string{"cacert", "cert", "key"}
 
-var _ = framework.Describe("[group:security] kube-ovn TLS rotation", func() {
-	f := framework.NewDefaultFramework("security-kube-ovn-tls-rotation")
+var _ = framework.Describe("[group:security] fabric TLS rotation", func() {
+	f := framework.NewDefaultFramework("security-fabric-tls-rotation")
 	f.SkipNamespaceCreation = true
 
-	framework.ConformanceIt("should reload components without restarting pods when kube-ovn-tls secret is updated", func() {
-		f.SkipVersionPriorTo(1, 15, "kube-ovn TLS rotation was introduced in v1.15")
+	framework.ConformanceIt("should reload components without restarting pods when fabric-tls secret is updated", func() {
+		f.SkipVersionPriorTo(1, 15, "fabric TLS rotation was introduced in v1.15")
 
 		cs := f.ClientSet
 		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
 		deploy := deployClient.Get(kubeOVNControllerDeployment)
 		if !deploymentEnvEnabled(deploy, kubeOVNSSLEnabled) {
-			ginkgo.Skip("kube-ovn TLS is disabled")
+			ginkgo.Skip("fabric TLS is disabled")
 		}
 
-		ginkgo.By("Saving current kube-ovn-tls secret")
+		ginkgo.By("Saving current fabric-tls secret")
 		originalSecret, err := cs.CoreV1().Secrets(framework.KubeOvnNamespace).Get(context.Background(), kubeOVNTLSSecretName, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		originalData := copySecretData(originalSecret.Data)
 		originalHash := kubeOVNTLSDataHash(originalData)
 		originalSerial := kubeOVNTLSCertSerial(originalData)
 
-		ginkgo.By("Recording kube-ovn-controller restart counts")
+		ginkgo.By("Recording fabric-controller restart counts")
 		restartCounts := deploymentContainerRestartCounts(cs, deploy, kubeOVNControllerContainer)
 
-		ginkgo.By("Recording kube-ovn-monitor restart counts")
+		ginkgo.By("Recording fabric-monitor restart counts")
 		monitorDeploy := deployClient.Get(kubeOVNMonitorDeployment)
 		monitorRestartCounts := deploymentContainerRestartCounts(cs, monitorDeploy, kubeOVNMonitorContainer)
 
-		ginkgo.By("Recording kube-ovn-pinger restart counts")
+		ginkgo.By("Recording fabric-pinger restart counts")
 		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
 		pingerDS := daemonSetClient.Get(kubeOVNPingerDaemonSet)
 		pingerRestartCounts := daemonSetContainerRestartCounts(daemonSetClient, pingerDS, kubeOVNPingerContainer)
@@ -110,13 +110,13 @@ var _ = framework.Describe("[group:security] kube-ovn TLS rotation", func() {
 			var projectionDeadline time.Time
 			restoreKubeOVNTLSState(
 				func() {
-					ginkgo.By("Restoring kube-ovn-tls secret")
+					ginkgo.By("Restoring fabric-tls secret")
 					updateKubeOVNTLSSecretData(cs, originalData)
 					projectionDeadline = time.Now().Add(projectionTimeout)
 				},
 				func() {
-					ginkgo.By("Waiting for restored kube-ovn-tls files to be projected")
-					waitPodListTLSFilesProjected(projectionPods, kubeOVNTLSFileHashes(originalData), projectionDeadline, "kube-ovn components")
+					ginkgo.By("Waiting for restored fabric-tls files to be projected")
+					waitPodListTLSFilesProjected(projectionPods, kubeOVNTLSFileHashes(originalData), projectionDeadline, "fabric components")
 				},
 				func() {
 					ginkgo.By("Waiting for ovn-central to reload the restored TLS files")
@@ -134,7 +134,7 @@ var _ = framework.Describe("[group:security] kube-ovn TLS rotation", func() {
 			)
 		})
 
-		ginkgo.By("Installing updated kube-ovn-tls secret")
+		ginkgo.By("Installing updated fabric-tls secret")
 		updatedData, err := generateUpdatedKubeOVNTLSSecretData()
 		framework.ExpectNoError(err)
 		updatedHash := kubeOVNTLSDataHash(updatedData)
@@ -144,9 +144,9 @@ var _ = framework.Describe("[group:security] kube-ovn TLS rotation", func() {
 		secretUpdated = true
 		projectionDeadline := time.Now().Add(projectionTimeout)
 
-		ginkgo.By("Waiting for kube-ovn-tls files to be projected")
+		ginkgo.By("Waiting for fabric-tls files to be projected")
 		expectedFileHashes := kubeOVNTLSFileHashes(updatedData)
-		waitPodListTLSFilesProjected(projectionPods, expectedFileHashes, projectionDeadline, "kube-ovn components")
+		waitPodListTLSFilesProjected(projectionPods, expectedFileHashes, projectionDeadline, "fabric components")
 
 		ginkgo.By("Waiting for ovn-central to reload TLS")
 		waitOVNCentralTLSReloaded(cs, centralDeploy, centralTLSHashes)
@@ -162,9 +162,9 @@ var _ = framework.Describe("[group:security] kube-ovn TLS rotation", func() {
 
 		ginkgo.By("Ensuring Go components do not restart from TLS file change")
 		time.Sleep(35 * time.Second)
-		assertDeploymentContainerNotRestarted(cs, deploy, kubeOVNControllerContainer, restartCounts, "kube-ovn-controller")
-		assertDeploymentContainerNotRestarted(cs, monitorDeploy, kubeOVNMonitorContainer, monitorRestartCounts, "kube-ovn-monitor")
-		assertDaemonSetContainerNotRestarted(daemonSetClient, pingerDS, kubeOVNPingerContainer, pingerRestartCounts, "kube-ovn-pinger")
+		assertDeploymentContainerNotRestarted(cs, deploy, kubeOVNControllerContainer, restartCounts, "fabric-controller")
+		assertDeploymentContainerNotRestarted(cs, monitorDeploy, kubeOVNMonitorContainer, monitorRestartCounts, "fabric-monitor")
+		assertDaemonSetContainerNotRestarted(daemonSetClient, pingerDS, kubeOVNPingerContainer, pingerRestartCounts, "fabric-pinger")
 		assertDeploymentContainerNotRestarted(cs, centralDeploy, ovnCentralContainer, centralRestartCounts, "ovn-central")
 	})
 })
@@ -239,7 +239,7 @@ func kubeOVNTLSDataHash(data map[string][]byte) string {
 	h := sha256.New()
 	for _, key := range kubeOVNTLSDataKeys {
 		if len(data[key]) == 0 {
-			framework.Failf("kube-ovn-tls missing %s", key)
+			framework.Failf("fabric-tls missing %s", key)
 		}
 		h.Write([]byte(key))
 		h.Write([]byte{0})
@@ -255,7 +255,7 @@ func kubeOVNTLSFileHashes(data map[string][]byte) map[string]string {
 	hashes := make(map[string]string, len(kubeOVNTLSDataKeys))
 	for _, key := range kubeOVNTLSDataKeys {
 		if len(data[key]) == 0 {
-			framework.Failf("kube-ovn-tls missing %s", key)
+			framework.Failf("fabric-tls missing %s", key)
 		}
 		sum := sha256.Sum256(data[key])
 		hashes[key] = hex.EncodeToString(sum[:])
@@ -281,7 +281,7 @@ func parseKubeOVNTLSCert(data map[string][]byte) *x509.Certificate {
 func parseKubeOVNTLSCertWithError(data map[string][]byte) (*x509.Certificate, error) {
 	block, _ := pem.Decode(data["cert"])
 	if block == nil {
-		return nil, errors.New("failed to decode kube-ovn-tls cert")
+		return nil, errors.New("failed to decode fabric-tls cert")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
@@ -382,7 +382,7 @@ func seedOVNCentralTLSHash(cs kubernetes.Interface, deploy *appsv1.Deployment) {
 	pods := deploymentPods(cs, deploy)
 	framework.ExpectNotEmpty(pods.Items, "no ovn-central pod found")
 	for _, pod := range pods.Items {
-		_, err := e2epodoutput.RunHostCmd(pod.Namespace, pod.Name, "bash /kube-ovn/kube-ovn-tls-reload.sh ovn-central once")
+		_, err := e2epodoutput.RunHostCmd(pod.Namespace, pod.Name, "bash /fabric/fabric-tls-reload.sh ovn-central once")
 		framework.ExpectNoError(err)
 	}
 }
@@ -416,7 +416,7 @@ func waitPodListTLSFilesProjected(pods *corev1.PodList, expectedHashes map[strin
 		return true, nil
 	})
 	if errors.Is(err, context.DeadlineExceeded) {
-		framework.Failf("timed out while waiting for %s projected kube-ovn-tls files", name)
+		framework.Failf("timed out while waiting for %s projected fabric-tls files", name)
 	}
 	framework.ExpectNoError(err)
 }
@@ -483,7 +483,7 @@ func waitOVNCentralTLSReloaded(cs kubernetes.Interface, deploy *appsv1.Deploymen
 			if podTLSHash(pod) == oldHash {
 				return false, nil
 			}
-			if _, err := e2epodoutput.RunHostCmd(pod.Namespace, pod.Name, "/kube-ovn/ovn-healthcheck.sh"); err != nil {
+			if _, err := e2epodoutput.RunHostCmd(pod.Namespace, pod.Name, "/fabric/ovn-healthcheck.sh"); err != nil {
 				return false, nil
 			}
 		}
@@ -546,7 +546,7 @@ func seedOVSTLSHashes(pods []corev1.Pod) {
 	ginkgo.GinkgoHelper()
 
 	for _, pod := range pods {
-		_, err := e2epodoutput.RunHostCmd(pod.Namespace, pod.Name, "bash /kube-ovn/kube-ovn-tls-reload.sh ovs once")
+		_, err := e2epodoutput.RunHostCmd(pod.Namespace, pod.Name, "bash /fabric/fabric-tls-reload.sh ovs once")
 		framework.ExpectNoError(err)
 	}
 }
@@ -583,7 +583,7 @@ func waitOVNControllersRestarted(pods []corev1.Pod, initialPIDs map[string]strin
 			output, err := e2epodoutput.RunHostCmd(
 				pod.Namespace,
 				pod.Name,
-				"/kube-ovn/ovs-healthcheck.sh >/dev/null && cat /var/run/ovn/ovn-controller.pid",
+				"/fabric/ovs-healthcheck.sh >/dev/null && cat /var/run/ovn/ovn-controller.pid",
 			)
 			if err != nil {
 				return false, nil

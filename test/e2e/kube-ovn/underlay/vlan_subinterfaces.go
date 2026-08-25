@@ -452,7 +452,7 @@ func vlanSubinterfaceExists(nodeExecMap map[string]kind.Node, nodeName, interfac
 
 func isKubeOVNAutoCreatedInterface(nodeExecMap map[string]kind.Node, nodeName, interfaceName string) bool {
 	output, ok := interfaceOutput(nodeExecMap, nodeName, interfaceName)
-	return ok && strings.Contains(output, "kube-ovn:")
+	return ok && strings.Contains(output, "fabric:")
 }
 
 func interfaceOutput(nodeExecMap map[string]kind.Node, nodeName, interfaceName string) (string, bool) {

@@ -840,7 +840,7 @@
           "datasource": {
             "type": "prometheus"
           },
-          "expr": "sum(increase(klog_lines_total{level=\"ERROR\", instance=~\"$instance\", job=\"kube-ovn-pinger\"}[10m]))",
+          "expr": "sum(increase(klog_lines_total{level=\"ERROR\", instance=~\"$instance\", job=\"fabric-pinger\"}[10m]))",
           "format": "time_series",
           "instant": true,
           "interval": "",
@@ -1569,7 +1569,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{job=\"kube-ovn-pinger\",instance=~\"$instance\"}",
+          "expr": "process_resident_memory_bytes{job=\"fabric-pinger\",instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{instance}}",
           "refId": "A"
@@ -1661,7 +1661,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(process_cpu_seconds_total{job=\"kube-ovn-pinger\",instance=~\"$instance\"}[5m])",
+          "expr": "rate(process_cpu_seconds_total{job=\"fabric-pinger\",instance=~\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "{{instance}}",
           "refId": "A"
@@ -1753,7 +1753,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "go_goroutines{job=\"kube-ovn-pinger\",instance=~\"$instance\"}",
+          "expr": "go_goroutines{job=\"fabric-pinger\",instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{instance}}",
           "refId": "A"
@@ -1829,14 +1829,14 @@
         "allValue": null,
         "current": {},
         "datasource": "$datasource",
-        "definition": "label_values(process_cpu_seconds_total{job=\"kube-ovn-pinger\"}, instance)",
+        "definition": "label_values(process_cpu_seconds_total{job=\"fabric-pinger\"}, instance)",
         "hide": 0,
         "includeAll": true,
         "label": null,
         "multi": false,
         "name": "instance",
         "options": [],
-        "query": "label_values(process_cpu_seconds_total{job=\"kube-ovn-pinger\"}, instance)",
+        "query": "label_values(process_cpu_seconds_total{job=\"fabric-pinger\"}, instance)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,

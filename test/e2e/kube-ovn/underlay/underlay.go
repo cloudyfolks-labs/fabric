@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	dockerNetworkName            = "kube-ovn-vlan"
+	dockerNetworkName            = "fabric-vlan"
 	curlListenPort               = 8081
 	underlayReservedStartIPCount = 20
 )
@@ -71,7 +71,7 @@ func nodeDockerNetworkSettings(node kind.Node, networkID string) *dockernetwork.
 
 // nadAvailable reports whether the multus NetworkAttachmentDefinition CRD is
 // installed on the cluster. The mac-only secondary-interface spec depends on
-// multus, which the kube-ovn conformance suite does not install by default.
+// multus, which the fabric conformance suite does not install by default.
 func nadAvailable(f *framework.Framework) bool {
 	_, err := f.AttachNetClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions(f.Namespace.Name).List(context.TODO(), metav1.ListOptions{Limit: 1})
 	if err == nil {
@@ -672,7 +672,7 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 
 		// A mac-only subnet is an underlay subnet (bound to a vlan) created WITHOUT a
 		// cidrBlock. The guest obtains its IP from an external DHCP server (BYO-DHCP);
-		// kube-ovn only allocates a MAC address per pod NIC. The shared subnetName /
+		// fabric only allocates a MAC address per pod NIC. The shared subnetName /
 		// podName / vlanName / providerNetworkName are torn down by the suite-level
 		// AfterEach in the correct order (pod -> subnet -> vlan -> provider network).
 		ginkgo.By("Creating mac-only subnet " + subnetName)
@@ -1033,11 +1033,11 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		waitSubnetU2OStatus(f, subnetName, subnetClient, true)
 		checkU2OItems(f, subnet, underlayPod, overlayPod, false)
 
-		ginkgo.By("step4: Check if kube-ovn-controller restart")
+		ginkgo.By("step4: Check if fabric-controller restart")
 
-		ginkgo.By("Restarting kube-ovn-controller")
+		ginkgo.By("Restarting fabric-controller")
 		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
-		deploy := deployClient.Get("kube-ovn-controller")
+		deploy := deployClient.Get("fabric-controller")
 		deployClient.RestartSync(deploy)
 
 		subnet = subnetClient.Get(subnetName)
@@ -1065,7 +1065,7 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		waitSubnetU2OStatus(f, subnetName, subnetClient, false)
 		checkU2OItems(f, subnet, underlayPod, overlayPod, false)
 
-		ginkgo.By("step6: Recover enable u2o check after restart kube-ovn-controller")
+		ginkgo.By("step6: Recover enable u2o check after restart fabric-controller")
 
 		ginkgo.By("Deleting underlay pod " + u2oPodNameUnderlay)
 		podClient.DeleteSync(u2oPodNameUnderlay)

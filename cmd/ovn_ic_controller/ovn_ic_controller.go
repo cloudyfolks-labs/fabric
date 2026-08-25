@@ -30,7 +30,7 @@ func CmdMain() {
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to parse log-perm")
 	}
-	util.InitLogFilePerm("kube-ovn-ic-controller", os.FileMode(logFilePerm))
+	util.InitLogFilePerm("fabric-ic-controller", os.FileMode(logFilePerm))
 
 	ctx := signals.SetupSignalHandler()
 	stopCh := ctx.Done()

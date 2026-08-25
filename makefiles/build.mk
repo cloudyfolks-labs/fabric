@@ -1,8 +1,9 @@
+BASE_REGISTRY ?= kubeovn
 # Makefile for building and pushing Docker images
 
 COMMIT = git-$(shell git rev-parse --short HEAD)
 DATE = $(shell date +"%Y-%m-%d_%H:%M:%S")
-IMAGE_BUILD_TARGETS = build-kube-ovn build-kube-ovn-dpdk build-dev build-debug base-amd64 base-amd64-dpdk base-arm64 build-kit image-kube-ovn image-kube-ovn-arm64 image-kube-ovn-debug image-kube-ovn-dpdk image-test release release-arm release-arm-debug push-release local-dev
+IMAGE_BUILD_TARGETS = build-fabric build-fabric-dpdk build-dev build-debug base-amd64 base-amd64-dpdk base-arm64 build-kit image-fabric image-fabric-arm64 image-fabric-debug image-fabric-dpdk image-test release release-arm release-arm-debug push-release local-dev
 ifneq ($(filter $(IMAGE_BUILD_TARGETS),$(MAKECMDGOALS)),)
 IMAGE_REVISION ?= $(if $(GITHUB_SHA),$(GITHUB_SHA),$(shell git rev-parse HEAD))
 IMAGE_REF_NAME ?= $(if $(GITHUB_HEAD_REF),$(GITHUB_HEAD_REF),$(if $(GITHUB_REF_NAME),$(GITHUB_REF_NAME),$(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD)))
@@ -31,17 +32,17 @@ gen-crd:
 
 .PHONY: pull-base
 pull-base:
-	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)
-	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-debug
-	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-amd64-legacy
-	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG) $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)
-	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-debug $(REGISTRY)/kube-ovn-base:$(DEBUG_TAG)
-	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-amd64-legacy $(REGISTRY)/kube-ovn-base:$(LEGACY_TAG)
+	docker pull $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)
+	docker pull $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-debug
+	docker pull $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-amd64-legacy
+	docker tag $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG) $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)
+	docker tag $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-debug $(BASE_REGISTRY)/kube-ovn-base:$(DEBUG_TAG)
+	docker tag $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-amd64-legacy $(BASE_REGISTRY)/kube-ovn-base:$(LEGACY_TAG)
 
 .PHONY: pull-base-dpdk
 pull-base-dpdk:
-	docker pull $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-dpdk
-	docker tag $(REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-dpdk $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-dpdk
+	docker pull $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-dpdk
+	docker tag $(BASE_REGISTRY)/kube-ovn-base:$(BASE_VERSION_TAG)-dpdk $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-dpdk
 
 .PHONY: sync-version
 sync-version:
@@ -59,121 +60,121 @@ verify-crd: gen-crd
 .PHONY: build-go
 build-go:
 	go mod tidy
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(CURDIR)/dist/images/kube-ovn -v ./cmd/cni
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-cmd -v ./cmd
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-bfdd-supervisor -v ./cmd/bfdd_supervisor
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-daemon -v ./cmd/daemon
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-controller -v ./cmd/controller
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(CURDIR)/dist/images/fabric -v ./cmd/cni
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-cmd -v ./cmd
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-bfdd-supervisor -v ./cmd/bfdd_supervisor
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-daemon -v ./cmd/daemon
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-controller -v ./cmd/controller
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(GO_BUILD_FLAGS) -o $(CURDIR)/dist/images/test-server -v ./test/server
 
 .PHONY: build-go-arm
 build-go-arm:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(CURDIR)/dist/images/kube-ovn -v ./cmd/cni
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-cmd -v ./cmd
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-bfdd-supervisor -v ./cmd/bfdd_supervisor
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-daemon -v ./cmd/daemon
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/kube-ovn-controller -v ./cmd/controller
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -o $(CURDIR)/dist/images/fabric -v ./cmd/cni
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-cmd -v ./cmd
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-bfdd-supervisor -v ./cmd/bfdd_supervisor
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-daemon -v ./cmd/daemon
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(GO_BUILD_FLAGS) -buildmode=pie -o $(CURDIR)/dist/images/fabric-controller -v ./cmd/controller
 
-.PHONY: build-kube-ovn
-build-kube-ovn: gen-crd build-debug build-go
-	docker build $(IMAGE_LABELS) -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -f dist/images/Dockerfile dist/images/
-	docker build $(IMAGE_LABELS) -t $(REGISTRY)/kube-ovn:$(LEGACY_TAG) --build-arg VERSION=$(LEGACY_TAG) -f dist/images/Dockerfile dist/images/
+.PHONY: build-fabric
+build-fabric: gen-crd build-debug build-go
+	docker build $(IMAGE_LABELS) -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -f dist/images/Dockerfile dist/images/
+	docker build $(IMAGE_LABELS) -t $(REGISTRY)/fabric:$(LEGACY_TAG) --build-arg VERSION=$(LEGACY_TAG) -f dist/images/Dockerfile dist/images/
 
-.PHONY: build-kube-ovn-dpdk
-build-kube-ovn-dpdk: gen-crd build-go
-	docker build $(IMAGE_LABELS) -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG)-dpdk --build-arg BASE_TAG=$(RELEASE_TAG)-dpdk -f dist/images/Dockerfile dist/images/
+.PHONY: build-fabric-dpdk
+build-fabric-dpdk: gen-crd build-go
+	docker build $(IMAGE_LABELS) -t $(REGISTRY)/fabric:$(RELEASE_TAG)-dpdk --build-arg BASE_TAG=$(RELEASE_TAG)-dpdk -f dist/images/Dockerfile dist/images/
 
 .PHONY: build-dev
 build-dev: gen-crd build-go
-	docker build $(IMAGE_LABELS) -t $(REGISTRY)/kube-ovn:$(DEV_TAG) --build-arg VERSION=$(RELEASE_TAG) -f dist/images/Dockerfile dist/images/
+	docker build $(IMAGE_LABELS) -t $(REGISTRY)/fabric:$(DEV_TAG) --build-arg VERSION=$(RELEASE_TAG) -f dist/images/Dockerfile dist/images/
 
 .PHONY: build-debug
 build-debug: gen-crd
 	@DEBUG=1 $(MAKE) build-go
-	docker build $(IMAGE_LABELS) -t $(REGISTRY)/kube-ovn:$(DEBUG_TAG) --build-arg BASE_TAG=$(DEBUG_TAG) -f dist/images/Dockerfile dist/images/
+	docker build $(IMAGE_LABELS) -t $(REGISTRY)/fabric:$(DEBUG_TAG) --build-arg BASE_TAG=$(DEBUG_TAG) -f dist/images/Dockerfile dist/images/
 
 .PHONY: base-amd64
 base-amd64:
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY -t $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64 -o type=docker -f dist/images/Dockerfile.base dist/images/
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY --build-arg LEGACY=true -t $(REGISTRY)/kube-ovn-base:$(LEGACY_TAG) -o type=docker -f dist/images/Dockerfile.base dist/images/
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY --build-arg DEBUG=true -t $(REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-amd64 -o type=docker -f dist/images/Dockerfile.base dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY -t $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64 -o type=docker -f dist/images/Dockerfile.base dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY --build-arg LEGACY=true -t $(BASE_REGISTRY)/kube-ovn-base:$(LEGACY_TAG) -o type=docker -f dist/images/Dockerfile.base dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY --build-arg DEBUG=true -t $(BASE_REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-amd64 -o type=docker -f dist/images/Dockerfile.base dist/images/
 
 .PHONY: base-amd64-dpdk
 base-amd64-dpdk:
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 -t $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64-dpdk -o type=docker -f dist/images/Dockerfile.base-dpdk dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 --build-arg ARCH=amd64 -t $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64-dpdk -o type=docker -f dist/images/Dockerfile.base-dpdk dist/images/
 
 .PHONY: base-arm64
 base-arm64:
-	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 --build-arg ARCH=arm64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY -t $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-arm64 -o type=docker -f dist/images/Dockerfile.base dist/images/
-	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 --build-arg ARCH=arm64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY --build-arg DEBUG=true -t $(REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-arm64 -o type=docker -f dist/images/Dockerfile.base dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 --build-arg ARCH=arm64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY -t $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-arm64 -o type=docker -f dist/images/Dockerfile.base dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 --build-arg ARCH=arm64 --build-arg GO_VERSION --build-arg TRIVY_DB_REPOSITORY --build-arg DEBUG=true -t $(BASE_REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-arm64 -o type=docker -f dist/images/Dockerfile.base dist/images/
 
 .PHONY: build-kit
 build-kit: gen-crd build-go
-	DOCKER_BUILDKIT=1 docker build $(IMAGE_LABELS) -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
+	DOCKER_BUILDKIT=1 docker build $(IMAGE_LABELS) -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
 
-.PHONY: image-kube-ovn
-image-kube-ovn: gen-crd image-kube-ovn-debug build-go
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/kube-ovn:$(LEGACY_TAG) --build-arg VERSION=$(LEGACY_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-amd64-legacy -o type=docker -f dist/images/Dockerfile dist/images/
+.PHONY: image-fabric
+image-fabric: gen-crd image-fabric-debug build-go
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(LEGACY_TAG) --build-arg VERSION=$(LEGACY_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-amd64-legacy -o type=docker -f dist/images/Dockerfile dist/images/
 
-.PHONY: image-kube-ovn-arm64
-image-kube-ovn-arm64: gen-crd build-go-arm
-	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
+.PHONY: image-fabric-arm64
+image-fabric-arm64: gen-crd build-go-arm
+	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
 
-.PHONY: image-kube-ovn-debug
-image-kube-ovn-debug: gen-crd
+.PHONY: image-fabric-debug
+image-fabric-debug: gen-crd
 	@DEBUG=1 $(MAKE) build-go
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/kube-ovn:$(DEBUG_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-debug -o type=docker -f dist/images/Dockerfile dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(DEBUG_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-debug -o type=docker -f dist/images/Dockerfile dist/images/
 
-.PHONY: image-kube-ovn-dpdk
-image-kube-ovn-dpdk: gen-crd build-go
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG)-dpdk --build-arg VERSION=$(RELEASE_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-dpdk -o type=docker -f dist/images/Dockerfile dist/images/
+.PHONY: image-fabric-dpdk
+image-fabric-dpdk: gen-crd build-go
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(RELEASE_TAG)-dpdk --build-arg VERSION=$(RELEASE_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-dpdk -o type=docker -f dist/images/Dockerfile dist/images/
 
 .PHONY: image-test
 image-test: build-go
 	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/test:$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile.test dist/images/
 
 .PHONY: release
-release: lint image-kube-ovn
+release: lint image-fabric
 
 .PHONY: release-arm
-release-arm: release-arm-debug image-kube-ovn-arm64
+release-arm: release-arm-debug image-fabric-arm64
 
 .PHONY: release-arm-debug
 release-arm-debug:
 	@DEBUG=1 $(MAKE) build-go-arm
-	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 -t $(REGISTRY)/kube-ovn:$(DEBUG_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-debug -o type=docker -f dist/images/Dockerfile dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/arm64 -t $(REGISTRY)/fabric:$(DEBUG_TAG) --build-arg BASE_TAG=$(BASE_VERSION_TAG)-debug -o type=docker -f dist/images/Dockerfile dist/images/
 
 .PHONY: push-dev
 push-dev:
-	docker push $(REGISTRY)/kube-ovn:$(DEV_TAG)
+	docker push $(REGISTRY)/fabric:$(DEV_TAG)
 
 .PHONY: push-release
 push-release: release
-	docker push $(REGISTRY)/kube-ovn:$(RELEASE_TAG)
+	docker push $(REGISTRY)/fabric:$(RELEASE_TAG)
 
-.PHONY: tar-kube-ovn
-tar-kube-ovn:
-	docker save $(REGISTRY)/kube-ovn:$(RELEASE_TAG) $(REGISTRY)/kube-ovn:$(LEGACY_TAG) $(REGISTRY)/kube-ovn:$(DEBUG_TAG) -o kube-ovn.tar
+.PHONY: tar-fabric
+tar-fabric:
+	docker save $(REGISTRY)/fabric:$(RELEASE_TAG) $(REGISTRY)/fabric:$(LEGACY_TAG) $(REGISTRY)/fabric:$(DEBUG_TAG) -o fabric.tar
 
-.PHONY: tar-kube-ovn-dpdk
-tar-kube-ovn-dpdk:
-	docker save $(REGISTRY)/kube-ovn:$(RELEASE_TAG)-dpdk -o kube-ovn-dpdk.tar
+.PHONY: tar-fabric-dpdk
+tar-fabric-dpdk:
+	docker save $(REGISTRY)/fabric:$(RELEASE_TAG)-dpdk -o fabric-dpdk.tar
 
 .PHONY: tar
-tar: tar-kube-ovn
+tar: tar-fabric
 
 .PHONY: base-tar-amd64
 base-tar-amd64:
-	docker save $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64 $(REGISTRY)/kube-ovn-base:$(LEGACY_TAG) $(REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-amd64 -o image-amd64.tar
+	docker save $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64 $(BASE_REGISTRY)/kube-ovn-base:$(LEGACY_TAG) $(BASE_REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-amd64 -o image-amd64.tar
 
 .PHONY: base-tar-amd64-dpdk
 base-tar-amd64-dpdk:
-	docker save $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64-dpdk -o image-amd64-dpdk.tar
+	docker save $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-amd64-dpdk -o image-amd64-dpdk.tar
 
 .PHONY: base-tar-arm64
 base-tar-arm64:
-	docker save $(REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-arm64 $(REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-arm64 -o image-arm64.tar
+	docker save $(BASE_REGISTRY)/kube-ovn-base:$(RELEASE_TAG)-arm64 $(BASE_REGISTRY)/kube-ovn-base:$(DEBUG_TAG)-arm64 -o image-arm64.tar
 
 .PHONY: lint
 lint: verify-crd
@@ -189,4 +190,4 @@ endif
 
 .PHONY: scan
 scan:
-	trivy image --exit-code=1 --ignore-unfixed --scanners vuln $(REGISTRY)/kube-ovn:$(RELEASE_TAG)
+	trivy image --exit-code=1 --ignore-unfixed --scanners vuln $(REGISTRY)/fabric:$(RELEASE_TAG)

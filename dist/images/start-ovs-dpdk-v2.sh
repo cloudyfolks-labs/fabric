@@ -142,7 +142,7 @@ ovs-vsctl set open . external-ids:ovn-encap-type="${TUNNEL_TYPE}"
 # Start ovn-controller
 if [[ "$ENABLE_SSL" == "true" ]]; then
   ovn-ctl --ovn-controller-ssl-key=/var/run/tls/key --ovn-controller-ssl-cert=/var/run/tls/cert --ovn-controller-ssl-ca-cert=/var/run/tls/cacert restart_controller
-  bash /kube-ovn/kube-ovn-tls-reload.sh ovs &
+  bash /fabric/fabric-tls-reload.sh ovs &
 else
   ovn-ctl restart_controller
 fi

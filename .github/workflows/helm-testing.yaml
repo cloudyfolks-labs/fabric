@@ -87,9 +87,9 @@ jobs:
         id: install
         run: |
           timeout 120 bash -c 'until kubectl get node -l node-role.kubernetes.io/control-plane -o name 2>/dev/null | grep -q .; do echo "Waiting for control-plane nodes to be labeled..."; sleep 2; done'
-          kubectl label node --overwrite -l node-role.kubernetes.io/control-plane kube-ovn/role=master
+          kubectl label node --overwrite -l node-role.kubernetes.io/control-plane fabric/role=master
           ct install --config charts/fabric/ct.yaml
 
       - name: Check kube ovn pod restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts

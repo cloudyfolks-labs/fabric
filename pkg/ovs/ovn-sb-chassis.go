@@ -149,7 +149,7 @@ func (c *OVNSbClient) UpdateChassisTag(chassisName, nodeName string) error {
 	}
 	if chassis == nil {
 		err := fmt.Errorf("fail to get chassis by name=%s", chassisName)
-		// restart kube-ovn-cni, chassis will be created
+		// restart fabric-cni, chassis will be created
 		klog.Error(err)
 		return err
 	}
@@ -168,7 +168,7 @@ func (c *OVNSbClient) UpdateChassisTag(chassisName, nodeName string) error {
 	return nil
 }
 
-// GetKubeOvnChassises return all chassis which vendor is kube-ovn
+// GetKubeOvnChassises return all chassis which vendor is fabric
 func (c *OVNSbClient) GetKubeOvnChassises() (*[]ovnsb.Chassis, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()

@@ -820,7 +820,7 @@ func configureNodeNic(cs kubernetes.Interface, nodeName, portName, ip, gw, joinC
 }
 
 // If OVS restart, the ovn0 port will down and prevent host to pod network,
-// Restart the kube-ovn-cni when this happens
+// Restart the fabric-cni when this happens
 func (c *Controller) loopOvn0Check() {
 	// Skip ovn0 check when running as non-primary CNI
 	if c.config.EnableNonPrimaryCNI {
@@ -2137,7 +2137,7 @@ func (c *Controller) createVlanSubinterfaces(vlanInterfaces []string, baseInterf
 			return fmt.Errorf("failed to set VLAN interface %s up: %w", vlanIfName, err)
 		}
 
-		alias := fmt.Sprintf("kube-ovn:%s", providerName)
+		alias := fmt.Sprintf("fabric:%s", providerName)
 		if output, err := exec.Command("ip", "link", "set", vlanIfName, "alias", alias).CombinedOutput(); err != nil {
 			klog.Errorf("Failed to set alias for interface %s: %v, output: %s", vlanIfName, err, string(output))
 			if _, delErr := exec.Command("ip", "link", "delete", vlanIfName).CombinedOutput(); delErr != nil {

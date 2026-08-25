@@ -2,7 +2,7 @@
 
 ![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square)
 
-Kubernetes network fabric for multi-tenant clouds, a fork of kube-ovn.
+Kubernetes network fabric for multi-tenant clouds, a fork of fabric.
 CRDs ship in the embedded `fabric-crds` subchart so `helm upgrade` keeps them up to date; set `crds.enabled=false` to manage CRDs yourself.
 
 ## Installing the Chart
@@ -59,7 +59,7 @@ from failing later with `mkdir /etc/origin: read-only file system`.
 
 ### What changed
 
-The v1 chart used ad-hoc labels such as `app: ovs` or `app: kube-ovn-pinger` in `spec.selector.matchLabels`.
+The v1 chart used ad-hoc labels such as `app: ovs` or `app: fabric-pinger` in `spec.selector.matchLabels`.
 The v2 chart replaces these selectors with Kubernetes-recommended labels. Since `spec.selector.matchLabels` is
 immutable, this change requires deleting and recreating each workload.
 
@@ -69,22 +69,22 @@ require workload recreation.
 
 | Component | v1 selector | v2 selector |
 |---|---|---|
-| kube-ovn-pinger | `app: kube-ovn-pinger` | `app.kubernetes.io/name: kube-ovn-pinger` |
-| kube-ovn-monitor | `app: kube-ovn-monitor` | `app.kubernetes.io/name: kube-ovn-monitor` |
-| kube-ovn-controller | `app: kube-ovn-controller` | `app.kubernetes.io/name: kube-ovn-controller` |
+| fabric-pinger | `app: fabric-pinger` | `app.kubernetes.io/name: fabric-pinger` |
+| fabric-monitor | `app: fabric-monitor` | `app.kubernetes.io/name: fabric-monitor` |
+| fabric-controller | `app: fabric-controller` | `app.kubernetes.io/name: fabric-controller` |
 | ovn-central | `app: ovn-central` | `app.kubernetes.io/name: ovn-central` |
-| ovs-ovn | `app: ovs` | `app.kubernetes.io/name: kube-ovn-ovs` |
-| kube-ovn-cni | `app: kube-ovn-cni` | `app.kubernetes.io/name: kube-ovn-cni` |
+| ovs-ovn | `app: ovs` | `app.kubernetes.io/name: fabric-ovs` |
+| fabric-cni | `app: fabric-cni` | `app.kubernetes.io/name: fabric-cni` |
 
-> **Note:** The kube-ovn-cni component is called **agent** in the v2 chart templates (`templates/agent/`).
+> **Note:** The fabric-cni component is called **agent** in the v2 chart templates (`templates/agent/`).
 
-All v2 selectors also include `app.kubernetes.io/part-of: kube-ovn`.
+All v2 selectors also include `app.kubernetes.io/part-of: fabric`.
 
 Additionally, the values file structure has changed (e.g. `networking.NET_STACK` → `networking.stack`).
 Always generate the v2 templates with a dry-run first and compare them against your running resources:
 
 ```bash
-helm template kube-ovn ./charts/fabric -f your-values.yaml > v2-manifests.yaml
+helm template fabric ./charts/fabric -f your-values.yaml > v2-manifests.yaml
 ```
 
 ### Migration order
@@ -95,51 +95,51 @@ component to become healthy before proceeding** to the next.
 You can verify pod health at any time with:
 
 ```bash
-kubectl get pods -n kube-system -l app.kubernetes.io/part-of=kube-ovn
+kubectl get pods -n kube-system -l app.kubernetes.io/part-of=fabric
 ```
 
-#### 1. kube-ovn-pinger (DaemonSet)
+#### 1. fabric-pinger (DaemonSet)
 
 Monitoring-only component — safe to recreate first.
 
 ```bash
 # Delete the old DaemonSet
-kubectl delete daemonset kube-ovn-pinger -n kube-system
+kubectl delete daemonset fabric-pinger -n kube-system
 
 # Apply the new DaemonSet and Service
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/pinger/pinger-daemonset.yaml \
   -s templates/pinger/pinger-service.yaml)
 ```
 
-#### 2. kube-ovn-monitor (Deployment)
+#### 2. fabric-monitor (Deployment)
 
 Metrics exporter — stateless and safe to recreate.
 
 ```bash
 # Delete the old Deployment
-kubectl delete deployment kube-ovn-monitor -n kube-system
+kubectl delete deployment fabric-monitor -n kube-system
 
 # Apply the new Deployment and Service
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/monitor/monitor-deployment.yaml \
   -s templates/monitor/monitor-service.yaml)
 ```
 
-#### 3. kube-ovn-controller (Deployment)
+#### 3. fabric-controller (Deployment)
 
 Control-plane component. Scale down first to avoid split-brain during switchover.
 
 ```bash
 # Scale down
-kubectl scale deployment kube-ovn-controller -n kube-system --replicas=0
-kubectl rollout status deployment kube-ovn-controller -n kube-system
+kubectl scale deployment fabric-controller -n kube-system --replicas=0
+kubectl rollout status deployment fabric-controller -n kube-system
 
 # Delete the old Deployment
-kubectl delete deployment kube-ovn-controller -n kube-system
+kubectl delete deployment fabric-controller -n kube-system
 
 # Apply the new Deployment and Service
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/controller/controller-deployment.yaml \
   -s templates/controller/controller-service.yaml)
 ```
@@ -157,7 +157,7 @@ kubectl rollout status deployment ovn-central -n kube-system
 kubectl delete deployment ovn-central -n kube-system
 
 # Apply the new Deployment and Services
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/central/central-deployment.yaml \
   -s templates/central/northbound-service.yaml \
   -s templates/central/southbound-service.yaml \
@@ -176,37 +176,37 @@ kubectl delete daemonset ovs-ovn -n kube-system --cascade=orphan
 
 # Add the new labels to existing pods (the old labels are kept by the v2 chart)
 kubectl label pod -n kube-system -l app=ovs \
-  app.kubernetes.io/name=kube-ovn-ovs \
-  app.kubernetes.io/part-of=kube-ovn
+  app.kubernetes.io/name=fabric-ovs \
+  app.kubernetes.io/part-of=fabric
 
 # Apply the new DaemonSet — it will adopt the relabeled pods without restarting them
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/ovs-ovn/ovs-ovn-daemonset.yaml)
 ```
 
-#### 6. kube-ovn-cni / agent (DaemonSet) — zero-downtime
+#### 6. fabric-cni / agent (DaemonSet) — zero-downtime
 
 > **Note:** The v2 chart refers to this component as **agent** in its templates (`templates/agent/`),
-> but the resulting DaemonSet is still named `kube-ovn-cni` in the cluster.
+> but the resulting DaemonSet is still named `fabric-cni` in the cluster.
 
 Same orphan strategy as ovs-ovn. Apply the new Service first so it selects the relabeled pods immediately.
 Note: applying the new DaemonSet will trigger a rolling restart of the CNI pods.
 
 ```bash
 # Delete the DaemonSet but keep its pods alive
-kubectl delete daemonset kube-ovn-cni -n kube-system --cascade=orphan
+kubectl delete daemonset fabric-cni -n kube-system --cascade=orphan
 
 # Add the new labels to existing pods (the old labels are kept by the v2 chart)
-kubectl label pod -n kube-system -l app=kube-ovn-cni \
-  app.kubernetes.io/name=kube-ovn-cni \
-  app.kubernetes.io/part-of=kube-ovn
+kubectl label pod -n kube-system -l app=fabric-cni \
+  app.kubernetes.io/name=fabric-cni \
+  app.kubernetes.io/part-of=fabric
 
 # Apply the new Service (selects the relabeled pods)
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/agent/agent-service.yaml)
 
 # Apply the new DaemonSet (will trigger a rolling restart)
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/agent/agent-daemonset.yaml)
 ```
 
@@ -216,7 +216,7 @@ Once all components are healthy, run a full Helm upgrade to ensure every remaini
 (RBAC, CRDs, ConfigMaps, etc.) is in sync with the v2 chart:
 
 ```bash
-helm upgrade --install kube-ovn ./charts/fabric -f your-values.yaml -n kube-system
+helm upgrade --install fabric ./charts/fabric -f your-values.yaml -n kube-system
 ```
 
 ### Notes for GitOps users
@@ -248,7 +248,7 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 "{}"
 </pre>
 </td>
-			<td>Configuration for kube-ovn-cni, the agent responsible for handling CNI requests from the CRI.</td>
+			<td>Configuration for fabric-cni, the agent responsible for handling CNI requests from the CRI.</td>
 		</tr>
 		<tr>
 			<td>agent.annotations</td>
@@ -266,7 +266,7 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 []
 </pre>
 </td>
-			<td>Extra environment variables to be added to kube-ovn-cni pods.</td>
+			<td>Extra environment variables to be added to fabric-cni pods.</td>
 		</tr>
 		<tr>
 			<td>agent.image</td>
@@ -280,7 +280,7 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 }
 </pre>
 </td>
-			<td>Override image settings for kube-ovn-cni. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for fabric-cni. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>agent.image.pullPolicy</td>
@@ -307,7 +307,7 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>agent.image.tag</td>
@@ -316,7 +316,7 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>agent.labels</td>
@@ -379,7 +379,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to the agent pods (kube-ovn-cni)</td>
+			<td>Annotations to be added to the agent pods (fabric-cni)</td>
 		</tr>
 		<tr>
 			<td>agent.podLabels</td>
@@ -388,7 +388,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to the agent pods (kube-ovn-cni)</td>
+			<td>Labels to be added to the agent pods (fabric-cni)</td>
 		</tr>
 		<tr>
 			<td>agent.resources</td>
@@ -613,7 +613,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for ovn-central. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for ovn-central. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>central.image.pullPolicy</td>
@@ -640,7 +640,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>central.image.tag</td>
@@ -649,7 +649,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>central.labels</td>
@@ -782,7 +782,7 @@ false
 			<td><pre lang="json">
 {
   "images": {
-    "kubeovn": {
+    "fabric": {
       "repository": "fabric",
       "tag": "v1.0.0"
     }
@@ -837,7 +837,7 @@ false
 			<td>object</td>
 			<td><pre lang="json">
 {
-  "kube-ovn/role": "master"
+  "fabric/role": "master"
 }
 </pre>
 </td>
@@ -912,7 +912,7 @@ false
 			<td>cni.localConfigFile</td>
 			<td>string</td>
 			<td><pre lang="json">
-"/kube-ovn/01-kube-ovn.conflist"
+"/fabric/01-fabric.conflist"
 </pre>
 </td>
 			<td>Location of the CNI configuration inside the agent's pod.</td>
@@ -971,7 +971,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>Configuration for kube-ovn-controller, the controller responsible for syncing K8s with OVN.</td>
+			<td>Configuration for fabric-controller, the controller responsible for syncing K8s with OVN.</td>
 		</tr>
 		<tr>
 			<td>controller.annotations</td>
@@ -980,7 +980,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to all top-level kube-ovn-controller objects (resources under templates/controller)</td>
+			<td>Annotations to be added to all top-level fabric-controller objects (resources under templates/controller)</td>
 		</tr>
 		<tr>
 			<td>controller.extraEnv</td>
@@ -989,7 +989,7 @@ false
 []
 </pre>
 </td>
-			<td>Extra environment variables to be added to kube-ovn-controller pods.</td>
+			<td>Extra environment variables to be added to fabric-controller pods.</td>
 		</tr>
 		<tr>
 			<td>controller.image</td>
@@ -1003,7 +1003,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for kube-ovn-controller. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for fabric-controller. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>controller.image.pullPolicy</td>
@@ -1030,7 +1030,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>controller.image.tag</td>
@@ -1039,7 +1039,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>controller.labels</td>
@@ -1048,7 +1048,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to all top-level kube-ovn-controller objects (resources under templates/controller)</td>
+			<td>Labels to be added to all top-level fabric-controller objects (resources under templates/controller)</td>
 		</tr>
 		<tr>
 			<td>controller.leaderElection</td>
@@ -1127,7 +1127,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to kube-ovn-controller pods.</td>
+			<td>Annotations to be added to fabric-controller pods.</td>
 		</tr>
 		<tr>
 			<td>controller.podLabels</td>
@@ -1136,7 +1136,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to kube-ovn-controller pods.</td>
+			<td>Labels to be added to fabric-controller pods.</td>
 		</tr>
 		<tr>
 			<td>controller.resources</td>
@@ -1155,7 +1155,7 @@ false
 }
 </pre>
 </td>
-			<td>kube-ovn-controller resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
+			<td>fabric-controller resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
 		</tr>
 		<tr>
 			<td>controller.serviceMonitor</td>
@@ -1370,7 +1370,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to all top-level kube-ovn-frr objects (resources under templates/frr)</td>
+			<td>Annotations to be added to all top-level fabric-frr objects (resources under templates/frr)</td>
 		</tr>
 		<tr>
 			<td>frr.args</td>
@@ -1379,7 +1379,7 @@ false
 []
 </pre>
 </td>
-			<td>Args passed to the kube-ovn-frr agent.</td>
+			<td>Args passed to the fabric-frr agent.</td>
 		</tr>
 		<tr>
 			<td>frr.enabled</td>
@@ -1388,7 +1388,7 @@ false
 false
 </pre>
 </td>
-			<td>Enable the kube-ovn-frr agent for VPC dynamic routing advertisement.</td>
+			<td>Enable the fabric-frr agent for VPC dynamic routing advertisement.</td>
 		</tr>
 		<tr>
 			<td>frr.frrImage</td>
@@ -1442,7 +1442,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for the kube-ovn-frr agent. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for the fabric-frr agent. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>frr.image.pullPolicy</td>
@@ -1469,7 +1469,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>frr.image.tag</td>
@@ -1478,7 +1478,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>frr.nodeSelector</td>
@@ -1496,7 +1496,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to kube-ovn-frr pods.</td>
+			<td>Annotations to be added to fabric-frr pods.</td>
 		</tr>
 		<tr>
 			<td>frr.resources</td>
@@ -1511,7 +1511,7 @@ false
 }
 </pre>
 </td>
-			<td>kube-ovn-frr agent resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
+			<td>fabric-frr agent resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
 		</tr>
 	</tbody>
 </table>
@@ -1621,7 +1621,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for the OVN IC controller. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for the OVN IC controller. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>ic.image.pullPolicy</td>
@@ -1648,7 +1648,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>ic.image.tag</td>
@@ -1657,7 +1657,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>ic.nodeAffinity</td>
@@ -1747,7 +1747,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>Configuration for kube-ovn-monitor, the agent monitoring and returning metrics for the northbound/southbound DBs and northd.</td>
+			<td>Configuration for fabric-monitor, the agent monitoring and returning metrics for the northbound/southbound DBs and northd.</td>
 		</tr>
 		<tr>
 			<td>monitor.annotations</td>
@@ -1756,7 +1756,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to all top-level kube-ovn-monitor objects (resources under templates/monitor)</td>
+			<td>Annotations to be added to all top-level fabric-monitor objects (resources under templates/monitor)</td>
 		</tr>
 		<tr>
 			<td>monitor.extraEnv</td>
@@ -1765,7 +1765,7 @@ false
 []
 </pre>
 </td>
-			<td>Extra environment variables to be added to kube-ovn-monitor pods.</td>
+			<td>Extra environment variables to be added to fabric-monitor pods.</td>
 		</tr>
 		<tr>
 			<td>monitor.image</td>
@@ -1779,7 +1779,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for kube-ovn-monitor. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for fabric-monitor. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>monitor.image.pullPolicy</td>
@@ -1806,7 +1806,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>monitor.image.tag</td>
@@ -1815,7 +1815,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>monitor.labels</td>
@@ -1824,7 +1824,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to all top-level kube-ovn-monitor objects (resources under templates/monitor)</td>
+			<td>Labels to be added to all top-level fabric-monitor objects (resources under templates/monitor)</td>
 		</tr>
 		<tr>
 			<td>monitor.metrics</td>
@@ -1833,7 +1833,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>kube-ovn-monitor metrics configuration.</td>
+			<td>fabric-monitor metrics configuration.</td>
 		</tr>
 		<tr>
 			<td>monitor.metrics.port</td>
@@ -1842,7 +1842,7 @@ false
 10661
 </pre>
 </td>
-			<td>Configure the port on which the kube-ovn-monitor service will serve metrics.</td>
+			<td>Configure the port on which the fabric-monitor service will serve metrics.</td>
 		</tr>
 		<tr>
 			<td>monitor.nodeAffinity</td>
@@ -1863,7 +1863,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to kube-ovn-monitor pods.</td>
+			<td>Annotations to be added to fabric-monitor pods.</td>
 		</tr>
 		<tr>
 			<td>monitor.podLabels</td>
@@ -1872,7 +1872,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to kube-ovn-monitor pods.</td>
+			<td>Labels to be added to fabric-monitor pods.</td>
 		</tr>
 		<tr>
 			<td>monitor.resources</td>
@@ -1891,7 +1891,7 @@ false
 }
 </pre>
 </td>
-			<td>kube-ovn-monitor resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
+			<td>fabric-monitor resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
 		</tr>
 		<tr>
 			<td>monitor.serviceMonitor</td>
@@ -1900,7 +1900,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>kube-ovn-monitor serviceMonitor configuration.</td>
+			<td>fabric-monitor serviceMonitor configuration.</td>
 		</tr>
 		<tr>
 			<td>monitor.serviceMonitor.enabled</td>
@@ -1909,7 +1909,7 @@ false
 false
 </pre>
 </td>
-			<td>Enable the deployment of the ServiceMonitor for the kube-ovn-monitor.</td>
+			<td>Enable the deployment of the ServiceMonitor for the fabric-monitor.</td>
 		</tr>
 	</tbody>
 </table>
@@ -2066,7 +2066,7 @@ false
 "8760h"
 </pre>
 </td>
-			<td>How often kube-ovn-controller checks kube-ovn-tls for renewal. Set to 0 to disable.</td>
+			<td>How often fabric-controller checks fabric-tls for renewal. Set to 0 to disable.</td>
 		</tr>
 		<tr>
 			<td>networking.networkType</td>
@@ -2264,7 +2264,7 @@ false
 ""
 </pre>
 </td>
-			<td>Maximum TLS version for OVN NB/SB database server and kube-ovn secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.</td>
+			<td>Maximum TLS version for OVN NB/SB database server and fabric secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.</td>
 		</tr>
 		<tr>
 			<td>networking.tlsMinVersion</td>
@@ -2273,7 +2273,7 @@ false
 ""
 </pre>
 </td>
-			<td>Minimum TLS version for OVN NB/SB database server and kube-ovn secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.</td>
+			<td>Minimum TLS version for OVN NB/SB database server and fabric secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.</td>
 		</tr>
 		<tr>
 			<td>networking.tunnelType</td>
@@ -2384,7 +2384,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for ovs-ovn-dpdk. Empty fields fall back to the global kube-ovn image and the DPDK tag below.</td>
+			<td>Override image settings for ovs-ovn-dpdk. Empty fields fall back to the global fabric image and the DPDK tag below.</td>
 		</tr>
 		<tr>
 			<td>ovsOvn.dpdkHybrid.image.pullPolicy</td>
@@ -2411,7 +2411,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>ovsOvn.dpdkHybrid.image.tag</td>
@@ -2484,7 +2484,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for ovs-ovn. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for ovs-ovn. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>ovsOvn.image.pullPolicy</td>
@@ -2511,7 +2511,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>ovsOvn.image.tag</td>
@@ -2520,7 +2520,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>ovsOvn.labels</td>
@@ -2696,7 +2696,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>Configuration for kube-ovn-pinger, the agent monitoring and returning metrics for OVS/external connectivity.</td>
+			<td>Configuration for fabric-pinger, the agent monitoring and returning metrics for OVS/external connectivity.</td>
 		</tr>
 		<tr>
 			<td>pinger.annotations</td>
@@ -2705,7 +2705,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to all top-level kube-ovn-pinger objects (resources under templates/pinger)</td>
+			<td>Annotations to be added to all top-level fabric-pinger objects (resources under templates/pinger)</td>
 		</tr>
 		<tr>
 			<td>pinger.extraEnv</td>
@@ -2714,7 +2714,7 @@ false
 []
 </pre>
 </td>
-			<td>Extra environment variables to be added to kube-ovn-pinger pods.</td>
+			<td>Extra environment variables to be added to fabric-pinger pods.</td>
 		</tr>
 		<tr>
 			<td>pinger.image</td>
@@ -2728,7 +2728,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for kube-ovn-pinger. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for fabric-pinger. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>pinger.image.pullPolicy</td>
@@ -2755,7 +2755,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>pinger.image.tag</td>
@@ -2764,7 +2764,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>pinger.labels</td>
@@ -2773,7 +2773,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to all top-level kube-ovn-pinger objects (resources under templates/pinger)</td>
+			<td>Labels to be added to all top-level fabric-pinger objects (resources under templates/pinger)</td>
 		</tr>
 		<tr>
 			<td>pinger.metrics</td>
@@ -2782,7 +2782,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>kube-ovn-pinger metrics configuration.</td>
+			<td>fabric-pinger metrics configuration.</td>
 		</tr>
 		<tr>
 			<td>pinger.metrics.port</td>
@@ -2791,7 +2791,7 @@ false
 8080
 </pre>
 </td>
-			<td>Configure the port on which the kube-ovn-monitor service will serve metrics.</td>
+			<td>Configure the port on which the fabric-monitor service will serve metrics.</td>
 		</tr>
 		<tr>
 			<td>pinger.podAnnotations</td>
@@ -2800,7 +2800,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to kube-ovn-pinger pods.</td>
+			<td>Annotations to be added to fabric-pinger pods.</td>
 		</tr>
 		<tr>
 			<td>pinger.podLabels</td>
@@ -2809,7 +2809,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to kube-ovn-pinger pods.</td>
+			<td>Labels to be added to fabric-pinger pods.</td>
 		</tr>
 		<tr>
 			<td>pinger.resources</td>
@@ -2828,7 +2828,7 @@ false
 }
 </pre>
 </td>
-			<td>kube-ovn-pinger resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
+			<td>fabric-pinger resource limits & requests. ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/</td>
 		</tr>
 		<tr>
 			<td>pinger.serviceMonitor</td>
@@ -2897,7 +2897,7 @@ false
 			<td>pinger.targets.externalDomain.v4</td>
 			<td>string</td>
 			<td><pre lang="json">
-"kube-ovn.io."
+"fabric.io."
 </pre>
 </td>
 			<td>Domain name resolving to an IPv4 only (A record)</td>
@@ -3003,7 +3003,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to all top-level kube-ovn-webhook objects (resources under templates/webhook)</td>
+			<td>Annotations to be added to all top-level fabric-webhook objects (resources under templates/webhook)</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.enabled</td>
@@ -3021,7 +3021,7 @@ false
 []
 </pre>
 </td>
-			<td>Extra environment variables to be added to kube-ovn-webhook pods.</td>
+			<td>Extra environment variables to be added to fabric-webhook pods.</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.image</td>
@@ -3035,7 +3035,7 @@ false
 }
 </pre>
 </td>
-			<td>Override image settings for kube-ovn-webhook. Empty fields fall back to the global kube-ovn image.</td>
+			<td>Override image settings for fabric-webhook. Empty fields fall back to the global fabric image.</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.image.pullPolicy</td>
@@ -3062,7 +3062,7 @@ false
 ""
 </pre>
 </td>
-			<td>Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.</td>
+			<td>Repository override for this component image. Defaults to `.global.images.fabric.repository`.</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.image.tag</td>
@@ -3071,7 +3071,7 @@ false
 ""
 </pre>
 </td>
-			<td>Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.</td>
+			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.labels</td>
@@ -3080,7 +3080,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to all top-level kube-ovn-webhook objects (resources under templates/webhook)</td>
+			<td>Labels to be added to all top-level fabric-webhook objects (resources under templates/webhook)</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.podAnnotations</td>
@@ -3089,7 +3089,7 @@ false
 {}
 </pre>
 </td>
-			<td>Annotations to be added to kube-ovn-webhook pods.</td>
+			<td>Annotations to be added to fabric-webhook pods.</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.podLabels</td>
@@ -3098,7 +3098,7 @@ false
 {}
 </pre>
 </td>
-			<td>Labels to be added to kube-ovn-webhook pods.</td>
+			<td>Labels to be added to fabric-webhook pods.</td>
 		</tr>
 	</tbody>
 </table>

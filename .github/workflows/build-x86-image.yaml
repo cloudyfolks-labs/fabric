@@ -323,7 +323,7 @@ jobs:
               ),
               "kubeOvnConformanceMatrix": e2eSelector.jobMatrix(
                   executionPlan,
-                  "kube-ovn-conformance-e2e",
+                  "fabric-conformance-e2e",
               ),
           }
           with Path(os.environ["GITHUB_OUTPUT"]).open("a") as stream:
@@ -410,8 +410,8 @@ jobs:
           name: kube-ovn-base
           path: image-amd64.tar
 
-  build-kube-ovn-dpdk-base:
-    name: Build kube-ovn-dpdk-base
+  build-fabric-dpdk-base:
+    name: Build fabric-dpdk-base
     if: github.event_name != 'workflow_dispatch' || github.actor == 'github-actions[bot]'
     runs-on: ubuntu-24.04
     outputs:
@@ -445,7 +445,7 @@ jobs:
       - uses: docker/setup-buildx-action@v4
         if: steps.check.outputs.build-dpdk-base == 1
 
-      - name: Build kube-ovn-dpdk-base image
+      - name: Build fabric-dpdk-base image
         id: build
         if: steps.check.outputs.build-dpdk-base == 1
         run: |
@@ -456,7 +456,7 @@ jobs:
         if: steps.check.outputs.build-dpdk-base == 1
         uses: actions/upload-artifact@v7
         with:
-          name: kube-ovn-dpdk-base
+          name: fabric-dpdk-base
           path: image-amd64-dpdk.tar
 
   lint-ut:
@@ -510,12 +510,12 @@ jobs:
           make verify-version
           make lint
 
-  build-kube-ovn-dpdk:
-    name: Build kube-ovn dpdk
+  build-fabric-dpdk:
+    name: Build fabric dpdk
     runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request'
     needs:
-      - build-kube-ovn-dpdk-base
+      - build-fabric-dpdk-base
     steps:
       - name: Free disk space
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
@@ -538,38 +538,38 @@ jobs:
           echo "GO_VERSION=${{ steps.setup-go.outputs.go-version }}" >> "$GITHUB_ENV"
 
       - name: Download dpdk base images
-        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base == 1
+        if: needs.build-fabric-dpdk-base.outputs.build-dpdk-base == 1
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn-dpdk-base
+          name: fabric-dpdk-base
 
       - name: Load dpdk base images
-        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base == 1
+        if: needs.build-fabric-dpdk-base.outputs.build-dpdk-base == 1
         run: |
           docker load --input image-amd64-dpdk.tar
           docker tag kubeovn/kube-ovn-base:$TAG-amd64-dpdk kubeovn/kube-ovn-base:$TAG-dpdk
 
       - name: Pull dpdk base image
-        if: needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base != 1
+        if: needs.build-fabric-dpdk-base.outputs.build-dpdk-base != 1
         run: make pull-base-dpdk
 
       - name: Build dpdk
         run: |
-          if [ ${{ needs.build-kube-ovn-dpdk-base.outputs.build-dpdk-base || 0 }} = 1 ]; then
-            make build-kube-ovn-dpdk
+          if [ ${{ needs.build-fabric-dpdk-base.outputs.build-dpdk-base || 0 }} = 1 ]; then
+            make build-fabric-dpdk
           else
-            make image-kube-ovn-dpdk
+            make image-fabric-dpdk
           fi
-          make tar-kube-ovn-dpdk
+          make tar-fabric-dpdk
 
       - name: Upload dpdk images to artifact
         uses: actions/upload-artifact@v7
         with:
-          name: kube-ovn-dpdk
-          path: kube-ovn-dpdk.tar
+          name: fabric-dpdk
+          path: fabric-dpdk.tar
 
-  build-kube-ovn:
-    name: Build kube-ovn
+  build-fabric:
+    name: Build fabric
     runs-on: ubuntu-24.04
     needs:
       - e2e-selection
@@ -701,17 +701,17 @@ jobs:
           go mod tidy
           git diff --exit-code -- go.mod go.sum
           if [ ${{ needs.build-kube-ovn-base.outputs.build-base || 0 }} = 1 ]; then
-            make build-kube-ovn
+            make build-fabric
           else
-            make image-kube-ovn
+            make image-fabric
           fi
-          make tar-kube-ovn
+          make tar-fabric
 
       - name: Upload images to artifact
         uses: actions/upload-artifact@v7
         with:
-          name: kube-ovn
-          path: kube-ovn.tar
+          name: fabric
+          path: fabric.tar
 
   build-e2e-binaries:
     name: Build E2E Binaries
@@ -797,7 +797,7 @@ jobs:
       (github.event_name != 'workflow_dispatch' || github.actor == 'github-actions[bot]')
     runs-on: ubuntu-24.04
     outputs:
-      test-netpol: ${{ steps.filter.outputs.kube-ovn-controller }}
+      test-netpol: ${{ steps.filter.outputs.fabric-controller }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -814,7 +814,7 @@ jobs:
         run: |
           filter=".github/path-filters.yaml"
           cat > $filter <<EOF
-          kube-ovn-controller:
+          fabric-controller:
           - go.mod
           - go.sum
           EOF
@@ -835,7 +835,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'k8s-conformance-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -907,10 +907,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Set environment variables
         run: |
@@ -956,7 +956,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf k8s-conformance-e2e-${{ matrix.ip-family }}-${{ matrix.mode }}-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -970,7 +970,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -1030,7 +1030,7 @@ jobs:
       ))
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
       - netpol-path-filter
     runs-on: ubuntu-24.04
@@ -1112,10 +1112,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Set environment variables
         run: |
@@ -1157,7 +1157,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf k8s-netpol-e2e-${{ matrix.ip-family }}-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -1171,7 +1171,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -1231,7 +1231,7 @@ jobs:
       ))
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - netpol-path-filter
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1284,10 +1284,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Set environment variables
         run: |
@@ -1331,7 +1331,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf cyclonus-netpol-e2e-${{ matrix.ip-family }}-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -1345,7 +1345,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -1394,12 +1394,12 @@ jobs:
             fi;
           done
 
-  kube-ovn-conformance-e2e:
+  fabric-conformance-e2e:
     name: Kube-OVN Conformance E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-conformance-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-conformance-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 50
@@ -1466,10 +1466,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Set environment variables
         run: |
@@ -1498,55 +1498,55 @@ jobs:
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
           E2E_NETWORK_MODE: ${{ matrix.mode }}
         run: |
-          make kube-ovn-conformance-e2e
+          make fabric-conformance-e2e
           make kind-install-multus
           make kind-install-kubevirt
-          make kube-ovn-kubevirt-e2e
+          make fabric-kubevirt-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          kubectl get events -A -o yaml > kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
-          tar zcf kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
+          kubectl get events -A -o yaml > fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
+          tar zcf fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
 
       - name: Upload k8s events
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
-          path: kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
+          name: fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
+          path: fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
 
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
-          tar zcf kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log.tar.gz kube-apiserver-audit.log
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          tar zcf fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log
-          path: kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log.tar.gz
+          name: fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log
+          path: fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log
-          path: kube-ovn-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          name: fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log
+          path: fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
       - name: Check valgrind result
         run: |
@@ -1585,12 +1585,12 @@ jobs:
       - name: Cleanup
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
-  kube-ovn-ic-conformance-e2e:
+  fabric-ic-conformance-e2e:
     name: Kube-OVN IC Conformance E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-ic-conformance-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-ic-conformance-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     strategy:
@@ -1661,10 +1661,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind clusters
         env:
@@ -1683,47 +1683,47 @@ jobs:
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
-        run: make kube-ovn-ic-conformance-e2e
+        run: make fabric-ic-conformance-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
           for cluster in `kind get clusters`; do
             kubectl config use-context kind-$cluster
-            kubectl get events -A -o yaml > kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-$cluster-events.yaml
+            kubectl get events -A -o yaml > fabric-ic-conformance-e2e-${{ matrix.ip-family }}-$cluster-events.yaml
           done
-          tar zcf kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-events.tar.gz \
-            `kind get clusters | xargs -I {} echo kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-{}-events.yaml`
+          tar zcf fabric-ic-conformance-e2e-${{ matrix.ip-family }}-events.tar.gz \
+            `kind get clusters | xargs -I {} echo fabric-ic-conformance-e2e-${{ matrix.ip-family }}-{}-events.yaml`
 
       - name: Upload k8s events
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-events
-          path: kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-events.tar.gz
+          name: fabric-ic-conformance-e2e-${{ matrix.ip-family }}-events
+          path: fabric-ic-conformance-e2e-${{ matrix.ip-family }}-events.tar.gz
 
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
           for cluster in `kind get clusters`; do
             docker cp $cluster-control-plane:/var/log/kubernetes/kube-apiserver-audit.log \
-              ./kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-$cluster-kube-apiserver-audit.log
+              ./fabric-ic-conformance-e2e-${{ matrix.ip-family }}-$cluster-kube-apiserver-audit.log
           done
-          tar zcvf kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-audit-log.tar.gz \
-            `kind get clusters | xargs -I {} echo kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-{}-kube-apiserver-audit.log`
+          tar zcvf fabric-ic-conformance-e2e-${{ matrix.ip-family }}-audit-log.tar.gz \
+            `kind get clusters | xargs -I {} echo fabric-ic-conformance-e2e-${{ matrix.ip-family }}-{}-kube-apiserver-audit.log`
 
       - name: Upload apiserver audit logs
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-audit-log
-          path: kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-audit-log.tar.gz
+          name: fabric-ic-conformance-e2e-${{ matrix.ip-family }}-audit-log
+          path: fabric-ic-conformance-e2e-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -1731,24 +1731,24 @@ jobs:
           for cluster in `kind get clusters`; do
             kubectl config use-context kind-$cluster
             make kubectl-ko-log
-            mv kubectl-ko-log.tar.gz kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-$cluster-ko-log.tar.gz
+            mv kubectl-ko-log.tar.gz fabric-ic-conformance-e2e-${{ matrix.ip-family }}-$cluster-ko-log.tar.gz
           done
-          tar zcvf kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-ko-log.tar.gz \
-            `kind get clusters | xargs -I {} echo kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-{}-ko-log.tar.gz`
+          tar zcvf fabric-ic-conformance-e2e-${{ matrix.ip-family }}-ko-log.tar.gz \
+            `kind get clusters | xargs -I {} echo fabric-ic-conformance-e2e-${{ matrix.ip-family }}-{}-ko-log.tar.gz`
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-ko-log
-          path: kube-ovn-ic-conformance-e2e-${{ matrix.ip-family }}-ko-log.tar.gz
+          name: fabric-ic-conformance-e2e-${{ matrix.ip-family }}-ko-log
+          path: fabric-ic-conformance-e2e-${{ matrix.ip-family }}-ko-log.tar.gz
 
   multus-conformance-e2e:
     name: Multus Conformance E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'multus-conformance-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1816,13 +1816,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -1844,7 +1844,7 @@ jobs:
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
-        run: make kube-ovn-multus-conformance-e2e
+        run: make fabric-multus-conformance-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
@@ -1862,7 +1862,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf multus-conformance-e2e-${{ matrix.ip-family }}-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -1876,7 +1876,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -1896,7 +1896,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'non-primary-cni-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1968,11 +1968,11 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
         run: |
-          docker load --input kube-ovn.tar
+          docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -1983,7 +1983,7 @@ jobs:
 
       - name: Install Mults-CNI, Cilium, and Kube-OVN
         id: install
-        run: make kind-install-multus-cilium-kubeovn-non-primary-${{ matrix.ip-family }}
+        run: make kind-install-multus-cilium-fabric-non-primary-${{ matrix.ip-family }}
 
       - name: Run non-primary CNI e2e
         id: e2e
@@ -1993,7 +1993,7 @@ jobs:
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
           E2E_NETWORK_MODE: overlay
           KUBE_OVN_PRIMARY_CNI: "false"
-        run: make kube-ovn-non-primary-cni-e2e
+        run: make fabric-non-primary-cni-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
@@ -2011,7 +2011,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf non-primary-cni-e2e-${{ matrix.ip-family }}-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -2025,7 +2025,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -2040,12 +2040,12 @@ jobs:
           name: non-primary-cni-e2e-${{ matrix.ip-family }}-ko-log
           path: non-primary-cni-e2e-${{ matrix.ip-family }}-ko-log.tar.gz
 
-  kube-ovn-hosted-ovn-central-e2e:
+  fabric-hosted-ovn-central-e2e:
     name: Kube-OVN Hosted OVN Central E2E (${{ matrix.ip-family }}, ${{ matrix.tenant-control-plane }} control-plane)
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-hosted-ovn-central-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-hosted-ovn-central-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -2115,12 +2115,12 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
         run: |
-          docker load --input kube-ovn.tar
-          docker tag "kubeovn/kube-ovn:$(cat VERSION)" kubeovn/kube-ovn:dev
+          docker load --input fabric.tar
+          docker tag "ghcr.io/cloudyfolks-labs/fabric:$(cat VERSION)" ghcr.io/cloudyfolks-labs/fabric:dev
 
       - name: Verify hosted OVN central values
         run: bash hack/kamaji-e2e-test.sh
@@ -2138,7 +2138,7 @@ jobs:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
           E2E_NETWORK_MODE: overlay
-        run: make kube-ovn-kamaji-e2e
+        run: make fabric-kamaji-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
@@ -2199,7 +2199,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'chart-test')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -2226,10 +2226,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -2247,7 +2247,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -2270,7 +2270,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'underlay-logical-gateway-installation-test')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -2291,10 +2291,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -2310,7 +2310,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -2333,7 +2333,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'no-ovn-lb-test')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -2354,10 +2354,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -2375,7 +2375,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -2398,7 +2398,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'no-np-test')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -2419,10 +2419,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -2440,7 +2440,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -2463,7 +2463,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'webhook-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -2524,14 +2524,14 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
         run: |
-          docker load -i kube-ovn.tar
+          docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -2549,13 +2549,13 @@ jobs:
         working-directory: ${{ env.E2E_DIR }}
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: make kube-ovn-webhook-e2e
+        run: make fabric-webhook-e2e
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -2575,7 +2575,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'installation-compatibility-test')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
@@ -2601,10 +2601,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -2621,7 +2621,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -2639,12 +2639,12 @@ jobs:
       - name: Cleanup
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
-  kube-ovn-cnp-domain-e2e:
+  fabric-cnp-domain-e2e:
     name: Kube-OVN CNP Domain E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-cnp-domain-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-cnp-domain-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -2713,10 +2713,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Set environment variables
         run: |
@@ -2744,45 +2744,45 @@ jobs:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
           E2E_NETWORK_MODE: ${{ matrix.mode }}
-        run: make kube-ovn-cnp-domain-e2e
+        run: make fabric-cnp-domain-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          kubectl get events -A -o yaml > kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
-          tar zcf kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
+          kubectl get events -A -o yaml > fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
+          tar zcf fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
 
       - name: Upload k8s events
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
-          path: kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
+          name: fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
+          path: fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
 
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log
-          path: kube-ovn-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          name: fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log
+          path: fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
-  kube-ovn-anp-domain-e2e:
+  fabric-anp-domain-e2e:
     name: Kube-OVN ANP Domain E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-anp-domain-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-anp-domain-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -2851,10 +2851,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Set environment variables
         run: |
@@ -2882,45 +2882,45 @@ jobs:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
           E2E_NETWORK_MODE: ${{ matrix.mode }}
-        run: make kube-ovn-anp-domain-e2e
+        run: make fabric-anp-domain-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          kubectl get events -A -o yaml > kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
-          tar zcf kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
+          kubectl get events -A -o yaml > fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
+          tar zcf fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.yaml
 
       - name: Upload k8s events
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
-          path: kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
+          name: fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
+          path: fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
 
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log
-          path: kube-ovn-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          name: fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log
+          path: fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
   cilium-chaining-e2e:
     name: Cilium Chaining E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'cilium-chaining-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -3006,10 +3006,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3048,7 +3048,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf cilium-chaining-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -3062,7 +3062,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -3080,12 +3080,12 @@ jobs:
       - name: Cleanup
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
-  kube-ovn-ha-e2e:
+  fabric-ha-e2e:
     name: Kube-OVN HA E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-ha-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-ha-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -3162,10 +3162,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3192,37 +3192,37 @@ jobs:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
         run: |
-          make kube-ovn-security-e2e
-          make kube-ovn-ha-e2e
+          make fabric-security-e2e
+          make fabric-ha-e2e
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-ha-e2e-${{ matrix.ssl }}-${{ matrix.bind-local }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-ha-e2e-${{ matrix.ssl }}-${{ matrix.bind-local }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-ha-e2e-${{ matrix.ssl }}-${{ matrix.bind-local }}-${{ matrix.ip-family }}-ko-log
-          path: kube-ovn-ha-e2e-${{ matrix.ssl }}-${{ matrix.bind-local }}-${{ matrix.ip-family }}-ko-log.tar.gz
+          name: fabric-ha-e2e-${{ matrix.ssl }}-${{ matrix.bind-local }}-${{ matrix.ip-family }}-ko-log
+          path: fabric-ha-e2e-${{ matrix.ssl }}-${{ matrix.bind-local }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
       - name: Cleanup
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
-  kube-ovn-submariner-conformance-e2e:
+  fabric-submariner-conformance-e2e:
     name: Kube-OVN Submariner Conformance E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-submariner-conformance-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-submariner-conformance-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -3270,10 +3270,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3289,26 +3289,26 @@ jobs:
       - name: Run E2E
         id: e2e
         working-directory: ${{ env.E2E_DIR }}
-        run: make kube-ovn-submariner-conformance-e2e
+        run: make fabric-submariner-conformance-e2e
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-submariner-conformance-e2e-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-submariner-conformance-e2e-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-submariner-conformance-e2e-ko-log
-          path: kube-ovn-submariner-conformance-e2e-ko-log.tar.gz
+          name: fabric-submariner-conformance-e2e-ko-log
+          path: fabric-submariner-conformance-e2e-ko-log.tar.gz
 
       - name: Cleanup
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
@@ -3318,7 +3318,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'vpc-dynamic-routing-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -3382,10 +3382,10 @@ jobs:
       - name: Download image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load image
-        run: docker load --input kube-ovn.tar
+        run: docker load --input fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3433,7 +3433,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -3456,7 +3456,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'ovn-vpc-nat-gw-conformance-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -3517,13 +3517,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3566,7 +3566,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.vip-e2e.conclusion == 'failure' || steps.vpc-e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf ovn-vpc-nat-gw-conformance-e2e-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -3580,7 +3580,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.vip-e2e.conclusion == 'failure' || steps.vpc-e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.vip-e2e.conclusion == 'failure' || steps.vpc-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -3595,12 +3595,12 @@ jobs:
           name: ovn-vpc-nat-gw-conformance-e2e-ko-log
           path: ovn-vpc-nat-gw-conformance-e2e-ko-log.tar.gz
 
-  kube-ovn-ipsec-e2e:
+  fabric-ipsec-e2e:
     name: OVN IPSEC E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-ipsec-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-ipsec-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -3661,13 +3661,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3681,65 +3681,65 @@ jobs:
         run: make kind-install-ovn-ipsec
 
       - name: Run Ovn IPSEC E2E
-        id: kube-ovn-ipsec-e2e
+        id: fabric-ipsec-e2e
         working-directory: ${{ env.E2E_DIR }}
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: make kube-ovn-ipsec-e2e
+        run: make fabric-ipsec-e2e
 
       - name: Collect k8s events
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure')
         run: |
-          kubectl get events -A -o yaml > kube-ovn-ipsec-e2e-events.yaml
-          tar zcf kube-ovn-ipsec-e2e-events.tar.gz kube-ovn-ipsec-e2e-events.yaml
+          kubectl get events -A -o yaml > fabric-ipsec-e2e-events.yaml
+          tar zcf fabric-ipsec-e2e-events.tar.gz fabric-ipsec-e2e-events.yaml
 
       - name: Upload k8s events
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-ipsec-e2e-events
-          path: kube-ovn-ipsec-e2e-events.tar.gz
+          name: fabric-ipsec-e2e-events
+          path: fabric-ipsec-e2e-events.tar.gz
 
       - name: Collect apiserver audit logs
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
-          tar zcf kube-ovn-ipsec-e2e-audit-log.tar.gz kube-apiserver-audit.log
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          tar zcf fabric-ipsec-e2e-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-ipsec-e2e-audit-log
-          path: kube-ovn-ipsec-e2e-audit-log.tar.gz
+          name: fabric-ipsec-e2e-audit-log
+          path: fabric-ipsec-e2e-audit-log.tar.gz
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
-        if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-e2e.conclusion == 'failure')) }}
+        if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure')) }}
         env:
-          IGNORABLE_PODS: app=kube-ovn-pinger
-        run: make check-kube-ovn-pod-restarts
+          IGNORABLE_PODS: app=fabric-pinger
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-ipsec-e2e-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-ipsec-e2e-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-ipsec-e2e-ko-log
-          path: kube-ovn-ipsec-e2e-ko-log.tar.gz
+          name: fabric-ipsec-e2e-ko-log
+          path: fabric-ipsec-e2e-ko-log.tar.gz
 
-  kube-ovn-ipsec-cert-mgr-e2e:
+  fabric-ipsec-cert-mgr-e2e:
     name: OVN IPSEC E2E CERT MANAGER
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-ipsec-cert-mgr-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-ipsec-cert-mgr-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -3800,13 +3800,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3820,63 +3820,63 @@ jobs:
         run: make kind-install-ovn-ipsec-cert-manager
 
       - name: Run Ovn IPSEC cert-manager E2E
-        id: kube-ovn-ipsec-cert-mgr-e2e
+        id: fabric-ipsec-cert-mgr-e2e
         working-directory: ${{ env.E2E_DIR }}
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: make kube-ovn-ipsec-cert-mgr-e2e
+        run: make fabric-ipsec-cert-mgr-e2e
 
       - name: Collect k8s events
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-cert-mgr-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure')
         run: |
-          kubectl get events -A -o yaml > kube-ovn-ipsec-cert-mgr-e2e-events.yaml
-          tar zcf kube-ovn-ipsec-cert-mgr-e2e-events.tar.gz kube-ovn-ipsec-cert-mgr-e2e-events.yaml
+          kubectl get events -A -o yaml > fabric-ipsec-cert-mgr-e2e-events.yaml
+          tar zcf fabric-ipsec-cert-mgr-e2e-events.tar.gz fabric-ipsec-cert-mgr-e2e-events.yaml
 
       - name: Upload k8s events
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-cert-mgr-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-ipsec-cert-mgr-e2e-events
-          path: kube-ovn-ipsec-cert-mgr-e2e-events.tar.gz
+          name: fabric-ipsec-cert-mgr-e2e-events
+          path: fabric-ipsec-cert-mgr-e2e-events.tar.gz
 
       - name: Collect apiserver audit logs
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-cert-mgr-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
-          tar zcf kube-ovn-ipsec-cert-mgr-e2e-audit-log.tar.gz kube-apiserver-audit.log
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          tar zcf fabric-ipsec-cert-mgr-e2e-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-cert-mgr-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-ipsec-cert-mgr-e2e-audit-log
-          path: kube-ovn-ipsec-cert-mgr-e2e-audit-log.tar.gz
+          name: fabric-ipsec-cert-mgr-e2e-audit-log
+          path: fabric-ipsec-cert-mgr-e2e-audit-log.tar.gz
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
-        if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-cert-mgr-e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure')) }}
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-cert-mgr-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-ipsec-cert-mgr-e2e-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-ipsec-cert-mgr-e2e-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-ipsec-cert-mgr-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-ipsec-cert-mgr-e2e-ko-log
-          path: kube-ovn-ipsec-cert-mgr-e2e-ko-log.tar.gz
+          name: fabric-ipsec-cert-mgr-e2e-ko-log
+          path: fabric-ipsec-cert-mgr-e2e-ko-log.tar.gz
 
-  kube-ovn-connectivity-test:
+  fabric-connectivity-test:
     name: Kube-OVN Connectivity E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-connectivity-test')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-connectivity-test')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -3943,13 +3943,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -3967,28 +3967,28 @@ jobs:
         working-directory: ${{ env.E2E_DIR }}
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: make kube-ovn-connectivity-e2e
+        run: make fabric-connectivity-e2e
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-connectivity-e2e-${{ matrix.mode }}-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-connectivity-e2e-${{ matrix.mode }}-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-connectivity-e2e-${{ matrix.mode }}-ko-log
-          path: kube-ovn-connectivity-e2e-${{ matrix.mode }}-ko-log.tar.gz
+          name: fabric-connectivity-e2e-${{ matrix.mode }}-ko-log
+          path: fabric-connectivity-e2e-${{ matrix.mode }}-ko-log.tar.gz
 
 
-  kube-ovn-underlay-metallb-e2e:
+  fabric-underlay-metallb-e2e:
     name: OVN METALLB E2E
-    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'kube-ovn-underlay-metallb-e2e')
+    if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-underlay-metallb-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -4056,13 +4056,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -4076,64 +4076,64 @@ jobs:
         run: make kind-install-metallb-pool-from-underlay-${{ matrix.ip-family }}
 
       - name: Run Ovn Metallb and Kube-OVN Combine E2E
-        id: kube-ovn-underlay-metallb-e2e
+        id: fabric-underlay-metallb-e2e
         working-directory: ${{ env.E2E_DIR }}
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
-        run: make kube-ovn-underlay-metallb-e2e
+        run: make fabric-underlay-metallb-e2e
 
       - name: Collect k8s events
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-underlay-metallb-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure')
         run: |
-          kubectl get events -A -o yaml > kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-events.yaml
-          tar zcf kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-events.tar.gz kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-events.yaml
+          kubectl get events -A -o yaml > fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-events.yaml
+          tar zcf fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-events.tar.gz fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-events.yaml
 
       - name: Upload k8s events
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-underlay-metallb-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-events
-          path: kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-events.tar.gz
+          name: fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-events
+          path: fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-events.tar.gz
 
       - name: Collect apiserver audit logs
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-underlay-metallb-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
-          tar zcf kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-audit-log.tar.gz kube-apiserver-audit.log
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          tar zcf fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-underlay-metallb-e2e.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure')
         with:
-          name: kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-audit-log
-          path: kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-audit-log.tar.gz
+          name: fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-audit-log
+          path: fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-audit-log.tar.gz
 
 
       - name: Check kube ovn pod restarts
         id: check-restarts
-        if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-underlay-metallb-e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure')) }}
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-underlay-metallb-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         run: |
           make kubectl-ko-log
-          mv kubectl-ko-log.tar.gz kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-ko-log.tar.gz
+          mv kubectl-ko-log.tar.gz fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-ko-log.tar.gz
 
       - name: upload kubectl ko log
         uses: actions/upload-artifact@v7
-        if: failure() && (steps.install.conclusion == 'failure' || steps.kube-ovn-underlay-metallb-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
+        if: failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
         with:
-          name: kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-ko-log
-          path: kube-ovn-underlay-metallb-${{ matrix.ip-family }}-e2e-ko-log.tar.gz
+          name: fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-ko-log
+          path: fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-ko-log.tar.gz
 
   router-lb-rule-e2e:
     name: Router LB Rule E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'router-lb-rule-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -4194,13 +4194,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -4218,7 +4218,7 @@ jobs:
         working-directory: ${{ env.E2E_DIR }}
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: make kube-ovn-rlr-e2e
+        run: make fabric-rlr-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')
@@ -4236,7 +4236,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf router-lb-rule-e2e-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -4249,7 +4249,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -4269,7 +4269,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'dns-zone-e2e')
     needs:
       - e2e-selection
-      - build-kube-ovn
+      - build-fabric
       - build-e2e-binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -4330,13 +4330,13 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           install_only: true
 
-      - name: Download kube-ovn image
+      - name: Download fabric image
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn
+          name: fabric
 
       - name: Load images
-        run: docker load -i kube-ovn.tar
+        run: docker load -i fabric.tar
 
       - name: Create kind cluster
         env:
@@ -4354,7 +4354,7 @@ jobs:
         working-directory: ${{ env.E2E_DIR }}
         env:
           E2E_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: make kube-ovn-dns-zone-e2e
+        run: make fabric-dns-zone-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')
@@ -4372,7 +4372,7 @@ jobs:
       - name: Collect apiserver audit logs
         if: failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')
         run: |
-          docker cp kube-ovn-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
+          docker cp fabric-control-plane:/var/log/kubernetes/kube-apiserver-audit.log .
           tar zcf dns-zone-e2e-audit-log.tar.gz kube-apiserver-audit.log
 
       - name: Upload apiserver audit logs
@@ -4385,7 +4385,7 @@ jobs:
       - name: Check kube ovn pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')) }}
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: kubectl ko log
         if: failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure' || steps.check-restarts.conclusion == 'failure')
@@ -4413,17 +4413,17 @@ jobs:
       - installation-compatibility-test
       - k8s-conformance-e2e
       - k8s-netpol-e2e
-      - kube-ovn-anp-domain-e2e
-      - kube-ovn-cnp-domain-e2e
-      - kube-ovn-conformance-e2e
-      - kube-ovn-connectivity-test
-      - kube-ovn-ha-e2e
-      - kube-ovn-hosted-ovn-central-e2e
-      - kube-ovn-ic-conformance-e2e
-      - kube-ovn-ipsec-cert-mgr-e2e
-      - kube-ovn-ipsec-e2e
-      - kube-ovn-submariner-conformance-e2e
-      - kube-ovn-underlay-metallb-e2e
+      - fabric-anp-domain-e2e
+      - fabric-cnp-domain-e2e
+      - fabric-conformance-e2e
+      - fabric-connectivity-test
+      - fabric-ha-e2e
+      - fabric-hosted-ovn-central-e2e
+      - fabric-ic-conformance-e2e
+      - fabric-ipsec-cert-mgr-e2e
+      - fabric-ipsec-e2e
+      - fabric-submariner-conformance-e2e
+      - fabric-underlay-metallb-e2e
       - multus-conformance-e2e
       - no-np-test
       - no-ovn-lb-test

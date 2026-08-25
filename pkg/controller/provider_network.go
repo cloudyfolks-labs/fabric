@@ -26,9 +26,9 @@ func (c *Controller) resyncProviderNetworkStatus() {
 		return
 	}
 
-	pods, err := c.podsLister.Pods(c.config.PodNamespace).List(labels.Set{"app": "kube-ovn-cni"}.AsSelector())
+	pods, err := c.podsLister.Pods(c.config.PodNamespace).List(labels.Set{"app": "fabric-cni"}.AsSelector())
 	if err != nil {
-		klog.Errorf("failed to list kube-ovn-cni pods: %v", err)
+		klog.Errorf("failed to list fabric-cni pods: %v", err)
 		return
 	}
 
@@ -64,7 +64,7 @@ func (c *Controller) resyncProviderNetworkStatus() {
 			} else {
 				var errMsg string
 				if pod := podMap[node.Name]; pod == nil {
-					errMsg = fmt.Sprintf("kube-ovn-cni pod on node %s not found", node.Name)
+					errMsg = fmt.Sprintf("fabric-cni pod on node %s not found", node.Name)
 					klog.Error(errMsg)
 				} else {
 					if len(pod.Annotations) != 0 {

@@ -103,7 +103,7 @@ jobs:
         working-directory: test/e2e/k8s-network/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-${{ matrix.mode }}-${{ matrix.ip-family }}
 
       - name: Run E2E
@@ -115,7 +115,7 @@ jobs:
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
   k8s-netpol-e2e:
     name: Kubernetes Network Policy E2E
@@ -195,7 +195,7 @@ jobs:
         working-directory: test/e2e/k8s-network/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-${{ matrix.ip-family }}
 
       - name: Run E2E
@@ -203,7 +203,7 @@ jobs:
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
   cyclonus-netpol-e2e:
     name: Cyclonus Network Policy E2E
@@ -260,7 +260,7 @@ jobs:
         working-directory: test/e2e/k8s-network/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-${{ matrix.ip-family }}
 
       - name: Run E2E
@@ -268,9 +268,9 @@ jobs:
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
-  kube-ovn-conformance-e2e:
+  fabric-conformance-e2e:
     name: Kube-OVN Conformance E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -346,7 +346,7 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-${{ matrix.mode }}-${{ matrix.ip-family }}
 
       - name: Run E2E
@@ -354,13 +354,13 @@ jobs:
           E2E_BRANCH: ${{ matrix.branch }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
           E2E_NETWORK_MODE: ${{ matrix.mode }}
-        run: make kube-ovn-conformance-e2e
+        run: make fabric-conformance-e2e
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
-  kube-ovn-ic-conformance-e2e:
+  fabric-ic-conformance-e2e:
     name: Kube-OVN IC Conformance E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -428,17 +428,17 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-ovn-ic
 
       - name: Run E2E
         env:
           E2E_BRANCH: ${{ matrix.branch }}
-        run: make kube-ovn-ic-conformance-e2e
+        run: make fabric-ic-conformance-e2e
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
   underlay-logical-gateway-installation-test:
     name: Underlay Logical Gateway Installation Test
@@ -486,12 +486,12 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-underlay-logical-gateway-dual
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
       - name: Cleanup
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
@@ -545,12 +545,12 @@ jobs:
           ENABLE_LB: "false"
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
       - name: Cleanup
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
@@ -604,12 +604,12 @@ jobs:
           ENABLE_NP: "false"
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
       - name: Cleanup
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
@@ -685,16 +685,16 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install
           VERSION=$version make kind-install-multus
           VERSION=$version make kind-install-kubevirt
 
       - name: Run E2E
-        run: make kube-ovn-kubevirt-e2e
+        run: make fabric-kubevirt-e2e
 
       - name: Check kube ovn pod restarts
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
   webhook-e2e:
     name: Webhook E2E
@@ -764,15 +764,15 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-webhook
 
       - name: Run E2E
-        run: make kube-ovn-webhook-e2e
+        run: make fabric-webhook-e2e
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
   installation-compatibility-test:
     name: Installation Compatibility Test
@@ -819,11 +819,11 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install
 
       - name: Check kube ovn pod restarts
-        run: make check-kube-ovn-pod-restarts
+        run: make check-fabric-pod-restarts
 
       - name: Cleanup
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
@@ -907,7 +907,7 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-cilium-chaining
 
       - name: Run E2E
@@ -917,13 +917,13 @@ jobs:
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
       - name: Cleanup
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: sh dist/images/cleanup.sh
 
-  kube-ovn-ha-e2e:
+  fabric-ha-e2e:
     name: Kube-OVN HA E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1006,7 +1006,7 @@ jobs:
           if [[ "${{ matrix.ssl }}" == "true" ]]; then
             tls_env="TLS_MIN_VERSION=TLS12 TLS_MAX_VERSION=TLS13 TLS_CIPHER_SUITES=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_AES_256_GCM_SHA384"
           fi
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           sudo VERSION=$version ENABLE_SSL=${{ matrix.ssl }} $tls_env \
             ENABLE_BIND_LOCAL_IP=${{ matrix.bind-local }} \
             make kind-install-${{ matrix.ip-family }}
@@ -1016,12 +1016,12 @@ jobs:
           E2E_BRANCH: ${{ matrix.branch }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
         run: |
-          make kube-ovn-security-e2e
-          make kube-ovn-ha-e2e
+          make fabric-security-e2e
+          make fabric-ha-e2e
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
       - name: Cleanup
         run: sh dist/images/cleanup.sh
@@ -1110,14 +1110,14 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ env.VERSION_FROM }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-chart
 
       - name: Upgrade Kube-OVN
         working-directory: test/e2e/kube-ovn/branches/${{ env.VERSION_TO }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-upgrade-chart
 
       - name: Run E2E
@@ -1127,13 +1127,13 @@ jobs:
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
       - name: Cleanup
         working-directory: test/e2e/kube-ovn/branches/${{ env.VERSION_TO }}
         run: sh dist/images/cleanup.sh
 
-  kube-ovn-submariner-conformance-e2e:
+  fabric-submariner-conformance-e2e:
     name: Kube-OVN Submariner Conformance E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1184,15 +1184,15 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install-ovn-submariner
 
       - name: Run E2E
-        run: make kube-ovn-submariner-conformance-e2e
+        run: make fabric-submariner-conformance-e2e
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
       - name: Cleanup
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
@@ -1265,7 +1265,7 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install
 
       - name: Run E2E
@@ -1273,7 +1273,7 @@ jobs:
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
   router-lb-rule-e2e:
     name: Router LB Rule E2E
@@ -1336,17 +1336,17 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
           VERSION=$version make kind-install
 
       - name: Run E2E
-        run: make kube-ovn-rlr-e2e
+        run: make fabric-rlr-e2e
 
       - name: Check kube ovn pod restarts
         run: |
-          make check-kube-ovn-pod-restarts
+          make check-fabric-pod-restarts
 
-  kube-ovn-hosted-ovn-central-e2e:
+  fabric-hosted-ovn-central-e2e:
     name: Kube-OVN Hosted OVN Central E2E (${{ matrix.branch }}, ${{ matrix.ip-family }}, ${{ matrix.tenant-control-plane }} control-plane)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -1428,8 +1428,8 @@ jobs:
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
         run: |
           version=$(grep -E '^VERSION="v([0-9]+\.){2}[0-9]+"$' dist/images/install.sh | head -n1 | awk -F= '{print $2}' | tr -d '"')
-          docker pull kubeovn/kube-ovn:$version
-          docker tag kubeovn/kube-ovn:$version kubeovn/kube-ovn:dev
+          docker pull ghcr.io/cloudyfolks-labs/fabric:$version
+          docker tag ghcr.io/cloudyfolks-labs/fabric:$version ghcr.io/cloudyfolks-labs/fabric:dev
 
       - name: Verify hosted OVN central values
         working-directory: test/e2e/kube-ovn/branches/${{ matrix.branch }}
@@ -1450,7 +1450,7 @@ jobs:
           E2E_BRANCH: ${{ matrix.branch }}
           E2E_IP_FAMILY: ${{ matrix.ip-family }}
           E2E_NETWORK_MODE: overlay
-        run: make kube-ovn-kamaji-e2e
+        run: make fabric-kamaji-e2e
 
       - name: Collect k8s events
         if: failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')

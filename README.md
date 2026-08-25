@@ -5,7 +5,7 @@ each tenant a real VPC with its own router, its own address space, and a
 BGP path to the physical network.
 
 fabric started as a fork of
-[kube-ovn](https://github.com/cloudyfolks-labs/fabric) and is now a standalone
+[fabric](https://github.com/cloudyfolks-labs/fabric) and is now a standalone
 project. The OVN substrate and the CNI come from that import; fabric
 develops independently and does not track upstream.
 
@@ -24,11 +24,11 @@ On this base we plan an eBPF layer that reads the tenant identity OVN
 already encodes on the wire: flow logs, per-EIP DDoS protection, and
 identity-based security groups.
 
-## What is different from kube-ovn
+## What is different from fabric
 
 Added:
 
-- **VPC dynamic routing**: the `BgpConf` CRD and the `kube-ovn-frr`
+- **VPC dynamic routing**: the `BgpConf` CRD and the `fabric-frr`
   per-node agent. VPC subnets, OVN EIPs, and BFD state advertise to the
   top-of-rack switches through FRR.
 
@@ -41,13 +41,13 @@ Removed, with the replacement in parentheses:
   gateway itself remains)
 - Kernel fastpath module (the OVN datapath does not need it)
 
-Everything else from kube-ovn remains: subnets, underlay/VLAN, security
+Everything else from fabric remains: subnets, underlay/VLAN, security
 groups, switch and router load balancers, KubeVirt live migration,
 multi-cluster interconnect, and the rest.
 
 ## Documentation
 
-The [kube-ovn documentation](https://kubeovn.github.io/docs/stable/en/)
+The [fabric documentation](https://kubeovn.github.io/docs/stable/en/)
 applies to all inherited features, with one systematic difference:
 fabric renamed the API domains. Replace `kubeovn.io/v1` with
 `fabric.cloudyfolks.io/v1` and `ovn.kubernetes.io/` annotation keys
@@ -64,13 +64,13 @@ Helm charts and container images will publish under
 from source:
 
 ```
-make image-kube-ovn
+make image-fabric
 make kind-init kind-install
 ```
 
 ## License
 
-Apache-2.0. The imported kube-ovn code keeps its upstream copyright
+Apache-2.0. The imported fabric code keeps its upstream copyright
 headers. See [LICENSE](LICENSE).
 
 ## Release

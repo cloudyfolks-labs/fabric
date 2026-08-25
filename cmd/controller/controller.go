@@ -28,7 +28,7 @@ import (
 	"github.com/cloudyfolks-labs/fabric/versions"
 )
 
-const ovnLeaderResource = "kube-ovn-controller"
+const ovnLeaderResource = "fabric-controller"
 
 func CmdMain() {
 	defer klog.Flush()
@@ -47,7 +47,7 @@ func CmdMain() {
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to parse log-perm")
 	}
-	util.InitLogFilePerm("kube-ovn-controller", os.FileMode(perm))
+	util.InitLogFilePerm("fabric-controller", os.FileMode(perm))
 
 	if err := checkPermission(config); err != nil {
 		util.LogFatalAndExit(err, "failed to check permission")

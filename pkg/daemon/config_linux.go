@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const defaultBindSocket = "/run/openvswitch/kube-ovn-daemon.sock"
+const defaultBindSocket = "/run/openvswitch/fabric-daemon.sock"
 
 func getSrcIPsByRoutes(iface *net.Interface) ([]string, error) {
 	link, err := netlink.LinkByName(iface.Name)

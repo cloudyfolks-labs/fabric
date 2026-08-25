@@ -20,7 +20,7 @@ import (
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
-// ServiceCIDR (KEP-1880) became GA in K8s 1.33. The kube-ovn integration ships
+// ServiceCIDR (KEP-1880) became GA in K8s 1.33. The fabric integration ships
 // in v1.17 — older releases either lack the controller wiring or the daemon
 // store, so the test is gated on both fronts.
 const skipVersionMajor, skipVersionMinor uint = 1, 17
@@ -114,7 +114,7 @@ var _ = framework.Describe("[group:service-cidr]", func() {
 
 // skipIfNoServiceCIDRAPI marks the spec as skipped on clusters where the
 // networking.k8s.io/v1 ServiceCIDR API is unavailable (K8s <1.31 or 1.31/1.32
-// with the MultiCIDRServiceAllocator feature gate disabled). The kube-ovn
+// with the MultiCIDRServiceAllocator feature gate disabled). The fabric
 // fallback path is still exercised by every other test on those clusters.
 func skipIfNoServiceCIDRAPI(cs clientset.Interface) {
 	ginkgo.GinkgoHelper()
@@ -134,7 +134,7 @@ func skipIfNoServiceCIDRAPI(cs clientset.Interface) {
 	ginkgo.Skip("networking.k8s.io/v1 ServiceCIDR API is not present in this cluster")
 }
 
-// ipsetForCIDR picks the kube-ovn services ipset that matches the given CIDR's
+// ipsetForCIDR picks the fabric services ipset that matches the given CIDR's
 // IP family. v4 CIDRs land in ovn40services, v6 in ovn60services.
 func ipsetForCIDR(cidr string) string {
 	if strings.Contains(cidr, ":") {

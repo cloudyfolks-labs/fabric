@@ -75,11 +75,11 @@ var _ = framework.SerialDescribe("[group:pod]", func() {
 	framework.ConformanceIt("should support http and tcp readiness probe in custom vpc pod", func() {
 		f.SkipVersionPriorTo(1, 12, "This feature was introduced in v1.12")
 
-		ginkgo.By("Getting kube-ovn-cni daemonset")
+		ginkgo.By("Getting fabric-cni daemonset")
 		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
-		originDs := daemonSetClient.Get("kube-ovn-cni")
+		originDs := daemonSetClient.Get("fabric-cni")
 
-		ginkgo.By("Enabling tproxy in kube-ovn-cni daemonset")
+		ginkgo.By("Enabling tproxy in fabric-cni daemonset")
 		modifyDs := originDs.DeepCopy()
 		newArgs := modifyDs.Spec.Template.Spec.Containers[0].Args
 		for index, arg := range newArgs {

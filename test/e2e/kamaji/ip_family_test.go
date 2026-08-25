@@ -61,7 +61,7 @@ func TestPodAddressFamilies(t *testing.T) {
 			wantIPv6: true,
 		},
 		{
-			name: "falls back to kube-ovn allocation annotation",
+			name: "falls back to fabric allocation annotation",
 			pod: corev1.Pod{ObjectMeta: metav1Object(map[string]string{
 				util.IPAddressAnnotation: "fd00:10:16::13",
 			})},

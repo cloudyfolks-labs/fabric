@@ -22,7 +22,7 @@ On macOS use a colima VM (Docker Desktop's kernel has no vrf support):
   colima ssh -- sudo modprobe vrf
 
 The fabric image for the local architecture must exist
-(make image-kube-ovn or make image-kube-ovn-arm64).
+(make image-fabric or make image-fabric-arm64).
 USAGE
 }
 
@@ -32,8 +32,8 @@ if [ -z "${SUITE}" ]; then
 fi
 
 VERSION=$(cat VERSION)
-if ! docker image inspect "kubeovn/kube-ovn:${VERSION}" >/dev/null 2>&1; then
-  echo "kubeovn/kube-ovn:${VERSION} is not built; run make image-kube-ovn-arm64 (or image-kube-ovn)" >&2
+if ! docker image inspect "cloudyfolks-labs/fabric:${VERSION}" >/dev/null 2>&1; then
+  echo "cloudyfolks-labs/fabric:${VERSION} is not built; run make image-fabric-arm64 (or image-fabric)" >&2
   exit 1
 fi
 
@@ -72,12 +72,12 @@ case "${SUITE}" in
   metallb)
     n_worker=2 make kind-init-ipv4
     make kind-install-metallb-pool-from-underlay-ipv4
-    make kube-ovn-underlay-metallb-e2e
+    make fabric-underlay-metallb-e2e
     ;;
   rlr)
     n_worker=2 make kind-init-ipv4
     make kind-install-ipv4
-    make kube-ovn-rlr-e2e
+    make fabric-rlr-e2e
     ;;
   *)
     usage

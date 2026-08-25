@@ -498,7 +498,7 @@ func genHostAddress(host, port string) (hostAddress string) {
 func (c *Controller) SynRouteToPolicy() {
 	c.syncOneRouteToPolicy(util.OvnICKey, util.OvnICConnected)
 	c.syncOneRouteToPolicy(util.OvnICKey, util.OvnICStatic)
-	// To support the version before kube-ovn v1.9, in which version the option tag is origin=""
+	// To support the version before fabric v1.9, in which version the option tag is origin=""
 	c.syncOneRouteToPolicy(util.OvnICKey, util.OvnICNone)
 }
 

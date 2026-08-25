@@ -231,12 +231,12 @@ fi
 
 if [[ $ENABLE_OVN_LEADER_CHECK == "true" ]]; then
     chmod 600 /etc/ovn/*
-    /kube-ovn/kube-ovn-leader-checker \
+    /fabric/fabric-leader-checker \
         --probeInterval=${OVN_LEADER_PROBE_INTERVAL} \
         --remoteAddresses="${NODE_IPS}" \
         --isICDBServer=true
 else
-    # Compatible with controller deployment methods before kube-ovn 1.11.16
+    # Compatible with controller deployment methods before fabric 1.11.16
     TS_NAME=${TS_NAME:-ts}
     PROTOCOL=${PROTOCOL:-ipv4}
     if [ "$PROTOCOL" = "ipv4" ]; then
@@ -248,6 +248,6 @@ else
     fi
     ovn-ic-nbctl \
         --may-exist ts-add "$TS_NAME" -- \
-        set Transit_Switch "$TS_NAME" external_ids:subnet="$TS_CIDR" external_ids:vendor=kube-ovn
+        set Transit_Switch "$TS_NAME" external_ids:subnet="$TS_CIDR" external_ids:vendor=fabric
     tail --follow=name --retry /var/log/ovn/ovsdb-server-ic-nb.log
 fi

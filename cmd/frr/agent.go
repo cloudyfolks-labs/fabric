@@ -28,7 +28,7 @@ func AgentMain() {
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to parse log-perm")
 	}
-	util.InitLogFilePerm("kube-ovn-frr", os.FileMode(perm))
+	util.InitLogFilePerm("fabric-frr", os.FileMode(perm))
 
 	ctrl.SetLogger(klog.NewKlogr())
 	ctx := signals.SetupSignalHandler()

@@ -34,7 +34,7 @@ func TestReconcileKubeOVNTLSAddsBaselineAnnotation(t *testing.T) {
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(context.Background(), kubeOVNTLSSecretName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to get kube-ovn-tls secret: %v", err)
+		t.Fatalf("failed to get fabric-tls secret: %v", err)
 	}
 	if got := secret.Annotations[kubeOVNTLSCertHashAnnotation]; got != hash {
 		t.Fatalf("cert hash annotation = %q, want %q", got, hash)
@@ -58,7 +58,7 @@ func TestReconcileKubeOVNTLSOnlyAdoptsExpiredLegacySecret(t *testing.T) {
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(context.Background(), kubeOVNTLSSecretName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to get kube-ovn-tls secret: %v", err)
+		t.Fatalf("failed to get fabric-tls secret: %v", err)
 	}
 	if got := secret.Annotations[kubeOVNTLSCertHashAnnotation]; got != hash {
 		t.Fatalf("cert hash annotation = %q, want %q", got, hash)
@@ -85,7 +85,7 @@ func TestReconcileKubeOVNTLSRotatesExpiredSecret(t *testing.T) {
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(context.Background(), kubeOVNTLSSecretName, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to get kube-ovn-tls secret: %v", err)
+		t.Fatalf("failed to get fabric-tls secret: %v", err)
 	}
 	newHash := secret.Annotations[kubeOVNTLSCertHashAnnotation]
 	if newHash == "" || newHash == oldHash {
@@ -146,7 +146,7 @@ func TestStartKubeOVNTLSManagerPeriodicallyRotatesExpiredSecret(t *testing.T) {
 		return newHash != oldHash && secret.Annotations[kubeOVNTLSCertHashAnnotation] == newHash, nil
 	})
 	if err != nil {
-		t.Fatalf("startKubeOVNTLSManager did not rotate expired kube-ovn-tls secret: %v", err)
+		t.Fatalf("startKubeOVNTLSManager did not rotate expired fabric-tls secret: %v", err)
 	}
 }
 

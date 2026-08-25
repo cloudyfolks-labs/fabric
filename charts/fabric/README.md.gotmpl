@@ -2,7 +2,7 @@
 
 {{ template "chart.versionBadge" . }}
 
-Kubernetes network fabric for multi-tenant clouds, a fork of kube-ovn.
+Kubernetes network fabric for multi-tenant clouds, a fork of fabric.
 CRDs ship in the embedded `fabric-crds` subchart so `helm upgrade` keeps them up to date; set `crds.enabled=false` to manage CRDs yourself.
 
 ## Installing the Chart
@@ -59,7 +59,7 @@ from failing later with `mkdir /etc/origin: read-only file system`.
 
 ### What changed
 
-The v1 chart used ad-hoc labels such as `app: ovs` or `app: kube-ovn-pinger` in `spec.selector.matchLabels`.
+The v1 chart used ad-hoc labels such as `app: ovs` or `app: fabric-pinger` in `spec.selector.matchLabels`.
 The v2 chart replaces these selectors with Kubernetes-recommended labels. Since `spec.selector.matchLabels` is
 immutable, this change requires deleting and recreating each workload.
 
@@ -69,22 +69,22 @@ require workload recreation.
 
 | Component | v1 selector | v2 selector |
 |---|---|---|
-| kube-ovn-pinger | `app: kube-ovn-pinger` | `app.kubernetes.io/name: kube-ovn-pinger` |
-| kube-ovn-monitor | `app: kube-ovn-monitor` | `app.kubernetes.io/name: kube-ovn-monitor` |
-| kube-ovn-controller | `app: kube-ovn-controller` | `app.kubernetes.io/name: kube-ovn-controller` |
+| fabric-pinger | `app: fabric-pinger` | `app.kubernetes.io/name: fabric-pinger` |
+| fabric-monitor | `app: fabric-monitor` | `app.kubernetes.io/name: fabric-monitor` |
+| fabric-controller | `app: fabric-controller` | `app.kubernetes.io/name: fabric-controller` |
 | ovn-central | `app: ovn-central` | `app.kubernetes.io/name: ovn-central` |
-| ovs-ovn | `app: ovs` | `app.kubernetes.io/name: kube-ovn-ovs` |
-| kube-ovn-cni | `app: kube-ovn-cni` | `app.kubernetes.io/name: kube-ovn-cni` |
+| ovs-ovn | `app: ovs` | `app.kubernetes.io/name: fabric-ovs` |
+| fabric-cni | `app: fabric-cni` | `app.kubernetes.io/name: fabric-cni` |
 
-> **Note:** The kube-ovn-cni component is called **agent** in the v2 chart templates (`templates/agent/`).
+> **Note:** The fabric-cni component is called **agent** in the v2 chart templates (`templates/agent/`).
 
-All v2 selectors also include `app.kubernetes.io/part-of: kube-ovn`.
+All v2 selectors also include `app.kubernetes.io/part-of: fabric`.
 
 Additionally, the values file structure has changed (e.g. `networking.NET_STACK` → `networking.stack`).
 Always generate the v2 templates with a dry-run first and compare them against your running resources:
 
 ```bash
-helm template kube-ovn ./charts/fabric -f your-values.yaml > v2-manifests.yaml
+helm template fabric ./charts/fabric -f your-values.yaml > v2-manifests.yaml
 ```
 
 ### Migration order
@@ -95,51 +95,51 @@ component to become healthy before proceeding** to the next.
 You can verify pod health at any time with:
 
 ```bash
-kubectl get pods -n kube-system -l app.kubernetes.io/part-of=kube-ovn
+kubectl get pods -n kube-system -l app.kubernetes.io/part-of=fabric
 ```
 
-#### 1. kube-ovn-pinger (DaemonSet)
+#### 1. fabric-pinger (DaemonSet)
 
 Monitoring-only component — safe to recreate first.
 
 ```bash
 # Delete the old DaemonSet
-kubectl delete daemonset kube-ovn-pinger -n kube-system
+kubectl delete daemonset fabric-pinger -n kube-system
 
 # Apply the new DaemonSet and Service
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/pinger/pinger-daemonset.yaml \
   -s templates/pinger/pinger-service.yaml)
 ```
 
-#### 2. kube-ovn-monitor (Deployment)
+#### 2. fabric-monitor (Deployment)
 
 Metrics exporter — stateless and safe to recreate.
 
 ```bash
 # Delete the old Deployment
-kubectl delete deployment kube-ovn-monitor -n kube-system
+kubectl delete deployment fabric-monitor -n kube-system
 
 # Apply the new Deployment and Service
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/monitor/monitor-deployment.yaml \
   -s templates/monitor/monitor-service.yaml)
 ```
 
-#### 3. kube-ovn-controller (Deployment)
+#### 3. fabric-controller (Deployment)
 
 Control-plane component. Scale down first to avoid split-brain during switchover.
 
 ```bash
 # Scale down
-kubectl scale deployment kube-ovn-controller -n kube-system --replicas=0
-kubectl rollout status deployment kube-ovn-controller -n kube-system
+kubectl scale deployment fabric-controller -n kube-system --replicas=0
+kubectl rollout status deployment fabric-controller -n kube-system
 
 # Delete the old Deployment
-kubectl delete deployment kube-ovn-controller -n kube-system
+kubectl delete deployment fabric-controller -n kube-system
 
 # Apply the new Deployment and Service
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/controller/controller-deployment.yaml \
   -s templates/controller/controller-service.yaml)
 ```
@@ -157,7 +157,7 @@ kubectl rollout status deployment ovn-central -n kube-system
 kubectl delete deployment ovn-central -n kube-system
 
 # Apply the new Deployment and Services
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/central/central-deployment.yaml \
   -s templates/central/northbound-service.yaml \
   -s templates/central/southbound-service.yaml \
@@ -176,39 +176,39 @@ kubectl delete daemonset ovs-ovn -n kube-system --cascade=orphan
 
 # Add the new labels to existing pods (the old labels are kept by the v2 chart)
 kubectl label pod -n kube-system -l app=ovs \
-  app.kubernetes.io/name=kube-ovn-ovs \
-  app.kubernetes.io/part-of=kube-ovn
+  app.kubernetes.io/name=fabric-ovs \
+  app.kubernetes.io/part-of=fabric
 
 
 # Apply the new DaemonSet — it will adopt the relabeled pods without restarting them
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/ovs-ovn/ovs-ovn-daemonset.yaml)
 ```
 
-#### 6. kube-ovn-cni / agent (DaemonSet) — zero-downtime
+#### 6. fabric-cni / agent (DaemonSet) — zero-downtime
 
 > **Note:** The v2 chart refers to this component as **agent** in its templates (`templates/agent/`),
-> but the resulting DaemonSet is still named `kube-ovn-cni` in the cluster.
+> but the resulting DaemonSet is still named `fabric-cni` in the cluster.
 
 Same orphan strategy as ovs-ovn. Apply the new Service first so it selects the relabeled pods immediately.
 Note: applying the new DaemonSet will trigger a rolling restart of the CNI pods.
 
 ```bash
 # Delete the DaemonSet but keep its pods alive
-kubectl delete daemonset kube-ovn-cni -n kube-system --cascade=orphan
+kubectl delete daemonset fabric-cni -n kube-system --cascade=orphan
 
 # Add the new labels to existing pods (the old labels are kept by the v2 chart)
-kubectl label pod -n kube-system -l app=kube-ovn-cni \
-  app.kubernetes.io/name=kube-ovn-cni \
-  app.kubernetes.io/part-of=kube-ovn
+kubectl label pod -n kube-system -l app=fabric-cni \
+  app.kubernetes.io/name=fabric-cni \
+  app.kubernetes.io/part-of=fabric
 
 # Apply the new Service (selects the relabeled pods)
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/agent/agent-service.yaml)
 
 
 # Apply the new DaemonSet (will trigger a rolling restart)
-kubectl apply -f <(helm template kube-ovn ./charts/fabric -f your-values.yaml \
+kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
   -s templates/agent/agent-daemonset.yaml)
 ```
 
@@ -218,7 +218,7 @@ Once all components are healthy, run a full Helm upgrade to ensure every remaini
 (RBAC, CRDs, ConfigMaps, etc.) is in sync with the v2 chart:
 
 ```bash
-helm upgrade --install kube-ovn ./charts/fabric -f your-values.yaml -n kube-system
+helm upgrade --install fabric ./charts/fabric -f your-values.yaml -n kube-system
 ```
 
 ### Notes for GitOps users

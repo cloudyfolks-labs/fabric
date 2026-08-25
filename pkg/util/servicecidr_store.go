@@ -34,7 +34,7 @@ func ReadyServiceCIDRs(sc *networkingv1.ServiceCIDR) []string {
 }
 
 // ServiceCIDRStore is the merged source of truth for Service CIDRs known to
-// kube-ovn. It combines the values from --service-cluster-ip-range (fallback)
+// fabric. It combines the values from --service-cluster-ip-range (fallback)
 // with the CIDRs found in networking.k8s.io/v1 ServiceCIDR objects, when the
 // API is available.
 //

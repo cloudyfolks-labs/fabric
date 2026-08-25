@@ -90,7 +90,7 @@ func FindKubeOVNAutoCreatedInterfaces(providerName string) ([]string, error) {
 	}
 
 	// Use link.Attrs().Alias (parsed from IFLA_IFALIAS by netlink) instead of reading sysfs
-	prefix := "kube-ovn:" + providerName
+	prefix := "fabric:" + providerName
 	for _, link := range links {
 		if link.Attrs().Alias == prefix {
 			createdInterfaces = append(createdInterfaces, link.Attrs().Name)

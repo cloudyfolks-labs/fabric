@@ -1,9 +1,9 @@
-{{- if include "kubeovn.renderDataPlane" . -}}
-{{- $controllerImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.controller.image) | fromYaml -}}
+{{- if include "fabric.renderDataPlane" . -}}
+{{- $controllerImage := include "fabric.imageSpec" (dict "root" . "image" .Values.controller.image) | fromYaml -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kube-ovn-controller
+  name: fabric-controller
   namespace: {{ .Values.namespace }}
   {{- with .Values.controller.annotations }}
   annotations:
@@ -14,11 +14,11 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ include "kubeovn.controllerReplicas" . }}
+  replicas: {{ include "fabric.controllerReplicas" . }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-controller
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/name: fabric-controller
+      app.kubernetes.io/part-of: fabric
   strategy:
     rollingUpdate:
       maxSurge: 0%
@@ -31,13 +31,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: kube-ovn-controller
-        app.kubernetes.io/part-of: kube-ovn
+        app.kubernetes.io/name: fabric-controller
+        app.kubernetes.io/part-of: fabric
         {{- with .Values.controller.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
         # Legacy labels
-        app: kube-ovn-controller
+        app: fabric-controller
         component: network
         type: infra
     spec:
@@ -48,12 +48,12 @@ spec:
           operator: Exists
       affinity:
         {{- $hardcodedPreferred := list (dict "matchExpressions" (list (dict "key" "fabric.cloudyfolks.io/ic-gw" "operator" "NotIn" "values" (list "true"))) "weight" 100) -}}
-        {{- include "kube-ovn.affinities.nodeAffinity" (dict "hardcodedPreferred" $hardcodedPreferred "userPreferred" .Values.controller.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.controller.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) | nindent 8 }}
+        {{- include "fabric.affinities.nodeAffinity" (dict "hardcodedPreferred" $hardcodedPreferred "userPreferred" .Values.controller.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.controller.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) | nindent 8 }}
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app.kubernetes.io/name: kube-ovn-controller
+                  app.kubernetes.io/name: fabric-controller
               topologyKey: kubernetes.io/hostname
       priorityClassName: system-cluster-critical
       serviceAccountName: ovn
@@ -69,7 +69,7 @@ spec:
           command:
             - sh
             - -c
-            - "chown -R nobody: /var/log/kube-ovn"
+            - "chown -R nobody: /var/log/fabric"
           securityContext:
             allowPrivilegeEscalation: true
             capabilities:
@@ -78,14 +78,14 @@ spec:
             privileged: true
             runAsUser: 0
           volumeMounts:
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
+            - name: fabric-log
+              mountPath: /var/log/fabric
       containers:
-        - name: kube-ovn-controller
+        - name: fabric-controller
           image: {{ $controllerImage.prefix }}{{ $controllerImage.repository }}:{{ $controllerImage.tag }}
           imagePullPolicy: {{ $controllerImage.pullPolicy }}
           args:
-          - /kube-ovn/start-controller.sh
+          - /fabric/start-controller.sh
           {{- if .Values.controller.leaderElection.leaseDuration }}
           - --leader-elect-lease-duration={{ .Values.controller.leaderElection.leaseDuration }}
           {{- end }}
@@ -154,7 +154,7 @@ spec:
           - --alsologtostderr=true
           - --gc-interval={{- .Values.performance.gcInterval }}
           - --inspect-interval={{- .Values.performance.inspectInterval }}
-          - --log_file=/var/log/kube-ovn/kube-ovn-controller.log
+          - --log_file=/var/log/fabric/fabric-controller.log
           - --log_file_max_size=200
           - --enable-ovn-lb-svc={{- .Values.features.enableOvnLbSvc }}
           - --keep-vm-ip={{- .Values.features.enableKeepVmIps }}
@@ -163,7 +163,7 @@ spec:
           - --skip-conntrack-dst-cidrs={{- .Values.networking.skipConntrackDstCidrs }}
           - --secure-serving={{- .Values.features.enableSecureServing }}
           {{- if or .Values.networking.tlsMinVersion .Values.networking.tlsMaxVersion .Values.networking.tlsCipherSuites }}
-          {{- include "kubeovn.componentTLSArgs" . | nindent 10 }}
+          {{- include "fabric.componentTLSArgs" . | nindent 10 }}
           {{- end }}
           - --enable-ovn-ipsec={{- .Values.features.enableOvnIpsec }}
           - --enable-anp={{- .Values.features.ENABLE_ANP }}
@@ -174,7 +174,7 @@ spec:
           - --non-primary-cni-mode={{- .Values.cni.nonPrimaryCNI }}
           - --np-enforcement={{- .Values.networkPolicies.enforcement | quote }}
           securityContext:
-            runAsUser: {{ include "kubeovn.runAsUser" . }}
+            runAsUser: {{ include "fabric.runAsUser" . }}
             privileged: false
             capabilities:
               add:
@@ -199,12 +199,12 @@ spec:
                   fieldPath: spec.nodeName
             {{- if .Values.central.hcp.enabled }}
             - name: OVN_NB_ADDR
-              value: "{{ include "kubeovn.ovnNbAddress" . }}"
+              value: "{{ include "fabric.ovnNbAddress" . }}"
             - name: OVN_SB_ADDR
-              value: "{{ include "kubeovn.ovnSbAddress" . }}"
+              value: "{{ include "fabric.ovnSbAddress" . }}"
             {{- else }}
             - name: OVN_DB_IPS
-              value: "{{ include "kubeovn.ovnDbAddresses" . }}"
+              value: "{{ include "fabric.ovnDbAddresses" . }}"
             {{- end }}
             - name: POD_IP
               valueFrom:
@@ -223,13 +223,13 @@ spec:
             - mountPath: /etc/localtime
               name: localtime
               readOnly: true
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+            - mountPath: /var/log/fabric
+              name: fabric-log
             # ovn-ic log directory
             - mountPath: /var/log/ovn
               name: ovn-log
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           readinessProbe:
             httpGet:
               port: 10660
@@ -256,14 +256,14 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: {{ .Values.logging.directory }}/kube-ovn
+            path: {{ .Values.logging.directory }}/fabric
         - name: ovn-log
           hostPath:
             path: {{ .Values.logging.directory }}/ovn
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 {{- end }}

@@ -1,4 +1,4 @@
-{{- if and (include "kubeovn.renderFullOnly" .) .Values.ovsOvn.upgrade.enabled -}}
+{{- if and (include "fabric.renderFullOnly" .) .Values.ovsOvn.upgrade.enabled -}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -107,7 +107,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ovs-ovn-pre-upgrade
-          image: "{{ .Values.global.registry.address}}/{{ .Values.global.images.kubeovn.repository }}:{{ .Values.global.images.kubeovn.tag }}"
+          image: "{{ .Values.global.registry.address}}/{{ .Values.global.images.fabric.repository }}:{{ .Values.global.images.fabric.tag }}"
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -119,14 +119,14 @@ spec:
             - pipefail
             - -c
             - |
-              touch /var/log/kube-ovn/pre-upgrade-ovs.log
-              chmod 640 /var/log/kube-ovn/pre-upgrade-ovs.log
-              bash /kube-ovn/pre-upgrade-ovs.sh 2>&1 | tee -a /var/log/kube-ovn/pre-upgrade-ovs.log
+              touch /var/log/fabric/pre-upgrade-ovs.log
+              chmod 640 /var/log/fabric/pre-upgrade-ovs.log
+              bash /fabric/pre-upgrade-ovs.sh 2>&1 | tee -a /var/log/fabric/pre-upgrade-ovs.log
           volumeMounts:
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+            - mountPath: /var/log/fabric
+              name: fabric-log
       volumes:
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: {{ .Values.logging.directory }}/kube-ovn
+            path: {{ .Values.logging.directory }}/fabric
 {{- end -}}

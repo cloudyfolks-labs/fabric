@@ -6,8 +6,8 @@ ovs-vsctl set open . external_ids:ovn-encap-type=stt
 /usr/share/openvswitch/scripts/ovs-ctl stop
 ovs-dpctl del-dp ovs-system
 
-iptables -t nat -D PREROUTING -j OVN-PREROUTING -m comment --comment "kube-ovn prerouting rules"
-iptables -t nat -D POSTROUTING -j OVN-POSTROUTING -m comment --comment "kube-ovn postrouting rules"
+iptables -t nat -D PREROUTING -j OVN-PREROUTING -m comment --comment "fabric prerouting rules"
+iptables -t nat -D POSTROUTING -j OVN-POSTROUTING -m comment --comment "fabric postrouting rules"
 iptables -t nat -F OVN-PREROUTING
 iptables -t nat -X OVN-PREROUTING
 iptables -t nat -F OVN-POSTROUTING
@@ -28,9 +28,9 @@ iptables -t filter -D FORWARD -m set --match-set ovn40services src -j ACCEPT
 iptables -t filter -D OUTPUT -p udp -m udp --dport 6081 -j MARK --set-xmark 0x0
 iptables -t filter -D OUTPUT -p udp -m udp --dport 4789 -j MARK --set-xmark 0x0
 iptables -t filter -D OUTPUT -p tcp -m mark ! --mark 0x4000/0x4000 -m set --match-set ovn40services dst -m conntrack --ctstate NEW -j REJECT
-iptables -t mangle -D PREROUTING -m comment --comment "kube-ovn prerouting rules" -j OVN-PREROUTING
-iptables -t mangle -D POSTROUTING -m comment --comment "kube-ovn postrouting rules" -j OVN-POSTROUTING
-iptables -t mangle -D OUTPUT -m comment --comment "kube-ovn output rules" -j OVN-OUTPUT
+iptables -t mangle -D PREROUTING -m comment --comment "fabric prerouting rules" -j OVN-PREROUTING
+iptables -t mangle -D POSTROUTING -m comment --comment "fabric postrouting rules" -j OVN-POSTROUTING
+iptables -t mangle -D OUTPUT -m comment --comment "fabric output rules" -j OVN-OUTPUT
 iptables -t mangle -F OVN-PREROUTING
 iptables -t mangle -X OVN-PREROUTING
 iptables -t mangle -F OVN-OUTPUT
@@ -48,8 +48,8 @@ ipset destroy ovn40other-node
 ipset destroy ovn40services
 ipset destroy ovn40subnets-nat-policy
 
-ip6tables -t nat -D PREROUTING -j OVN-PREROUTING -m comment --comment "kube-ovn prerouting rules"
-ip6tables -t nat -D POSTROUTING -j OVN-POSTROUTING -m comment --comment "kube-ovn postrouting rules"
+ip6tables -t nat -D PREROUTING -j OVN-PREROUTING -m comment --comment "fabric prerouting rules"
+ip6tables -t nat -D POSTROUTING -j OVN-POSTROUTING -m comment --comment "fabric postrouting rules"
 ip6tables -t nat -F OVN-PREROUTING
 ip6tables -t nat -X OVN-PREROUTING
 ip6tables -t nat -F OVN-POSTROUTING
@@ -70,9 +70,9 @@ ip6tables -t filter -D FORWARD -m set --match-set ovn60services src -j ACCEPT
 ip6tables -t filter -D OUTPUT -p udp -m udp --dport 6081 -j MARK --set-xmark 0x0
 ip6tables -t filter -D OUTPUT -p udp -m udp --dport 4789 -j MARK --set-xmark 0x0
 ip6tables -t filter -D OUTPUT -p tcp -m mark ! --mark 0x4000/0x4000 -m set --match-set ovn60services dst -m conntrack --ctstate NEW -j REJECT
-ip6tables -t mangle -D PREROUTING -m comment --comment "kube-ovn prerouting rules" -j OVN-PREROUTING
-ip6tables -t mangle -D POSTROUTING -m comment --comment "kube-ovn postrouting rules" -j OVN-POSTROUTING
-ip6tables -t mangle -D OUTPUT -m comment --comment "kube-ovn output rules" -j OVN-OUTPUT
+ip6tables -t mangle -D PREROUTING -m comment --comment "fabric prerouting rules" -j OVN-PREROUTING
+ip6tables -t mangle -D POSTROUTING -m comment --comment "fabric postrouting rules" -j OVN-POSTROUTING
+ip6tables -t mangle -D OUTPUT -m comment --comment "fabric output rules" -j OVN-OUTPUT
 ip6tables -t mangle -F OVN-PREROUTING
 ip6tables -t mangle -X OVN-PREROUTING
 ip6tables -t mangle -F OVN-OUTPUT
@@ -99,6 +99,6 @@ rm -rf /var/log/ovn/*
 rm -rf /etc/ovs_ipsec_keys/*
 
 # default
-rm -rf /etc/cni/net.d/00-kube-ovn.conflist
+rm -rf /etc/cni/net.d/00-fabric.conflist
 # default
-rm -rf /etc/cni/net.d/01-kube-ovn.conflist
+rm -rf /etc/cni/net.d/01-fabric.conflist

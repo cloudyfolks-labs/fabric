@@ -1,12 +1,12 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.prometheusRule.enabled }}
+{{- if and (include "fabric.renderDataPlane" .) .Values.prometheusRule.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kube-ovn
+  name: fabric
   namespace: {{ default .Values.namespace .Values.prometheusRule.namespace }}
   labels:
-    app.kubernetes.io/name: kube-ovn
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/name: fabric
+    app.kubernetes.io/part-of: fabric
     {{- with .Values.prometheusRule.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -16,27 +16,27 @@ metadata:
   {{- end }}
 spec:
   groups:
-    - name: kube-ovn.controller
+    - name: fabric.controller
       rules:
         - alert: KubeOvnControllerDown
-          expr: up{job="kube-ovn-controller"} == 0
+          expr: up{job="fabric-controller"} == 0
           for: 5m
           labels:
             severity: critical
           annotations:
-            summary: 'kube-ovn-controller {{`{{ $labels.instance }}`}} is down'
-            description: 'kube-ovn-controller instance {{`{{ $labels.instance }}`}} has been failing scrape for more than 5 minutes.'
+            summary: 'fabric-controller {{`{{ $labels.instance }}`}} is down'
+            description: 'fabric-controller instance {{`{{ $labels.instance }}`}} has been failing scrape for more than 5 minutes.'
         - alert: KubeOvnControllerAbsent
-          expr: absent(up{job="kube-ovn-controller"})
+          expr: absent(up{job="fabric-controller"})
           for: 15m
           labels:
             severity: critical
           annotations:
-            summary: No kube-ovn-controller scrape target found
+            summary: No fabric-controller scrape target found
             description: |
-              Prometheus has not seen any kube-ovn-controller target for 15 minutes.
+              Prometheus has not seen any fabric-controller target for 15 minutes.
               This usually means the controller pods are gone, the Service has no
-              endpoints, or no scrape job has been configured for kube-ovn-controller.
+              endpoints, or no scrape job has been configured for fabric-controller.
               If no ServiceMonitor or external scrape provides this job yet, either
               enable controller.serviceMonitor or silence/inhibit this alert in
               Alertmanager until scraping is wired up.
@@ -49,7 +49,7 @@ spec:
           annotations:
             summary: 'Kube-OVN subnet {{`{{ $labels.subnet_name }}`}} IP usage is above 90%'
             description: 'Subnet {{`{{ $labels.subnet_name }}`}} ({{`{{ $labels.subnet_cidr }}`}}) has exceeded 90% IP allocation for more than 10 minutes.'
-    - name: kube-ovn.pinger
+    - name: fabric.pinger
       rules:
         - alert: KubeOvnOvsDown
           expr: pinger_ovs_down == 1
@@ -83,7 +83,7 @@ spec:
           annotations:
             summary: 'Internal DNS unhealthy from node {{`{{ $labels.nodeName }}`}}'
             description: 'Pinger on node {{`{{ $labels.nodeName }}`}} has been unable to resolve the internal DNS target for more than 5 minutes.'
-    - name: kube-ovn.ovs
+    - name: fabric.ovs
       rules:
         - alert: KubeOvnOvsdbSlowRequest
           expr: |

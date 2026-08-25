@@ -29,7 +29,7 @@ func StartPinger(config *Configuration, stopCh <-chan struct{}) {
 	timer.Stop()
 LOOP:
 	for {
-		if config.NetworkMode == "kube-ovn" {
+		if config.NetworkMode == "fabric" {
 			if checkOvs(config, withMetrics) != nil {
 				errHappens = true
 			}

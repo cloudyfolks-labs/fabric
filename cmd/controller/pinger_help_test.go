@@ -17,11 +17,11 @@ func TestCommandHelpDescriptions(t *testing.T) {
 	for _, name := range []string{
 		CmdController,
 		CmdPinger,
-		"kube-ovn-daemon",
-		"kube-ovn-monitor",
-		"kube-ovn-webhook",
-		"kube-ovn-leader-checker",
-		"kube-ovn-ic-controller",
+		"fabric-daemon",
+		"fabric-monitor",
+		"fabric-webhook",
+		"fabric-leader-checker",
+		"fabric-ic-controller",
 	} {
 		t.Run(name, func(t *testing.T) {
 			help := runHelp(t, bins[name], name)
@@ -40,7 +40,7 @@ func TestCommandHelpDescriptions(t *testing.T) {
 			"when empty, the first IP in default-cidr is used",
 			"when empty, the first IP in node-switch-cidr is used",
 		},
-		"kube-ovn-daemon": {
+		"fabric-daemon": {
 			"when empty, the interface that owns POD_IP or a node internal IP is used",
 			"the node tunnel interface annotation and DPDK mode take precedence",
 			"when set to 0, it is derived from the selected interface MTU based on the network type and IP family",
@@ -60,17 +60,17 @@ func buildCommandBinaries(t *testing.T, tmpDir string) map[string]string {
 	t.Helper()
 
 	controllerBin := buildBinary(t, tmpDir, CmdController, ".")
-	rootBin := buildBinary(t, tmpDir, "kube-ovn-monitor", "..")
-	daemonBin := buildBinary(t, tmpDir, "kube-ovn-daemon", "../daemon")
+	rootBin := buildBinary(t, tmpDir, "fabric-monitor", "..")
+	daemonBin := buildBinary(t, tmpDir, "fabric-daemon", "../daemon")
 
 	bins := map[string]string{
-		CmdController:             controllerBin,
-		CmdPinger:                 linkCommand(t, tmpDir, controllerBin, CmdPinger),
-		"kube-ovn-daemon":         daemonBin,
-		"kube-ovn-monitor":        rootBin,
-		"kube-ovn-webhook":        linkCommand(t, tmpDir, rootBin, "kube-ovn-webhook"),
-		"kube-ovn-leader-checker": linkCommand(t, tmpDir, rootBin, "kube-ovn-leader-checker"),
-		"kube-ovn-ic-controller":  linkCommand(t, tmpDir, rootBin, "kube-ovn-ic-controller"),
+		CmdController:           controllerBin,
+		CmdPinger:               linkCommand(t, tmpDir, controllerBin, CmdPinger),
+		"fabric-daemon":         daemonBin,
+		"fabric-monitor":        rootBin,
+		"fabric-webhook":        linkCommand(t, tmpDir, rootBin, "fabric-webhook"),
+		"fabric-leader-checker": linkCommand(t, tmpDir, rootBin, "fabric-leader-checker"),
+		"fabric-ic-controller":  linkCommand(t, tmpDir, rootBin, "fabric-ic-controller"),
 	}
 	return bins
 }

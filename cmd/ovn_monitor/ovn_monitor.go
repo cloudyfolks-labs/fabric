@@ -35,7 +35,7 @@ func CmdMain() {
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to parse log-perm")
 	}
-	util.InitLogFilePerm("kube-ovn-monitor", os.FileMode(perm))
+	util.InitLogFilePerm("fabric-monitor", os.FileMode(perm))
 
 	ctrl.SetLogger(klog.NewKlogr())
 	ctx := signals.SetupSignalHandler()

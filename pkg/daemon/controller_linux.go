@@ -1060,7 +1060,7 @@ func rotateLog() {
 	}
 	output, err = exec.Command("logrotate", "/etc/logrotate.d/kubeovn").CombinedOutput()
 	if err != nil {
-		klog.Errorf("failed to rotate kube-ovn log %q", output)
+		klog.Errorf("failed to rotate fabric log %q", output)
 	}
 }
 

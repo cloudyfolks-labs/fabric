@@ -118,7 +118,7 @@ func TestGetNadInterfaceFromNetworkStatusAnnotation(t *testing.T) {
 				"ips": ["192.168.1.10"],
 				"dns": {},
 				"device-info": {
-					"type": "kube-ovn",
+					"type": "fabric",
 					"version": "1.0.0"
 				}
 			}]`,
@@ -140,7 +140,7 @@ func TestGetNadInterfaceFromNetworkStatusAnnotation(t *testing.T) {
 					"name": "ovn-cluster/test-subnet",
 					"interface": "net1",
 					"ips": ["192.168.1.10"],
-					"device-info": {"type": "kube-ovn"}
+					"device-info": {"type": "fabric"}
 				}
 			]`,
 			nadName:        "ovn-cluster/test-subnet",
@@ -155,7 +155,7 @@ func TestGetNadInterfaceFromNetworkStatusAnnotation(t *testing.T) {
 				"interface": "net1",
 				"ips": ["192.168.1.10"],
 				"device-info": {
-					"type": "kube-ovn",
+					"type": "fabric",
 					"version": "1.0.0"
 				}
 			}]`,
@@ -170,7 +170,7 @@ func TestGetNadInterfaceFromNetworkStatusAnnotation(t *testing.T) {
 				"name": "ovn-cluster/test-subnet",
 				"ips": ["192.168.1.10"],
 				"device-info": {
-					"type": "kube-ovn",
+					"type": "fabric",
 					"version": "1.0.0"
 				}
 			}]`,

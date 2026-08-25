@@ -8,7 +8,7 @@ include makefiles/e2e.mk
 
 HELM_OVN_DB_TLS_ARGS = $(if $(TLS_MIN_VERSION),--set networking.tlsMinVersion=$(TLS_MIN_VERSION),) $(if $(TLS_MAX_VERSION),--set networking.tlsMaxVersion=$(TLS_MAX_VERSION),) $(if $(TLS_CIPHER_SUITES),--set 'networking.tlsCipherSuites={$(TLS_CIPHER_SUITES)}',)
 
-REGISTRY = kubeovn
+REGISTRY = ghcr.io/cloudyfolks-labs
 DEV_TAG = dev
 RELEASE_TAG = $(shell cat VERSION)
 BASE_VERSION_TAG = $(shell cat BASE_VERSION)
@@ -113,16 +113,16 @@ define docker_config_bridge
 		default=$$(docker network inspect $(1) -f '{{index .Options "com.docker.network.bridge.default_bridge"}}'); \
 		br="docker0"; \
 		[ "$$default" != "true" ] && br="br-$$(docker network inspect $(1) -f "{{.Id}}" | head -c 12)"; \
-		docker run --rm --privileged --network=host $(REGISTRY)/kube-ovn:$(VERSION) bash -ec '\
+		docker run --rm --privileged --network=host $(REGISTRY)/fabric:$(VERSION) bash -ec '\
 			for brif in $$(ls /sys/class/net/'$$br'/brif); do \
 				echo $(2) > /sys/class/net/'$$br'/brif/$$brif/hairpin_mode; \
 			done'; \
 		if [ -z "$(3)" ]; then \
-			docker run --rm --privileged --network=host $(REGISTRY)/kube-ovn:$(VERSION) bash -ec '\
+			docker run --rm --privileged --network=host $(REGISTRY)/fabric:$(VERSION) bash -ec '\
 				echo 0 > /sys/class/net/'$$br'/bridge/vlan_filtering; \
 			'; \
 		else \
-			docker run --rm --privileged --network=host $(REGISTRY)/kube-ovn:$(VERSION) bash -ec '\
+			docker run --rm --privileged --network=host $(REGISTRY)/fabric:$(VERSION) bash -ec '\
 				echo 1 > /sys/class/net/'$$br'/bridge/vlan_filtering; \
 				bridge vlan show | awk "/^'$$br'/{print \$$2; while (getline > 0) {\
 					if (\$$0 ~ /^[[:blank:]]/) {print \$$1} else {exit 0} }\
@@ -180,18 +180,18 @@ define kubectl_wait_submariner_ready
 	$(call kubectl_wait_exist_and_ready,submariner-operator,daemonset,submariner-routeagent)
 endef
 
-.PHONY: check-kube-ovn-pod-restarts
-check-kube-ovn-pod-restarts:
+.PHONY: check-fabric-pod-restarts
+check-fabric-pod-restarts:
 	bash hack/ci-check-crash.sh
 
 .PHONY: install-chart
 install-chart:
 	@timeout 120 bash -c 'until kubectl get node -l node-role.kubernetes.io/control-plane -o name 2>/dev/null | grep -q .; do echo "Waiting for control-plane nodes to be labeled..."; sleep 2; done'
-	kubectl label node --overwrite -l node-role.kubernetes.io/control-plane kube-ovn/role=master
-	helm install kubeovn ./charts/fabric --wait \
+	kubectl label node --overwrite -l node-role.kubernetes.io/control-plane fabric/role=master
+	helm install fabric ./charts/fabric --wait \
 		--set global.registry.address=$(REGISTRY) \
-		--set global.images.kubeovn.repository=kube-ovn \
-		--set global.images.kubeovn.tag=$(VERSION) \
+		--set global.images.fabric.repository=fabric \
+		--set global.images.fabric.tag=$(VERSION) \
 		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
 		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
 		$(HELM_OVN_DB_TLS_ARGS) \
@@ -200,10 +200,10 @@ install-chart:
 
 .PHONY: upgrade-chart
 upgrade-chart:
-	helm upgrade kubeovn ./charts/fabric --wait \
+	helm upgrade fabric ./charts/fabric --wait \
 		--set global.registry.address=$(REGISTRY) \
-		--set global.images.kubeovn.repository=kube-ovn \
-		--set global.images.kubeovn.tag=$(VERSION) \
+		--set global.images.fabric.repository=fabric \
+		--set global.images.fabric.tag=$(VERSION) \
 		--set networking.stack=$(subst dual,Dual,$(subst ipv6,IPv6,$(subst ipv4,IPv4,$(or $(NET_STACK),ipv4)))) \
 		--set networking.enableSsl=$(or $(ENABLE_SSL),false) \
 		$(HELM_OVN_DB_TLS_ARGS) \
@@ -217,7 +217,7 @@ uninstall:
 
 .PHONY: uninstall-chart
 uninstall-chart:
-	helm uninstall kubeovn
+	helm uninstall fabric
 
 .PHONY: kubectl-ko-log
 kubectl-ko-log:
@@ -226,18 +226,18 @@ kubectl-ko-log:
 
 .PHONY: clean
 clean:
-	$(RM) dist/images/kube-ovn dist/images/kube-ovn-cmd dist/images/kube-ovn-bfdd-supervisor
+	$(RM) dist/images/fabric dist/images/fabric-cmd dist/images/fabric-bfdd-supervisor
 	$(RM) yamls/kind.yaml
-	$(RM) ovn.yaml kube-ovn.yaml kube-ovn-crd.yaml
+	$(RM) ovn.yaml fabric.yaml fabric-crd.yaml
 	$(RM) ovn-ic-config.yaml ovn-ic-0.yaml ovn-ic-1.yaml
 	$(RM) kwok-node.yaml metallb-cr.yaml
 	$(RM) cakey.pem cacert.pem ovn-req.pem ovn-cert.pem ovn-privkey.pem
-	$(RM) kube-ovn.tar kube-ovn-dpdk.tar image-amd64.tar image-amd64-dpdk.tar image-arm64.tar
+	$(RM) fabric.tar fabric-dpdk.tar image-amd64.tar image-amd64-dpdk.tar image-arm64.tar
 	$(RM) kubectl-ko-log.tar.gz
 	$(RM) -r kubectl-ko-log/
 
 .PHONY: local-dev
 local-dev:
 	@DEBUG=1 $(MAKE) build-go
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/kube-ovn:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
 	@$(MAKE) kind-init kind-install

@@ -30,7 +30,7 @@ var _ = framework.SerialDescribe("[group:pod]", func() {
 		podClient.DeleteSync(podName)
 	})
 
-	framework.ConformanceIt("should handle pod creation during kube-ovn-controller is down", func() {
+	framework.ConformanceIt("should handle pod creation during fabric-controller is down", func() {
 		ginkgo.By("Creating pod " + podName)
 		pod := framework.MakePod(namespaceName, podName, nil, nil, framework.PauseImage, nil, nil)
 		pod = podClient.CreateSync(pod)
@@ -50,27 +50,27 @@ var _ = framework.SerialDescribe("[group:pod]", func() {
 		framework.ExpectEqual(ip.Spec.MacAddress, mac)
 		framework.ExpectEqual(ip.Spec.IPAddress, pod.Annotations[util.IPAddressAnnotation])
 
-		ginkgo.By("Getting deployment kube-ovn-controller")
+		ginkgo.By("Getting deployment fabric-controller")
 		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
-		deploy := deployClient.Get("kube-ovn-controller")
+		deploy := deployClient.Get("fabric-controller")
 		framework.ExpectNotNil(deploy.Spec.Replicas)
 
-		ginkgo.By("Getting kube-ovn-controller pods")
+		ginkgo.By("Getting fabric-controller pods")
 		kubePodClient := f.PodClientNS(framework.KubeOvnNamespace)
 		framework.ExpectNotNil(deploy.Spec.Replicas)
 		pods, err := kubePodClient.List(context.Background(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(deploy.Spec.Selector)})
-		framework.ExpectNoError(err, "failed to list kube-ovn-controller pods")
+		framework.ExpectNoError(err, "failed to list fabric-controller pods")
 		framework.ExpectNotNil(pods)
 		podNames := make([]string, 0, len(pods.Items))
 		for _, pod := range pods.Items {
 			podNames = append(podNames, pod.Name)
 		}
-		framework.Logf("Got kube-ovn-controller pods: %s", strings.Join(podNames, ", "))
+		framework.Logf("Got fabric-controller pods: %s", strings.Join(podNames, ", "))
 
-		ginkgo.By("Stopping kube-ovn-controller by setting its replicas to zero")
+		ginkgo.By("Stopping fabric-controller by setting its replicas to zero")
 		deployClient.SetScale(deploy.Name, 0)
 
-		ginkgo.By("Waiting for kube-ovn-controller pods to disappear")
+		ginkgo.By("Waiting for fabric-controller pods to disappear")
 		for _, pod := range podNames {
 			ginkgo.By("Waiting for pod " + pod + " to disappear")
 			kubePodClient.WaitForNotFound(pod)
@@ -83,10 +83,10 @@ var _ = framework.SerialDescribe("[group:pod]", func() {
 		pod = framework.MakePod(namespaceName, podName, nil, nil, framework.PauseImage, nil, nil)
 		_ = podClient.Create(pod)
 
-		ginkgo.By("Starting kube-ovn-controller by restore its replicas")
+		ginkgo.By("Starting fabric-controller by restore its replicas")
 		deployClient.SetScale(deploy.Name, cmp.Or(*deploy.Spec.Replicas, 1))
 
-		ginkgo.By("Waiting for kube-ovn-controller to be ready")
+		ginkgo.By("Waiting for fabric-controller to be ready")
 		_ = deployClient.RolloutStatus(deploy.Name)
 
 		ginkgo.By("Waiting for pod " + podName + " to be running")

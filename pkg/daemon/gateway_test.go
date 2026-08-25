@@ -199,7 +199,7 @@ func TestGetTProxyConditionPod(t *testing.T) {
 		fmt.Sprintf(util.IPAddressAnnotationTemplate, attachProvider):     "172.17.0.5",
 		fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, attachProvider): "attach-subnet",
 	}, "172.17.0.5")
-	// kube-ovn allocated an unused address for the default provider while another
+	// fabric allocated an unused address for the default provider while another
 	// CNI provides the primary network; tproxy must not intercept its probes
 	secondaryPod := mkTProxyPod("default", "secondary", map[string]string{
 		fmt.Sprintf(util.IPAddressAnnotationTemplate, util.OvnProvider):     "10.16.0.6",

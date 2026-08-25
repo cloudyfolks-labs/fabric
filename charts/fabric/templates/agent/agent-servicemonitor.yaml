@@ -1,16 +1,16 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.agent.serviceMonitor.enabled }}
+{{- if and (include "fabric.renderDataPlane" .) .Values.agent.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: {{ .Values.namespace }}
   {{- with .Values.agent.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
-    app.kubernetes.io/name: kube-ovn-cni
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/name: fabric-cni
+    app.kubernetes.io/part-of: fabric
     {{- with .Values.agent.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -24,5 +24,5 @@ spec:
       - {{ .Values.namespace }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-cni
+      app.kubernetes.io/name: fabric-cni
 {{- end }}

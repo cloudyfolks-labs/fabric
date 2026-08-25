@@ -1,4 +1,4 @@
-{{- if include "kubeovn.renderDataPlane" . -}}
+{{- if include "fabric.renderDataPlane" . -}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -268,7 +268,7 @@ rules:
     resources:
       - secrets
     resourceNames:
-      - kube-ovn-tls
+      - fabric-tls
     verbs:
       - update
   - apiGroups:
@@ -329,7 +329,7 @@ rules:
     verbs:
       - get
       - list
-{{- if include "kubeovn.renderDataPlane" . }}
+{{- if include "fabric.renderDataPlane" . }}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -337,7 +337,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.k8s.io/system-only: "true"
-  name: system:kube-ovn-app
+  name: system:fabric-app
 rules:
   - apiGroups:
       - ""

@@ -1,9 +1,9 @@
-{{- if include "kubeovn.renderDataPlane" . -}}
-{{- $pingerImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.pinger.image) | fromYaml -}}
+{{- if include "fabric.renderDataPlane" . -}}
+{{- $pingerImage := include "fabric.imageSpec" (dict "root" . "image" .Values.pinger.image) | fromYaml -}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: kube-ovn-pinger
+  name: fabric-pinger
   namespace: {{ .Values.namespace }}
   {{- with .Values.pinger.annotations }}
   annotations:
@@ -16,8 +16,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-pinger
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/name: fabric-pinger
+      app.kubernetes.io/part-of: fabric
   updateStrategy:
     type: RollingUpdate
   template:
@@ -27,13 +27,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: kube-ovn-pinger
-        app.kubernetes.io/part-of: kube-ovn
+        app.kubernetes.io/name: fabric-pinger
+        app.kubernetes.io/part-of: fabric
         {{- with .Values.pinger.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
         # Legacy labels
-        app: kube-ovn-pinger
+        app: fabric-pinger
         component: network
         type: infra
     spec:
@@ -45,7 +45,7 @@ spec:
           operator: Exists
         - key: CriticalAddonsOnly
           operator: Exists
-      serviceAccountName: kube-ovn-app
+      serviceAccountName: fabric-app
       automountServiceAccountToken: true
       hostPID: false
       securityContext:
@@ -58,7 +58,7 @@ spec:
           command:
             - sh
             - -c
-            - "chown -R nobody: /var/log/kube-ovn"
+            - "chown -R nobody: /var/log/fabric"
           securityContext:
             allowPrivilegeEscalation: true
             capabilities:
@@ -67,24 +67,24 @@ spec:
             privileged: true
             runAsUser: 0
           volumeMounts:
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
+            - name: fabric-log
+              mountPath: /var/log/fabric
       containers:
         - name: pinger
           image: {{ $pingerImage.prefix }}{{ $pingerImage.repository }}:{{ $pingerImage.tag }}
           command:
-          - /kube-ovn/kube-ovn-pinger
+          - /fabric/fabric-pinger
           args:
           - --external-address={{ if eq .Values.networking.stack "Dual" }}{{ .Values.pinger.targets.externalAddresses.v4 }},{{ .Values.pinger.targets.externalAddresses.v6 }}{{ else if eq .Values.networking.stack "IPv4" }}{{ .Values.pinger.targets.externalAddresses.v4 }}{{ else if eq .Values.networking.stack "IPv6" }}{{ .Values.pinger.targets.externalAddresses.v6 }}{{ end }}
           - --external-dns={{ if eq .Values.networking.stack "Dual" }}{{ .Values.pinger.targets.externalDomain.v6 }}{{ else if eq .Values.networking.stack "IPv4" }}{{ .Values.pinger.targets.externalDomain.v4 }}{{ else if eq .Values.networking.stack "IPv6" }}{{ .Values.pinger.targets.externalDomain.v6 }}{{ end }}
           - --logtostderr=false
           - --alsologtostderr=true
-          - --log_file=/var/log/kube-ovn/kube-ovn-pinger.log
+          - --log_file=/var/log/fabric/fabric-pinger.log
           - --log_file_max_size=200
           - --enable-metrics={{- .Values.networking.enableMetrics }}
           imagePullPolicy: {{ $pingerImage.pullPolicy }}
           securityContext:
-            runAsUser: {{ include "kubeovn.runAsUser" . }}
+            runAsUser: {{ include "fabric.runAsUser" . }}
             privileged: false
             capabilities:
               add:
@@ -129,13 +129,13 @@ spec:
             - mountPath: /var/log/ovn
               name: host-log-ovn
               readOnly: true
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+            - mountPath: /var/log/fabric
+              name: fabric-log
             - mountPath: /etc/localtime
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           {{- with .Values.pinger.resources }}
           resources:
             {{- toYaml . | trim | nindent 12 }}
@@ -167,17 +167,17 @@ spec:
         - name: host-log-ovs
           hostPath:
             path: {{ .Values.logging.directory }}/openvswitch
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: {{ .Values.logging.directory }}/kube-ovn
+            path: {{ .Values.logging.directory }}/fabric
         - name: host-log-ovn
           hostPath:
             path: {{ .Values.logging.directory }}/ovn
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 {{- end }}

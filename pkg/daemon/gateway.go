@@ -216,7 +216,7 @@ func (c *Controller) getEgressNatIPByNode(subnets []*kubeovnv1.Subnet, nodeName 
 		}
 
 		for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
-			// check format like 'kube-ovn-worker:172.18.0.2, kube-ovn-control-plane:172.18.0.3'
+			// check format like 'fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3'
 			for gw := range strings.SplitSeq(subnet.Spec.GatewayNode, ",") {
 				if strings.Contains(gw, ":") && util.GatewayContains(gw, nodeName) && util.CheckProtocol(cidr) == util.CheckProtocol(strings.Split(gw, ":")[1]) {
 					if subnet.Spec.EnableEcmp {
@@ -232,10 +232,10 @@ func (c *Controller) getEgressNatIPByNode(subnets []*kubeovnv1.Subnet, nodeName 
 	return subnetsNatIP
 }
 
-// getPodPrimaryNetworkProvider returns the kube-ovn network provider whose allocated
+// getPodPrimaryNetworkProvider returns the fabric network provider whose allocated
 // IP addresses cover all the pod's primary network IPs, i.e. the network kubelet
 // probes go through. It returns false if the pod's primary network is not managed
-// by kube-ovn, e.g. when kube-ovn works as a secondary CNI.
+// by fabric, e.g. when fabric works as a secondary CNI.
 func getPodPrimaryNetworkProvider(pod *v1.Pod) (string, bool) {
 	podIPs := util.PodIPs(*pod)
 	if len(podIPs) == 0 {
@@ -291,7 +291,7 @@ func (c *Controller) getTProxyConditionPod(pods []*v1.Pod, needSort bool) ([]*v1
 	for _, pod := range pods {
 		provider, ok := getPodPrimaryNetworkProvider(pod)
 		if !ok {
-			// The pod's primary network is not managed by kube-ovn, e.g. kube-ovn works
+			// The pod's primary network is not managed by fabric, e.g. fabric works
 			// as a secondary CNI. Kubelet probes go through the primary CNI in that case,
 			// so tproxy must not intercept them.
 			continue

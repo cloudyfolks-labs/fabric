@@ -8,7 +8,7 @@ global:
     address: ghcr.io/cloudyfolks-labs
     imagePullSecrets: []
   images:
-    kubeovn:
+    fabric:
       repository: fabric
       tag: v1.0.0
 
@@ -50,7 +50,7 @@ masterNodes: []
 # Note: This feature uses Helm "lookup" function, which is not compatible with tools such as ArgoCD.
 # @section -- Global parameters
 masterNodesLabels:
-  kube-ovn/role: master
+  fabric/role: master
   # node-role.kubernetes.io/control-plane: ""
 
 # -- General configuration of the network created by Kube-OVN.
@@ -146,16 +146,16 @@ networking:
   # -- Deploy the CNI with SSL encryption in between components.
   # @section -- Network parameters of the CNI
   enableSsl: false
-  # -- Minimum TLS version for OVN NB/SB database server and kube-ovn secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.
+  # -- Minimum TLS version for OVN NB/SB database server and fabric secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.
   # @section -- Network parameters of the CNI
   tlsMinVersion: ""
-  # -- Maximum TLS version for OVN NB/SB database server and kube-ovn secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.
+  # -- Maximum TLS version for OVN NB/SB database server and fabric secure-serving endpoints. Supported values: TLS10, TLS11, TLS12, TLS13. Empty uses the component default.
   # @section -- Network parameters of the CNI
   tlsMaxVersion: ""
   # -- Go TLS cipher suite names. OVN DB server only supports suites mapped by dist/images/ovn-db-ssl-options.sh.
   # @section -- Network parameters of the CNI
   tlsCipherSuites: []
-  # -- How often kube-ovn-controller checks kube-ovn-tls for renewal. Set to 0 to disable.
+  # -- How often fabric-controller checks fabric-tls for renewal. Set to 0 to disable.
   # @section -- Network parameters of the CNI
   kubeOvnTlsRotationInterval: "8760h"
   # -- Network type can be "geneve" or "vlan".
@@ -263,7 +263,7 @@ cni:
   binaryDirectory: "/opt/cni/bin"
   # -- Location of the CNI configuration inside the agent's pod.
   # @section -- CNI configuration
-  localConfigFile: "/kube-ovn/01-kube-ovn.conflist"
+  localConfigFile: "/fabric/01-fabric.conflist"
   # -- Location on the node where the CNI will install Kube-OVN's tooling.
   # @section -- CNI configuration
   toolingDirectory: "/usr/local/bin"
@@ -288,34 +288,34 @@ validatingWebhook:
   # -- Enable the deployment of the validating webhook.
   # @section -- Validating webhook configuration
   enabled: false
-  # -- Override image settings for kube-ovn-webhook. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for fabric-webhook. Empty fields fall back to the global fabric image.
   # @section -- Validating webhook configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- Validating webhook configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- Validating webhook configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- Validating webhook configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
     # @section -- Validating webhook configuration
     pullPolicy: ""
-  # -- Annotations to be added to all top-level kube-ovn-webhook objects (resources under templates/webhook)
+  # -- Annotations to be added to all top-level fabric-webhook objects (resources under templates/webhook)
   # @section -- Validating webhook configuration
   annotations: {}
-  # -- Labels to be added to all top-level kube-ovn-webhook objects (resources under templates/webhook)
+  # -- Labels to be added to all top-level fabric-webhook objects (resources under templates/webhook)
   # @section -- Validating webhook configuration
   labels: {}
-  # -- Annotations to be added to kube-ovn-webhook pods.
+  # -- Annotations to be added to fabric-webhook pods.
   # @section -- Validating webhook configuration
   podAnnotations: {}
-  # -- Labels to be added to kube-ovn-webhook pods.
+  # -- Labels to be added to fabric-webhook pods.
   # @section -- Validating webhook configuration
   podLabels: {}
-  # -- Extra environment variables to be added to kube-ovn-webhook pods.
+  # -- Extra environment variables to be added to fabric-webhook pods.
   # @section -- Validating webhook configuration
   extraEnv: []
   #  - name: CUSTOM_ENV_VAR
@@ -438,16 +438,16 @@ apiNad:
 # @section -- OVS/OVN daemons configuration
 # @default -- "{}"
 ovsOvn:
-  # -- Override image settings for ovs-ovn. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for ovs-ovn. Empty fields fall back to the global fabric image.
   # @section -- OVS/OVN daemons configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- OVS/OVN daemons configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- OVS/OVN daemons configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- OVS/OVN daemons configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
@@ -538,13 +538,13 @@ ovsOvn:
     # -- Enables DPDK-hybrid support on OVS.
     # @section -- OVS/OVN daemons configuration
     enabled: false
-    # -- Override image settings for ovs-ovn-dpdk. Empty fields fall back to the global kube-ovn image and the DPDK tag below.
+    # -- Override image settings for ovs-ovn-dpdk. Empty fields fall back to the global fabric image and the DPDK tag below.
     # @section -- OVS/OVN daemons configuration
     image:
       # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
       # @section -- OVS/OVN daemons configuration
       registry: ""
-      # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+      # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
       # @section -- OVS/OVN daemons configuration
       repository: ""
       # -- Tag override for this component image. Defaults to `.ovsOvn.dpdkHybrid.tag`.
@@ -578,19 +578,19 @@ ovsOvn:
         ephemeral-storage: 1Gi
 
 frr:
-  # -- Enable the kube-ovn-frr agent for VPC dynamic routing advertisement.
+  # -- Enable the fabric-frr agent for VPC dynamic routing advertisement.
   # @section -- FRR agent configuration
   enabled: false
-  # -- Override image settings for the kube-ovn-frr agent. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for the fabric-frr agent. Empty fields fall back to the global fabric image.
   # @section -- FRR agent configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- FRR agent configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- FRR agent configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- FRR agent configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
@@ -608,13 +608,13 @@ frr:
     # -- FRR image pull policy.
     # @section -- FRR agent configuration
     pullPolicy: IfNotPresent
-  # -- Annotations to be added to all top-level kube-ovn-frr objects (resources under templates/frr)
+  # -- Annotations to be added to all top-level fabric-frr objects (resources under templates/frr)
   # @section -- FRR agent configuration
   annotations: {}
-  # -- Annotations to be added to kube-ovn-frr pods.
+  # -- Annotations to be added to fabric-frr pods.
   # @section -- FRR agent configuration
   podAnnotations: {}
-  # -- kube-ovn-frr agent resource limits & requests.
+  # -- fabric-frr agent resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   # @section -- FRR agent configuration
   resources:
@@ -625,49 +625,49 @@ frr:
   # -- Node selector to restrict the deployment of the FRR agent to specific nodes, merged with the built-in external-gw selector.
   # @section -- FRR agent configuration
   nodeSelector: {}
-  # -- Args passed to the kube-ovn-frr agent.
+  # -- Args passed to the fabric-frr agent.
   # @section -- FRR agent configuration
   args: []
 
-# -- Configuration for kube-ovn-pinger, the agent monitoring and returning metrics for OVS/external connectivity.
+# -- Configuration for fabric-pinger, the agent monitoring and returning metrics for OVS/external connectivity.
 # @section -- Ping daemon configuration
 # @default -- "{}"
 pinger:
-  # -- Override image settings for kube-ovn-pinger. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for fabric-pinger. Empty fields fall back to the global fabric image.
   # @section -- Ping daemon configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- Ping daemon configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- Ping daemon configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- Ping daemon configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
     # @section -- Ping daemon configuration
     pullPolicy: ""
-  # -- Annotations to be added to all top-level kube-ovn-pinger objects (resources under templates/pinger)
+  # -- Annotations to be added to all top-level fabric-pinger objects (resources under templates/pinger)
   # @section -- Ping daemon configuration
   annotations: {}
-  # -- Labels to be added to all top-level kube-ovn-pinger objects (resources under templates/pinger)
+  # -- Labels to be added to all top-level fabric-pinger objects (resources under templates/pinger)
   # @section -- Ping daemon configuration
   labels: {}
-  # -- Annotations to be added to kube-ovn-pinger pods.
+  # -- Annotations to be added to fabric-pinger pods.
   # @section -- Ping daemon configuration
   podAnnotations: {}
-  # -- Labels to be added to kube-ovn-pinger pods.
+  # -- Labels to be added to fabric-pinger pods.
   # @section -- Ping daemon configuration
   podLabels: {}
 
-  # -- Extra environment variables to be added to kube-ovn-pinger pods.
+  # -- Extra environment variables to be added to fabric-pinger pods.
   # @section -- Ping daemon configuration
   extraEnv: []
   #  - name: CUSTOM_ENV_VAR
   #    value: "custom-value"
 
-  # -- kube-ovn-pinger resource limits & requests.
+  # -- fabric-pinger resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   # @section -- Ping daemon configuration
   resources:
@@ -679,11 +679,11 @@ pinger:
       memory: "400Mi"
       ephemeral-storage: 1Gi
 
-  # -- kube-ovn-pinger metrics configuration.
+  # -- fabric-pinger metrics configuration.
   # @section -- Ping daemon configuration
   # @default -- "{}"
   metrics:
-    # -- Configure the port on which the kube-ovn-monitor service will serve metrics.
+    # -- Configure the port on which the fabric-monitor service will serve metrics.
     # @section -- Ping daemon configuration
     port: 8080
 
@@ -717,50 +717,50 @@ pinger:
     externalDomain:
       # -- Domain name resolving to an IPv4 only (A record)
       # @section -- Ping daemon configuration
-      v4: "kube-ovn.io."
+      v4: "fabric.io."
       # -- Domain name resolving to an IPv6 and IPv4 only (A/AAAA record)
       # @section -- Ping daemon configuration
       v6: "google.com."
 
-# -- Configuration for kube-ovn-monitor, the agent monitoring and returning metrics for the northbound/southbound DBs and northd.
+# -- Configuration for fabric-monitor, the agent monitoring and returning metrics for the northbound/southbound DBs and northd.
 # @section -- OVN monitoring daemon configuration
 # @default -- "{}"
 monitor:
-  # -- Override image settings for kube-ovn-monitor. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for fabric-monitor. Empty fields fall back to the global fabric image.
   # @section -- OVN monitoring daemon configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- OVN monitoring daemon configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- OVN monitoring daemon configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- OVN monitoring daemon configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
     # @section -- OVN monitoring daemon configuration
     pullPolicy: ""
-  # -- Annotations to be added to all top-level kube-ovn-monitor objects (resources under templates/monitor)
+  # -- Annotations to be added to all top-level fabric-monitor objects (resources under templates/monitor)
   # @section -- OVN monitoring daemon configuration
   annotations: {}
-  # -- Labels to be added to all top-level kube-ovn-monitor objects (resources under templates/monitor)
+  # -- Labels to be added to all top-level fabric-monitor objects (resources under templates/monitor)
   # @section -- OVN monitoring daemon configuration
   labels: {}
-  # -- Annotations to be added to kube-ovn-monitor pods.
+  # -- Annotations to be added to fabric-monitor pods.
   # @section -- OVN monitoring daemon configuration
   podAnnotations: {}
-  # -- Labels to be added to kube-ovn-monitor pods.
+  # -- Labels to be added to fabric-monitor pods.
   # @section -- OVN monitoring daemon configuration
   podLabels: {}
 
-  # -- Extra environment variables to be added to kube-ovn-monitor pods.
+  # -- Extra environment variables to be added to fabric-monitor pods.
   # @section -- OVN monitoring daemon configuration
   extraEnv: []
   #  - name: CUSTOM_ENV_VAR
   #    value: "custom-value"
 
-  # -- kube-ovn-monitor resource limits & requests.
+  # -- fabric-monitor resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   # @section -- OVN monitoring daemon configuration
   resources:
@@ -772,7 +772,7 @@ monitor:
       memory: "200Mi"
       ephemeral-storage: 1Gi
 
-  # -- Node affinity configuration for kube-ovn-monitor.
+  # -- Node affinity configuration for fabric-monitor.
   # -- More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
   # @section -- OVN monitoring daemon configuration
   nodeAffinity:
@@ -795,23 +795,23 @@ monitor:
     # --     - antarctica-west1
     requiredDuringSchedulingIgnoredDuringExecution: []
 
-  # -- kube-ovn-monitor metrics configuration.
+  # -- fabric-monitor metrics configuration.
   # @section -- OVN monitoring daemon configuration
   # @default -- "{}"
   metrics:
-    # -- Configure the port on which the kube-ovn-monitor service will serve metrics.
+    # -- Configure the port on which the fabric-monitor service will serve metrics.
     # @section -- OVN monitoring daemon configuration
     port: 10661
 
-  # -- kube-ovn-monitor serviceMonitor configuration.
+  # -- fabric-monitor serviceMonitor configuration.
   # @section -- OVN monitoring daemon configuration
   # @default -- "{}"
   serviceMonitor:
-    # -- Enable the deployment of the ServiceMonitor for the kube-ovn-monitor.
+    # -- Enable the deployment of the ServiceMonitor for the fabric-monitor.
     # @section -- OVN monitoring daemon configuration
     enabled: false
 
-# -- Configuration for kube-ovn-controller, the controller responsible for syncing K8s with OVN.
+# -- Configuration for fabric-controller, the controller responsible for syncing K8s with OVN.
 # @section -- Kube-OVN controller configuration
 # @default -- "{}"
 controller:
@@ -827,41 +827,41 @@ controller:
     # -- Duration leader election clients wait between attempts. Empty uses the controller default of 6s.
     # @section -- Kube-OVN controller configuration
     retryPeriod: ""
-  # -- Override image settings for kube-ovn-controller. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for fabric-controller. Empty fields fall back to the global fabric image.
   # @section -- Kube-OVN controller configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- Kube-OVN controller configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- Kube-OVN controller configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- Kube-OVN controller configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
     # @section -- Kube-OVN controller configuration
     pullPolicy: ""
-  # -- Annotations to be added to all top-level kube-ovn-controller objects (resources under templates/controller)
+  # -- Annotations to be added to all top-level fabric-controller objects (resources under templates/controller)
   # @section -- Kube-OVN controller configuration
   annotations: {}
-  # -- Labels to be added to all top-level kube-ovn-controller objects (resources under templates/controller)
+  # -- Labels to be added to all top-level fabric-controller objects (resources under templates/controller)
   # @section -- Kube-OVN controller configuration
   labels: {}
-  # -- Annotations to be added to kube-ovn-controller pods.
+  # -- Annotations to be added to fabric-controller pods.
   # @section -- Kube-OVN controller configuration
   podAnnotations: {}
-  # -- Labels to be added to kube-ovn-controller pods.
+  # -- Labels to be added to fabric-controller pods.
   # @section -- Kube-OVN controller configuration
   podLabels: {}
 
-  # -- Extra environment variables to be added to kube-ovn-controller pods.
+  # -- Extra environment variables to be added to fabric-controller pods.
   # @section -- Kube-OVN controller configuration
   extraEnv: []
   #  - name: CUSTOM_ENV_VAR
   #    value: "custom-value"
 
-  # -- kube-ovn-controller resource limits & requests.
+  # -- fabric-controller resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   # @section -- Kube-OVN controller configuration
   resources:
@@ -873,7 +873,7 @@ controller:
       memory: "1Gi"
       ephemeral-storage: 1Gi
 
-  # -- Node affinity configuration for kube-ovn-controller.
+  # -- Node affinity configuration for fabric-controller.
   # -- More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
   # @section -- Kube-OVN controller configuration
   nodeAffinity:
@@ -916,16 +916,16 @@ controller:
 # @section -- OVN-central daemon configuration
 # @default -- "{}"
 central:
-  # -- Override image settings for ovn-central. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for ovn-central. Empty fields fall back to the global fabric image.
   # @section -- OVN-central daemon configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- OVN-central daemon configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- OVN-central daemon configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- OVN-central daemon configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
@@ -1017,16 +1017,16 @@ central:
 # @section -- OVN IC controller configuration
 # @default -- "{}"
 ic:
-  # -- Override image settings for the OVN IC controller. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for the OVN IC controller. Empty fields fall back to the global fabric image.
   # @section -- OVN IC controller configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- OVN IC controller configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- OVN IC controller configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- OVN IC controller configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
@@ -1061,20 +1061,20 @@ ic:
   #  - name: CUSTOM_ENV_VAR
   #    value: "custom-value"
 
-# -- Configuration for kube-ovn-cni, the agent responsible for handling CNI requests from the CRI.
+# -- Configuration for fabric-cni, the agent responsible for handling CNI requests from the CRI.
 # @section -- CNI agent configuration
 # @default -- "{}"
 agent:
-  # -- Override image settings for kube-ovn-cni. Empty fields fall back to the global kube-ovn image.
+  # -- Override image settings for fabric-cni. Empty fields fall back to the global fabric image.
   # @section -- CNI agent configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
     # @section -- CNI agent configuration
     registry: ""
-    # -- Repository override for this component image. Defaults to `.global.images.kubeovn.repository`.
+    # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
     # @section -- CNI agent configuration
     repository: ""
-    # -- Tag override for this component image. Defaults to `.global.images.kubeovn.tag`.
+    # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
     # @section -- CNI agent configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
@@ -1086,14 +1086,14 @@ agent:
   # -- Labels to be added to all top-level agent objects (resources under templates/agent)
   # @section -- CNI agent configuration
   labels: {}
-  # -- Annotations to be added to the agent pods (kube-ovn-cni)
+  # -- Annotations to be added to the agent pods (fabric-cni)
   # @section -- CNI agent configuration
   podAnnotations: {}
-  # -- Labels to be added to the agent pods (kube-ovn-cni)
+  # -- Labels to be added to the agent pods (fabric-cni)
   # @section -- CNI agent configuration
   podLabels: {}
 
-  # -- Extra environment variables to be added to kube-ovn-cni pods.
+  # -- Extra environment variables to be added to fabric-cni pods.
   # @section -- CNI agent configuration
   extraEnv: []
   #  - name: CUSTOM_ENV_VAR
@@ -1191,11 +1191,11 @@ extraObjects: []
 #         "cniVersion": "0.3.1",
 #         "plugins": [
 #           {
-#             "type": "kube-ovn",
-#             "server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+#             "type": "fabric",
+#             "server_socket": "/run/openvswitch/fabric-daemon.sock",
 #             "ipam": {
-#               "type": "kube-ovn",
-#               "server_socket": "/run/openvswitch/kube-ovn-daemon.sock"
+#               "type": "fabric",
+#               "server_socket": "/run/openvswitch/fabric-daemon.sock"
 #             }
 #           },
 #           {

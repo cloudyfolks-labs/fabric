@@ -184,9 +184,9 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 		framework.ExpectNotEmpty(nodeList.Items)
 		framework.ExpectTrue(len(nodeList.Items) >= 2)
 
-		ginkgo.By("Getting kube-ovn-cni pods")
+		ginkgo.By("Getting fabric-cni pods")
 		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
-		ds := daemonSetClient.Get("kube-ovn-cni")
+		ds := daemonSetClient.Get("fabric-cni")
 		podList, err := daemonSetClient.GetPods(ds)
 		framework.ExpectNoError(err)
 		framework.ExpectHaveLen(podList.Items, len(nodeList.Items))
@@ -204,10 +204,10 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 		ginkgo.By("Checking ip xfrm state")
 		checkXfrmState(podList.Items, nodeIPs[0], nodeIPs[1])
 
-		ginkgo.By("Restarting ds kube-ovn-cni")
+		ginkgo.By("Restarting ds fabric-cni")
 		daemonSetClient.RestartSync(ds)
 
-		ds = daemonSetClient.Get("kube-ovn-cni")
+		ds = daemonSetClient.Get("fabric-cni")
 		podList, err = daemonSetClient.GetPods(ds)
 		framework.ExpectNoError(err)
 		framework.ExpectHaveLen(podList.Items, len(nodeList.Items))
@@ -245,18 +245,18 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 		ginkgo.By("Getting current CA")
 		initialOVNCA, err := getValueFromSecret(cs, framework.KubeOvnNamespace, util.DefaultOVNIPSecCA, "cacert")
 		framework.ExpectNoError(err)
-		initialCAKey, err := getValueFromSecret(cs, "cert-manager", "kube-ovn-ca", "tls.key")
+		initialCAKey, err := getValueFromSecret(cs, "cert-manager", "fabric-ca", "tls.key")
 		framework.ExpectNoError(err)
 		framework.ExpectNotEmpty(initialCAKey)
 
-		ginkgo.By("Getting kube-ovn-cni pods")
+		ginkgo.By("Getting fabric-cni pods")
 		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
-		ds := daemonSetClient.Get("kube-ovn-cni")
+		ds := daemonSetClient.Get("fabric-cni")
 		podList, err := daemonSetClient.GetPods(ds)
 		framework.ExpectNoError(err)
 		framework.ExpectHaveLen(podList.Items, len(nodeList.Items))
 
-		ginkgo.By("Getting kube-ovn-cni pod client certificates")
+		ginkgo.By("Getting fabric-cni pod client certificates")
 		initialPodCerts := make(map[string]string)
 		for _, pod := range podList.Items {
 			cert, err := getPodCert(pod)
@@ -303,7 +303,7 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 
 		ginkgo.By("Setting new CA on issuer")
 
-		issuerSecret, err := cs.CoreV1().Secrets("cert-manager").Get(context.Background(), "kube-ovn-ca", metav1.GetOptions{})
+		issuerSecret, err := cs.CoreV1().Secrets("cert-manager").Get(context.Background(), "fabric-ca", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		issuerSecret.Data["tls.crt"] = []byte(secondaryCA)
 		keyBytes, err := privateKeyToBytes(secondaryKey)
@@ -324,7 +324,7 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 		podList, err = daemonSetClient.GetPods(ds)
 		framework.ExpectNoError(err)
 
-		ginkgo.By("Verifying new client cert issued on kube-ovn-cni pods")
+		ginkgo.By("Verifying new client cert issued on fabric-cni pods")
 
 		for _, pod := range podList.Items {
 			framework.WaitUntil(0, time.Second*30, func(_ context.Context) (bool, error) {

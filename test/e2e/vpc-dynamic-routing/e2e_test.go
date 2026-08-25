@@ -50,7 +50,7 @@ const (
 	lbVrfID           = 1004
 	lbPoolCIDR        = "203.0.113.0/24"
 	remoteLoopbackIP  = "198.51.100.1"
-	dockerNetworkName = "kube-ovn-dynamic-routing"
+	dockerNetworkName = "fabric-dynamic-routing"
 	chassisContainer  = "container"
 )
 
@@ -247,7 +247,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		})
 	})
 
-	framework.ConformanceIt("should manage FRR via kube-ovn-frr agent with gateway failover", func() {
+	framework.ConformanceIt("should manage FRR via fabric-frr agent with gateway failover", func() {
 		f.SkipVersionPriorTo(1, 17, "dynamic routing requires v1.17+")
 		if !f.HasIPv4() {
 			ginkgo.Skip("dynamic routing e2e test requires IPv4 support")
@@ -451,7 +451,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		}, "the loadbalancer VIP is withdrawn on the ToR")
 	})
 
-	framework.ConformanceIt("should isolate multiple VPCs with overlapping subnets via kube-ovn-frr agent", func() {
+	framework.ConformanceIt("should isolate multiple VPCs with overlapping subnets via fabric-frr agent", func() {
 		f.SkipVersionPriorTo(1, 17, "dynamic routing requires v1.17+")
 		if !f.HasIPv4() {
 			ginkgo.Skip("dynamic routing e2e test requires IPv4 support")
@@ -523,7 +523,7 @@ ip protocol bgp route-map OVN-NO-FIB
 
 		ginkgo.By("Deleting the FRR agent pod on " + bindings[wa.vpcName] + " and verifying recovery")
 		agentPod, err := f.DaemonSetClientNS(framework.KubeOvnNamespace).GetPodOnNode(
-			f.DaemonSetClientNS(framework.KubeOvnNamespace).Get("kube-ovn-frr-e2e"), bindings[wa.vpcName])
+			f.DaemonSetClientNS(framework.KubeOvnNamespace).Get("fabric-frr-e2e"), bindings[wa.vpcName])
 		framework.ExpectNoError(err, "finding agent pod on binding chassis")
 		f.PodClientNS(framework.KubeOvnNamespace).DeleteSync(agentPod.Name)
 		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
@@ -533,7 +533,7 @@ ip protocol bgp route-map OVN-NO-FIB
 			}
 			return !strings.Contains(string(stdout), wa.eipV4+"/32"), nil
 		}, "EIP of "+wa.vpcName+" withdrawn while its chassis agent pod is down")
-		f.DaemonSetClientNS(framework.KubeOvnNamespace).RolloutStatus("kube-ovn-frr-e2e")
+		f.DaemonSetClientNS(framework.KubeOvnNamespace).RolloutStatus("fabric-frr-e2e")
 		for _, w := range []*drWorkload{wa, wb, wc} {
 			waitTorLearnsEip(topo, w)
 		}
@@ -929,14 +929,14 @@ func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
 					InitContainers: []corev1.Container{{
 						Name:         "init-frr",
 						Image:        kubeOvnImage,
-						Command:      []string{"/kube-ovn/kube-ovn-frr", "init"},
+						Command:      []string{"/fabric/fabric-frr", "init"},
 						Env:          []corev1.EnvVar{nodeNameEnv},
 						VolumeMounts: []corev1.VolumeMount{frrVolumeMount},
 					}},
 					Containers: []corev1.Container{{
 						Name:    "frr",
 						Image:   frrImage,
-						Command: []string{"/bin/sh", "-c", "/usr/lib/frr/docker-start & exec sh /etc/frr/kube-ovn-reload.sh"},
+						Command: []string{"/bin/sh", "-c", "/usr/lib/frr/docker-start & exec sh /etc/frr/fabric-reload.sh"},
 						SecurityContext: &corev1.SecurityContext{
 							Capabilities: &corev1.Capabilities{
 								Add: []corev1.Capability{"NET_ADMIN", "NET_RAW", "NET_BIND_SERVICE", "SYS_ADMIN"},
@@ -944,13 +944,13 @@ func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
 						},
 						VolumeMounts: []corev1.VolumeMount{frrVolumeMount},
 					}, {
-						Name:    "kube-ovn-frr",
+						Name:    "fabric-frr",
 						Image:   kubeOvnImage,
-						Command: []string{"/kube-ovn/kube-ovn-frr"},
+						Command: []string{"/fabric/fabric-frr"},
 						Env:     []corev1.EnvVar{nodeNameEnv},
 						VolumeMounts: []corev1.VolumeMount{frrVolumeMount, {
-							Name:      "kube-ovn-log",
-							MountPath: "/var/log/kube-ovn",
+							Name:      "fabric-log",
+							MountPath: "/var/log/fabric",
 						}, {
 							Name:      "serviceaccount",
 							MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
@@ -961,7 +961,7 @@ func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
 						Name:         "frr-config",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}, {
-						Name:         "kube-ovn-log",
+						Name:         "fabric-log",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}, {
 						Name: "serviceaccount",
@@ -997,7 +997,7 @@ func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
 func deployAgent(f *framework.Framework, topo *drTopology) {
 	ginkgo.GinkgoHelper()
 
-	bgpConfName := "kube-ovn-frr-" + framework.RandomSuffix()
+	bgpConfName := "fabric-frr-" + framework.RandomSuffix()
 	ginkgo.By("Creating BgpConf " + bgpConfName)
 	bgpConfClient := f.BgpConfClient()
 	bgpConf := &apiv1.BgpConf{
@@ -1016,7 +1016,7 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 		bgpConfClient.Delete(bgpConfName)
 	})
 
-	agentName := "kube-ovn-frr-e2e"
+	agentName := "fabric-frr-e2e"
 	ginkgo.By("Creating RBAC for agent " + agentName)
 	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: agentName, Namespace: framework.KubeOvnNamespace}}
 	_, err := f.ClientSet.CoreV1().ServiceAccounts(framework.KubeOvnNamespace).Create(context.TODO(), sa, metav1.CreateOptions{})
@@ -1155,15 +1155,15 @@ func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
 		return
 	}
 	for _, gwName := range topo.gwNodeNames {
-		ds := f.DaemonSetClientNS(framework.KubeOvnNamespace).Get("kube-ovn-frr-e2e")
+		ds := f.DaemonSetClientNS(framework.KubeOvnNamespace).Get("fabric-frr-e2e")
 		pod, err := f.DaemonSetClientNS(framework.KubeOvnNamespace).GetPodOnNode(ds, gwName)
 		if err != nil {
 			framework.Logf("no agent pod on %s: %v", gwName, err)
 			continue
 		}
 		for _, cmd := range [][]string{
-			{"cat", "/etc/frr/.kube-ovn-frr-result"},
-			{"cat", "/etc/frr/.kube-ovn-frr-applied"},
+			{"cat", "/etc/frr/.fabric-frr-result"},
+			{"cat", "/etc/frr/.fabric-frr-applied"},
 			{"vtysh", "-c", "show running-config"},
 			{"vtysh", "-c", "show bgp vrf all summary"},
 			{"vtysh", "-c", "show bgp vrf all ipv4 unicast"},
@@ -1179,8 +1179,8 @@ func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
 func ovnLbSvcEnabled(f *framework.Framework) bool {
 	ginkgo.GinkgoHelper()
 
-	deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), "kube-ovn-controller", metav1.GetOptions{})
-	framework.ExpectNoError(err, "getting the kube-ovn-controller deployment")
+	deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
+	framework.ExpectNoError(err, "getting the fabric-controller deployment")
 	for _, container := range deploy.Spec.Template.Spec.Containers {
 		if slices.Contains(container.Args, "--enable-ovn-lb-svc=true") {
 			return true

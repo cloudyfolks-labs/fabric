@@ -333,7 +333,7 @@ func CleanDuplicatePort(ifaceID, portName string) {
 	}
 }
 
-// ValidatePortVendor returns true if the port's external_ids:vendor=kube-ovn
+// ValidatePortVendor returns true if the port's external_ids:vendor=fabric
 func ValidatePortVendor(port string) (bool, error) {
 	output, err := ovsFind("Port", "name", "external_ids:vendor="+util.CniTypeName)
 	return slices.Contains(output, port), err

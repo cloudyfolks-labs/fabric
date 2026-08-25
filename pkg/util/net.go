@@ -537,7 +537,7 @@ func CountIPNumsBigInt(excludeIPs []string) internal.BigInt {
 }
 
 func GatewayContains(gatewayNodeStr, gateway string) bool {
-	// the format of gatewayNodeStr can be like 'kube-ovn-worker:172.18.0.2, kube-ovn-control-plane:172.18.0.3', which consists of node name and designative egress ip
+	// the format of gatewayNodeStr can be like 'fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3', which consists of node name and designative egress ip
 	for gw := range strings.SplitSeq(gatewayNodeStr, ",") {
 		if strings.Contains(gw, ":") {
 			gw = strings.TrimSpace(strings.Split(gw, ":")[0])

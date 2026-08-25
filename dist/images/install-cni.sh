@@ -22,7 +22,7 @@ install_binary(){
 }
 
 mkdir -p /usr/local/bin
-install_binary /kube-ovn/kubectl-ko /usr/local/bin/kubectl-ko
+install_binary /fabric/kubectl-ko /usr/local/bin/kubectl-ko
 chmod +x /usr/local/bin/kubectl-ko
 
 for ip in $(echo "${POD_IPS}" | tr ',' ' '); do
@@ -36,8 +36,8 @@ for ip in $(echo "${POD_IPS}" | tr ',' ' '); do
   fi
 done
 
-CNI_BIN_SRC=/kube-ovn/kube-ovn
-CNI_BIN_DST=/opt/cni/bin/kube-ovn
+CNI_BIN_SRC=/fabric/fabric
+CNI_BIN_DST=/opt/cni/bin/fabric
 
 LOOPBACK_BIN_SRC=/loopback
 LOOPBACK_BIN_DST=/opt/cni/bin/loopback
@@ -57,4 +57,4 @@ install_binary "$CNI_BIN_SRC" "$CNI_BIN_DST"
 install_binary "$MACVLAN_BIN_SRC" "$MACVLAN_BIN_DST"
 install_binary "$IPVLAN_BIN_SRC" "$IPVLAN_BIN_DST"
 
-./kube-ovn-daemon --install-cni-config $@ || exit_with_error "Failed to install cni config"
+./fabric-daemon --install-cni-config $@ || exit_with_error "Failed to install cni config"

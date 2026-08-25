@@ -24,16 +24,16 @@
 #   ├── images/
 #   │   ├── amd64/              # AMD64 architecture images
 #   │   │   ├── kube-ovn-base_<version>-amd64.tar
-#   │   │   ├── kube-ovn_<version>-amd64.tar
+#   │   │   ├── fabric_<version>-amd64.tar
 #   │   │   └── vpc-nat-gateway_<version>-amd64.tar
 #   │   └── arm64/              # ARM64 architecture images
 #   │       ├── kube-ovn-base_<version>-arm64.tar
-#   │       ├── kube-ovn_<version>-arm64.tar
+#   │       ├── fabric_<version>-arm64.tar
 #   │       └── vpc-nat-gateway_<version>-arm64.tar
 #   ├── source/                 # Main project source code
-#   │   └── kube-ovn-<version>.tar.gz
+#   │   └── fabric-<version>.tar.gz
 #   └── docs/                   # Documentation source code
-#       └── kube-ovn-docs-<branch>.tar.gz
+#       └── fabric-docs-<branch>.tar.gz
 #
 # Notes:
 #   - Images are downloaded using docker pull --platform to get specific architectures
@@ -45,10 +45,10 @@ set -euo pipefail
 
 VERSION=""
 BACKUP_DIR=""
-DOCKER_REGISTRY="kubeovn"
+DOCKER_REGISTRY="ghcr.io/cloudyfolks-labs"
 IMAGES=(
     "kube-ovn-base"
-    "kube-ovn"
+    "fabric"
     "vpc-nat-gateway"
 )
 ARCHITECTURES=(
@@ -140,9 +140,9 @@ get_docs_branch() {
 download_source() {
     log "Downloading source code for version $VERSION"
     
-    # Download main kube-ovn source code
+    # Download main fabric source code
     local source_url="https://github.com/cloudyfolks-labs/fabric/archive/refs/tags/${VERSION}.tar.gz"
-    local source_file="$BACKUP_DIR/source/kube-ovn-${VERSION}.tar.gz"
+    local source_file="$BACKUP_DIR/source/fabric-${VERSION}.tar.gz"
     
     if curl -L -o "$source_file" "$source_url"; then
         log "Successfully downloaded source code: $source_file"
@@ -154,7 +154,7 @@ download_source() {
     # Download documentation source code
     local docs_branch=$(get_docs_branch "$VERSION")
     local docs_url="https://github.com/kubeovn/docs/archive/refs/heads/${docs_branch}.tar.gz"
-    local docs_file="$BACKUP_DIR/docs/kube-ovn-docs-${docs_branch}.tar.gz"
+    local docs_file="$BACKUP_DIR/docs/fabric-docs-${docs_branch}.tar.gz"
     
     log "Downloading documentation for branch $docs_branch"
     
@@ -173,7 +173,7 @@ main() {
     
     VERSION=$1
     
-    log "Starting backup process for kube-ovn version: $VERSION"
+    log "Starting backup process for fabric version: $VERSION"
     
     validate_version "$VERSION"
     check_docker

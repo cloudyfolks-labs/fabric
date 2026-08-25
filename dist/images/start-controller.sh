@@ -38,6 +38,6 @@ function gen_conn_str {
 nb_addr="${OVN_NB_ADDR:-$(gen_conn_str "$KUBE_OVN_NB_PORT")}"
 sb_addr="${OVN_SB_ADDR:-$(gen_conn_str "$KUBE_OVN_SB_PORT")}"
 
-exec ./kube-ovn-controller --ovn-nb-addr="$nb_addr" \
+exec ./fabric-controller --ovn-nb-addr="$nb_addr" \
                            --ovn-sb-addr="$sb_addr" \
                            $@

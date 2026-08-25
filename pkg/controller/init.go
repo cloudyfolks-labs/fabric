@@ -30,7 +30,7 @@ import (
 func (c *Controller) InitOVN() error {
 	var err error
 
-	// migrate vendor externalIDs to kube-ovn resources created in versions prior to v1.15.0
+	// migrate vendor externalIDs to fabric resources created in versions prior to v1.15.0
 	// this must run before ACL cleanup to ensure existing resources are properly tagged
 	if err = c.OVNNbClient.MigrateVendorExternalIDs(); err != nil {
 		klog.Errorf("failed to migrate vendor externalIDs: %v", err)
@@ -778,7 +778,7 @@ func (c *Controller) syncSubnetCR() error {
 
 			subnet.Spec.EnableEcmp = c.config.EnableEcmp
 			if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Update(context.Background(), subnet, metav1.UpdateOptions{}); err != nil {
-				klog.Errorf("failed to sync subnet spec enableEcmp with kube-ovn-controller config enableEcmp %s: %v", subnet.Name, err)
+				klog.Errorf("failed to sync subnet spec enableEcmp with fabric-controller config enableEcmp %s: %v", subnet.Name, err)
 				return err
 			}
 		}

@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	CmdMonitor          = "kube-ovn-monitor"
-	CmdWebhook          = "kube-ovn-webhook"
-	CmdOvnLeaderChecker = "kube-ovn-leader-checker"
-	CmdOvnICController  = "kube-ovn-ic-controller"
-	CmdFrr              = "kube-ovn-frr"
+	CmdMonitor          = "fabric-monitor"
+	CmdWebhook          = "fabric-webhook"
+	CmdOvnLeaderChecker = "fabric-leader-checker"
+	CmdOvnICController  = "fabric-ic-controller"
+	CmdFrr              = "fabric-frr"
 )
 
 func main() {

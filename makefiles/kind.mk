@@ -108,15 +108,15 @@ kind-network-create-underlay:
 
 .PHONY: kind-network-connect-underlay
 kind-network-connect-underlay:
-	@for node in `kind -n kube-ovn get nodes`; do \
+	@for node in `kind -n fabric get nodes`; do \
 		docker network connect kind-underlay $$node; \
 		docker exec $$node ip address flush dev eth1; \
 	done
 
 .PHONY: kind-iptables-accept-underlay
 kind-iptables-accept-underlay:
-	$(call docker_network_info,kind,kube-ovn-control-plane)
-	$(call docker_network_info,kind-underlay,kube-ovn-control-plane)
+	$(call docker_network_info,kind,fabric-control-plane)
+	$(call docker_network_info,kind-underlay,fabric-control-plane)
 	$(call add_docker_iptables_rule,iptables,-s $(DOCKER_NETWORK_KIND_UNDERLAY_IPV4_SUBNET) -d $(DOCKER_NETWORK_KIND_IPV4_SUBNET) -j ACCEPT)
 	$(call add_docker_iptables_rule,iptables,-d $(DOCKER_NETWORK_KIND_UNDERLAY_IPV4_SUBNET) -s $(DOCKER_NETWORK_KIND_IPV4_SUBNET) -j ACCEPT)
 	@$(MAKE) kind-iptables-accept-underlay-ipv6
@@ -147,7 +147,7 @@ kind-enable-hairpin:
 
 .PHONY: kind-create
 kind-create:
-	$(call kind_create_cluster,yamls/kind.yaml,kube-ovn,1)
+	$(call kind_create_cluster,yamls/kind.yaml,fabric,1)
 
 .PHONY: kind-init
 kind-init: kind-init-ipv4
@@ -164,7 +164,7 @@ kind-init-ovn-ic: kind-init-ovn-ic-ipv4
 kind-init-ovn-ic-%: kind-clean-ovn-ic
 	@n_worker=2 $(MAKE) kind-init-$*
 	@n_worker=3 ip_family=$* auditing=$(KIND_AUDITING) $(MAKE) kind-generate-config
-	$(call kind_create_cluster,yamls/kind.yaml,kube-ovn1,1)
+	$(call kind_create_cluster,yamls/kind.yaml,fabric1,1)
 
 .PHONY: kind-init-without-kube-proxy
 kind-init-without-kube-proxy: kind-init-without-kube-proxy-ipv4
@@ -185,12 +185,12 @@ kind-init-cilium-chaining-%: kind-network-create-underlay
 .PHONY: kind-init-ovn-submariner
 kind-init-ovn-submariner: kind-clean-ovn-submariner kind-init
 	@pod_cidr_v4=10.18.0.0/16 svc_cidr_v4=10.112.0.0/12 $(MAKE) kind-generate-config
-	$(call kind_create_cluster,yamls/kind.yaml,kube-ovn1,1)
+	$(call kind_create_cluster,yamls/kind.yaml,fabric1,1)
 
 .PHONY: kind-init-deepflow
 kind-init-deepflow: kind-clean
 	@mapped_ports=$(DEEPFLOW_MAPPED_PORTS) $(MAKE) kind-generate-config
-	$(call kind_create_cluster,yamls/kind.yaml,kube-ovn,0)
+	$(call kind_create_cluster,yamls/kind.yaml,fabric,0)
 
 .PHONY: kind-init-iptables
 kind-init-iptables:
@@ -212,7 +212,7 @@ kind-init-single-%:
 
 .PHONY: kind-load-image
 kind-load-image:
-	$(call kind_load_image,kube-ovn,$(REGISTRY)/kube-ovn:$(VERSION))
+	$(call kind_load_image,fabric,$(REGISTRY)/fabric:$(VERSION))
 
 .PHONY: kind-install-chart
 kind-install-chart: kind-load-image untaint-control-plane install-chart
@@ -226,13 +226,13 @@ kind-upgrade-chart: kind-load-image upgrade-chart
 
 .PHONY: kind-install
 kind-install: kind-load-image
-	kubectl config use-context kind-kube-ovn
+	kubectl config use-context kind-fabric
 	@if [ "$(UNTAINT_CONTROL_PLANE)" = "true" ]; then \
 		$(MAKE) untaint-control-plane; \
 	fi
 	@echo "Generating CRDs with controller-gen and syncing static CRD bundles..."
 	$(MAKE) gen-crd
-	@echo "Installing kube-ovn with synced generated CRDs..."
+	@echo "Installing fabric with synced generated CRDs..."
 	sed 's/VERSION=.*/VERSION=$(VERSION)/' dist/images/install.sh | bash
 	kubectl describe no
 
@@ -251,15 +251,15 @@ kind-install-dual:
 kind-install-single-replica:
 	@ENABLE_SINGLE_REPLICA_OVN=true OVN_CENTRAL_STORAGE_CLASS=standard $(MAKE) kind-install
 
-# Kamaji-backed setup for kube-ovn's hosted OVN central chart path. It brings
-# up a mgmt kind cluster running Kamaji plus kube-ovn HCP control-plane
+# Kamaji-backed setup for fabric's hosted OVN central chart path. It brings
+# up a mgmt kind cluster running Kamaji plus fabric HCP control-plane
 # components, and a docker-container tenant worker joined to the Kamaji-hosted
-# tenant apiserver and running kube-ovn data-plane components.
-# Requires `kubeovn/kube-ovn:dev` to already exist locally (run
+# tenant apiserver and running fabric data-plane components.
+# Requires `ghcr.io/cloudyfolks-labs/fabric:dev` to already exist locally (run
 # `make build-dev` first).
 .PHONY: kind-install-kamaji
 kind-install-kamaji:
-	@E2E_IP_FAMILY=$(E2E_IP_FAMILY) TENANT_CONTROL_PLANE_REPLICAS=$(TENANT_CONTROL_PLANE_REPLICAS) KUBEOVN_IMAGE=$(REGISTRY)/kube-ovn:$(DEV_TAG) ./hack/kamaji-e2e.sh setup
+	@E2E_IP_FAMILY=$(E2E_IP_FAMILY) TENANT_CONTROL_PLANE_REPLICAS=$(TENANT_CONTROL_PLANE_REPLICAS) KUBEOVN_IMAGE=$(REGISTRY)/fabric:$(DEV_TAG) ./hack/kamaji-e2e.sh setup
 
 .PHONY: kind-clean-kamaji
 kind-clean-kamaji:
@@ -296,15 +296,15 @@ kind-install-ovn-ic: kind-install-ovn-ic-ipv4
 .PHONY: kind-install-ovn-ic-ipv4
 kind-install-ovn-ic-ipv4:
 	@ENABLE_IC=true $(MAKE) kind-install
-	$(call kind_load_image,kube-ovn1,$(REGISTRY)/kube-ovn:$(VERSION))
-	kubectl config use-context kind-kube-ovn1
+	$(call kind_load_image,fabric1,$(REGISTRY)/fabric:$(VERSION))
+	kubectl config use-context kind-fabric1
 	@$(MAKE) untaint-control-plane
 	sed -e 's/10.16.0/10.18.0/g' \
 		-e 's/VERSION=.*/VERSION=$(VERSION)/' \
 		dist/images/install.sh | ENABLE_IC=true bash
 	kubectl describe no
 
-	kubectl config use-context kind-kube-ovn
+	kubectl config use-context kind-fabric
 	sed 's/VERSION=.*/VERSION=$(VERSION)/' dist/images/install-ic-server.sh | bash
 
 	@$(MAKE) kind-config-ovn-ic
@@ -318,15 +318,15 @@ endef
 
 .PHONY: kind-config-ovn-ic
 kind-config-ovn-ic:
-	$(eval IC_DB_IPS=$(shell kubectl config use-context kind-kube-ovn >/dev/null && kubectl get deploy/ovn-ic-server -n kube-system -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="NODE_IPS")].value}'))
-	$(call kind_config_ovn_ic,kube-ovn,$(IC_DB_IPS),az0)
-	$(call kind_config_ovn_ic,kube-ovn1,$(IC_DB_IPS),az1)
+	$(eval IC_DB_IPS=$(shell kubectl config use-context kind-fabric >/dev/null && kubectl get deploy/ovn-ic-server -n kube-system -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="NODE_IPS")].value}'))
+	$(call kind_config_ovn_ic,fabric,$(IC_DB_IPS),az0)
+	$(call kind_config_ovn_ic,fabric1,$(IC_DB_IPS),az1)
 
 .PHONY: kind-install-ovn-ic-ipv6
 kind-install-ovn-ic-ipv6:
 	@ENABLE_IC=true $(MAKE) kind-install-ipv6
-	$(call kind_load_image,kube-ovn1,$(REGISTRY)/kube-ovn:$(VERSION))
-	kubectl config use-context kind-kube-ovn1
+	$(call kind_load_image,fabric1,$(REGISTRY)/fabric:$(VERSION))
+	kubectl config use-context kind-fabric1
 	@$(MAKE) untaint-control-plane
 	sed -e 's/fd00:10:16:/fd00:10:18:/g' \
 		-e 's/VERSION=.*/VERSION=$(VERSION)/' \
@@ -334,7 +334,7 @@ kind-install-ovn-ic-ipv6:
 		IPV6=true ENABLE_IC=true bash
 	kubectl describe no
 
-	kubectl config use-context kind-kube-ovn
+	kubectl config use-context kind-fabric
 	sed 's/VERSION=.*/VERSION=$(VERSION)/' dist/images/install-ic-server.sh | bash
 
 	@$(MAKE) kind-config-ovn-ic
@@ -342,8 +342,8 @@ kind-install-ovn-ic-ipv6:
 .PHONY: kind-install-ovn-ic-dual
 kind-install-ovn-ic-dual:
 	@ENABLE_IC=true $(MAKE) kind-install-dual
-	$(call kind_load_image,kube-ovn1,$(REGISTRY)/kube-ovn:$(VERSION))
-	kubectl config use-context kind-kube-ovn1
+	$(call kind_load_image,fabric1,$(REGISTRY)/fabric:$(VERSION))
+	kubectl config use-context kind-fabric1
 	@$(MAKE) untaint-control-plane
 	sed -e 's/10.16.0/10.18.0/g' \
 		-e 's/fd00:10:16:/fd00:10:18:/g' \
@@ -352,18 +352,18 @@ kind-install-ovn-ic-dual:
 		DUAL_STACK=true ENABLE_IC=true bash
 	kubectl describe no
 
-	kubectl config use-context kind-kube-ovn
+	kubectl config use-context kind-fabric
 	sed 's/VERSION=.*/VERSION=$(VERSION)/' dist/images/install-ic-server.sh | bash
 
 	@$(MAKE) kind-config-ovn-ic
 
 .PHONY: kind-install-ovn-submariner
 kind-install-ovn-submariner: kind-install
-	$(call kind_load_submariner_images,kube-ovn)
-	$(call kind_load_submariner_images,kube-ovn1)
-	$(call kind_load_image,kube-ovn1,$(REGISTRY)/kube-ovn:$(VERSION))
+	$(call kind_load_submariner_images,fabric)
+	$(call kind_load_submariner_images,fabric1)
+	$(call kind_load_image,fabric1,$(REGISTRY)/fabric:$(VERSION))
 
-	kubectl config use-context kind-kube-ovn1
+	kubectl config use-context kind-fabric1
 	kubectl create namespace submariner-operator
 	kubectl create configmap submariner-global --namespace=submariner-operator --from-literal=use-nftables=false
 	@$(MAKE) untaint-control-plane
@@ -374,15 +374,15 @@ kind-install-ovn-submariner: kind-install
 		dist/images/install.sh | bash
 	kubectl describe no
 
-	kubectl config use-context kind-kube-ovn
+	kubectl config use-context kind-fabric
 	kubectl create namespace submariner-operator
 	kubectl create configmap submariner-global --namespace=submariner-operator --from-literal=use-nftables=false
 	subctl deploy-broker
 	cat broker-info.subm | base64 -d | \
-		jq '.brokerURL = "https://$(shell docker inspect --format='{{.NetworkSettings.Networks.kind.IPAddress}}' kube-ovn-control-plane):6443"' | \
+		jq '.brokerURL = "https://$(shell docker inspect --format='{{.NetworkSettings.Networks.kind.IPAddress}}' fabric-control-plane):6443"' | \
 		base64 > broker-info-internal.subm
-	$(call kind_subctl_join,kube-ovn,cluster0,100.64.0.0/16;10.16.0.0/16)
-	$(call kind_subctl_join,kube-ovn1,cluster1,100.68.0.0/16;10.18.0.0/16)
+	$(call kind_subctl_join,fabric,cluster0,100.64.0.0/16;10.16.0.0/16)
+	$(call kind_subctl_join,fabric1,cluster1,100.68.0.0/16;10.18.0.0/16)
 
 .PHONY: kind-install-underlay
 kind-install-underlay: kind-install-underlay-ipv4
@@ -392,7 +392,7 @@ kind-install-underlay-hairpin: kind-install-underlay-hairpin-ipv4
 
 .PHONY: kind-install-underlay-ipv4
 kind-install-underlay-ipv4: kind-disable-hairpin kind-load-image untaint-control-plane
-	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),kube-ovn-control-plane)
+	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),fabric-control-plane)
 	@sed -e 's@^[[:space:]]*POD_CIDR=.*@POD_CIDR="$($(UNDERLAY_NETWORK_IPV4_SUBNET))"@' \
 		-e 's@^[[:space:]]*POD_GATEWAY=.*@POD_GATEWAY="$($(UNDERLAY_NETWORK_IPV4_GATEWAY))"@' \
 		-e 's@^[[:space:]]*EXCLUDE_IPS=.*@EXCLUDE_IPS="$($(UNDERLAY_NETWORK_IPV4_EXCLUDE_IPS))"@' \
@@ -404,7 +404,7 @@ kind-install-underlay-ipv4: kind-disable-hairpin kind-load-image untaint-control
 
 .PHONY: kind-install-underlay-hairpin-ipv4
 kind-install-underlay-hairpin-ipv4: kind-enable-hairpin kind-load-image untaint-control-plane
-	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),kube-ovn-control-plane)
+	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),fabric-control-plane)
 	@sed -e 's@^[[:space:]]*POD_CIDR=.*@POD_CIDR="$($(UNDERLAY_NETWORK_IPV4_SUBNET))"@' \
 		-e 's@^[[:space:]]*POD_GATEWAY=.*@POD_GATEWAY="$($(UNDERLAY_NETWORK_IPV4_GATEWAY))"@' \
 		-e 's@^[[:space:]]*EXCLUDE_IPS=.*@EXCLUDE_IPS="$($(UNDERLAY_NETWORK_IPV4_EXCLUDE_IPS))"@' \
@@ -416,7 +416,7 @@ kind-install-underlay-hairpin-ipv4: kind-enable-hairpin kind-load-image untaint-
 
 .PHONY: kind-install-underlay-ipv6
 kind-install-underlay-ipv6: kind-disable-hairpin kind-load-image untaint-control-plane
-	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),kube-ovn-control-plane)
+	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),fabric-control-plane)
 	@sed -e 's@^[[:space:]]*POD_CIDR=.*@POD_CIDR="$($(UNDERLAY_NETWORK_IPV6_SUBNET))"@' \
 		-e 's@^[[:space:]]*POD_GATEWAY=.*@POD_GATEWAY="$($(UNDERLAY_NETWORK_IPV6_GATEWAY))"@' \
 		-e 's@^[[:space:]]*EXCLUDE_IPS=.*@EXCLUDE_IPS="$($(UNDERLAY_NETWORK_IPV6_EXCLUDE_IPS))"@' \
@@ -427,7 +427,7 @@ kind-install-underlay-ipv6: kind-disable-hairpin kind-load-image untaint-control
 
 .PHONY: kind-install-underlay-hairpin-ipv6
 kind-install-underlay-hairpin-ipv6: kind-enable-hairpin kind-load-image untaint-control-plane
-	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),kube-ovn-control-plane)
+	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),fabric-control-plane)
 	@sed -e 's@^[[:space:]]*POD_CIDR=.*@POD_CIDR="$($(UNDERLAY_NETWORK_IPV6_SUBNET))"@' \
 		-e 's@^[[:space:]]*POD_GATEWAY=.*@POD_GATEWAY="$($(UNDERLAY_NETWORK_IPV6_GATEWAY))"@' \
 		-e 's@^[[:space:]]*EXCLUDE_IPS=.*@EXCLUDE_IPS="$($(UNDERLAY_NETWORK_IPV6_EXCLUDE_IPS))"@' \
@@ -438,7 +438,7 @@ kind-install-underlay-hairpin-ipv6: kind-enable-hairpin kind-load-image untaint-
 
 .PHONY: kind-install-underlay-dual
 kind-install-underlay-dual: kind-disable-hairpin kind-load-image untaint-control-plane
-	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),kube-ovn-control-plane)
+	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),fabric-control-plane)
 	@sed -e 's@^[[:space:]]*POD_CIDR=.*@POD_CIDR="$($(UNDERLAY_NETWORK_IPV4_SUBNET)),$($(UNDERLAY_NETWORK_IPV6_SUBNET))"@' \
 		-e 's@^[[:space:]]*POD_GATEWAY=.*@POD_GATEWAY="$($(UNDERLAY_NETWORK_IPV4_GATEWAY)),$($(UNDERLAY_NETWORK_IPV6_GATEWAY))"@' \
 		-e 's@^[[:space:]]*EXCLUDE_IPS=.*@EXCLUDE_IPS="$($(UNDERLAY_NETWORK_IPV4_EXCLUDE_IPS)),$($(UNDERLAY_NETWORK_IPV6_EXCLUDE_IPS))"@' \
@@ -449,7 +449,7 @@ kind-install-underlay-dual: kind-disable-hairpin kind-load-image untaint-control
 
 .PHONY: kind-install-underlay-hairpin-dual
 kind-install-underlay-hairpin-dual: kind-enable-hairpin kind-load-image untaint-control-plane
-	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),kube-ovn-control-plane)
+	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),fabric-control-plane)
 	@sed -e 's@^[[:space:]]*POD_CIDR=.*@POD_CIDR="$($(UNDERLAY_NETWORK_IPV4_SUBNET)),$($(UNDERLAY_NETWORK_IPV6_SUBNET))"@' \
 		-e 's@^[[:space:]]*POD_GATEWAY=.*@POD_GATEWAY="$($(UNDERLAY_NETWORK_IPV4_GATEWAY)),$($(UNDERLAY_NETWORK_IPV6_GATEWAY))"@' \
 		-e 's@^[[:space:]]*EXCLUDE_IPS=.*@EXCLUDE_IPS="$($(UNDERLAY_NETWORK_IPV4_EXCLUDE_IPS)),$($(UNDERLAY_NETWORK_IPV6_EXCLUDE_IPS))"@' \
@@ -467,7 +467,7 @@ kind-install-underlay-u2o-%:
 
 .PHONY: kind-install-underlay-logical-gateway-dual
 kind-install-underlay-logical-gateway-dual: kind-disable-hairpin kind-load-image untaint-control-plane
-	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),kube-ovn-control-plane)
+	$(call docker_network_info,$(KIND_NETWORK_UNDERLAY),fabric-control-plane)
 	@sed -e 's@^[[:space:]]*POD_CIDR=.*@POD_CIDR="$($(UNDERLAY_NETWORK_IPV4_SUBNET)),$($(UNDERLAY_NETWORK_IPV6_SUBNET))"@' \
 		-e 's@^[[:space:]]*POD_GATEWAY=.*@POD_GATEWAY="$($(UNDERLAY_NETWORK_IPV4_GATEWAY))9,$($(UNDERLAY_NETWORK_IPV6_GATEWAY))f"@' \
 		-e 's@^[[:space:]]*EXCLUDE_IPS=.*@EXCLUDE_IPS="$($(UNDERLAY_NETWORK_IPV4_GATEWAY)),$($(UNDERLAY_NETWORK_IPV4_EXCLUDE_IPS)),$($(UNDERLAY_NETWORK_IPV6_GATEWAY)),$($(UNDERLAY_NETWORK_IPV6_EXCLUDE_IPS))"@' \
@@ -479,17 +479,17 @@ kind-install-underlay-logical-gateway-dual: kind-disable-hairpin kind-load-image
 
 .PHONY: kind-install-multus
 kind-install-multus:
-	$(call kind_load_image,kube-ovn,$(MULTUS_IMAGE),1)
+	$(call kind_load_image,fabric,$(MULTUS_IMAGE),1)
 	curl -s "$(MULTUS_YAML)" | sed 's/:snapshot-thick/:$(MULTUS_VERSION)-thick/g' | kubectl apply -f -
 	kubectl -n kube-system set resources ds/kube-multus-ds -c kube-multus --limits=cpu=200m,memory=200Mi
 	kubectl -n kube-system rollout status ds kube-multus-ds
 
 .PHONY: kind-install-metallb
 kind-install-metallb:
-	$(call docker_network_info,kind,kube-ovn-control-plane)
-	$(call kind_load_image,kube-ovn,$(METALLB_CONTROLLER_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(METALLB_SPEAKER_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(FRR_IMAGE),1)
+	$(call docker_network_info,kind,fabric-control-plane)
+	$(call kind_load_image,fabric,$(METALLB_CONTROLLER_IMAGE),1)
+	$(call kind_load_image,fabric,$(METALLB_SPEAKER_IMAGE),1)
+	$(call kind_load_image,fabric,$(FRR_IMAGE),1)
 	helm repo add metallb $(METALLB_CHART_REPO)
 	helm repo update metallb
 	helm install metallb metallb/metallb --wait \
@@ -529,12 +529,12 @@ kind-install-metallb-pool-from-underlay: kind-install-metallb-pool-from-underlay
 
 .PHONY: kind-install-kubevirt
 kind-install-kubevirt:
-	$(call kind_load_image,kube-ovn,$(KUBEVIRT_OPERATOR_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(KUBEVIRT_API_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(KUBEVIRT_CONTROLLER_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(KUBEVIRT_HANDLER_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(KUBEVIRT_LAUNCHER_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(KUBEVIRT_CONTAINERDISK_IMAGE),1)
+	$(call kind_load_image,fabric,$(KUBEVIRT_OPERATOR_IMAGE),1)
+	$(call kind_load_image,fabric,$(KUBEVIRT_API_IMAGE),1)
+	$(call kind_load_image,fabric,$(KUBEVIRT_CONTROLLER_IMAGE),1)
+	$(call kind_load_image,fabric,$(KUBEVIRT_HANDLER_IMAGE),1)
+	$(call kind_load_image,fabric,$(KUBEVIRT_LAUNCHER_IMAGE),1)
+	$(call kind_load_image,fabric,$(KUBEVIRT_CONTAINERDISK_IMAGE),1)
 
 	kubectl apply -f "$(KUBEVIRT_OPERATOR_YAML)"
 	kubectl -n kubevirt scale deploy virt-operator --replicas=1
@@ -552,17 +552,17 @@ kind-install-kubevirt:
 
 .PHONY: kind-install-webhook
 kind-install-webhook: kind-install
-	$(call kind_load_image,kube-ovn,$(CERT_MANAGER_CONTROLLER),1)
-	$(call kind_load_image,kube-ovn,$(CERT_MANAGER_CAINJECTOR),1)
-	$(call kind_load_image,kube-ovn,$(CERT_MANAGER_WEBHOOK),1)
+	$(call kind_load_image,fabric,$(CERT_MANAGER_CONTROLLER),1)
+	$(call kind_load_image,fabric,$(CERT_MANAGER_CAINJECTOR),1)
+	$(call kind_load_image,fabric,$(CERT_MANAGER_WEBHOOK),1)
 
 	kubectl apply -f "$(CERT_MANAGER_YAML)"
 	kubectl rollout status deployment/cert-manager -n cert-manager --timeout 120s
 	kubectl rollout status deployment/cert-manager-cainjector -n cert-manager --timeout 120s
 	kubectl rollout status deployment/cert-manager-webhook -n cert-manager --timeout 120s
 
-	sed 's#image: .*#image: $(REGISTRY)/kube-ovn:$(VERSION)#' yamls/webhook.yaml | kubectl apply -f -
-	kubectl rollout status deployment/kube-ovn-webhook -n kube-system --timeout 120s
+	sed 's#image: .*#image: $(REGISTRY)/fabric:$(VERSION)#' yamls/webhook.yaml | kubectl apply -f -
+	kubectl rollout status deployment/fabric-webhook -n kube-system --timeout 120s
 
 .PHONY: kind-install-cilium-chaining
 kind-install-cilium-chaining: kind-install-cilium-chaining-ipv4
@@ -573,8 +573,8 @@ kind-install-cilium-chaining-%:
 	$(eval IPV6_ENABLED = $(shell if echo $* | grep -q ipv4; then echo false; else echo true; fi))
 	@echo "Installing Cilium with IPv4=$(IPV4_ENABLED) and IPv6=$(IPV6_ENABLED) ..."
 	$(eval KUBERNETES_SERVICE_HOST = $(call kubectl_get_control_plane_ip))
-	$(call kind_load_image,kube-ovn,$(CILIUM_IMAGE_REPO)/cilium:$(CILIUM_VERSION),1)
-	$(call kind_load_image,kube-ovn,$(CILIUM_IMAGE_REPO)/operator-generic:$(CILIUM_VERSION),1)
+	$(call kind_load_image,fabric,$(CILIUM_IMAGE_REPO)/cilium:$(CILIUM_VERSION),1)
+	$(call kind_load_image,fabric,$(CILIUM_IMAGE_REPO)/operator-generic:$(CILIUM_VERSION),1)
 	kubectl apply -f yamls/cilium-chaining.yaml
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
@@ -606,7 +606,7 @@ kind-install-cilium-chaining-%:
 		--set-json ipam.operator.clusterPoolIPv4PodCIDRList='["100.65.0.0/16"]' \
 		--set-json ipam.operator.clusterPoolIPv6PodCIDRList='["fd00:100:65::/112"]' \
 		--set cni.chainingMode=generic-veth \
-		--set cni.chainingTarget=kube-ovn \
+		--set cni.chainingTarget=fabric \
 		--set cni.customConf=true \
 		--set cni.configMap=cni-configuration
 	kubectl -n kube-system rollout status ds cilium --timeout 120s
@@ -624,8 +624,8 @@ kind-install-cilium-delegate-%:
 	$(eval IPV4_ENABLED = $(shell if echo $* | grep -q ipv6; then echo false; else echo true; fi))
 	$(eval IPV6_ENABLED = $(shell if echo $* | grep -q ipv4; then echo false; else echo true; fi))
 	@echo "Installing Cilium with IPv4=$(IPV4_ENABLED) and IPv6=$(IPV6_ENABLED) ..."
-	$(call kind_load_image,kube-ovn,$(CILIUM_IMAGE_REPO)/cilium:$(CILIUM_VERSION),1)
-	$(call kind_load_image,kube-ovn,$(CILIUM_IMAGE_REPO)/operator-generic:$(CILIUM_VERSION),1)
+	$(call kind_load_image,fabric,$(CILIUM_IMAGE_REPO)/cilium:$(CILIUM_VERSION),1)
+	$(call kind_load_image,fabric,$(CILIUM_IMAGE_REPO)/operator-generic:$(CILIUM_VERSION),1)
 	helm repo add cilium https://helm.cilium.io/
 	helm repo update cilium
 	@echo "Installing Cilium via Helm with delegate configuration..."
@@ -652,7 +652,7 @@ kind-install-deepflow: kind-install
 		--create-namespace \
 		--set global.image.repository=$(DEEPFLOW_IMAGE_REPO) \
 		--set global.image.pullPolicy=IfNotPresent \
-		--set deepflow-agent.clusterNAME=kind-kube-ovn \
+		--set deepflow-agent.clusterNAME=kind-fabric \
 		--set grafana.image.registry=$(DEEPFLOW_IMAGE_REPO) \
 		--set grafana.image.pullPolicy=IfNotPresent \
 		--set grafana.service.nodePort=$(DEEPFLOW_GRAFANA_NODE_PORT) \
@@ -672,11 +672,11 @@ kind-install-deepflow-ctl:
 kind-install-kwok:
 	kubectl -n kube-system patch ds kube-proxy -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
 	kubectl -n kube-system patch ds ovs-ovn -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
-	kubectl -n kube-system patch ds kube-ovn-cni -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
-	kubectl -n kube-system patch ds kube-ovn-pinger -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
-	kubectl -n kube-system patch deploy kube-ovn-monitor -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
+	kubectl -n kube-system patch ds fabric-cni -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
+	kubectl -n kube-system patch ds fabric-pinger -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
+	kubectl -n kube-system patch deploy fabric-monitor -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
 	kubectl -n kube-system patch deploy coredns -p '{"spec":{"template":{"spec":{"nodeSelector":{"type":"kind"}}}}}'
-	$(call kind_load_kwok_image,kube-ovn)
+	$(call kind_load_kwok_image,fabric)
 	kubectl apply -f yamls/kwok.yaml
 	kubectl apply -f yamls/kwok-stage.yaml
 	kubectl -n kube-system rollout status deploy kwok-controller --timeout 60s
@@ -691,9 +691,9 @@ kind-install-ovn-ipsec:
 
 .PHONY: kind-install-cert-manager
 kind-install-cert-manager:
-	$(call kind_load_image,kube-ovn,$(CERT_MANAGER_CONTROLLER),1)
-	$(call kind_load_image,kube-ovn,$(CERT_MANAGER_CAINJECTOR),1)
-	$(call kind_load_image,kube-ovn,$(CERT_MANAGER_WEBHOOK),1)
+	$(call kind_load_image,fabric,$(CERT_MANAGER_CONTROLLER),1)
+	$(call kind_load_image,fabric,$(CERT_MANAGER_CAINJECTOR),1)
+	$(call kind_load_image,fabric,$(CERT_MANAGER_WEBHOOK),1)
 
 	kubectl apply -f "$(CERT_MANAGER_YAML)"
 
@@ -706,16 +706,16 @@ kind-install-ovn-ipsec-cert-manager:
 	@$(MAKE) CERT_MANAGER_IPSEC_CERT=true kind-install-ovn-ipsec
 	@$(MAKE) kind-install-cert-manager
 
-	docker run --rm -v "$(CURDIR)":/etc/ovn $(REGISTRY)/kube-ovn:$(VERSION) bash generate-ssl.sh
+	docker run --rm -v "$(CURDIR)":/etc/ovn $(REGISTRY)/fabric:$(VERSION) bash generate-ssl.sh
 
-	kubectl create secret generic -n cert-manager kube-ovn-ca --from-file=tls.key=cakey.pem --from-file=tls.crt=cacert.pem
+	kubectl create secret generic -n cert-manager fabric-ca --from-file=tls.key=cakey.pem --from-file=tls.crt=cacert.pem
 	kubectl create secret generic -n kube-system ovn-ipsec-ca --from-file=cacert=cacert.pem
-	echo '{"apiVersion": "cert-manager.io/v1", "kind": "ClusterIssuer", "metadata": {"name": "kube-ovn"}, "spec": {"ca": {"secretName": "kube-ovn-ca"}}}' | \
+	echo '{"apiVersion": "cert-manager.io/v1", "kind": "ClusterIssuer", "metadata": {"name": "fabric"}, "spec": {"ca": {"secretName": "fabric-ca"}}}' | \
 		kubectl apply -f -
 
 .PHONY: kind-install-anp
 kind-install-anp: kind-load-image
-	$(call kind_load_image,kube-ovn,$(ANP_TEST_IMAGE),1)
+	$(call kind_load_image,fabric,$(ANP_TEST_IMAGE),1)
 	kubectl apply -f "$(ANP_CR_YAML)"
 	kubectl apply -f "$(BANP_CR_YAML)"
 	kubectl apply -f "$(CNP_CR_YAML)"
@@ -723,9 +723,9 @@ kind-install-anp: kind-load-image
 
 .PHONY: kind-reload
 kind-reload: kind-reload-ovs
-	kubectl delete pod -n kube-system -l app=kube-ovn-controller
-	kubectl delete pod -n kube-system -l app=kube-ovn-cni
-	kubectl delete pod -n kube-system -l app=kube-ovn-pinger
+	kubectl delete pod -n kube-system -l app=fabric-controller
+	kubectl delete pod -n kube-system -l app=fabric-cni
+	kubectl delete pod -n kube-system -l app=fabric-pinger
 
 .PHONY: kind-reload-ovs
 kind-reload-ovs: kind-load-image
@@ -733,16 +733,16 @@ kind-reload-ovs: kind-load-image
 
 .PHONY: kind-clean
 kind-clean:
-	kind delete cluster --name=kube-ovn
+	kind delete cluster --name=fabric
 
 .PHONY: kind-clean-ovn-ic
 kind-clean-ovn-ic: kind-clean
 	$(call docker_rm_container,ovn-ic-db)
-	kind delete cluster --name=kube-ovn1
+	kind delete cluster --name=fabric1
 
 .PHONY: kind-clean-ovn-submariner
 kind-clean-ovn-submariner: kind-clean
-	kind delete cluster --name=kube-ovn1
+	kind delete cluster --name=fabric1
 
 .PHONY: kind-ghcr-pull
 kind-ghcr-pull:
@@ -755,11 +755,11 @@ kind-ghcr-pull:
 		docker pull kindest/node:$(K8S_VERSION); \
 	fi
 
-.PHONY: kind-install-multus-cilium-kubeovn-non-primary
-kind-install-multus-cilium-kubeovn-non-primary: kind-install-multus-cilium-kubeovn-non-primary-ipv4
+.PHONY: kind-install-multus-cilium-fabric-non-primary
+kind-install-multus-cilium-fabric-non-primary: kind-install-multus-cilium-fabric-non-primary-ipv4
 
-.PHONY: kind-install-multus-cilium-kubeovn-non-primary-%
-kind-install-multus-cilium-kubeovn-non-primary-%:
+.PHONY: kind-install-multus-cilium-fabric-non-primary-%
+kind-install-multus-cilium-fabric-non-primary-%:
 	@echo "Setting up KIND cluster with Multus-CNI, Cilium delegate as primary CNI, and Kube-OVN as secondary CNI..."
 	@echo "1. Create underlay network and connect nodes..."
 	@$(MAKE) kind-network-create-underlay
@@ -776,8 +776,8 @@ kind-install-multus-cilium-kubeovn-non-primary-%:
 	@echo "  - Kube-OVN: Secondary CNI for additional network interfaces"
 	@echo ""
 	@echo "You can now run non-primary CNI tests with:"
-	@echo "  make kube-ovn-non-primary-cni-e2e"
+	@echo "  make fabric-non-primary-cni-e2e"
 
 # Convenience target for the most common use case (IPv4)
 .PHONY: kind-setup-non-primary-cni
-kind-setup-non-primary-cni: kind-install-multus-cilium-kubeovn-non-primary
+kind-setup-non-primary-cni: kind-install-multus-cilium-fabric-non-primary

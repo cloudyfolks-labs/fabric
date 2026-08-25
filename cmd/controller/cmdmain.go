@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	CmdController = "kube-ovn-controller"
-	CmdPinger     = "kube-ovn-pinger"
+	CmdController = "fabric-controller"
+	CmdPinger     = "fabric-pinger"
 )
 
 func main() {

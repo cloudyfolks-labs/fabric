@@ -45,7 +45,7 @@ func TestE2E(t *testing.T) {
 	// Note: environment validation will happen during test execution
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "kube-ovn non-primary cni e2e suite")
+	ginkgo.RunSpecs(t, "fabric non-primary cni e2e suite")
 }
 
 // Constants for test configuration
@@ -443,7 +443,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 			f.SkipVersionPriorTo(1, 17, "iptables cleanup in non-primary CNI mode requires v1.17+")
 		})
 
-		ginkgo.It("Should not have kube-ovn iptables chains or rules in non-primary CNI mode", func() {
+		ginkgo.It("Should not have fabric iptables chains or rules in non-primary CNI mode", func() {
 			ginkgo.By("Get cluster nodes")
 			nodeObjs, err := e2enode.GetReadySchedulableNodes(context.Background(), cs)
 			framework.ExpectNoError(err)
@@ -494,7 +494,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 				"nat table should not contain OVN-NAT-PSUBNET- chains",
 			)
 
-			ginkgo.By("Verify no kube-ovn jump rules in nat/mangle PREROUTING/POSTROUTING")
+			ginkgo.By("Verify no fabric jump rules in nat/mangle PREROUTING/POSTROUTING")
 			for _, table := range []string{"nat", "mangle"} {
 				for _, chain := range []string{"PREROUTING", "POSTROUTING"} {
 					cmd := fmt.Sprintf("iptables -t %s -S %s", table, chain)
@@ -502,8 +502,8 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 					framework.ExpectNoError(err)
 					output := string(stdout)
 					gomega.Expect(output).NotTo(
-						gomega.ContainSubstring("kube-ovn"),
-						fmt.Sprintf("%s %s should not contain kube-ovn jump rules", table, chain),
+						gomega.ContainSubstring("fabric"),
+						fmt.Sprintf("%s %s should not contain fabric jump rules", table, chain),
 					)
 					gomega.Expect(output).NotTo(
 						gomega.ContainSubstring("OVN-"),
@@ -512,7 +512,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 				}
 			}
 
-			ginkgo.By("Verify no kube-ovn jump rules in mangle OUTPUT")
+			ginkgo.By("Verify no fabric jump rules in mangle OUTPUT")
 			cmd = "iptables -t mangle -S OUTPUT"
 			stdout, _, err = framework.KubectlExec(ovsPod.Namespace, ovsPod.Name, cmd)
 			framework.ExpectNoError(err)
@@ -521,7 +521,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 				"mangle OUTPUT should not contain OVN- chain references",
 			)
 
-			ginkgo.By("Verify no kube-ovn rules in filter INPUT/OUTPUT/FORWARD")
+			ginkgo.By("Verify no fabric rules in filter INPUT/OUTPUT/FORWARD")
 			for _, chain := range []string{"INPUT", "OUTPUT", "FORWARD"} {
 				cmd := fmt.Sprintf("iptables -t filter -S %s", chain)
 				stdout, _, err := framework.KubectlExec(ovsPod.Namespace, ovsPod.Name, cmd)
@@ -541,7 +541,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 				)
 			}
 
-			ginkgo.By("Verify no kube-ovn NodePort MARK rules in nat PREROUTING")
+			ginkgo.By("Verify no fabric NodePort MARK rules in nat PREROUTING")
 			cmd = "iptables -t nat -S PREROUTING"
 			stdout, _, err = framework.KubectlExec(ovsPod.Namespace, ovsPod.Name, cmd)
 			framework.ExpectNoError(err)

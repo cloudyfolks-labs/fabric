@@ -25,7 +25,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 	srcIPPolicy := ovnnb.LogicalRouterStaticRoutePolicySrcIP
 	dstIPPolicy := ovnnb.LogicalRouterStaticRoutePolicyDstIP
 
-	// Internal static route created directly in OVN with kube-ovn vendor
+	// Internal static route created directly in OVN with fabric vendor
 	internalStaticRoute := &ovnnb.LogicalRouterStaticRoute{
 		UUID: "internal-static-route-uuid",
 		ExternalIDs: map[string]string{
@@ -49,7 +49,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 		RouteTable: util.MainRouteTable,
 	}
 
-	t.Run("only try to manage static routes with vendor kube-ovn", func(t *testing.T) {
+	t.Run("only try to manage static routes with vendor fabric", func(t *testing.T) {
 		fakeController := newFakeController(t)
 		ctrl := fakeController.fakeController
 		fakeinformers := fakeController.fakeInformers
@@ -118,7 +118,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("delete orphaned kube-ovn routes", func(t *testing.T) {
+	t.Run("delete orphaned fabric routes", func(t *testing.T) {
 		fakeController := newFakeController(t)
 		ctrl := fakeController.fakeController
 		fakeinformers := fakeController.fakeInformers

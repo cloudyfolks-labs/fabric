@@ -81,9 +81,9 @@ var _ = framework.SerialDescribe("[group:pod]", func() {
 		ginkgo.By("gc policy route")
 		podClient.CreateSync(framework.MakePod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil))
 
-		ginkgo.By("restart kube-ovn-controller")
+		ginkgo.By("restart fabric-controller")
 		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
-		deploy := deployClient.Get("kube-ovn-controller")
+		deploy := deployClient.Get("fabric-controller")
 		framework.ExpectNotNil(deploy.Spec.Replicas)
 		deployClient.SetScale(deploy.Name, 0)
 		deployClient.RolloutStatus(deploy.Name)

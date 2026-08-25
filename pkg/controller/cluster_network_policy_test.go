@@ -790,7 +790,7 @@ func TestValidateCnpConfig(t *testing.T) {
 
 	var tooManyDomains []v1alpha2.DomainName
 	for range util.CnpMaxNetworks + 1 {
-		tooManyDomains = append(tooManyDomains, "kube-ovn.io")
+		tooManyDomains = append(tooManyDomains, "fabric.io")
 	}
 
 	var tooManyNetworks []v1alpha2.CIDR
@@ -972,7 +972,7 @@ func TestCheckNetworkAndDomainRules(t *testing.T) {
 
 	var tooManyDomains []v1alpha2.DomainName
 	for range util.CnpMaxNetworks + 1 {
-		tooManyDomains = append(tooManyDomains, "kube-ovn.io")
+		tooManyDomains = append(tooManyDomains, "fabric.io")
 	}
 
 	var tooManyNetworks []v1alpha2.CIDR
@@ -1556,7 +1556,7 @@ func TestGetCnpDomainsNames(t *testing.T) {
 							To: []v1alpha2.ClusterNetworkPolicyEgressPeer{
 								{
 									DomainNames: []v1alpha2.DomainName{
-										"kube-ovn.io",
+										"fabric.io",
 									},
 								},
 							},
@@ -1564,7 +1564,7 @@ func TestGetCnpDomainsNames(t *testing.T) {
 					},
 				},
 			},
-			[]string{"kube-ovn.io"},
+			[]string{"fabric.io"},
 		},
 		{
 			"two domains",
@@ -1576,7 +1576,7 @@ func TestGetCnpDomainsNames(t *testing.T) {
 							To: []v1alpha2.ClusterNetworkPolicyEgressPeer{
 								{
 									DomainNames: []v1alpha2.DomainName{
-										"kube-ovn.io",
+										"fabric.io",
 										"google.com",
 									},
 								},
@@ -1585,7 +1585,7 @@ func TestGetCnpDomainsNames(t *testing.T) {
 					},
 				},
 			},
-			[]string{"kube-ovn.io", "google.com"},
+			[]string{"fabric.io", "google.com"},
 		},
 	}
 
@@ -1622,7 +1622,7 @@ func TestHasCnpDomainNames(t *testing.T) {
 							To: []v1alpha2.ClusterNetworkPolicyEgressPeer{
 								{
 									DomainNames: []v1alpha2.DomainName{
-										"kube-ovn.io",
+										"fabric.io",
 									},
 								},
 							},
@@ -1642,7 +1642,7 @@ func TestHasCnpDomainNames(t *testing.T) {
 							To: []v1alpha2.ClusterNetworkPolicyEgressPeer{
 								{
 									DomainNames: []v1alpha2.DomainName{
-										"kube-ovn.io",
+										"fabric.io",
 										"google.com",
 									},
 								},

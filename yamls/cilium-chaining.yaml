@@ -10,8 +10,8 @@ data:
       "cniVersion": "0.3.1",
       "plugins": [
         {
-          "type": "kube-ovn",
-          "server_socket": "/run/openvswitch/kube-ovn-daemon.sock"
+          "type": "fabric",
+          "server_socket": "/run/openvswitch/fabric-daemon.sock"
         },
         {
           "type": "portmap",

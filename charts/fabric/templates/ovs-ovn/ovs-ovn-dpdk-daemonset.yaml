@@ -1,5 +1,5 @@
-{{- if and (include "kubeovn.renderFullOnly" .) .Values.ovsOvn.dpdkHybrid.enabled }}
-{{- $ovsOvnDpdkImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.ovsOvn.dpdkHybrid.image "defaultRepository" .Values.global.images.kubeovn.repository "defaultTag" .Values.ovsOvn.dpdkHybrid.tag) | fromYaml -}}
+{{- if and (include "fabric.renderFullOnly" .) .Values.ovsOvn.dpdkHybrid.enabled }}
+{{- $ovsOvnDpdkImage := include "fabric.imageSpec" (dict "root" . "image" .Values.ovsOvn.dpdkHybrid.image "defaultRepository" .Values.global.images.fabric.repository "defaultTag" .Values.ovsOvn.dpdkHybrid.tag) | fromYaml -}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -16,8 +16,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-ovs-dpdk
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/name: fabric-ovs-dpdk
+      app.kubernetes.io/part-of: fabric
   updateStrategy:
     type: {{ .Values.ovsOvn.updateStrategy.type }}
     {{- if eq .Values.ovsOvn.updateStrategy.type "RollingUpdate" }}
@@ -32,8 +32,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: kube-ovn-ovs-dpdk
-        app.kubernetes.io/part-of: kube-ovn
+        app.kubernetes.io/name: fabric-ovs-dpdk
+        app.kubernetes.io/part-of: fabric
         {{- with .Values.ovsOvn.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -57,7 +57,7 @@ spec:
         - name: openvswitch
           image: {{ $ovsOvnDpdkImage.prefix }}{{ $ovsOvnDpdkImage.repository }}:{{ $ovsOvnDpdkImage.tag }}
           imagePullPolicy: {{ $ovsOvnDpdkImage.pullPolicy }}
-          command: ["/kube-ovn/start-ovs-dpdk-v2.sh"]
+          command: ["/fabric/start-ovs-dpdk-v2.sh"]
           securityContext:
             runAsUser: 0
             privileged: true
@@ -80,10 +80,10 @@ spec:
                   fieldPath: spec.nodeName
             {{- if .Values.central.hcp.enabled }}
             - name: OVN_SB_ADDR
-              value: "{{ include "kubeovn.ovnSbAddress" . }}"
+              value: "{{ include "fabric.ovnSbAddress" . }}"
             {{- else }}
             - name: OVN_DB_IPS
-              value: "{{ include "kubeovn.masterNodes" . | default (include "kubeovn.nodeIPs" .) }}"
+              value: "{{ include "fabric.masterNodes" . | default (include "fabric.nodeIPs" .) }}"
             {{- end }}
             - name: OVN_REMOTE_PROBE_INTERVAL
               value: "{{ .Values.ovsOvn.ovnRemoteProbeInterval }}"
@@ -121,19 +121,19 @@ spec:
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           readinessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             periodSeconds: 5
             timeoutSeconds: 45
           livenessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             initialDelaySeconds: 60
             periodSeconds: 5
             failureThreshold: 5
@@ -185,8 +185,8 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 {{- end }}

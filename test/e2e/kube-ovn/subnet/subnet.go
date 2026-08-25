@@ -1131,7 +1131,7 @@ var _ = framework.Describe("[group:subnet]", func() {
 
 		subnet = subnetClient.PatchSync(subnet, modifiedSubnet)
 		eventClient = f.EventClientNS(metav1.NamespaceDefault)
-		events := eventClient.WaitToHaveEvent(util.KindSubnet, subnetName, corev1.EventTypeNormal, "SubnetGatewayTypeChanged", "kube-ovn-controller", "")
+		events := eventClient.WaitToHaveEvent(util.KindSubnet, subnetName, corev1.EventTypeNormal, "SubnetGatewayTypeChanged", "fabric-controller", "")
 
 		message := fmt.Sprintf("subnet gateway type changes from %q to %q", apiv1.GWDistributedType, apiv1.GWCentralizedType)
 		found := false
@@ -1143,7 +1143,7 @@ var _ = framework.Describe("[group:subnet]", func() {
 		}
 		framework.ExpectTrue(found, "no SubnetGatewayTypeChanged event")
 		found = false
-		events = eventClient.WaitToHaveEvent(util.KindSubnet, subnetName, corev1.EventTypeNormal, "SubnetGatewayNodeChanged", "kube-ovn-controller", "")
+		events = eventClient.WaitToHaveEvent(util.KindSubnet, subnetName, corev1.EventTypeNormal, "SubnetGatewayNodeChanged", "fabric-controller", "")
 		message = fmt.Sprintf("gateway node changes from %q to %q", "", modifiedSubnet.Spec.GatewayNode)
 		for _, event := range events {
 			if event.Message == message {

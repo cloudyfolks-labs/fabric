@@ -212,13 +212,13 @@ func resolveOVNNbConnection() (string, error) {
 		dbIPs     string
 	)
 
-	deploy, err := client.AppsV1().Deployments(KubeOvnNamespace).Get(ctx, "kube-ovn-controller", metav1.GetOptions{})
+	deploy, err := client.AppsV1().Deployments(KubeOvnNamespace).Get(ctx, "fabric-controller", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
 
 	for _, container := range deploy.Spec.Template.Spec.Containers {
-		if container.Name != "kube-ovn-controller" {
+		if container.Name != "fabric-controller" {
 			continue
 		}
 		for _, env := range container.Env {

@@ -97,19 +97,19 @@ ovs-appctl -t "$ovsdb_server_ctl" vlog/set jsonrpc:file:err
 ovs-appctl -t "$ovsdb_server_ctl" vlog/set reconnect:file:err
 
 function handle_underlay_bridges() {
-  bridges=($(ovs-vsctl --no-heading --columns=name find bridge external-ids:vendor=kube-ovn))
+  bridges=($(ovs-vsctl --no-heading --columns=name find bridge external-ids:vendor=fabric))
   for br in "${bridges[@]}"; do
     if ! ip link show "$br" >/dev/null; then
-      # the bridge does not exist, leave it to be handled by kube-ovn-cni
+      # the bridge does not exist, leave it to be handled by fabric-cni
       echo "deleting ovs bridge $br"
       ovs-vsctl --no-wait del-br "$br"
     fi
   done
 
-  bridges=($(ovs-vsctl --no-heading --columns=name find bridge external-ids:vendor=kube-ovn external-ids:exchange-link-name=true))
+  bridges=($(ovs-vsctl --no-heading --columns=name find bridge external-ids:vendor=fabric external-ids:exchange-link-name=true))
   for br in "${bridges[@]}"; do
     if [ -z $(ip link show $br type openvswitch 2>/dev/null || true) ]; then
-      # the bridge does not exist, leave it to be handled by kube-ovn-cni
+      # the bridge does not exist, leave it to be handled by fabric-cni
       echo "deleting ovs bridge $br"
       ovs-vsctl --no-wait del-br "$br"
     fi
@@ -154,7 +154,7 @@ if [[ "$ENABLE_SSL" == "false" ]]; then
   /usr/share/ovn/scripts/ovn-ctl --ovn-controller-wrapper="$DEBUG_WRAPPER" restart_controller
 else
   /usr/share/ovn/scripts/ovn-ctl --ovn-controller-ssl-key=/var/run/tls/key --ovn-controller-ssl-cert=/var/run/tls/cert --ovn-controller-ssl-ca-cert=/var/run/tls/cacert --ovn-controller-wrapper="$DEBUG_WRAPPER" restart_controller
-  bash /kube-ovn/kube-ovn-tls-reload.sh ovs &
+  bash /fabric/fabric-tls-reload.sh ovs &
 fi
 
 chmod 600 /etc/openvswitch/*

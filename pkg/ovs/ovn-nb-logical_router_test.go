@@ -228,7 +228,7 @@ func (suite *OvnClientTestSuite) testListLogicalRouter() {
 		require.NoError(t, err)
 	}
 
-	t.Run("return all logical router which vendor is kube-ovn", func(t *testing.T) {
+	t.Run("return all logical router which vendor is fabric", func(t *testing.T) {
 		t.Parallel()
 		lrs, err := nbClient.ListLogicalRouter(true, nil)
 		require.NoError(t, err)

@@ -47,7 +47,7 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-const controllerAgentName = "kube-ovn-controller"
+const controllerAgentName = "fabric-controller"
 
 const (
 	logicalSwitchKey              = "ls"
@@ -63,7 +63,7 @@ const (
 	clusterNetworkPolicyKey       = "cnp"
 )
 
-// Controller is kube-ovn main controller that watch ns/pod/node/svc/ep and operate ovn
+// Controller is fabric main controller that watch ns/pod/node/svc/ep and operate ovn
 type Controller struct {
 	config *Configuration
 

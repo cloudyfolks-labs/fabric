@@ -43,7 +43,7 @@ func main() {
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to parse log-perm")
 	}
-	util.InitLogFilePerm("kube-ovn-cni", os.FileMode(perm))
+	util.InitLogFilePerm("fabric-cni", os.FileMode(perm))
 	printCaps()
 
 	ovs.UpdateOVSVsctlLimiter(config.OVSVsctlConcurrency)

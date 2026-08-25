@@ -1,5 +1,5 @@
-{{- if include "kubeovn.renderDataPlane" . -}}
-{{- $ovsOvnImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.ovsOvn.image) | fromYaml -}}
+{{- if include "fabric.renderDataPlane" . -}}
+{{- $ovsOvnImage := include "fabric.imageSpec" (dict "root" . "image" .Values.ovsOvn.image) | fromYaml -}}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -10,18 +10,18 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
-    {{- include "kubeovn.labels" .  | nindent 4 }}
+    {{- include "fabric.labels" .  | nindent 4 }}
     {{- with .Values.ovsOvn.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-ovs
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/name: fabric-ovs
+      app.kubernetes.io/part-of: fabric
   updateStrategy:
-    type: {{ include "kubeovn.ovs-ovn.updateStrategy" . }}
-    {{- if eq (include "kubeovn.ovs-ovn.updateStrategy" .) "RollingUpdate" }}
+    type: {{ include "fabric.ovs-ovn.updateStrategy" . }}
+    {{- if eq (include "fabric.ovs-ovn.updateStrategy" .) "RollingUpdate" }}
     rollingUpdate:
       maxSurge: {{ .Values.ovsOvn.updateStrategy.maxSurge }}
       maxUnavailable: {{ .Values.ovsOvn.updateStrategy.maxUnavailable }}
@@ -33,9 +33,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "kubeovn.labels" . | nindent 8 }}
-        app.kubernetes.io/name: kube-ovn-ovs
-        app.kubernetes.io/part-of: kube-ovn
+        {{- include "fabric.labels" . | nindent 8 }}
+        app.kubernetes.io/name: fabric-ovs
+        app.kubernetes.io/part-of: fabric
         {{- with .Values.ovsOvn.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -108,9 +108,9 @@ spec:
         - name: openvswitch
           image: {{ $ovsOvnImage.prefix }}{{ $ovsOvnImage.repository }}:{{ $ovsOvnImage.tag }}
           imagePullPolicy: {{ $ovsOvnImage.pullPolicy }}
-          command: ["/kube-ovn/start-ovs.sh"]
+          command: ["/fabric/start-ovs.sh"]
           securityContext:
-            runAsUser: {{ include "kubeovn.runAsUser" . }}
+            runAsUser: {{ include "fabric.runAsUser" . }}
             privileged: false
             capabilities:
               add:
@@ -144,10 +144,10 @@ spec:
                   fieldPath: spec.nodeName
             {{- if .Values.central.hcp.enabled }}
             - name: OVN_SB_ADDR
-              value: "{{ include "kubeovn.ovnSbAddress" . }}"
+              value: "{{ include "fabric.ovnSbAddress" . }}"
             {{- else }}
             - name: OVN_DB_IPS
-              value: "{{ include "kubeovn.ovnDbAddresses" . }}"
+              value: "{{ include "fabric.ovnDbAddresses" . }}"
             {{- end }}
             - name: OVN_REMOTE_PROBE_INTERVAL
               value: "{{ .Values.ovsOvn.ovnRemoteProbeInterval }}"
@@ -176,7 +176,7 @@ spec:
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
             - mountPath: /var/run/containerd
               name: cruntime
               readOnly: true
@@ -184,7 +184,7 @@ spec:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 45
@@ -192,7 +192,7 @@ spec:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             initialDelaySeconds: 60
             periodSeconds: 5
             failureThreshold: 5
@@ -229,10 +229,10 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
         - hostPath:
             path: /var/run/containerd
           name: cruntime

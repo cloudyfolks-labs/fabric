@@ -1,10 +1,10 @@
-{{- if include "kubeovn.renderControlPlane" . -}}
-{{- $centralImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.central.image) | fromYaml -}}
+{{- if include "fabric.renderControlPlane" . -}}
+{{- $centralImage := include "fabric.imageSpec" (dict "root" . "image" .Values.central.image) | fromYaml -}}
 kind: {{ ternary "StatefulSet" "Deployment" .Values.central.hcp.enabled }}
 apiVersion: apps/v1
 metadata:
   name: ovn-central
-  namespace: {{ include "kubeovn.centralNamespace" . }}
+  namespace: {{ include "fabric.centralNamespace" . }}
   {{- with .Values.central.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -14,7 +14,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  replicas: {{ include "kubeovn.centralReplicas" . }}
+  replicas: {{ include "fabric.centralReplicas" . }}
   {{- if .Values.central.hcp.enabled }}
   serviceName: ovn-central
   podManagementPolicy: Parallel
@@ -32,7 +32,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: ovn-central
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/part-of: fabric
   template:
     metadata:
       {{- with .Values.central.podAnnotations }}
@@ -41,7 +41,7 @@ spec:
       {{- end }}
       labels:
         app.kubernetes.io/name: ovn-central
-        app.kubernetes.io/part-of: kube-ovn
+        app.kubernetes.io/part-of: fabric
         {{- with .Values.central.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -58,7 +58,7 @@ spec:
         - key: CriticalAddonsOnly
           operator: Exists
       affinity:
-        {{- include "kube-ovn.affinities.nodeAffinity" (dict "hardcodedRequired" (ternary (list) (include "kubeovn.masterNodeRequired" . | fromYamlArray) .Values.central.hcp.enabled) "userPreferred" .Values.central.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.central.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) | nindent 8 }}
+        {{- include "fabric.affinities.nodeAffinity" (dict "hardcodedRequired" (ternary (list) (include "fabric.masterNodeRequired" . | fromYamlArray) .Values.central.hcp.enabled) "userPreferred" .Values.central.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.central.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) | nindent 8 }}
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
@@ -104,16 +104,16 @@ spec:
           imagePullPolicy: {{ $centralImage.pullPolicy }}
           command: 
           - bash
-          - /kube-ovn/start-db.sh
+          - /fabric/start-db.sh
           securityContext:
-            runAsUser: {{ include "kubeovn.runAsUser" . }}
+            runAsUser: {{ include "fabric.runAsUser" . }}
             privileged: false
             capabilities:
               add:
                 - NET_BIND_SERVICE
                 - SYS_NICE
           env:
-{{- include "kubeovn.ovnCentralTLSEnv" . | nindent 12 }}
+{{- include "fabric.ovnCentralTLSEnv" . | nindent 12 }}
             {{- if .Values.central.hcp.enabled }}
             - name: POD_NAME
               valueFrom:
@@ -125,7 +125,7 @@ spec:
                   fieldPath: metadata.namespace
             {{- end }}
             - name: NODE_IPS
-              value: "{{ ternary (include "kubeovn.centralRaftAddresses" .) (include "kubeovn.ovnDbAddresses" .) .Values.central.hcp.enabled }}"
+              value: "{{ ternary (include "fabric.centralRaftAddresses" .) (include "fabric.ovnDbAddresses" .) .Values.central.hcp.enabled }}"
             {{- if .Values.central.hcp.enabled }}
             - name: DB_CLUSTER_ADDR
               value: "$(POD_NAME).ovn-central.$(POD_NAMESPACE).svc"
@@ -186,19 +186,19 @@ spec:
               readOnly: true
             {{- end }}
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           readinessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovn-healthcheck.sh
+                - /fabric/ovn-healthcheck.sh
             periodSeconds: 15
             timeoutSeconds: 45
           livenessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovn-healthcheck.sh
+                - /fabric/ovn-healthcheck.sh
             initialDelaySeconds: 30
             periodSeconds: 15
             failureThreshold: 10
@@ -228,17 +228,17 @@ spec:
           hostPath:
             path: /etc/localtime
         {{- end }}
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
   {{- if .Values.central.hcp.enabled }}
   volumeClaimTemplates:
     - metadata:
         name: ovn-data
         labels:
           app.kubernetes.io/name: ovn-central
-          app.kubernetes.io/part-of: kube-ovn
+          app.kubernetes.io/part-of: fabric
           app: ovn-central
       spec:
         accessModes:

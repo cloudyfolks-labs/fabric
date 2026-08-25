@@ -1,9 +1,9 @@
-{{- if include "kubeovn.renderControlPlane" . -}}
+{{- if include "fabric.renderControlPlane" . -}}
 kind: Service
 apiVersion: v1
 metadata:
   name: ovn-nb
-  namespace: {{ include "kubeovn.centralNamespace" . }}
+  namespace: {{ include "fabric.centralNamespace" . }}
   {{- with .Values.central.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -27,7 +27,7 @@ spec:
   {{- end }}
   selector:
     app.kubernetes.io/name: ovn-central
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/part-of: fabric
     ovn-nb-leader: "true"
   sessionAffinity: None
 {{- end }}

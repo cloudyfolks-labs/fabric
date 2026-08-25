@@ -37,8 +37,8 @@ import (
 )
 
 const (
-	dockerNetworkName         = "kube-ovn-vlan"
-	localExternalVIPKeyPrefix = "kube-ovn.io/local-external-vip/"
+	dockerNetworkName         = "fabric-vlan"
+	localExternalVIPKeyPrefix = "fabric.cloudyfolks.io/local-external-vip/"
 	curlListenPort            = 80
 )
 
@@ -761,9 +761,9 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		}
 		waitServiceVIPNodeMarkers(tcpLoadBalancer, service2, vipNodes, 30*time.Second)
 
-		ginkgo.By("Restarting ds kube-ovn-cni")
+		ginkgo.By("Restarting ds fabric-cni")
 		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
-		ds := daemonSetClient.Get("kube-ovn-cni")
+		ds := daemonSetClient.Get("fabric-cni")
 		daemonSetClient.RestartSync(ds)
 
 		ginkgo.By("Waiting for underlay OpenFlow rules to be restored within 30s")

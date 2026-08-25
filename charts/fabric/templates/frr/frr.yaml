@@ -1,9 +1,9 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.frr.enabled }}
-{{- $frrAgentImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.frr.image) | fromYaml -}}
+{{- if and (include "fabric.renderDataPlane" .) .Values.frr.enabled }}
+{{- $frrAgentImage := include "fabric.imageSpec" (dict "root" . "image" .Values.frr.image) | fromYaml -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kube-ovn-frr
+  name: fabric-frr
   namespace: {{ .Values.namespace }}
   {{- with .Values.frr.annotations }}
   annotations:
@@ -13,7 +13,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system:kube-ovn-frr
+  name: system:fabric-frr
   {{- with .Values.frr.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -52,7 +52,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kube-ovn-frr
+  name: fabric-frr
   {{- with .Values.frr.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -60,16 +60,16 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:kube-ovn-frr
+  name: system:fabric-frr
 subjects:
   - kind: ServiceAccount
-    name: kube-ovn-frr
+    name: fabric-frr
     namespace: {{ .Values.namespace }}
 ---
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: kube-ovn-frr
+  name: fabric-frr
   namespace: {{ .Values.namespace }}
   {{- with .Values.frr.annotations }}
   annotations:
@@ -78,8 +78,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-frr
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/name: fabric-frr
+      app.kubernetes.io/part-of: fabric
   template:
     metadata:
       {{- with .Values.frr.podAnnotations }}
@@ -87,14 +87,14 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: kube-ovn-frr
-        app.kubernetes.io/part-of: kube-ovn
+        app.kubernetes.io/name: fabric-frr
+        app.kubernetes.io/part-of: fabric
     spec:
       tolerations:
         - operator: Exists
           effect: NoSchedule
       priorityClassName: system-node-critical
-      serviceAccountName: kube-ovn-frr
+      serviceAccountName: fabric-frr
       automountServiceAccountToken: false
       hostNetwork: true
       securityContext:
@@ -111,7 +111,7 @@ spec:
           image: {{ $frrAgentImage.prefix }}{{ $frrAgentImage.repository }}:{{ $frrAgentImage.tag }}
           imagePullPolicy: {{ $frrAgentImage.pullPolicy }}
           command:
-            - /kube-ovn/kube-ovn-frr
+            - /fabric/fabric-frr
             - init
           env:
             - name: NODE_NAME
@@ -128,7 +128,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - /usr/lib/frr/docker-start & exec sh /etc/frr/kube-ovn-reload.sh
+            - /usr/lib/frr/docker-start & exec sh /etc/frr/fabric-reload.sh
           securityContext:
             capabilities:
               add:
@@ -139,15 +139,15 @@ spec:
           volumeMounts:
             - name: frr-config
               mountPath: /etc/frr
-        - name: kube-ovn-frr
+        - name: fabric-frr
           image: {{ $frrAgentImage.prefix }}{{ $frrAgentImage.repository }}:{{ $frrAgentImage.tag }}
           imagePullPolicy: {{ $frrAgentImage.pullPolicy }}
           command:
-            - /kube-ovn/kube-ovn-frr
+            - /fabric/fabric-frr
           args:
             - --logtostderr=false
             - --alsologtostderr=true
-            - --log_file=/var/log/kube-ovn/kube-ovn-frr.log
+            - --log_file=/var/log/fabric/fabric-frr.log
             - --log_file_max_size=200
           {{- with .Values.frr.args }}
             {{- toYaml . | trim | nindent 12 }}
@@ -160,8 +160,8 @@ spec:
           volumeMounts:
             - name: frr-config
               mountPath: /etc/frr
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
+            - name: fabric-log
+              mountPath: /var/log/fabric
             - name: serviceaccount
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
@@ -172,9 +172,9 @@ spec:
       volumes:
         - name: frr-config
           emptyDir: {}
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: {{ .Values.logging.directory }}/kube-ovn
+            path: {{ .Values.logging.directory }}/fabric
             type: DirectoryOrCreate
         - name: serviceaccount
           projected:

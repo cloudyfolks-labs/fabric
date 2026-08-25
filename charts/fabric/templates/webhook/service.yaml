@@ -1,8 +1,8 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.validatingWebhook.enabled }}
+{{- if and (include "fabric.renderDataPlane" .) .Values.validatingWebhook.enabled }}
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-ovn-webhook
+  name: fabric-webhook
   namespace: {{ .Values.namespace }}
   {{- with .Values.validatingWebhook.annotations }}
   annotations:
@@ -14,13 +14,13 @@ metadata:
   {{- end }}
 spec:
   ports:
-    - name: kube-ovn-webhook
+    - name: fabric-webhook
       protocol: TCP
       port: 443
       targetPort: 8443
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: kube-ovn-webhook
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/name: fabric-webhook
+    app.kubernetes.io/part-of: fabric
   sessionAffinity: None
 {{- end }}

@@ -10,7 +10,7 @@ spec:
       image: kubeovn/test:v1.13.0
       imagePullPolicy: IfNotPresent
   nodeSelector:
-    kubernetes.io/hostname: kube-ovn-control-plane
+    kubernetes.io/hostname: fabric-control-plane
 
 ---
 
@@ -26,7 +26,7 @@ spec:
       image: kubeovn/test:v1.13.0
       imagePullPolicy: IfNotPresent
   nodeSelector:
-    kubernetes.io/hostname: kube-ovn-worker
+    kubernetes.io/hostname: fabric-worker
 
 ---
 

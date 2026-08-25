@@ -10,4 +10,4 @@ data:
   ic-nb-port: "6645"
   ic-sb-port: "6646"
   auto-route: "true"
-  gw-nodes: "kube-ovn-worker"
+  gw-nodes: "fabric-worker"

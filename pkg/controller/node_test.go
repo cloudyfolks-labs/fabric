@@ -34,7 +34,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected:       false,
 		},
 		{
-			name:           "kube-ovn annotation added",
+			name:           "fabric annotation added",
 			oldAnnotations: map[string]string{},
 			newAnnotations: map[string]string{
 				util.AllocatedAnnotation: "true",
@@ -42,7 +42,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "kube-ovn annotation removed",
+			name: "fabric annotation removed",
 			oldAnnotations: map[string]string{
 				util.AllocatedAnnotation: "true",
 			},
@@ -50,7 +50,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name: "kube-ovn annotation value changed",
+			name: "fabric annotation value changed",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation: "10.0.0.1",
 			},
@@ -60,7 +60,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "kube-ovn annotation unchanged",
+			name: "fabric annotation unchanged",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation: "10.0.0.1",
 			},
@@ -70,7 +70,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "non-kube-ovn annotation changed",
+			name: "non-fabric annotation changed",
 			oldAnnotations: map[string]string{
 				"other.io/annotation": "value1",
 			},
@@ -80,7 +80,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "mixed annotations, only non-kube-ovn changed",
+			name: "mixed annotations, only non-fabric changed",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation: "10.0.0.1",
 				"other.io/annotation":    "value1",
@@ -92,7 +92,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "mixed annotations, kube-ovn changed",
+			name: "mixed annotations, fabric changed",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation: "10.0.0.1",
 				"other.io/annotation":    "value1",
@@ -104,7 +104,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "multiple kube-ovn annotations unchanged",
+			name: "multiple fabric annotations unchanged",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation:  "10.0.0.1",
 				util.MacAddressAnnotation: "00:11:22:33:44:55",
@@ -118,7 +118,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "multiple kube-ovn annotations, one changed",
+			name: "multiple fabric annotations, one changed",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation:  "10.0.0.1",
 				util.MacAddressAnnotation: "00:11:22:33:44:55",
@@ -150,7 +150,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:           "empty to kube-ovn annotations",
+			name:           "empty to fabric annotations",
 			oldAnnotations: map[string]string{},
 			newAnnotations: map[string]string{
 				util.IPAddressAnnotation:  "10.0.0.1",
@@ -160,7 +160,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "kube-ovn annotations to empty",
+			name: "fabric annotations to empty",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation:  "10.0.0.1",
 				util.MacAddressAnnotation: "00:11:22:33:44:55",
@@ -169,7 +169,7 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name: "non-kube-ovn added and removed",
+			name: "non-fabric added and removed",
 			oldAnnotations: map[string]string{
 				util.IPAddressAnnotation: "10.0.0.1",
 				"old.annotation":         "value",

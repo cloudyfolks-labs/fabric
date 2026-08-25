@@ -61,7 +61,7 @@ func InitNodeGateway(config *Configuration) error {
 			return err
 		}
 		if node.Annotations[util.IPAddressAnnotation] == "" {
-			klog.Warningf("no %s address for node %s, please check kube-ovn-controller logs", util.NodeNic, nodeName)
+			klog.Warningf("no %s address for node %s, please check fabric-controller logs", util.NodeNic, nodeName)
 			time.Sleep(3 * time.Second)
 			continue
 		}

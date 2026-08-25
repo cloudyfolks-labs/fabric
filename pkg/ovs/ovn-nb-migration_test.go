@@ -49,7 +49,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 		require.NoError(t, err)
 	}
 
-	// Create a logical router with vendor tag (this simulates existing kube-ovn router)
+	// Create a logical router with vendor tag (this simulates existing fabric router)
 	err = nbClient.CreateLogicalRouter(lrName)
 	require.NoError(t, err)
 
@@ -67,7 +67,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 		MAC:      util.GenerateMac(),
 		Networks: []string{"10.0.0.1/24"},
 		ExternalIDs: map[string]string{
-			logicalRouterKey: lrName, // This identifies it as kube-ovn resource
+			logicalRouterKey: lrName, // This identifies it as fabric resource
 			// vendor tag intentionally missing
 		},
 	}

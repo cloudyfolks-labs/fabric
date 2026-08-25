@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGISTRY="docker.io/kubeovn"
+REGISTRY="ghcr.io/cloudyfolks-labs"
 VERSION="v1.0.0"
 
 DEL_NON_HOST_NET_POD=${DEL_NON_HOST_NET_POD:-true}
@@ -52,7 +52,7 @@ SECURE_SERVING=${SECURE_SERVING:-false}
 ENABLE_OVN_IPSEC=${ENABLE_OVN_IPSEC:-false}
 CERT_MANAGER_IPSEC_CERT=${CERT_MANAGER_IPSEC_CERT:-false}
 IPSEC_CERT_DURATION=${IPSEC_CERT_DURATION:-63072000} # 2 years in seconds
-CERT_MANAGER_ISSUER_NAME=${CERT_MANAGER_ISSUER_NAME:-kube-ovn}
+CERT_MANAGER_ISSUER_NAME=${CERT_MANAGER_ISSUER_NAME:-fabric}
 ENABLE_ANP=${ENABLE_ANP:-false}
 HOST_TUNNEL_SRC=${HOST_TUNNEL_SRC:-false}
 OVSDB_CON_TIMEOUT=${OVSDB_CON_TIMEOUT:-3}
@@ -117,7 +117,7 @@ POD_GATEWAY="10.16.0.1"
 SVC_CIDR="10.96.0.0/12"                     # Do NOT overlap with NODE/POD/JOIN CIDR
 JOIN_CIDR="100.64.0.0/16"                   # Do NOT overlap with NODE/POD/SVC CIDR
 PINGER_EXTERNAL_ADDRESS="1.1.1.1"           # Pinger check external ip probe
-PINGER_EXTERNAL_DOMAIN="kube-ovn.io."         # Pinger check external domain probe
+PINGER_EXTERNAL_DOMAIN="cloudyfolks.com."         # Pinger check external domain probe
 SVC_YAML_IPFAMILYPOLICY=""
 if [ "$IPV6" = "true" ]; then
   POD_CIDR="fd00:10:16::/112"               # Do NOT overlap with NODE/SVC/JOIN CIDR
@@ -238,25 +238,25 @@ echo "-------------------------------"
 
 if [[ $ENABLE_SSL = "true" ]];then
   echo "[Step 0/6] Generate SSL key and cert"
-  exist=$(kubectl get secret -n kube-system kube-ovn-tls --ignore-not-found)
+  exist=$(kubectl get secret -n kube-system fabric-tls --ignore-not-found)
   if [[ $exist == "" ]];then
     if command -v docker &> /dev/null; then
-      docker run --rm -v "$PWD":/etc/ovn $REGISTRY/kube-ovn:$VERSION bash generate-ssl.sh
+      docker run --rm -v "$PWD":/etc/ovn $REGISTRY/fabric:$VERSION bash generate-ssl.sh
     elif command -v ctr &> /dev/null; then
-      ctr image pull $REGISTRY/kube-ovn:$VERSION
-      ctr run --rm --mount type=bind,src="$PWD",dst=/etc/ovn,options=rbind:rw $REGISTRY/kube-ovn:$VERSION 0 bash generate-ssl.sh
+      ctr image pull $REGISTRY/fabric:$VERSION
+      ctr run --rm --mount type=bind,src="$PWD",dst=/etc/ovn,options=rbind:rw $REGISTRY/fabric:$VERSION 0 bash generate-ssl.sh
     else
       echo "ERROR: No docker or ctr found"
       exit 1
     fi
-    kubectl create secret generic -n kube-system kube-ovn-tls --from-file=cacert=cacert.pem --from-file=cert=ovn-cert.pem --from-file=key=ovn-privkey.pem
+    kubectl create secret generic -n kube-system fabric-tls --from-file=cacert=cacert.pem --from-file=cert=ovn-cert.pem --from-file=key=ovn-privkey.pem
     rm -rf cakey.pem cacert.pem ovn-cert.pem ovn-privkey.pem ovn-req.pem
   fi
   echo "-------------------------------"
   echo ""
 fi
 
-echo "[Step 1/6] Label kube-ovn-master node and label datapath type"
+echo "[Step 1/6] Label fabric-master node and label datapath type"
 count=$(kubectl get no -l$LABEL --no-headers | wc -l)
 node_label="$LABEL"
 if [ "${count}" -eq 0 ]; then
@@ -267,14 +267,14 @@ if [ "${count}" -eq 0 ]; then
     exit 1
   fi
 fi
-kubectl label no -l$node_label kube-ovn/role=master --overwrite
+kubectl label no -l$node_label fabric/role=master --overwrite
 
 echo "-------------------------------"
 echo ""
 
 echo "[Step 2/6] Install OVN components"
-addresses=$(kubectl get no -lkube-ovn/role=master --no-headers -o wide | awk '{print $6}' | tr \\n ',' | sed 's/,$//')
-count=$(kubectl get no -lkube-ovn/role=master --no-headers | wc -l)
+addresses=$(kubectl get no -lfabric/role=master --no-headers -o wide | awk '{print $6}' | tr \\n ',' | sed 's/,$//')
+count=$(kubectl get no -lfabric/role=master --no-headers | wc -l)
 
 # Reject in-place OVN_CENTRAL_MODE switches that would silently drop the live
 # OVN DB. Mirror the Helm chart's lookup-based guard so install.sh users get
@@ -377,12 +377,12 @@ fi
 OVN_CENTRAL_SVC_ANNOTATIONS=""
 if [ "$OVN_CENTRAL_SERVICE_TYPE" = "LoadBalancer" ] && [ -n "$OVN_CENTRAL_LB_IP" ]; then
   OVN_CENTRAL_SVC_ANNOTATIONS="  annotations:
-    metallb.universe.tf/allow-shared-ip: kube-ovn-central"
+    metallb.universe.tf/allow-shared-ip: fabric-central"
 fi
 # externalOvnCentral.endpoint is a single IP, so all three OVN Services must
 # land on the same VIP. Without an explicit loadBalancerIP cloud LB controllers
 # assign three separate IPs and tenant clusters can only reach one of NB/SB/
-# northd. Mirror the Helm chart's kubeovn.validateService guard here.
+# northd. Mirror the Helm chart's fabric.validateService guard here.
 if [ "$OVN_CENTRAL_SERVICE_TYPE" = "LoadBalancer" ] && [ -z "$OVN_CENTRAL_LB_IP" ]; then
   echo "ERROR: OVN_CENTRAL_SERVICE_TYPE=LoadBalancer requires OVN_CENTRAL_LB_IP to be set so the three OVN Services share a single VIP."
   echo "       Pick a VIP, configure your LB controller to assign it (MetalLB allow-shared-ip annotation is emitted automatically), then re-run install.sh."
@@ -400,7 +400,7 @@ else
 fi
 
 # BEGIN GENERATED KUBE-OVN CRD BUNDLE
-cat <<'EOF' > kube-ovn-crd.yaml
+cat <<'EOF' > fabric-crd.yaml
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -3500,7 +3500,7 @@ subjects:
     namespace: kube-system
 EOF
 
-cat <<EOF > kube-ovn-sa.yaml
+cat <<EOF > fabric-sa.yaml
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -3774,7 +3774,7 @@ rules:
   - apiGroups:
     - ""
     resourceNames:
-    - kube-ovn-tls
+    - fabric-tls
     resources:
     - secrets
     verbs:
@@ -3831,12 +3831,12 @@ subjects:
     namespace: kube-system
 EOF
 
-cat <<EOF > kube-ovn-cni-sa.yaml
+cat <<EOF > fabric-cni-sa.yaml
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: kube-system
 automountServiceAccountToken: false
 ---
@@ -3845,7 +3845,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.k8s.io/system-only: "true"
-  name: system:kube-ovn-cni
+  name: system:fabric-cni
 rules:
   - apiGroups:
       - "fabric.cloudyfolks.io"
@@ -3955,20 +3955,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
 roleRef:
-  name: system:kube-ovn-cni
+  name: system:fabric-cni
   kind: ClusterRole
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: kube-ovn-cni
+    name: fabric-cni
     namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -3976,17 +3976,17 @@ roleRef:
   name: extension-apiserver-authentication-reader
 subjects:
   - kind: ServiceAccount
-    name: kube-ovn-cni
+    name: fabric-cni
     namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kube-ovn-cni-secret-reader
+  name: fabric-cni-secret-reader
   namespace: kube-system
 subjects:
 - kind: ServiceAccount
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: kube-system
 roleRef:
   kind: Role
@@ -3994,12 +3994,12 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 EOF
 
-cat <<EOF > kube-ovn-app-sa.yaml
+cat <<EOF > fabric-app-sa.yaml
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kube-ovn-app
+  name: fabric-app
   namespace: kube-system
 automountServiceAccountToken: false
 ---
@@ -4008,7 +4008,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.k8s.io/system-only: "true"
-  name: system:kube-ovn-app
+  name: system:fabric-app
 rules:
   - apiGroups:
       - ""
@@ -4040,20 +4040,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kube-ovn-app
+  name: fabric-app
 roleRef:
-  name: system:kube-ovn-app
+  name: system:fabric-app
   kind: ClusterRole
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: kube-ovn-app
+    name: fabric-app
     namespace: kube-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kube-ovn-app
+  name: fabric-app
   namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -4061,15 +4061,15 @@ roleRef:
   name: extension-apiserver-authentication-reader
 subjects:
   - kind: ServiceAccount
-    name: kube-ovn-app
+    name: fabric-app
     namespace: kube-system
 EOF
 
-kubectl apply -f kube-ovn-crd.yaml
+kubectl apply -f fabric-crd.yaml
 kubectl apply -f ovn-ovs-sa.yaml
-kubectl apply -f kube-ovn-sa.yaml
-kubectl apply -f kube-ovn-cni-sa.yaml
-kubectl apply -f kube-ovn-app-sa.yaml
+kubectl apply -f fabric-sa.yaml
+kubectl apply -f fabric-cni-sa.yaml
+kubectl apply -f fabric-app-sa.yaml
 
 cat <<EOF > ovn.yaml
 ${OVN_CENTRAL_PVC_BLOCK}
@@ -4178,7 +4178,7 @@ ${OVN_CENTRAL_AFFINITY_BLOCK}
           type: RuntimeDefault
       initContainers:
         - name: hostpath-init
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           command:
             - sh
             - -c
@@ -4199,11 +4199,11 @@ ${OVN_CENTRAL_AFFINITY_BLOCK}
               name: host-log-ovn
       containers:
         - name: ovn-central
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           imagePullPolicy: $IMAGE_PULL_POLICY
           command:
           - bash
-          - /kube-ovn/start-db.sh
+          - /fabric/start-db.sh
           securityContext:
             runAsUser: ${RUN_AS_USER}
             privileged: false
@@ -4264,26 +4264,26 @@ $(ovn_central_tls_env)
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           readinessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovn-healthcheck.sh
+                - /fabric/ovn-healthcheck.sh
             periodSeconds: 15
             timeoutSeconds: 45
           livenessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovn-healthcheck.sh
+                - /fabric/ovn-healthcheck.sh
             initialDelaySeconds: 30
             periodSeconds: 15
             failureThreshold: 10
             timeoutSeconds: 45
       nodeSelector:
         kubernetes.io/os: "linux"
-        kube-ovn/role: "master"
+        fabric/role: "master"
       volumes:
         - name: host-run-ovn
           hostPath:
@@ -4295,10 +4295,10 @@ ${OVN_CENTRAL_CONFIG_VOLUME}
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 EOF
 
 kubectl apply -f ovn.yaml
@@ -4345,7 +4345,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: hostpath-init
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           command:
             - sh
             - -xec
@@ -4379,10 +4379,10 @@ spec:
               name: host-log-ovs
       containers:
         - name: openvswitch
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           imagePullPolicy: $IMAGE_PULL_POLICY
           command:
-          - /kube-ovn/start-ovs.sh
+          - /fabric/start-ovs.sh
           securityContext:
             runAsUser: ${RUN_AS_USER}
             privileged: false
@@ -4444,7 +4444,7 @@ spec:
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
             - mountPath: /var/run/containerd
               name: cruntime
               readOnly: true
@@ -4452,7 +4452,7 @@ spec:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 45
@@ -4460,7 +4460,7 @@ spec:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             initialDelaySeconds: 60
             periodSeconds: 5
             failureThreshold: 5
@@ -4502,10 +4502,10 @@ spec:
         - hostPath:
             path: /var/run/containerd
           name: cruntime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 EOF
 
 kubectl apply -f ovs-ovn-ds.yaml
@@ -4545,9 +4545,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: openvswitch
-          image: "$REGISTRY/kube-ovn:${DPDK_TAG}"
+          image: "$REGISTRY/fabric:${DPDK_TAG}"
           imagePullPolicy: $IMAGE_PULL_POLICY
-          command: ["/kube-ovn/start-ovs-dpdk-v2.sh"]
+          command: ["/fabric/start-ovs-dpdk-v2.sh"]
           securityContext:
             runAsUser: 0
             privileged: true
@@ -4603,19 +4603,19 @@ spec:
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           readinessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             periodSeconds: 5
             timeoutSeconds: 45
           livenessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovs-healthcheck.sh
+                - /fabric/ovs-healthcheck.sh
             initialDelaySeconds: 60
             periodSeconds: 5
             failureThreshold: 5
@@ -4672,10 +4672,10 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 EOF
 kubectl apply -f ovs-ovn-dpdk-ds.yaml
 fi
@@ -4686,21 +4686,21 @@ echo ""
 
 echo "[Step 3/6] Install Kube-OVN"
 
-cat <<EOF > kube-ovn.yaml
+cat <<EOF > fabric.yaml
 ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: kube-ovn-controller
+  name: fabric-controller
   namespace: kube-system
   annotations:
     kubernetes.io/description: |
-      kube-ovn controller
+      fabric controller
 spec:
   replicas: $count
   selector:
     matchLabels:
-      app: kube-ovn-controller
+      app: fabric-controller
   strategy:
     rollingUpdate:
       maxSurge: 0%
@@ -4709,7 +4709,7 @@ spec:
   template:
     metadata:
       labels:
-        app: kube-ovn-controller
+        app: fabric-controller
         component: network
         type: infra
     spec:
@@ -4732,7 +4732,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app: kube-ovn-controller
+                  app: fabric-controller
               topologyKey: kubernetes.io/hostname
       priorityClassName: system-cluster-critical
       serviceAccountName: ovn
@@ -4743,11 +4743,11 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: hostpath-init
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           command:
             - sh
             - -c
-            - "chown -R nobody: /var/log/kube-ovn"
+            - "chown -R nobody: /var/log/fabric"
           securityContext:
             allowPrivilegeEscalation: true
             capabilities:
@@ -4756,14 +4756,14 @@ spec:
             privileged: true
             runAsUser: 0
           volumeMounts:
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
+            - name: fabric-log
+              mountPath: /var/log/fabric
       containers:
-        - name: kube-ovn-controller
-          image: "$REGISTRY/kube-ovn:$VERSION"
+        - name: fabric-controller
+          image: "$REGISTRY/fabric:$VERSION"
           imagePullPolicy: $IMAGE_PULL_POLICY
           args:
-          - /kube-ovn/start-controller.sh
+          - /fabric/start-controller.sh
           - --leader-elect-lease-duration=$LEADER_ELECT_LEASE_DURATION
           - --leader-elect-renew-deadline=$LEADER_ELECT_RENEW_DEADLINE
           - --leader-elect-retry-period=$LEADER_ELECT_RETRY_PERIOD
@@ -4790,7 +4790,7 @@ spec:
           - --alsologtostderr=true
           - --gc-interval=$GC_INTERVAL
           - --inspect-interval=$INSPECT_INTERVAL
-          - --log_file=/var/log/kube-ovn/kube-ovn-controller.log
+          - --log_file=/var/log/fabric/fabric-controller.log
           - --log_file_max_size=200
           - --enable-ovn-lb-svc=$ENABLE_OVN_LB_SVC
           - --keep-vm-ip=$ENABLE_KEEP_VM_IP
@@ -4844,13 +4844,13 @@ spec:
             - mountPath: /etc/localtime
               name: localtime
               readOnly: true
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+            - mountPath: /var/log/fabric
+              name: fabric-log
             # ovn-ic log directory
             - mountPath: /var/log/ovn
               name: ovn-log
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           readinessProbe:
             httpGet:
               port: 10660
@@ -4877,39 +4877,39 @@ spec:
               ephemeral-storage: 1Gi
       nodeSelector:
         kubernetes.io/os: "linux"
-        kube-ovn/role: master
+        fabric/role: master
       volumes:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: $LOG_DIR/kube-ovn
+            path: $LOG_DIR/fabric
         - name: ovn-log
           hostPath:
             path: $LOG_DIR/ovn
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 
 ---
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: kube-system
   annotations:
     kubernetes.io/description: |
-      This daemon set launches the kube-ovn cni daemon.
+      This daemon set launches the fabric cni daemon.
 spec:
   selector:
     matchLabels:
-      app: kube-ovn-cni
+      app: fabric-cni
   template:
     metadata:
       labels:
-        app: kube-ovn-cni
+        app: fabric-cni
         component: network
         type: infra
     spec:
@@ -4921,7 +4921,7 @@ spec:
         - key: CriticalAddonsOnly
           operator: Exists
       priorityClassName: system-node-critical
-      serviceAccountName: kube-ovn-cni
+      serviceAccountName: fabric-cni
       automountServiceAccountToken: true
       hostNetwork: true
       hostPID: true
@@ -4930,7 +4930,7 @@ spec:
           type: RuntimeDefault
       initContainers:
       - name: hostpath-init
-        image: "$REGISTRY/kube-ovn:$VERSION"
+        image: "$REGISTRY/fabric:$VERSION"
         command:
           - sh
           - -xec
@@ -4953,14 +4953,14 @@ spec:
           - mountPath: /var/run/netns
             name: host-ns
             readOnly: false
-          - name: kube-ovn-log
-            mountPath: /var/log/kube-ovn
+          - name: fabric-log
+            mountPath: /var/log/fabric
       - name: install-cni
-        image: "$REGISTRY/kube-ovn:$VERSION"
+        image: "$REGISTRY/fabric:$VERSION"
         imagePullPolicy: $IMAGE_PULL_POLICY
         command:
-          - /kube-ovn/install-cni.sh
-          - --cni-conf-name=${CNI_CONFIG_PRIORITY}-kube-ovn.conflist
+          - /fabric/install-cni.sh
+          - --cni-conf-name=${CNI_CONFIG_PRIORITY}-fabric.conflist
         env:
           - name: POD_IPS
             valueFrom:
@@ -4978,11 +4978,11 @@ spec:
             name: local-bin
       containers:
       - name: cni-server
-        image: "$REGISTRY/kube-ovn:$VERSION"
+        image: "$REGISTRY/fabric:$VERSION"
         imagePullPolicy: $IMAGE_PULL_POLICY
         command:
           - bash
-          - /kube-ovn/start-cniserver.sh
+          - /fabric/start-cniserver.sh
         args:
           - --enable-mirror=$ENABLE_MIRROR
           - --enable-arp-detect-ip-conflict=$ENABLE_ARP_DETECT_IP_CONFLICT
@@ -4994,7 +4994,7 @@ spec:
           - --default-interface-name=$VLAN_INTERFACE_NAME
           - --logtostderr=false
           - --alsologtostderr=true
-          - --log_file=/var/log/kube-ovn/kube-ovn-cni.log
+          - --log_file=/var/log/fabric/fabric-cni.log
           - --log_file_max_size=200
           - --enable-metrics=$ENABLE_METRICS
           - --kubelet-dir=$KUBELET_DIR
@@ -5071,8 +5071,8 @@ spec:
           - mountPath: /var/run/netns
             name: host-ns
             mountPropagation: HostToContainer
-          - mountPath: /var/log/kube-ovn
-            name: kube-ovn-log
+          - mountPath: /var/log/fabric
+            name: fabric-log
           - mountPath: /var/log/openvswitch
             name: host-log-ovs
           - mountPath: /var/log/ovn
@@ -5149,9 +5149,9 @@ spec:
         - name: host-log-ovs
           hostPath:
             path: $LOG_DIR/openvswitch
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: $LOG_DIR/kube-ovn
+            path: $LOG_DIR/fabric
         - name: host-log-ovn
           hostPath:
             path: $LOG_DIR/ovn
@@ -5166,7 +5166,7 @@ spec:
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: kube-ovn-monitor
+  name: fabric-monitor
   namespace: kube-system
   annotations:
     kubernetes.io/description: |
@@ -5180,11 +5180,11 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: kube-ovn-monitor
+      app: fabric-monitor
   template:
     metadata:
       labels:
-        app: kube-ovn-monitor
+        app: fabric-monitor
         component: network
         type: infra
     spec:
@@ -5198,10 +5198,10 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app: kube-ovn-monitor
+                  app: fabric-monitor
               topologyKey: kubernetes.io/hostname
       priorityClassName: system-cluster-critical
-      serviceAccountName: kube-ovn-app
+      serviceAccountName: fabric-app
       automountServiceAccountToken: true
       hostNetwork: true
       securityContext:
@@ -5209,11 +5209,11 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: hostpath-init
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           command:
             - sh
             - -c
-            - "chown -R nobody: /var/log/kube-ovn"
+            - "chown -R nobody: /var/log/fabric"
           securityContext:
             allowPrivilegeEscalation: true
             capabilities:
@@ -5222,16 +5222,16 @@ spec:
             privileged: true
             runAsUser: 0
           volumeMounts:
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
+            - name: fabric-log
+              mountPath: /var/log/fabric
       containers:
-        - name: kube-ovn-monitor
-          image: "$REGISTRY/kube-ovn:$VERSION"
+        - name: fabric-monitor
+          image: "$REGISTRY/fabric:$VERSION"
           imagePullPolicy: $IMAGE_PULL_POLICY
-          command: ["/kube-ovn/start-ovn-monitor.sh"]
+          command: ["/fabric/start-ovn-monitor.sh"]
           args:
           - --secure-serving=${SECURE_SERVING}
-          - --log_file=/var/log/kube-ovn/kube-ovn-monitor.log
+          - --log_file=/var/log/fabric/fabric-monitor.log
           - --logtostderr=false
           - --alsologtostderr=true
           - --log_file_max_size=200
@@ -5287,9 +5287,9 @@ spec:
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+              name: fabric-tls
+            - mountPath: /var/log/fabric
+              name: fabric-log
           livenessProbe:
             failureThreshold: 3
             initialDelaySeconds: 30
@@ -5312,7 +5312,7 @@ spec:
             timeoutSeconds: 5
       nodeSelector:
         kubernetes.io/os: "linux"
-        kube-ovn/role: "master"
+        fabric/role: "master"
       volumes:
         - name: host-run-ovn
           hostPath:
@@ -5326,21 +5326,21 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
-        - name: kube-ovn-log
+            secretName: fabric-tls
+        - name: fabric-log
           hostPath:
-            path: $LOG_DIR/kube-ovn
+            path: $LOG_DIR/fabric
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-ovn-monitor
+  name: fabric-monitor
   namespace: kube-system
   labels:
-    app: kube-ovn-monitor
+    app: fabric-monitor
 spec:
   ports:
     - name: metrics
@@ -5348,20 +5348,20 @@ spec:
   type: ClusterIP
   ${SVC_YAML_IPFAMILYPOLICY}
   selector:
-    app: kube-ovn-monitor
+    app: fabric-monitor
   sessionAffinity: None
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-ovn-controller
+  name: fabric-controller
   namespace: kube-system
   labels:
-    app: kube-ovn-controller
+    app: fabric-controller
 spec:
   ${SVC_YAML_IPFAMILYPOLICY}
   selector:
-    app: kube-ovn-controller
+    app: fabric-controller
   ports:
     - port: 10660
       name: metrics
@@ -5369,22 +5369,22 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: kube-system
   labels:
-    app: kube-ovn-cni
+    app: fabric-cni
 spec:
   ${SVC_YAML_IPFAMILYPOLICY}
   selector:
-    app: kube-ovn-cni
+    app: fabric-cni
   ports:
     - port: 10665
       name: metrics
 EOF
 
-kubectl apply -f kube-ovn.yaml
-kubectl rollout status deployment/kube-ovn-controller -n kube-system --timeout 300s
-kubectl rollout status daemonset/kube-ovn-cni -n kube-system --timeout 300s
+kubectl apply -f fabric.yaml
+kubectl rollout status deployment/fabric-controller -n kube-system --timeout 300s
+kubectl rollout status daemonset/fabric-cni -n kube-system --timeout 300s
 
 if $ENABLE_IC; then
 
@@ -5437,11 +5437,11 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ovn-ic-controller
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           imagePullPolicy: $IMAGE_PULL_POLICY
-          command: ["/kube-ovn/start-ic-controller.sh"]
+          command: ["/fabric/start-ic-controller.sh"]
           args:
-          - --log_file=/var/log/kube-ovn/kube-ovn-ic-controller.log
+          - --log_file=/var/log/fabric/fabric-ic-controller.log
           - --log_file_max_size=200
           - --logtostderr=false
           - --alsologtostderr=true
@@ -5477,12 +5477,12 @@ spec:
             - mountPath: /etc/localtime
               name: localtime
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+              name: fabric-tls
+            - mountPath: /var/log/fabric
+              name: fabric-log
       nodeSelector:
         kubernetes.io/os: "linux"
-        kube-ovn/role: "master"
+        fabric/role: "master"
       volumes:
         - name: host-run-ovn
           hostPath:
@@ -5493,13 +5493,13 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: /var/log/kube-ovn
-        - name: kube-ovn-tls
+            path: /var/log/fabric
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 EOF
 kubectl apply -f ovn-ic-controller.yaml
 kubectl rollout status deployment/ovn-ic-controller -n kube-system --timeout 60s
@@ -5531,7 +5531,7 @@ fi
 
 kubectl rollout status deployment/coredns -n kube-system --timeout 300s
 while true; do
-  pods=(`kubectl get pod -n kube-system -l app=kube-ovn-pinger --template '{{range .items}}{{if .metadata.deletionTimestamp}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}'`)
+  pods=(`kubectl get pod -n kube-system -l app=fabric-pinger --template '{{range .items}}{{if .metadata.deletionTimestamp}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}'`)
   if [ ${#pods[@]} -eq 0 ]; then
     break
   fi
@@ -5540,19 +5540,19 @@ while true; do
 done
 
 echo "Install Kube-ovn-pinger"
-cat <<EOF > kube-ovn-pinger.yaml
+cat <<EOF > fabric-pinger.yaml
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-ovn-pinger
+  name: fabric-pinger
   namespace: kube-system
   labels:
-    app: kube-ovn-pinger
+    app: fabric-pinger
 spec:
   ${SVC_YAML_IPFAMILYPOLICY}
   selector:
-    app: kube-ovn-pinger
+    app: fabric-pinger
   ports:
     - port: 8080
       name: metrics
@@ -5561,7 +5561,7 @@ spec:
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: kube-ovn-pinger
+  name: fabric-pinger
   namespace: kube-system
   annotations:
     kubernetes.io/description: |
@@ -5569,18 +5569,18 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: kube-ovn-pinger
+      app: fabric-pinger
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        app: kube-ovn-pinger
+        app: fabric-pinger
         component: network
         type: infra
     spec:
       priorityClassName: system-node-critical
-      serviceAccountName: kube-ovn-app
+      serviceAccountName: fabric-app
       automountServiceAccountToken: true
       hostPID: false
       securityContext:
@@ -5588,11 +5588,11 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: hostpath-init
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           command:
             - sh
             - -c
-            - "chown -R nobody: /var/log/kube-ovn"
+            - "chown -R nobody: /var/log/fabric"
           securityContext:
             allowPrivilegeEscalation: true
             capabilities:
@@ -5601,19 +5601,19 @@ spec:
             privileged: true
             runAsUser: 0
           volumeMounts:
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
+            - name: fabric-log
+              mountPath: /var/log/fabric
       containers:
         - name: pinger
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           command:
-          - /kube-ovn/kube-ovn-pinger
+          - /fabric/fabric-pinger
           args:
           - --external-address=$PINGER_EXTERNAL_ADDRESS
           - --external-dns=$PINGER_EXTERNAL_DOMAIN
           - --logtostderr=false
           - --alsologtostderr=true
-          - --log_file=/var/log/kube-ovn/kube-ovn-pinger.log
+          - --log_file=/var/log/fabric/fabric-pinger.log
           - --log_file_max_size=200
           - --enable-metrics=$ENABLE_METRICS
           imagePullPolicy: $IMAGE_PULL_POLICY
@@ -5660,13 +5660,13 @@ spec:
             - mountPath: /var/log/ovn
               name: host-log-ovn
               readOnly: true
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+            - mountPath: /var/log/fabric
+              name: fabric-log
             - mountPath: /etc/localtime
               name: localtime
               readOnly: true
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           resources:
             requests:
               cpu: 100m
@@ -5702,25 +5702,25 @@ spec:
         - name: host-log-ovs
           hostPath:
             path: $LOG_DIR/openvswitch
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: $LOG_DIR/kube-ovn
+            path: $LOG_DIR/fabric
         - name: host-log-ovn
           hostPath:
             path: $LOG_DIR/ovn
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 EOF
 
-kubectl apply -f kube-ovn-pinger.yaml
-kubectl rollout status daemonset/kube-ovn-pinger -n kube-system --timeout 120s
+kubectl apply -f fabric-pinger.yaml
+kubectl rollout status daemonset/fabric-pinger -n kube-system --timeout 120s
 sleep 1
-kubectl wait pod --for=condition=Ready -l app=kube-ovn-pinger -n kube-system --timeout 120s
+kubectl wait pod --for=condition=Ready -l app=fabric-pinger -n kube-system --timeout 120s
 echo "-------------------------------"
 echo ""
 
@@ -5735,7 +5735,7 @@ fi
 
 echo "[Step 6/6] Run network diagnose"
 KUBECTL_KO_DIR=${KUBECTL_KO_DIR:-/usr/local/bin}
-kubectl cp kube-system/"$(kubectl -n kube-system get pods -o wide | grep cni | awk '{print $1}' | awk 'NR==1{print}')":/kube-ovn/kubectl-ko "$KUBECTL_KO_DIR/kubectl-ko"
+kubectl cp kube-system/"$(kubectl -n kube-system get pods -o wide | grep cni | awk '{print $1}' | awk 'NR==1{print}')":/fabric/kubectl-ko "$KUBECTL_KO_DIR/kubectl-ko"
 chmod +x "$KUBECTL_KO_DIR/kubectl-ko"
 # show pod status in kube-system namespace before diagnose
 kubectl get pod -n kube-system -o wide

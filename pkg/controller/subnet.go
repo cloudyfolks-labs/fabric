@@ -655,7 +655,7 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 		return nil
 	}
 
-	// This validate should be processed after isOvnSubnet, since maybe there's no vpc for subnet not managed by kube-ovn
+	// This validate should be processed after isOvnSubnet, since maybe there's no vpc for subnet not managed by fabric
 	vpc, err := c.validateVpcBySubnet(subnet)
 	if err != nil {
 		klog.Errorf("failed to get subnet's vpc '%s', %v", subnet.Spec.Vpc, err)
@@ -2082,7 +2082,7 @@ func filterRepeatIPRange(mapIPs map[string]*ipam.IPRange) map[string]*ipam.IPRan
 func (c *Controller) checkGwNodeExists(gatewayNode string) bool {
 	found := false
 	for gwName := range strings.SplitSeq(gatewayNode, ",") {
-		// the format of gatewayNode can be like 'kube-ovn-worker:172.18.0.2, kube-ovn-control-plane:172.18.0.3', which consists of node name and designative egress ip
+		// the format of gatewayNode can be like 'fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3', which consists of node name and designative egress ip
 		if strings.Contains(gwName, ":") {
 			gwName = strings.TrimSpace(strings.Split(gwName, ":")[0])
 		} else {

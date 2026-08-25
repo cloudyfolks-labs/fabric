@@ -49,7 +49,7 @@ tests:
       masterNodes:
         - "10.0.0.1"
       masterNodesLabels:
-        kube-ovn/role: master
+        fabric/role: master
       features.enableOvnInterconnections: true
     asserts:
       - isKind:
@@ -58,7 +58,7 @@ tests:
           path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms
           content:
             matchExpressions:
-              - key: kube-ovn/role
+              - key: fabric/role
                 operator: In
                 values:
                   - "master"
@@ -88,7 +88,7 @@ tests:
         - "10.0.0.1"
       masterNodesLabels:
         node-role.kubernetes.io/control-plane: ""
-        kube-ovn/role: master
+        fabric/role: master
       features.enableOvnInterconnections: true
     asserts:
       - isKind:
@@ -109,6 +109,6 @@ tests:
       - equal:
           path: spec.template.spec.nodeSelector
           value:
-            kube-ovn/role: master
+            fabric/role: master
             kubernetes.io/os: "linux"
             node-role.kubernetes.io/control-plane: ""

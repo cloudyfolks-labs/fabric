@@ -20,7 +20,7 @@ func TestFindRulePositionsInList(t *testing.T) {
 	jumpRule := util.IPTableRule{
 		Table: "nat",
 		Chain: "PREROUTING",
-		Rule:  []string{"-m", "comment", "--comment", "kube-ovn prerouting rules", "-j", "OVN-PREROUTING"},
+		Rule:  []string{"-m", "comment", "--comment", "fabric prerouting rules", "-j", "OVN-PREROUTING"},
 	}
 	kubeProxyRule := util.IPTableRule{
 		Table: "nat",
@@ -28,7 +28,7 @@ func TestFindRulePositionsInList(t *testing.T) {
 		Rule:  []string{"-m", "comment", "--comment", "kubernetes service portals", "-j", "KUBE-SERVICES"},
 	}
 	const (
-		jumpLine      = `-A PREROUTING -m comment --comment "kube-ovn prerouting rules" -j OVN-PREROUTING`
+		jumpLine      = `-A PREROUTING -m comment --comment "fabric prerouting rules" -j OVN-PREROUTING`
 		kubeProxyLine = `-A PREROUTING -m comment --comment "kubernetes service portals" -j KUBE-SERVICES`
 		policyLine    = "-P PREROUTING ACCEPT"
 	)

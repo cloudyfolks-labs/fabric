@@ -12,9 +12,9 @@ from pathlib import Path
 
 infrastructureJobs = {
     "build-kube-ovn-base",
-    "build-kube-ovn-dpdk-base",
-    "build-kube-ovn",
-    "build-kube-ovn-dpdk",
+    "build-fabric-dpdk-base",
+    "build-fabric",
+    "build-fabric-dpdk",
     "lint-ut",
     "build-vpc-nat-gateway",
     "build-e2e-binaries",
@@ -24,8 +24,8 @@ infrastructureJobs = {
 }
 expectedX86RunnerJobs = 72
 mandatorySmoke = [
-    {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
-    {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},
+    {"job": "fabric-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
+    {"job": "fabric-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},
     {"job": "k8s-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
 ]
 dynamicWorkflowMatrices = {
@@ -33,7 +33,7 @@ dynamicWorkflowMatrices = {
         "output": "k8sConformanceMatrix",
         "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]},
     },
-    "kube-ovn-conformance-e2e": {
+    "fabric-conformance-e2e": {
         "output": "kubeOvnConformanceMatrix",
         "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]},
     },

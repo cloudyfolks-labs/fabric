@@ -83,7 +83,7 @@ endef
 TEST_BIN_ARGS = -kubeconfig $(KUBECONFIG) -num-nodes $(shell kubectl get node -o name | wc -l)
 
 .PHONY: e2e
-e2e: kube-ovn-conformance-e2e
+e2e: fabric-conformance-e2e
 
 .PHONY: e2e-build
 e2e-build:
@@ -141,34 +141,34 @@ cyclonus-netpol-e2e:
 		$$(kubectl -n netpol get pod -l job-name=cyclonus -o=jsonpath={.items[0].metadata.name}) | \
 		grep failed; test $$? -ne 0
 
-.PHONY: kube-ovn-conformance-e2e
-kube-ovn-conformance-e2e:
-	$(call kind_load_image,kube-ovn,$(PAUSE_IMAGE),1)
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
+.PHONY: fabric-conformance-e2e
+fabric-conformance-e2e:
+	$(call kind_load_image,fabric,$(PAUSE_IMAGE),1)
+	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=35m --focus=CNI:Kube-OVN ./test/e2e/kube-ovn/kube-ovn.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-ic-conformance-e2e
-kube-ovn-ic-conformance-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
-	$(call kind_load_image,kube-ovn1,$(AGNHOST_IMAGE),1)
+.PHONY: fabric-ic-conformance-e2e
+fabric-ic-conformance-e2e:
+	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
+	$(call kind_load_image,fabric1,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/ovn-ic
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/ovn-ic/ovn-ic.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-submariner-conformance-e2e
-kube-ovn-submariner-conformance-e2e:
+.PHONY: fabric-submariner-conformance-e2e
+fabric-submariner-conformance-e2e:
 	KUBECONFIG=$(KUBECONFIG) subctl verify \
-		--context kind-kube-ovn --tocontext kind-kube-ovn1 \
+		--context kind-fabric --tocontext kind-fabric1 \
 		--verbose --disruptive-tests
 
-.PHONY: kube-ovn-multus-conformance-e2e
-kube-ovn-multus-conformance-e2e:
+.PHONY: fabric-multus-conformance-e2e
+fabric-multus-conformance-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/multus
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -176,8 +176,8 @@ kube-ovn-multus-conformance-e2e:
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=10m \
 		--focus=CNI:Kube-OVN ./test/e2e/multus/multus.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-non-primary-cni-e2e
-kube-ovn-non-primary-cni-e2e:
+.PHONY: fabric-non-primary-cni-e2e
+fabric-non-primary-cni-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/non-primary-cni
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -197,8 +197,8 @@ vip-conformance-e2e:
 
 .PHONY: vpc-dynamic-routing-e2e
 vpc-dynamic-routing-e2e:
-	$(call kind_load_image,kube-ovn,quay.io/frrouting/frr:10.7.0,1)
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
+	$(call kind_load_image,fabric,quay.io/frrouting/frr:10.7.0,1)
+	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/vpc-dynamic-routing
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -214,28 +214,28 @@ ovn-vpc-nat-gw-conformance-e2e:
 	$(GINKGO_E2E_RUN_PARALLEL) \
 		--focus=CNI:Kube-OVN ./test/e2e/ovn-vpc-nat-gw/ovn-vpc-nat-gw.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-ha-e2e
-kube-ovn-ha-e2e:
+.PHONY: fabric-ha-e2e
+fabric-ha-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/ha
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/ha/ha.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-single-replica-e2e
-kube-ovn-single-replica-e2e:
+.PHONY: fabric-single-replica-e2e
+fabric-single-replica-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/single-replica
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/single-replica/single-replica.test -- $(TEST_BIN_ARGS)
 
-# Kamaji-backed e2e for kube-ovn's hosted OVN central chart path. Runs against
+# Kamaji-backed e2e for fabric's hosted OVN central chart path. Runs against
 # the tenant cluster the setup script brings up; expects KUBECONFIG and the
-# kube-ovn HCP OVN DB addresses exported via
+# fabric HCP OVN DB addresses exported via
 # `./hack/kamaji-e2e.sh vars`.
-.PHONY: kube-ovn-kamaji-e2e
-kube-ovn-kamaji-e2e:
+.PHONY: fabric-kamaji-e2e
+fabric-kamaji-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/kamaji
 	$(eval export KUBECONFIG=$(shell ./hack/kamaji-e2e.sh kubeconfig))
 	$(eval export KUBE_OVN_HCP_OVN_NB_ADDR=$(shell ./hack/kamaji-e2e.sh vars | awk -F= '/KUBE_OVN_HCP_OVN_NB_ADDR/{print $$2}'))
@@ -245,16 +245,16 @@ kube-ovn-kamaji-e2e:
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN) --focus=CNI:Kube-OVN ./test/e2e/kamaji/kamaji.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-security-e2e
-kube-ovn-security-e2e:
+.PHONY: fabric-security-e2e
+fabric-security-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/security
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/security/security.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-kubevirt-e2e
-kube-ovn-kubevirt-e2e:
+.PHONY: fabric-kubevirt-e2e
+fabric-kubevirt-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/kubevirt
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -262,16 +262,16 @@ kube-ovn-kubevirt-e2e:
 	KUBEVIRT_CONTAINERDISK_IMAGE=$(KUBEVIRT_CONTAINERDISK_IMAGE) \
 	$(GINKGO_E2E_RUN) --focus=CNI:Kube-OVN ./test/e2e/kubevirt/kubevirt.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-webhook-e2e
-kube-ovn-webhook-e2e:
+.PHONY: fabric-webhook-e2e
+fabric-webhook-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/webhook
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/webhook/webhook.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-ipsec-e2e
-kube-ovn-ipsec-e2e:
+.PHONY: fabric-ipsec-e2e
+fabric-ipsec-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/ipsec
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -279,16 +279,16 @@ kube-ovn-ipsec-e2e:
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN --label-filter="!cert-manager" \
 		./test/e2e/ipsec/ipsec.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-ipsec-cert-mgr-e2e
-kube-ovn-ipsec-cert-mgr-e2e:
+.PHONY: fabric-ipsec-cert-mgr-e2e
+fabric-ipsec-cert-mgr-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/ipsec
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/ipsec/ipsec.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-anp-domain-e2e
-kube-ovn-anp-domain-e2e:
+.PHONY: fabric-anp-domain-e2e
+fabric-anp-domain-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/anp-domain
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -296,8 +296,8 @@ kube-ovn-anp-domain-e2e:
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m \
 		--focus=CNI:Kube-OVN ./test/e2e/anp-domain/anp-domain.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-cnp-domain-e2e
-kube-ovn-cnp-domain-e2e:
+.PHONY: fabric-cnp-domain-e2e
+fabric-cnp-domain-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/cnp-domain
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -305,9 +305,9 @@ kube-ovn-cnp-domain-e2e:
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m \
 		--focus=CNI:Kube-OVN ./test/e2e/cnp-domain/cnp-domain.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-connectivity-e2e
-kube-ovn-connectivity-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
+.PHONY: fabric-connectivity-e2e
+fabric-connectivity-e2e:
+	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/connectivity
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -315,21 +315,21 @@ kube-ovn-connectivity-e2e:
 	$(GINKGO_E2E_RUN) --procs 2 --timeout=30m \
 		--focus=CNI:Kube-OVN ./test/e2e/connectivity -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-underlay-metallb-e2e
-kube-ovn-underlay-metallb-e2e:
+.PHONY: fabric-underlay-metallb-e2e
+fabric-underlay-metallb-e2e:
 	kubectl -n kube-system get configmap kube-proxy -o json | jq '.data["config.conf"] |= sub("strictARP: false"; "strictARP: true")' | kubectl apply -f -
 	kubectl -n kube-system rollout restart daemonset/kube-proxy
 	kubectl -n kube-system rollout status daemonset/kube-proxy --timeout=180s
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
+	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/metallb
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/metallb/metallb.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-dns-zone-e2e
-kube-ovn-dns-zone-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
+.PHONY: fabric-dns-zone-e2e
+fabric-dns-zone-e2e:
+	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
@@ -337,9 +337,9 @@ kube-ovn-dns-zone-e2e:
 	$(GINKGO_E2E_RUN) --timeout=20m \
 		--focus="\[group:dns-zone\]" ./test/e2e/kube-ovn/kube-ovn.test -- $(TEST_BIN_ARGS)
 
-.PHONY: kube-ovn-rlr-e2e
-kube-ovn-rlr-e2e:
-	$(call kind_load_image,kube-ovn,$(AGNHOST_IMAGE),1)
+.PHONY: fabric-rlr-e2e
+fabric-rlr-e2e:
+	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
 	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \

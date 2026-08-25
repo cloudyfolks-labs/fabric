@@ -2,10 +2,10 @@
 set -eux
 export PS4='+ $(date "+%Y-%m-%d %H:%M:%S")\011 '
 
-kubectl delete --ignore-not-found -n kube-system ds kube-ovn-pinger
-# ensure kube-ovn-pinger has been deleted
+kubectl delete --ignore-not-found -n kube-system ds fabric-pinger
+# ensure fabric-pinger has been deleted
 while :; do
-  if [ $(kubectl get pod -n kube-system -l app=kube-ovn-pinger -o name | wc -l) -eq 0 ]; then
+  if [ $(kubectl get pod -n kube-system -l app=fabric-pinger -o name | wc -l) -eq 0 ]; then
     break
   fi
   sleep 1
@@ -52,35 +52,35 @@ for pn in $(kubectl get provider-networks.fabric.cloudyfolks.io -o name); do
 done
 
 # Delete Kube-OVN components
-kubectl delete --ignore-not-found -n kube-system deploy kube-ovn-monitor
+kubectl delete --ignore-not-found -n kube-system deploy fabric-monitor
 kubectl delete --ignore-not-found -n kube-system cm ovn-config ovn-ic-config \
   ovn-external-gw-config ovn-vpc-nat-config
-kubectl delete --ignore-not-found -n kube-system svc kube-ovn-pinger kube-ovn-controller kube-ovn-cni kube-ovn-monitor
-kubectl delete --ignore-not-found -n kube-system deploy kube-ovn-controller
+kubectl delete --ignore-not-found -n kube-system svc fabric-pinger fabric-controller fabric-cni fabric-monitor
+kubectl delete --ignore-not-found -n kube-system deploy fabric-controller
 kubectl delete --ignore-not-found -n kube-system deploy ovn-ic-controller
 kubectl delete --ignore-not-found -n kube-system deploy ovn-ic-server
 
-# wait for provider-networks to be deleted before deleting kube-ovn-cni
+# wait for provider-networks to be deleted before deleting fabric-cni
 sleep 5
-kubectl delete --ignore-not-found -n kube-system ds kube-ovn-cni
+kubectl delete --ignore-not-found -n kube-system ds fabric-cni
 
-# ensure kube-ovn-cni has been deleted
+# ensure fabric-cni has been deleted
 while :; do
-  if [ $(kubectl get pod -n kube-system -l app=kube-ovn-cni -o name | wc -l) -eq 0 ]; then
+  if [ $(kubectl get pod -n kube-system -l app=fabric-cni -o name | wc -l) -eq 0 ]; then
     break
   fi
   sleep 1
 done
 
 for pod in $(kubectl get pod -n kube-system -l app=ovs -o 'jsonpath={.items[?(@.status.phase=="Running")].metadata.name}'); do
-  kubectl exec -n kube-system "$pod" -- bash /kube-ovn/uninstall.sh
+  kubectl exec -n kube-system "$pod" -- bash /fabric/uninstall.sh
 done
 
 kubectl delete --ignore-not-found svc ovn-nb ovn-sb ovn-northd -n kube-system
 kubectl delete --ignore-not-found deploy ovn-central -n kube-system
 kubectl delete --ignore-not-found ds ovs-ovn -n kube-system
 kubectl delete --ignore-not-found ds ovs-ovn-dpdk -n kube-system
-kubectl delete --ignore-not-found secret kube-ovn-tls -n kube-system
+kubectl delete --ignore-not-found secret fabric-tls -n kube-system
 
 # delete vpc-dns content
 kubectl delete --ignore-not-found cm vpc-dns-config -n kube-system
@@ -122,7 +122,7 @@ kubectl annotate node --all fabric.cloudyfolks.io/mac_address-
 kubectl annotate node --all fabric.cloudyfolks.io/port_name-
 kubectl annotate node --all fabric.cloudyfolks.io/allocated-
 kubectl annotate node --all fabric.cloudyfolks.io/chassis- 
-kubectl label node --all kube-ovn/role-
+kubectl label node --all fabric/role-
 
 kubectl get node -o name | while read node; do
   kubectl get "$node" -o 'go-template={{ range $k, $v := .metadata.labels }}{{ $k }}{{"\n"}}{{ end }}' | while read label; do
@@ -140,7 +140,7 @@ kubectl annotate ns --all fabric.cloudyfolks.io/private-
 kubectl annotate ns --all fabric.cloudyfolks.io/allow-
 kubectl annotate ns --all fabric.cloudyfolks.io/allocated-
 
-# ensure kube-ovn components have been deleted
+# ensure fabric components have been deleted
 while :; do
   sleep 10
   if [ $(kubectl get pod -n kube-system -l component=network -o name | wc -l) -eq 0 ]; then
@@ -153,12 +153,12 @@ while :; do
 done
 
 # wait for all pods to be deleted before deleting serviceaccount/clusterrole/clusterrolebinding
-kubectl delete --ignore-not-found sa ovn ovn-ovs kube-ovn-cni kube-ovn-app -n kube-system
-kubectl delete --ignore-not-found clusterrole system:ovn system:ovn-ovs system:kube-ovn-cni system:kube-ovn-app
-kubectl delete --ignore-not-found clusterrolebinding ovn ovn ovn-ovs kube-ovn-cni kube-ovn-app
-kubectl delete --ignore-not-found rolebinding -n kube-system ovn kube-ovn-cni kube-ovn-app
+kubectl delete --ignore-not-found sa ovn ovn-ovs fabric-cni fabric-app -n kube-system
+kubectl delete --ignore-not-found clusterrole system:ovn system:ovn-ovs system:fabric-cni system:fabric-app
+kubectl delete --ignore-not-found clusterrolebinding ovn ovn ovn-ovs fabric-cni fabric-app
+kubectl delete --ignore-not-found rolebinding -n kube-system ovn fabric-cni fabric-app
 
-kubectl delete --ignore-not-found -n kube-system lease kube-ovn-controller
+kubectl delete --ignore-not-found -n kube-system lease fabric-controller
 kubectl delete --ignore-not-found -n kube-system secret ovn-ipsec-ca
 
 # Remove annotations in all pods of all namespaces

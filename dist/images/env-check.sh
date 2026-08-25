@@ -4,11 +4,11 @@ set +e
 
 echo "1) check cni configuration"
 if [ ! -e "/etc/cni/net.d" ]; then
-  echo "Directory /etc/cni/net.d does not exist, please check kube-ovn-cni pod status"
+  echo "Directory /etc/cni/net.d does not exist, please check fabric-cni pod status"
 fi
 for file in $(ls "/etc/cni/net.d")
 do
-  if [[ ! $file =~ "kube-ovn.conflist" ]]; then
+  if [[ ! $file =~ "fabric.conflist" ]]; then
     echo "Check files in /etc/cni/net.d, make sure if the config file $file should be deleted"
   fi
 done

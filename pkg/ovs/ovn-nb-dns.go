@@ -57,7 +57,7 @@ func (c *OVNNbClient) EnsureDNSZone(zone string, records map[string]string) (str
 		dns = &ovnnb.DNS{
 			UUID: ovsclient.NamedUUID(),
 			ExternalIDs: map[string]string{
-				"vendor":             "kube-ovn",
+				"vendor":             "fabric",
 				dnsZoneExternalIDKey: zone,
 			},
 			Records: records,

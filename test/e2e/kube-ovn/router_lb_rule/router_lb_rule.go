@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	dockerNetworkName = "kube-ovn-vlan"
+	dockerNetworkName = "fabric-vlan"
 	backendLabel      = "rlr-backend"
 	backendPort       = int32(80)
 	rlrFrontPort      = int32(8090)
@@ -180,7 +180,7 @@ var _ = framework.Describe("[group:rlr]", func() {
 	})
 
 	ginkgo.AfterEach(func() {
-		// This suite shares the "kube-ovn-vlan" docker network and the "external"
+		// This suite shares the "fabric-vlan" docker network and the "external"
 		// provider network (whose bridge keeps the node uplink eth1) with the
 		// [Serial] underlay suite. If an earlier cleanup step fails, the rest of
 		// this AfterEach is skipped and eth1 stays trapped in br-external, which

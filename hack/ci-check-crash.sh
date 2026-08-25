@@ -3,7 +3,7 @@
 set -e
 
 # semicolon separated list of pod labels to ignore
-# example: "app=kube-ovn-monitor;component=network,app=kube-ovn-pinger"
+# example: "app=fabric-monitor;component=network,app=fabric-pinger"
 IGNORABLE_PODS=${IGNORABLE_PODS:-}
 
 namespace="kube-system"

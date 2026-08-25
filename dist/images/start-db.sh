@@ -60,7 +60,7 @@ if [ "$ENABLE_SSL" != "false" ]; then
     SSL_OPTIONS="-p /var/run/tls/key -c /var/run/tls/cert -C /var/run/tls/cacert"
 fi
 
-. /kube-ovn/ovn-db-ssl-options.sh
+. /fabric/ovn-db-ssl-options.sh
 . /usr/share/openvswitch/scripts/ovs-lib || exit 1
 
 function random_str {
@@ -752,11 +752,11 @@ ovn-appctl -t /var/run/ovn/ovnnb_db.ctl ovsdb-server/memory-trim-on-compaction o
 ovn-appctl -t /var/run/ovn/ovnsb_db.ctl ovsdb-server/memory-trim-on-compaction on
 
 if [[ "$ENABLE_SSL" == "true" ]]; then
-    bash /kube-ovn/kube-ovn-tls-reload.sh ovn-central &
+    bash /fabric/fabric-tls-reload.sh ovn-central &
 fi
 
 chmod 600 /etc/ovn/*
-/kube-ovn/kube-ovn-leader-checker \
+/fabric/fabric-leader-checker \
     --probeInterval=${OVN_LEADER_PROBE_INTERVAL} \
     --enableCompact=${ENABLE_COMPACT} \
     --remoteAddresses="${NODE_IPS}"

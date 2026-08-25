@@ -12,14 +12,14 @@ import (
 	"time"
 )
 
-const kubeOVNTLSOrganization = "kube-ovn"
+const kubeOVNTLSOrganization = "fabric"
 
 // GenerateKubeOVNTLSSecretData returns the legacy cacert/cert/key Secret data
 // used by OVN components.
 func GenerateKubeOVNTLSSecretData(now time.Time, caDuration, certDuration time.Duration, commonName string) (map[string][]byte, error) {
 	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, fmt.Errorf("generate kube-ovn-tls CA key: %w", err)
+		return nil, fmt.Errorf("generate fabric-tls CA key: %w", err)
 	}
 	caSerial, err := newCertificateSerialNumber()
 	if err != nil {
@@ -39,12 +39,12 @@ func GenerateKubeOVNTLSSecretData(now time.Time, caDuration, certDuration time.D
 	}
 	caCert, err := createCertificate(caTemplate, caTemplate, &caKey.PublicKey, caKey)
 	if err != nil {
-		return nil, fmt.Errorf("create kube-ovn-tls CA certificate: %w", err)
+		return nil, fmt.Errorf("create fabric-tls CA certificate: %w", err)
 	}
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, fmt.Errorf("generate kube-ovn-tls key: %w", err)
+		return nil, fmt.Errorf("generate fabric-tls key: %w", err)
 	}
 	serial, err := newCertificateSerialNumber()
 	if err != nil {
@@ -65,16 +65,16 @@ func GenerateKubeOVNTLSSecretData(now time.Time, caDuration, certDuration time.D
 	}
 	cert, err := createCertificate(template, caCert, &key.PublicKey, caKey)
 	if err != nil {
-		return nil, fmt.Errorf("create kube-ovn-tls certificate: %w", err)
+		return nil, fmt.Errorf("create fabric-tls certificate: %w", err)
 	}
 
 	caCertPEM, err := encodeCertificates(caCert)
 	if err != nil {
-		return nil, fmt.Errorf("encode kube-ovn-tls CA certificate: %w", err)
+		return nil, fmt.Errorf("encode fabric-tls CA certificate: %w", err)
 	}
 	certPEM, err := encodeCertificates(cert)
 	if err != nil {
-		return nil, fmt.Errorf("encode kube-ovn-tls certificate: %w", err)
+		return nil, fmt.Errorf("encode fabric-tls certificate: %w", err)
 	}
 
 	return map[string][]byte{

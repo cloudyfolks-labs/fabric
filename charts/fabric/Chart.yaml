@@ -1,6 +1,6 @@
 apiVersion: v2
 name: fabric
-description: Kubernetes network fabric for multi-tenant clouds, a fork of kube-ovn
+description: Kubernetes network fabric for multi-tenant clouds, a fork of fabric
 type: application
 version: 1.0.0
 appVersion: v1.0.0

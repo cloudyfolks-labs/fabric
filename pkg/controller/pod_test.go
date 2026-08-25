@@ -71,8 +71,8 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 						Config: `{
 							"cniVersion": "0.3.1",
 							"name": "net1",
-							"type": "kube-ovn",
-							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+							"type": "fabric",
+							"server_socket": "/run/openvswitch/fabric-daemon.sock",
 							"provider": "net1.default.fabric"
 						}`,
 					},
@@ -120,8 +120,8 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 						Config: `{
 							"cniVersion": "0.3.1",
 							"name": "net1",
-							"type": "kube-ovn",
-							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+							"type": "fabric",
+							"server_socket": "/run/openvswitch/fabric-daemon.sock",
 							"provider": "net1.default.fabric"
 						}`,
 					},
@@ -212,8 +212,8 @@ func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testi
 			Config: `{
 				"cniVersion": "0.3.1",
 				"name": "attachnet-a",
-				"type": "kube-ovn",
-				"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+				"type": "fabric",
+				"server_socket": "/run/openvswitch/fabric-daemon.sock",
 				"provider": "attachnet-a.default.fabric"
 			}`,
 		},
@@ -1059,7 +1059,7 @@ func TestGetPodAttachmentNetDefaultSubnetGone(t *testing.T) {
 					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: nadv1.NetworkAttachmentDefinitionSpec{
-					Config: `{"cniVersion": "0.3.1", "name": "net1", "type": "kube-ovn"}`,
+					Config: `{"cniVersion": "0.3.1", "name": "net1", "type": "fabric"}`,
 				},
 			},
 		},
@@ -1074,7 +1074,7 @@ func TestGetPodAttachmentNetDefaultSubnetGone(t *testing.T) {
 }
 
 // TestGetPodAttachmentNetIPAMOnlyNADGone reproduces issue #6943: when an IPAM-only
-// attachment (e.g. ipvlan with ipam.type kube-ovn) is deleted after its NAD has
+// attachment (e.g. ipvlan with ipam.type fabric) is deleted after its NAD has
 // already been removed, the cleanup path must still resolve the attachment to its
 // subnet so the IP is released. The subnet provider is "<nad>.<namespace>" without
 // the ".fabric" suffix, so the returned net must carry that exact provider name so the
@@ -1612,7 +1612,7 @@ func TestHandleAddOrUpdatePodReportsOnlyAllocatedNetworks(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -1652,7 +1652,7 @@ func TestHandleAddOrUpdatePodCombinesAllocatedAndRemovedNetworks(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -1702,7 +1702,7 @@ func TestHandleAddOrUpdatePodReportsOnlyRoutedNetworks(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -1891,7 +1891,7 @@ func TestHandleAddOrUpdatePodRecordsHotplugUpdate(t *testing.T) {
 		Subnets: []*kubeovnv1.Subnet{subnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
-			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"kube-ovn","provider":"net1.default.fabric"}`},
+			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
 		}},
 	})
 	require.NoError(t, err)
@@ -2065,7 +2065,7 @@ func TestGetPodAttachmentNetIPAMConflistWithoutSubnet(t *testing.T) {
 	}{
 		{
 			name:    "Kube-OVN IPAM returns an error",
-			config:  `{"cniVersion":"0.3.1","name":"net1","plugins":[{"type":"macvlan","ipam":{"type":"kube-ovn"}}]}`,
+			config:  `{"cniVersion":"0.3.1","name":"net1","plugins":[{"type":"macvlan","ipam":{"type":"fabric"}}]}`,
 			wantErr: true,
 		},
 		{

@@ -294,8 +294,8 @@ index df18d72..e1138f6 100644
 +            if (lb_vip->port_str) {
 +                char *vip_key = xasprintf(
 +                    IN6_IS_ADDR_V4MAPPED(&lb_vip->vip)
-+                    ? "kube-ovn.io/local-external-vip/%s:%s"
-+                    : "kube-ovn.io/local-external-vip/[%s]:%s",
++                    ? "fabric.cloudyfolks.io/local-external-vip/%s:%s"
++                    : "fabric.cloudyfolks.io/local-external-vip/[%s]:%s",
 +                    lb_vip->vip_str, lb_vip->port_str);
 +                vip_node_lsp = smap_get(&lb->nlb->external_ids, vip_key);
 +                free(vip_key);

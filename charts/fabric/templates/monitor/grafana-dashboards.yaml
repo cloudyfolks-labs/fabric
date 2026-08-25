@@ -1,4 +1,4 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.grafanaDashboards.enabled }}
+{{- if and (include "fabric.renderDataPlane" .) .Values.grafanaDashboards.enabled }}
 {{- $ns := default .Values.namespace .Values.grafanaDashboards.namespace }}
 {{- $datasource := .Values.grafanaDashboards.datasource }}
 {{- if not (regexMatch "^[A-Za-z0-9_.-]+$" $datasource) }}
@@ -9,11 +9,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kube-ovn-dashboard-{{ trimSuffix ".json" (base $path) }}
+  name: fabric-dashboard-{{ trimSuffix ".json" (base $path) }}
   namespace: {{ $ns }}
   labels:
-    app.kubernetes.io/name: kube-ovn
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/name: fabric
+    app.kubernetes.io/part-of: fabric
     {{- with $.Values.grafanaDashboards.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

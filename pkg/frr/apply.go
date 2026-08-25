@@ -11,9 +11,9 @@ import (
 
 const (
 	desiredFileName = "frr.conf.desired"
-	applyFileName   = ".kube-ovn-frr-apply"
-	appliedFileName = ".kube-ovn-frr-applied"
-	resultFileName  = ".kube-ovn-frr-result"
+	applyFileName   = ".fabric-frr-apply"
+	appliedFileName = ".fabric-frr-applied"
+	resultFileName  = ".fabric-frr-result"
 )
 
 type Applier struct {

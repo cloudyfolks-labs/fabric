@@ -42,7 +42,7 @@ func MakeMacvlanNetworkAttachmentDefinition(name, namespace, master, mode, provi
 			},
 			IPAM: &netconf.IPAMConf{
 				Type:         util.CniTypeName,
-				ServerSocket: "/run/openvswitch/kube-ovn-daemon.sock",
+				ServerSocket: "/run/openvswitch/fabric-daemon.sock",
 				Provider:     provider,
 				Routes:       routes,
 			},
@@ -65,7 +65,7 @@ func MakeOVNNetworkAttachmentDefinition(name, namespace, provider string, routes
 			CNIVersion: CNIVersion,
 			Type:       util.CniTypeName,
 		},
-		ServerSocket: "/run/openvswitch/kube-ovn-daemon.sock",
+		ServerSocket: "/run/openvswitch/fabric-daemon.sock",
 		Provider:     provider,
 		Routes:       routes,
 	}

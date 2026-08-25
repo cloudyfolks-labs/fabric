@@ -269,9 +269,9 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 		fnCheckPodHTTP()
 
 		ginkgo.By("case 4: scale ecmp path from 3 to 5")
-		switchCmd := "kubectl config use-context kind-kube-ovn"
+		switchCmd := "kubectl config use-context kind-fabric"
 		_, err := exec.Command("bash", "-c", switchCmd).CombinedOutput()
-		framework.ExpectNoError(err, "switch to kube-ovn cluster failed")
+		framework.ExpectNoError(err, "switch to fabric cluster failed")
 
 		patchCmd := "kubectl patch deployment ovn-ic-server -n kube-system --type='json' -p=\"[{'op': 'replace', 'path': '/spec/template/spec/containers/0/env/1/value', 'value': '5'}]\""
 		_, _ = exec.Command("bash", "-c", patchCmd).CombinedOutput()
@@ -292,55 +292,55 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 		}
 		fnCheckPodHTTP()
 
-		ginkgo.By("case 6: disable gateway kube-ovn1-worker gateway")
-		switchCmd = "kubectl config use-context kind-kube-ovn1"
+		ginkgo.By("case 6: disable gateway fabric1-worker gateway")
+		switchCmd = "kubectl config use-context kind-fabric1"
 		_, err = exec.Command("bash", "-c", switchCmd).CombinedOutput()
-		framework.ExpectNoError(err, "switch to kube-ovn1 cluster failed")
+		framework.ExpectNoError(err, "switch to fabric1 cluster failed")
 
-		disableNetworkCmd := "docker exec kube-ovn1-worker iptables -I INPUT -p udp --dport 6081 -j DROP"
+		disableNetworkCmd := "docker exec fabric1-worker iptables -I INPUT -p udp --dport 6081 -j DROP"
 		_, err = exec.Command("bash", "-c", disableNetworkCmd).CombinedOutput()
-		framework.ExpectNoError(err, "disable kube-ovn1-worker gateway failed")
+		framework.ExpectNoError(err, "disable fabric1-worker gateway failed")
 
-		taintCmd := "kubectl taint nodes kube-ovn1-worker e2e=test:NoSchedule"
+		taintCmd := "kubectl taint nodes fabric1-worker e2e=test:NoSchedule"
 		_, _ = exec.Command("bash", "-c", taintCmd).CombinedOutput()
 		fnCheckPodHTTP()
 
-		ginkgo.By("case 7: disable gateway kube-ovn1-worker2 gateway")
-		switchCmd = "kubectl config use-context kind-kube-ovn1"
+		ginkgo.By("case 7: disable gateway fabric1-worker2 gateway")
+		switchCmd = "kubectl config use-context kind-fabric1"
 		_, err = exec.Command("bash", "-c", switchCmd).CombinedOutput()
-		framework.ExpectNoError(err, "switch to kube-ovn1 cluster failed")
+		framework.ExpectNoError(err, "switch to fabric1 cluster failed")
 
-		disableNetworkCmd = "docker exec kube-ovn1-worker2 iptables -I INPUT -p udp --dport 6081 -j DROP"
+		disableNetworkCmd = "docker exec fabric1-worker2 iptables -I INPUT -p udp --dport 6081 -j DROP"
 		_, err = exec.Command("bash", "-c", disableNetworkCmd).CombinedOutput()
-		framework.ExpectNoError(err, "disable kube-ovn1-worker2 gateway failed")
+		framework.ExpectNoError(err, "disable fabric1-worker2 gateway failed")
 
-		taintCmd = "kubectl taint nodes kube-ovn1-worker2 e2e=test:NoSchedule"
+		taintCmd = "kubectl taint nodes fabric1-worker2 e2e=test:NoSchedule"
 		_, _ = exec.Command("bash", "-c", taintCmd).CombinedOutput()
 		fnCheckPodHTTP()
 
-		ginkgo.By("case 8: enable gateway kube-ovn1-worker gateway")
-		switchCmd = "kubectl config use-context kind-kube-ovn1"
+		ginkgo.By("case 8: enable gateway fabric1-worker gateway")
+		switchCmd = "kubectl config use-context kind-fabric1"
 		_, err = exec.Command("bash", "-c", switchCmd).CombinedOutput()
-		framework.ExpectNoError(err, "switch to kube-ovn1 cluster failed")
+		framework.ExpectNoError(err, "switch to fabric1 cluster failed")
 
-		disableNetworkCmd = "docker exec kube-ovn1-worker iptables -D INPUT -p udp --dport 6081 -j DROP"
+		disableNetworkCmd = "docker exec fabric1-worker iptables -D INPUT -p udp --dport 6081 -j DROP"
 		_, err = exec.Command("bash", "-c", disableNetworkCmd).CombinedOutput()
-		framework.ExpectNoError(err, "enable kube-ovn1-worker gateway failed")
+		framework.ExpectNoError(err, "enable fabric1-worker gateway failed")
 
-		taintCmd = "kubectl taint nodes kube-ovn1-worker e2e=test:NoSchedule-"
+		taintCmd = "kubectl taint nodes fabric1-worker e2e=test:NoSchedule-"
 		_, _ = exec.Command("bash", "-c", taintCmd).CombinedOutput()
 		fnCheckPodHTTP()
 
-		ginkgo.By("case 9: enable gateway kube-ovn1-worker2 gateway")
-		switchCmd = "kubectl config use-context kind-kube-ovn1"
+		ginkgo.By("case 9: enable gateway fabric1-worker2 gateway")
+		switchCmd = "kubectl config use-context kind-fabric1"
 		_, err = exec.Command("bash", "-c", switchCmd).CombinedOutput()
-		framework.ExpectNoError(err, "switch to kube-ovn1 cluster failed")
+		framework.ExpectNoError(err, "switch to fabric1 cluster failed")
 
-		disableNetworkCmd = "docker exec kube-ovn1-worker2 iptables -D INPUT -p udp --dport 6081 -j DROP"
+		disableNetworkCmd = "docker exec fabric1-worker2 iptables -D INPUT -p udp --dport 6081 -j DROP"
 		_, err = exec.Command("bash", "-c", disableNetworkCmd).CombinedOutput()
-		framework.ExpectNoError(err, "enable kube-ovn1-worker2 gateway failed")
+		framework.ExpectNoError(err, "enable fabric1-worker2 gateway failed")
 
-		taintCmd = "kubectl taint nodes kube-ovn1-worker2 e2e=test:NoSchedule-"
+		taintCmd = "kubectl taint nodes fabric1-worker2 e2e=test:NoSchedule-"
 		_, _ = exec.Command("bash", "-c", taintCmd).CombinedOutput()
 		fnCheckPodHTTP()
 	})
@@ -373,7 +373,7 @@ func checkECMPCount(expectCount int) {
 		framework.ExpectEqual(ecmpCount, expectCount)
 	}
 
-	switchCmd := "kubectl config use-context kind-kube-ovn"
+	switchCmd := "kubectl config use-context kind-fabric"
 	_, err := exec.Command("bash", "-c", switchCmd).CombinedOutput()
-	framework.ExpectNoError(err, "switch to kube-ovn cluster failed")
+	framework.ExpectNoError(err, "switch to fabric cluster failed")
 }

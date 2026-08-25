@@ -36,16 +36,16 @@ func TestE2E(t *testing.T) {
 	e2e.RunE2ETests(t)
 }
 
-// controllerEnv returns the kube-ovn-controller environment variables from the
+// controllerEnv returns the fabric-controller environment variables from the
 // tenant cluster behind --kubeconfig.
 func controllerEnv(f *framework.Framework) map[string]string {
 	ginkgo.GinkgoHelper()
 
 	deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).
-		Get(context.TODO(), "kube-ovn-controller", metav1.GetOptions{})
-	framework.ExpectNoError(err, "get kube-ovn-controller deployment")
+		Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
+	framework.ExpectNoError(err, "get fabric-controller deployment")
 	for _, c := range deploy.Spec.Template.Spec.Containers {
-		if c.Name != "kube-ovn-controller" {
+		if c.Name != "fabric-controller" {
 			continue
 		}
 		values := make(map[string]string, len(c.Env))
@@ -54,7 +54,7 @@ func controllerEnv(f *framework.Framework) map[string]string {
 		}
 		return values
 	}
-	framework.Fail("kube-ovn-controller container not found in kube-ovn-controller deployment")
+	framework.Fail("fabric-controller container not found in fabric-controller deployment")
 	return nil
 }
 
@@ -128,20 +128,20 @@ var _ = framework.Describe("[group:kamaji]", func() {
 	f := framework.NewDefaultFramework("kamaji")
 
 	ginkgo.BeforeEach(func() {
-		f.SkipVersionPriorTo(1, 18, "kube-ovn hosted OVN central support is required")
+		f.SkipVersionPriorTo(1, 18, "fabric hosted OVN central support is required")
 		hcpOVNNBAddress()
 		hcpOVNSBAddress()
 		gomega.Expect(usesHostedOVNCentralAddresses(f)).To(gomega.BeTrue(),
-			"kube-ovn data-plane workloads must use hosted OVN DB addresses; the Kamaji-backed suite must fail rather than skip when hosted OVN central is not under test")
+			"fabric data-plane workloads must use hosted OVN DB addresses; the Kamaji-backed suite must fail rather than skip when hosted OVN central is not under test")
 	})
 
-	ginkgo.It("kube-ovn-controller runs with replicas=1 in hosted OVN central dataPlaneOnly", func() {
+	ginkgo.It("fabric-controller runs with replicas=1 in hosted OVN central dataPlaneOnly", func() {
 		deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).
-			Get(context.TODO(), "kube-ovn-controller", metav1.GetOptions{})
+			Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		framework.ExpectNotNil(deploy.Spec.Replicas)
 		gomega.Expect(*deploy.Spec.Replicas).To(gomega.BeEquivalentTo(1),
-			"hosted OVN central dataPlaneOnly should default kube-ovn-controller to 1 replica via kubeovn.controllerReplicas")
+			"hosted OVN central dataPlaneOnly should default fabric-controller to 1 replica via kubeovn.controllerReplicas")
 	})
 
 	ginkgo.It("data-plane components use the hosted OVN DB addresses", func() {
@@ -184,11 +184,11 @@ var _ = framework.Describe("[group:kamaji]", func() {
 
 		framework.ExpectNotNil(pod, "pod should exist after CreateSync")
 		gomega.Expect(pod.Annotations[util.AllocatedAnnotation]).To(gomega.Equal("true"),
-			"pod should be annotated by kube-ovn-controller via the external OVN DB")
+			"pod should be annotated by fabric-controller via the external OVN DB")
 		gomega.Expect(pod.Annotations[util.IPAddressAnnotation]).NotTo(gomega.BeEmpty(),
 			"pod should carry an fabric.cloudyfolks.io/ip_address annotation")
 		gomega.Expect(pod.Status.PodIP).NotTo(gomega.BeEmpty(),
-			"pod IP should be set by kubelet from the kube-ovn CNI")
+			"pod IP should be set by kubelet from the fabric CNI")
 		wantIPv4, wantIPv6, err := requiredPodAddressFamilies(os.Getenv("E2E_IP_FAMILY"))
 		framework.ExpectNoError(err)
 		hasIPv4, hasIPv6 := podAddressFamilies(pod)
@@ -207,15 +207,15 @@ var _ = framework.Describe("[group:kamaji]", func() {
 			pod.Annotations[util.LogicalSwitchAnnotation])
 	})
 
-	ginkgo.It("kube-ovn-controller leader-election Lease lives in the tenant apiserver", func() {
+	ginkgo.It("fabric-controller leader-election Lease lives in the tenant apiserver", func() {
 		_, err := f.ClientSet.CoordinationV1().Leases(framework.KubeOvnNamespace).
-			Get(context.TODO(), "kube-ovn-controller", metav1.GetOptions{})
+			Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
 		if err != nil {
 			leases, listErr := f.ClientSet.CoordinationV1().Leases(framework.KubeOvnNamespace).
 				List(context.TODO(), metav1.ListOptions{})
 			framework.ExpectNoError(listErr)
 			gomega.Expect(leases.Items).NotTo(gomega.BeEmpty(),
-				"expected at least one Lease in %s (kube-ovn-controller leader election)",
+				"expected at least one Lease in %s (fabric-controller leader election)",
 				framework.KubeOvnNamespace)
 		}
 	})

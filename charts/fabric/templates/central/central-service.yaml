@@ -1,9 +1,9 @@
-{{- if and (include "kubeovn.renderControlPlane" .) .Values.central.hcp.enabled }}
+{{- if and (include "fabric.renderControlPlane" .) .Values.central.hcp.enabled }}
 kind: Service
 apiVersion: v1
 metadata:
   name: ovn-central
-  namespace: {{ include "kubeovn.centralNamespace" . }}
+  namespace: {{ include "fabric.centralNamespace" . }}
   {{- with .Values.central.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -26,5 +26,5 @@ spec:
       targetPort: 6644
   selector:
     app.kubernetes.io/name: ovn-central
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/part-of: fabric
 {{- end }}

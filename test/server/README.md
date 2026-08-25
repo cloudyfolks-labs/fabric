@@ -1,6 +1,6 @@
 # Test Server
 
-This server mainly focuses on test network break effect during kube-ovn upgrade or restart, but can also be extended to test network connectivity.
+This server mainly focuses on test network break effect during fabric upgrade or restart, but can also be extended to test network connectivity.
 
 ## How test server test network break
 
@@ -8,17 +8,17 @@ The test-server will use ping, iperf3 and curl to visit a specified address duri
 `/proc/net/snmp` and return code to calculate ICMP lost, TCP retransmit packets and TCP connection failure.
 
 ```bash
-# Deploy a kubernetes cluster with kube-ovn
+# Deploy a kubernetes cluster with fabric
 make kind-init kind-install
 
 # Build and deploy test-server
 make image-test
-kind load docker-image --name kube-ovn kubeovn/test:v1.13.0
+kind load docker-image --name fabric kubeovn/test:v1.13.0
 kubectl apply -f test/server/test-server.yaml
-docker run --name kube-ovn-test -d --net=kind kubeovn/test:v1.13.0
-docker inspect kube-ovn-test -f '{{.NetworkSettings.Networks.kind.IPAddress}}'
+docker run --name fabric-test -d --net=kind kubeovn/test:v1.13.0
+docker inspect fabric-test -f '{{.NetworkSettings.Networks.kind.IPAddress}}'
 
-# Run test-server analysis tool in one terminal and reload kube-ovn in another terminal
+# Run test-server analysis tool in one terminal and reload fabric in another terminal
 # terminal 1 (replace 172.18.0.5/80 with the address/port you want to test)
 kubectl exec -it test-client -- ./test-server --remote-address=172.18.0.5 --remote-port=80 --output=json --duration-seconds=60
 
@@ -54,4 +54,4 @@ TCP test result:
 ## TODO
 
 1. Replace curl with ab to test high connection concurrency.
-2. Need to be tested in large scale cluster where kube-ovn reload might take much longer time.
+2. Need to be tested in large scale cluster where fabric reload might take much longer time.

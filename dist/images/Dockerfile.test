@@ -8,8 +8,8 @@ RUN set -ex \
     bash iproute2 iptables iputils tcpdump conntrack-tools \
     redis nginx qperf iperf3 iperf net-tools curl wrk
 
-WORKDIR /kube-ovn
-COPY test-server /kube-ovn/test-server
-COPY test-server.sh /kube-ovn/test-server.sh
-RUN chmod +x /kube-ovn/test-server.sh
+WORKDIR /fabric
+COPY test-server /fabric/test-server
+COPY test-server.sh /fabric/test-server.sh
+RUN chmod +x /fabric/test-server.sh
 CMD ["bash", "test-server.sh"]

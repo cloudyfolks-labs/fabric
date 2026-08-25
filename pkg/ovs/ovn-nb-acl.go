@@ -1969,21 +1969,21 @@ func (c *OVNNbClient) CleanNoParentKeyAcls() error {
 
 	var aclList []ovnnb.ACL
 	if err := c.ovsDbClient.WhereCache(func(acl *ovnnb.ACL) bool {
-		// Only clean ACLs that belong to kube-ovn (vendor=kube-ovn) but are missing the parent key.
+		// Only clean ACLs that belong to fabric (vendor=fabric) but are missing the parent key.
 		// This ensures we never touch ACLs created by external systems like OpenStack Neutron.
 		// ACLs without vendor tag or with a different vendor are left untouched.
 		if len(acl.ExternalIDs) == 0 {
 			return false
 		}
-		// Skip ACLs that don't belong to kube-ovn
+		// Skip ACLs that don't belong to fabric
 		if acl.ExternalIDs["vendor"] != util.CniTypeName {
 			return false
 		}
-		// Only target kube-ovn ACLs that are missing the parent key
+		// Only target fabric ACLs that are missing the parent key
 		_, hasParent := acl.ExternalIDs[aclParentKey]
 		return !hasParent
 	}).List(ctx, &aclList); err != nil {
-		err = fmt.Errorf("failed to list kube-ovn acls without parent: %w", err)
+		err = fmt.Errorf("failed to list fabric acls without parent: %w", err)
 		klog.Error(err)
 		return err
 	}
@@ -2023,7 +2023,7 @@ func (c *OVNNbClient) CleanNoParentKeyAcls() error {
 
 	if err := c.Transact("acl-clean-no-parent", ops); err != nil {
 		klog.Error(err)
-		return fmt.Errorf("failed to clean kube-ovn acls without parent: %w", err)
+		return fmt.Errorf("failed to clean fabric acls without parent: %w", err)
 	}
 
 	return nil

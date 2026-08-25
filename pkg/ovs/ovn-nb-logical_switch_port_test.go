@@ -1725,7 +1725,7 @@ func (suite *OvnClientTestSuite) testCreateLogicalSwitchPortOp() {
 			GoMap: map[any]any{
 				LogicalSwitchKey: lsName,
 				"pod":            lspName,
-				"vendor":         "kube-ovn",
+				"vendor":         "fabric",
 			},
 		}, ops[0].Row["external_ids"])
 
@@ -1759,7 +1759,7 @@ func (suite *OvnClientTestSuite) testCreateLogicalSwitchPortOp() {
 		require.Equal(t, ovsdb.OvsMap{
 			GoMap: map[any]any{
 				LogicalSwitchKey: lsName,
-				"vendor":         "kube-ovn",
+				"vendor":         "fabric",
 			},
 		}, ops[0].Row["external_ids"])
 
@@ -2003,7 +2003,7 @@ func (suite *OvnClientTestSuite) testLogicalSwitchPortFilter() {
 		require.Equal(t, count, 9)
 	})
 
-	t.Run("include all lsp which vendor is kube-ovn", func(t *testing.T) {
+	t.Run("include all lsp which vendor is fabric", func(t *testing.T) {
 		filterFunc := logicalSwitchPortFilter(true, nil, nil)
 		count := 0
 		for _, lsp := range lsps {
@@ -2109,7 +2109,7 @@ func (suite *OvnClientTestSuite) testLogicalSwitchPortFilter() {
 		require.Equal(t, count, 1)
 	})
 
-	t.Run("list lsp which vendor is not kube-ovn", func(t *testing.T) {
+	t.Run("list lsp which vendor is not fabric", func(t *testing.T) {
 		filterFunc := logicalSwitchPortFilter(false, nil, func(lsp *ovnnb.LogicalSwitchPort) bool {
 			return len(lsp.ExternalIDs) == 0 || lsp.ExternalIDs["vendor"] != util.CniTypeName
 		})

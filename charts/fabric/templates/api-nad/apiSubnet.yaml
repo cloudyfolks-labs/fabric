@@ -1,4 +1,4 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.apiNad.enabled }}
+{{- if and (include "fabric.renderDataPlane" .) .Values.apiNad.enabled }}
 apiVersion: fabric.cloudyfolks.io/v1
 kind: Subnet
 metadata:

@@ -82,8 +82,8 @@ class E2ESelectorTest(unittest.TestCase):
                 for entry in plan["matrix"]
             ],
             [
-                {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
-                {"job": "kube-ovn-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},
+                {"job": "fabric-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
+                {"job": "fabric-conformance-e2e", "ip-family": "ipv4", "mode": "underlay"},
                 {"job": "k8s-conformance-e2e", "ip-family": "ipv4", "mode": "overlay"},
             ],
         )
@@ -96,7 +96,7 @@ class E2ESelectorTest(unittest.TestCase):
             {"include": [{"ip-family": "ipv4", "mode": "overlay"}]},
         )
         self.assertEqual(
-            e2eSelector.jobMatrix(plan, "kube-ovn-conformance-e2e"),
+            e2eSelector.jobMatrix(plan, "fabric-conformance-e2e"),
             {
                 "include": [
                     {"ip-family": "ipv4", "mode": "overlay"},
@@ -113,7 +113,7 @@ class E2ESelectorTest(unittest.TestCase):
             6,
         )
         self.assertEqual(
-            len(e2eSelector.jobMatrix(plan, "kube-ovn-conformance-e2e")["include"]),
+            len(e2eSelector.jobMatrix(plan, "fabric-conformance-e2e")["include"]),
             6,
         )
 

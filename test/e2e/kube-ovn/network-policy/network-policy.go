@@ -91,14 +91,14 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 		framework.ExpectNoError(err)
 		framework.ExpectNotEmpty(nodeList.Items)
 
-		ginkgo.By("Getting daemonset kube-ovn-cni")
-		ds := daemonSetClient.Get("kube-ovn-cni")
+		ginkgo.By("Getting daemonset fabric-cni")
+		ds := daemonSetClient.Get("fabric-cni")
 
-		ginkgo.By("Getting kube-ovn-cni pods")
+		ginkgo.By("Getting fabric-cni pods")
 		pods := make([]corev1.Pod, 0, len(nodeList.Items))
 		for _, node := range nodeList.Items {
 			pod, err := daemonSetClient.GetPodOnNode(ds, node.Name)
-			framework.ExpectNoError(err, "failed to get kube-ovn-cni pod running on node %s", node.Name)
+			framework.ExpectNoError(err, "failed to get fabric-cni pod running on node %s", node.Name)
 			pods = append(pods, *pod)
 		}
 

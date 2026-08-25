@@ -1004,7 +1004,7 @@ func (c *Controller) checkAndUpdateNodePortGroup() error {
 func (c *Controller) UpdateChassisTag(node *v1.Node) error {
 	annoChassisName := node.Annotations[util.ChassisAnnotation]
 	if annoChassisName == "" {
-		// kube-ovn-cni not ready to set chassis
+		// fabric-cni not ready to set chassis
 		return nil
 	}
 	chassis, err := c.OVNSbClient.GetChassis(annoChassisName, true)

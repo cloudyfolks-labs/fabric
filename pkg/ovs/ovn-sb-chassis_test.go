@@ -434,19 +434,19 @@ func (suite *OvnClientTestSuite) testGetKubeOvnChassises() {
 	sbClient := suite.ovnSBClient
 
 	t.Cleanup(func() {
-		err := sbClient.DeleteChassis("kube-ovn-chassis-1")
+		err := sbClient.DeleteChassis("fabric-chassis-1")
 		require.NoError(t, err)
-		err = sbClient.DeleteChassis("kube-ovn-chassis-2")
+		err = sbClient.DeleteChassis("fabric-chassis-2")
 		require.NoError(t, err)
-		err = sbClient.DeleteChassis("non-kube-ovn-chassis")
+		err = sbClient.DeleteChassis("non-fabric-chassis")
 		require.NoError(t, err)
 		err = sbClient.DeleteChassis("mixed-chassis")
 		require.NoError(t, err)
 	})
 
-	kubeOvnChassis1 := newChassis(0, "host-1", "kube-ovn-chassis-1", nil, nil, nil, map[string]string{"vendor": util.CniTypeName}, nil)
-	kubeOvnChassis2 := newChassis(0, "host-2", "kube-ovn-chassis-2", nil, nil, nil, map[string]string{"vendor": util.CniTypeName}, nil)
-	nonKubeOvnChassis := newChassis(0, "host-none", "non-kube-ovn-chassis", nil, nil, nil, map[string]string{"vendor": "other"}, nil)
+	kubeOvnChassis1 := newChassis(0, "host-1", "fabric-chassis-1", nil, nil, nil, map[string]string{"vendor": util.CniTypeName}, nil)
+	kubeOvnChassis2 := newChassis(0, "host-2", "fabric-chassis-2", nil, nil, nil, map[string]string{"vendor": util.CniTypeName}, nil)
+	nonKubeOvnChassis := newChassis(0, "host-none", "non-fabric-chassis", nil, nil, nil, map[string]string{"vendor": "other"}, nil)
 	mixedChassis := newChassis(0, "host-4", "mixed-chassis", nil, nil, nil, map[string]string{"vendor": util.CniTypeName, "other": "value"}, nil)
 
 	ops1, err := sbClient.Create(kubeOvnChassis1)
@@ -482,7 +482,7 @@ func (suite *OvnClientTestSuite) testGetKubeOvnChassises() {
 			}
 			names[chassis.Name] = true
 		}
-		return names["kube-ovn-chassis-1"] && names["kube-ovn-chassis-2"] &&
-			!names["non-kube-ovn-chassis"] && names["mixed-chassis"]
+		return names["fabric-chassis-1"] && names["fabric-chassis-2"] &&
+			!names["non-fabric-chassis"] && names["mixed-chassis"]
 	}, 15*time.Second, 100*time.Millisecond)
 }

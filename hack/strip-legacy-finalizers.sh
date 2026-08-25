@@ -9,7 +9,7 @@ usage() {
   cat <<'USAGE'
 Usage: hack/strip-legacy-finalizers.sh [--apply]
 
-Removes the kube-ovn controller finalizers from every custom resource in the
+Removes the fabric controller finalizers from every custom resource in the
 kubeovn.io API group. fabric runs no controller for that group, so nothing
 ever removes those finalizers and the CRD deletion step of the migration
 blocks for ever.

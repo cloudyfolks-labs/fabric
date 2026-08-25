@@ -75,7 +75,7 @@ timers of every existing deployment for no gain.
 
 `hack/strip-legacy-finalizers.sh` walks every CRD in the `kubeovn.io`
 group, which covers the five removed types and every surviving type, and
-removes `kubeovn.io/kube-ovn-controller`, `kube-ovn-controller` and
+removes `kubeovn.io/kube-ovn-controller`, `fabric-controller` and
 `fabric.cloudyfolks.io/controller` from their objects. It discovers the
 CRDs from the cluster, so it cannot miss a type. It defaults to a dry
 run, reports every object it touches and can run more than one time.
@@ -287,7 +287,7 @@ nothing changed. This is the last-applied result the item asks for.
 **Not done: peer session state.** The design, and why it is not in this
 pass:
 
-The agent cannot read the session state today. `kube-ovn-frr` and `frr`
+The agent cannot read the session state today. `fabric-frr` and `frr`
 are separate containers of the same pod. They share `/etc/frr` only, so
 the agent has no `vtysh` binary and no `/var/run/frr` socket. Reading
 `show bgp summary json` needs three changes that are larger than a
@@ -376,7 +376,7 @@ states the limit, so it appears in the CRD description.
 
 **Fixed by deleting `hack/release.sh`.**
 
-The script queried the kube-ovn repository, pushed to Docker Hub,
+The script queried the fabric repository, pushed to Docker Hub,
 referenced a sibling docs repository that does not exist and branched on
 `master`. `.github/workflows/release.yaml` is now the only release path,
 and `docs/release.md` describes it.

@@ -307,7 +307,7 @@ func (e *Exporter) exportOvnDBStatusGauge() {
 				checkSbDbCnt = 0
 			}
 
-			output, err := exec.Command("/bin/bash", "/kube-ovn/restore-ovn-nb-db.sh").CombinedOutput()
+			output, err := exec.Command("/bin/bash", "/fabric/restore-ovn-nb-db.sh").CombinedOutput()
 			if err != nil {
 				klog.Errorf("Failed to restore OVN DB, err %v", err)
 			}

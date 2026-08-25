@@ -1,16 +1,16 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.pinger.serviceMonitor.enabled }}
+{{- if and (include "fabric.renderDataPlane" .) .Values.pinger.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: kube-ovn-pinger
+  name: fabric-pinger
   namespace: {{ .Values.namespace }}
   {{- with .Values.pinger.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
-    app.kubernetes.io/name: kube-ovn-pinger
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/name: fabric-pinger
+    app.kubernetes.io/part-of: fabric
     {{- with .Values.pinger.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -24,5 +24,5 @@ spec:
       - {{ .Values.namespace }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-pinger
+      app.kubernetes.io/name: fabric-pinger
 {{- end }}

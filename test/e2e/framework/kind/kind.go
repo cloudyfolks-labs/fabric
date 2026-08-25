@@ -189,7 +189,7 @@ func ListNodes(cluster, role string) ([]Node, error) {
 }
 
 func IsKindProvided(providerID string) (string, bool) {
-	// kind://docker/kube-ovn/kube-ovn-control-plane
+	// kind://docker/fabric/fabric-control-plane
 	u, err := url.Parse(providerID)
 	if err != nil || u.Scheme != "kind" || u.Host != "docker" {
 		return "", false

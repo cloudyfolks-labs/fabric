@@ -1,23 +1,23 @@
-{{- if include "kubeovn.renderDataPlane" . -}}
+{{- if include "fabric.renderDataPlane" . -}}
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-ovn-cni
+  name: fabric-cni
   namespace: {{ .Values.namespace }}
   {{- with .Values.agent.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   labels:
-    app.kubernetes.io/name: kube-ovn-cni
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/name: fabric-cni
+    app.kubernetes.io/part-of: fabric
     {{- with .Values.agent.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   selector:
-    app.kubernetes.io/name: kube-ovn-cni
-    app.kubernetes.io/part-of: kube-ovn
+    app.kubernetes.io/name: fabric-cni
+    app.kubernetes.io/part-of: fabric
   ports:
     - port: {{ .Values.agent.metrics.port }}
       name: metrics

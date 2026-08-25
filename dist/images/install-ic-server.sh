@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REGISTRY="kubeovn"
+REGISTRY="ghcr.io/cloudyfolks-labs"
 VERSION="v1.13.0"
 TS_NUM=${TS_NUM:-3}
 IMAGE_PULL_POLICY="IfNotPresent"
-addresses=$(kubectl get no -lkube-ovn/role=master --no-headers -o wide | awk '{print $6}' | tr \\n ',' | sed 's/,$//')
-count=$(kubectl get no -lkube-ovn/role=master --no-headers | wc -l)
+addresses=$(kubectl get no -lfabric/role=master --no-headers -o wide | awk '{print $6}' | tr \\n ',' | sed 's/,$//')
+count=$(kubectl get no -lfabric/role=master --no-headers | wc -l)
 OVN_LEADER_PROBE_INTERVAL=${OVN_LEADER_PROBE_INTERVAL:-5}
 
 cat <<EOF > ovn-ic-server.yaml
@@ -59,7 +59,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: hostpath-init
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           imagePullPolicy: $IMAGE_PULL_POLICY
           command:
             - sh
@@ -81,9 +81,9 @@ spec:
               name: host-log-ovn
       containers:
         - name: ovn-ic-server
-          image: "$REGISTRY/kube-ovn:$VERSION"
+          image: "$REGISTRY/fabric:$VERSION"
           imagePullPolicy: $IMAGE_PULL_POLICY
-          command: ["/kube-ovn/start-ic-db.sh"]
+          command: ["/fabric/start-ic-db.sh"]
           securityContext:
             privileged: false
             runAsUser: 65534
@@ -133,26 +133,26 @@ spec:
             - mountPath: /etc/localtime
               name: localtime
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
           readinessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovn-ic-healthcheck.sh
+                - /fabric/ovn-ic-healthcheck.sh
             periodSeconds: 15
             timeoutSeconds: 45
           livenessProbe:
             exec:
               command:
                 - bash
-                - /kube-ovn/ovn-ic-healthcheck.sh
+                - /fabric/ovn-ic-healthcheck.sh
             initialDelaySeconds: 30
             periodSeconds: 15
             failureThreshold: 5
             timeoutSeconds: 4
       nodeSelector:
         kubernetes.io/os: "linux"
-        kube-ovn/role: "master"
+        fabric/role: "master"
       volumes:
         - name: host-run-ovn
           hostPath:
@@ -166,10 +166,10 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-tls
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 EOF
 
 kubectl apply -f ovn-ic-server.yaml

@@ -511,8 +511,8 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Config: `{
 							"cniVersion": "0.3.1",
 							"name": "net1",
-							"type": "kube-ovn",
-							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+							"type": "fabric",
+							"server_socket": "/run/openvswitch/fabric-daemon.sock",
 							"provider": "net1.default.fabric"
 						}`,
 					},
@@ -592,8 +592,8 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Config: `{
 							"cniVersion": "0.3.1",
 							"name": "net1",
-							"type": "kube-ovn",
-							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+							"type": "fabric",
+							"server_socket": "/run/openvswitch/fabric-daemon.sock",
 							"provider": "net1.default.fabric"
 						}`,
 					},
@@ -730,8 +730,8 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Config: `{
 							"cniVersion": "0.3.1",
 							"name": "net1",
-							"type": "kube-ovn",
-							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+							"type": "fabric",
+							"server_socket": "/run/openvswitch/fabric-daemon.sock",
 							"provider": "net1.default.fabric"
 						}`,
 					},
@@ -745,8 +745,8 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Config: `{
 							"cniVersion": "0.3.1",
 							"name": "net2",
-							"type": "kube-ovn",
-							"server_socket": "/run/openvswitch/kube-ovn-daemon.sock",
+							"type": "fabric",
+							"server_socket": "/run/openvswitch/fabric-daemon.sock",
 							"provider": "net2.default.fabric"
 						}`,
 					},

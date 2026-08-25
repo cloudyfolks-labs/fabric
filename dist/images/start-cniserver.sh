@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CNI_SOCK=/run/openvswitch/kube-ovn-daemon.sock
+CNI_SOCK=/run/openvswitch/fabric-daemon.sock
 OVS_SOCK=/run/openvswitch/db.sock
 ENABLE_SSL=${ENABLE_SSL:-false}
 
@@ -49,4 +49,4 @@ iptables -P FORWARD ACCEPT
 iptables-nft -P FORWARD ACCEPT
 set -e
 
-./kube-ovn-daemon --ovs-socket=${OVS_SOCK} --bind-socket=${CNI_SOCK} "$@"
+./fabric-daemon --ovs-socket=${OVS_SOCK} --bind-socket=${CNI_SOCK} "$@"

@@ -2,13 +2,13 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: kube-ovn-webhook
+  name: fabric-webhook
   namespace: kube-system
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kube-ovn-webhook
+      app: fabric-webhook
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -17,7 +17,7 @@ spec:
   template:
     metadata:
       labels:
-        app: kube-ovn-webhook
+        app: fabric-webhook
     spec:
       tolerations:
         - operator: Exists
@@ -27,7 +27,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app: kube-ovn-webhook
+                  app: fabric-webhook
               topologyKey: kubernetes.io/hostname
       priorityClassName: system-cluster-critical
       serviceAccountName: ovn
@@ -37,11 +37,11 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: kube-ovn-webhook
-          image: "docker.io/kubeovn/kube-ovn:v1.16.0"
+        - name: fabric-webhook
+          image: "docker.io/cloudyfolks-labs/fabric:v1.16.0"
           imagePullPolicy: IfNotPresent
           command:
-            - /kube-ovn/kube-ovn-webhook
+            - /fabric/fabric-webhook
           args:
             - --port=8443
             - --health-probe-port=8080
@@ -85,7 +85,7 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: kube-ovn-webhook-secret
+            secretName: fabric-webhook-secret
       nodeSelector:
         kubernetes.io/os: "linux"
 
@@ -93,28 +93,28 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: kube-ovn-webhook
+  name: fabric-webhook
   namespace: kube-system
 spec:
   ports:
-    - name: kube-ovn-webhook
+    - name: fabric-webhook
       protocol: TCP
       port: 443
       targetPort: 8443
   type: ClusterIP
   selector:
-    app: kube-ovn-webhook
+    app: fabric-webhook
   sessionAffinity: None
 
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: kube-ovn-webhook
+  name: fabric-webhook
   annotations:
-    cert-manager.io/inject-ca-from: kube-system/kube-ovn-webhook-serving-cert
+    cert-manager.io/inject-ca-from: kube-system/fabric-webhook-serving-cert
 webhooks:
-- name: pod-ip-validating.kube-ovn.io
+- name: pod-ip-validating.fabric.io
   rules:
     - operations:
         - CREATE
@@ -161,7 +161,7 @@ webhooks:
       - key: app
         operator: NotIn
         values:
-          - kube-ovn-webhook
+          - fabric-webhook
   failurePolicy: Ignore
   admissionReviewVersions: ["v1", "v1beta1"]
   sideEffects: None
@@ -169,30 +169,30 @@ webhooks:
   clientConfig:
     service:
       namespace: kube-system
-      name: kube-ovn-webhook
+      name: fabric-webhook
       path: /validating
       port: 443
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: kube-ovn-webhook-serving-cert
+  name: fabric-webhook-serving-cert
   namespace: kube-system
 spec:
   dnsNames:
-    - kube-ovn-webhook.kube-system
-    - kube-ovn-webhook.kube-system.svc
-    - kube-ovn-webhook.kube-system.svc.cluster.local
+    - fabric-webhook.kube-system
+    - fabric-webhook.kube-system.svc
+    - fabric-webhook.kube-system.svc.cluster.local
   issuerRef:
     kind: Issuer
-    name: kube-ovn-webhook-selfsigned-issuer
+    name: fabric-webhook-selfsigned-issuer
     group: cert-manager.io
-  secretName: kube-ovn-webhook-secret
+  secretName: fabric-webhook-secret
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: kube-ovn-webhook-selfsigned-issuer
+  name: fabric-webhook-selfsigned-issuer
   namespace: kube-system
 spec:
   selfSigned: {}

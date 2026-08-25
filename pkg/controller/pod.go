@@ -823,7 +823,7 @@ func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets [
 	}
 	if err = util.PatchAnnotations(c.config.KubeClient.CoreV1().Pods(namespace), name, patch); err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Sometimes pod is deleted between kube-ovn configure ovn-nb and patch pod.
+			// Sometimes pod is deleted between fabric configure ovn-nb and patch pod.
 			// Then we need to recycle the resource again.
 			key := strings.Join([]string{namespace, name}, "/")
 			c.deletingPodObjMap.Store(key, pod)
@@ -1040,7 +1040,7 @@ func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kube
 	}
 	if err := util.PatchAnnotations(c.config.KubeClient.CoreV1().Pods(namespace), name, patch); err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Sometimes pod is deleted between kube-ovn configure ovn-nb and patch pod.
+			// Sometimes pod is deleted between fabric configure ovn-nb and patch pod.
 			// Then we need to recycle the resource again.
 			key := strings.Join([]string{namespace, name}, "/")
 			c.deletingPodObjMap.Store(key, pod)
@@ -1196,7 +1196,7 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 	stage = "getPodKubeovnNets"
 	podNets, err = c.getPodKubeovnNets(pod)
 	if err != nil {
-		klog.Errorf("failed to get kube-ovn nets of pod %s: %v", podKey, err)
+		klog.Errorf("failed to get fabric nets of pod %s: %v", podKey, err)
 		return err
 	}
 	if keepIPCR {
@@ -2031,7 +2031,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 					providerName = fmt.Sprintf("%s.%s", providerName, attach.InterfaceRequest)
 				}
 
-				// IPAM-only attachments (e.g. ipvlan/macvlan with ipam.type kube-ovn) bind to a
+				// IPAM-only attachments (e.g. ipvlan/macvlan with ipam.type fabric) bind to a
 				// subnet whose provider is "<nad>.<namespace>" without the ".fabric" suffix, and the
 				// add path never appends the interface name to it. Match this form as well so the
 				// IP is released here instead of leaking (the periodic gc does not reclaim it).
@@ -2851,7 +2851,7 @@ func (c *Controller) cleanStaleVMAttachmentIPs(pod *v1.Pod, podName string) {
 	// Build current port names from the pod's full network list
 	podNets, err := c.getPodKubeovnNets(pod)
 	if err != nil {
-		klog.Errorf("failed to get kube-ovn nets of pod %s for stale cleanup: %v", podKey, err)
+		klog.Errorf("failed to get fabric nets of pod %s for stale cleanup: %v", podKey, err)
 		return
 	}
 	currentPorts := make(map[string]bool, len(podNets)+1)

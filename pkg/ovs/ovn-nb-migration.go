@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	// kubeOvnVersionKey is the key used to store kube-ovn version in NBGlobal ExternalIDs
-	kubeOvnVersionKey = "kube-ovn-version"
+	// kubeOvnVersionKey is the key used to store fabric version in NBGlobal ExternalIDs
+	kubeOvnVersionKey = "fabric-version"
 )
 
-// Naming patterns used by kube-ovn resources
+// Naming patterns used by fabric resources
 var (
 	// Security group port group pattern: ovn.sg.{name} (with dashes replaced by dots)
 	// Requires at least one character after "ovn.sg."
@@ -31,12 +31,12 @@ var (
 	// Network policy address set patterns: {name}.{namespace}.{ingress|egress}.{allow|except}.{ip4|ip6|all}.{index}
 	npAddressSetPattern = regexp.MustCompile(`\.(ingress|egress)\.(allow|except)\.(ip[46]|all)(\.\d+)?$`)
 
-	// kube-ovn load balancer patterns
+	// fabric load balancer patterns
 	clusterLBPattern = regexp.MustCompile(`^cluster-(tcp|udp|sctp)(-session)?-loadbalancer$`)
 	vpcLBPattern     = regexp.MustCompile(`^vpc-.+-(tcp|udp|sctp)-(load|sess-load)$`)
 )
 
-// GetKubeOvnVersion retrieves the stored kube-ovn version from NBGlobal ExternalIDs
+// GetKubeOvnVersion retrieves the stored fabric version from NBGlobal ExternalIDs
 func (c *OVNNbClient) GetKubeOvnVersion() (string, error) {
 	nbGlobal, err := c.GetNbGlobal()
 	if err != nil {
@@ -50,7 +50,7 @@ func (c *OVNNbClient) GetKubeOvnVersion() (string, error) {
 	return nbGlobal.ExternalIDs[kubeOvnVersionKey], nil
 }
 
-// SetKubeOvnVersion stores the kube-ovn version in NBGlobal ExternalIDs
+// SetKubeOvnVersion stores the fabric version in NBGlobal ExternalIDs
 func (c *OVNNbClient) SetKubeOvnVersion(version string) error {
 	nbGlobal, err := c.GetNbGlobal()
 	if err != nil {
@@ -67,10 +67,10 @@ func (c *OVNNbClient) SetKubeOvnVersion(version string) error {
 
 	nbGlobal.ExternalIDs[kubeOvnVersionKey] = version
 	if err := c.UpdateNbGlobal(nbGlobal, &nbGlobal.ExternalIDs); err != nil {
-		return fmt.Errorf("failed to update NBGlobal with kube-ovn version: %w", err)
+		return fmt.Errorf("failed to update NBGlobal with fabric version: %w", err)
 	}
 
-	klog.Infof("updated kube-ovn version in NBGlobal to %s", version)
+	klog.Infof("updated fabric version in NBGlobal to %s", version)
 	return nil
 }
 
@@ -87,7 +87,7 @@ func (c *OVNNbClient) needsVendorMigration() (bool, error) {
 	// No version stored - this is either a fresh install or an upgrade from an old version
 	// In either case, we should run migration (it's idempotent and will skip if nothing to do)
 	if storedVersion == "" {
-		klog.Info("no kube-ovn version found in NBGlobal, migration may be needed")
+		klog.Info("no fabric version found in NBGlobal, migration may be needed")
 		return true, nil
 	}
 
@@ -112,7 +112,7 @@ func (c *OVNNbClient) needsVendorMigration() (bool, error) {
 	return false, nil
 }
 
-// MigrateVendorExternalIDs adds vendor=kube-ovn externalID to existing kube-ovn OVN resources
+// MigrateVendorExternalIDs adds vendor=fabric externalID to existing fabric OVN resources
 // that don't already have it. This is called during controller initialization to handle
 // upgrades from versions prior to vendor tagging (v1.15.0).
 //
@@ -120,12 +120,12 @@ func (c *OVNNbClient) needsVendorMigration() (bool, error) {
 // 1. No version is stored in NBGlobal (fresh install or very old upgrade)
 // 2. Stored version is older than v1.15.0 (when vendor tagging was introduced)
 //
-// The migration uses several strategies to identify kube-ovn resources:
-// 1. Resources with existing kube-ovn-specific externalIDs (lr, ls, parent, sg, etc.)
-// 2. Resources with kube-ovn naming patterns
-// 3. Resources associated with known kube-ovn logical routers/switches
+// The migration uses several strategies to identify fabric resources:
+// 1. Resources with existing fabric-specific externalIDs (lr, ls, parent, sg, etc.)
+// 2. Resources with fabric naming patterns
+// 3. Resources associated with known fabric logical routers/switches
 //
-// Resources that cannot be positively identified as kube-ovn resources are left untouched
+// Resources that cannot be positively identified as fabric resources are left untouched
 // to avoid interfering with external systems like OpenStack Neutron.
 //
 // After successful migration, the current version is stored in NBGlobal to prevent
@@ -143,23 +143,23 @@ func (c *OVNNbClient) MigrateVendorExternalIDs() error {
 		return c.SetKubeOvnVersion(versions.VERSION)
 	}
 
-	klog.Info("starting migration of vendor externalIDs to kube-ovn resources")
+	klog.Info("starting migration of vendor externalIDs to fabric resources")
 
-	// Get all kube-ovn logical routers (they already have vendor tag from CreateLogicalRouter)
+	// Get all fabric logical routers (they already have vendor tag from CreateLogicalRouter)
 	kubeOvnRouters, err := c.getKubeOvnRouterNames()
 	if err != nil {
-		klog.Errorf("failed to get kube-ovn router names: %v", err)
+		klog.Errorf("failed to get fabric router names: %v", err)
 		return err
 	}
-	klog.Infof("found %d kube-ovn logical routers", len(kubeOvnRouters))
+	klog.Infof("found %d fabric logical routers", len(kubeOvnRouters))
 
-	// Get all kube-ovn logical switches (they already have vendor tag)
+	// Get all fabric logical switches (they already have vendor tag)
 	kubeOvnSwitches, err := c.getKubeOvnSwitchNames()
 	if err != nil {
-		klog.Errorf("failed to get kube-ovn switch names: %v", err)
+		klog.Errorf("failed to get fabric switch names: %v", err)
 		return err
 	}
-	klog.Infof("found %d kube-ovn logical switches", len(kubeOvnSwitches))
+	klog.Infof("found %d fabric logical switches", len(kubeOvnSwitches))
 
 	// Migrate resources in order of dependencies
 	if err := c.migrateLogicalRouterPorts(kubeOvnRouters); err != nil {
@@ -186,21 +186,21 @@ func (c *OVNNbClient) MigrateVendorExternalIDs() error {
 
 	// Store the current version to prevent re-running migration on next startup
 	if err := c.SetKubeOvnVersion(versions.VERSION); err != nil {
-		klog.Errorf("failed to store kube-ovn version after migration: %v", err)
+		klog.Errorf("failed to store fabric version after migration: %v", err)
 		return err
 	}
 
 	return nil
 }
 
-// getKubeOvnRouterNames returns names of logical routers that belong to kube-ovn
+// getKubeOvnRouterNames returns names of logical routers that belong to fabric
 func (c *OVNNbClient) getKubeOvnRouterNames() (map[string]bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var lrList []ovnnb.LogicalRouter
 	if err := c.ovsDbClient.WhereCache(func(lr *ovnnb.LogicalRouter) bool {
-		// Include routers that already have vendor=kube-ovn
+		// Include routers that already have vendor=fabric
 		if len(lr.ExternalIDs) > 0 && lr.ExternalIDs["vendor"] == util.CniTypeName {
 			return true
 		}
@@ -216,14 +216,14 @@ func (c *OVNNbClient) getKubeOvnRouterNames() (map[string]bool, error) {
 	return names, nil
 }
 
-// getKubeOvnSwitchNames returns names of logical switches that belong to kube-ovn
+// getKubeOvnSwitchNames returns names of logical switches that belong to fabric
 func (c *OVNNbClient) getKubeOvnSwitchNames() (map[string]bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var lsList []ovnnb.LogicalSwitch
 	if err := c.ovsDbClient.WhereCache(func(ls *ovnnb.LogicalSwitch) bool {
-		// Include switches that already have vendor=kube-ovn
+		// Include switches that already have vendor=fabric
 		if len(ls.ExternalIDs) > 0 && ls.ExternalIDs["vendor"] == util.CniTypeName {
 			return true
 		}
@@ -239,7 +239,7 @@ func (c *OVNNbClient) getKubeOvnSwitchNames() (map[string]bool, error) {
 	return names, nil
 }
 
-// migrateLogicalRouterPorts adds vendor tag to LRPs that belong to kube-ovn routers
+// migrateLogicalRouterPorts adds vendor tag to LRPs that belong to fabric routers
 func (c *OVNNbClient) migrateLogicalRouterPorts(kubeOvnRouters map[string]bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -250,7 +250,7 @@ func (c *OVNNbClient) migrateLogicalRouterPorts(kubeOvnRouters map[string]bool) 
 		if len(lrp.ExternalIDs) > 0 && lrp.ExternalIDs["vendor"] == util.CniTypeName {
 			return false
 		}
-		// Include if it has 'lr' externalID pointing to a kube-ovn router
+		// Include if it has 'lr' externalID pointing to a fabric router
 		if len(lrp.ExternalIDs) > 0 {
 			if lrName, ok := lrp.ExternalIDs[logicalRouterKey]; ok && kubeOvnRouters[lrName] {
 				return true
@@ -296,7 +296,7 @@ func (c *OVNNbClient) migrateLogicalRouterPorts(kubeOvnRouters map[string]bool) 
 	return nil
 }
 
-// migratePortGroups adds vendor tag to port groups that match kube-ovn patterns
+// migratePortGroups adds vendor tag to port groups that match fabric patterns
 func (c *OVNNbClient) migratePortGroups() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -313,7 +313,7 @@ func (c *OVNNbClient) migratePortGroups() error {
 			return true
 		}
 
-		// Port groups with 'sg' or 'type' externalID (kube-ovn specific)
+		// Port groups with 'sg' or 'type' externalID (fabric specific)
 		if len(pg.ExternalIDs) > 0 {
 			if _, hasSg := pg.ExternalIDs[sgKey]; hasSg {
 				return true
@@ -323,7 +323,7 @@ func (c *OVNNbClient) migratePortGroups() error {
 			}
 		}
 
-		// Network policy port groups have kube-ovn specific externalIDs
+		// Network policy port groups have fabric specific externalIDs
 		// Don't use name patterns alone as they're too broad and risk mis-tagging
 		// resources from other systems
 
@@ -367,7 +367,7 @@ func (c *OVNNbClient) migratePortGroups() error {
 	return nil
 }
 
-// migrateAddressSets adds vendor tag to address sets that match kube-ovn patterns
+// migrateAddressSets adds vendor tag to address sets that match fabric patterns
 func (c *OVNNbClient) migrateAddressSets() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -389,7 +389,7 @@ func (c *OVNNbClient) migrateAddressSets() error {
 			return true
 		}
 
-		// Address sets with 'sg' externalID (kube-ovn specific)
+		// Address sets with 'sg' externalID (fabric specific)
 		if len(as.ExternalIDs) > 0 {
 			if _, hasSg := as.ExternalIDs[sgKey]; hasSg {
 				return true
@@ -436,7 +436,7 @@ func (c *OVNNbClient) migrateAddressSets() error {
 	return nil
 }
 
-// migrateLoadBalancers adds vendor tag to load balancers that match kube-ovn patterns
+// migrateLoadBalancers adds vendor tag to load balancers that match fabric patterns
 func (c *OVNNbClient) migrateLoadBalancers() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -498,12 +498,12 @@ func (c *OVNNbClient) migrateLoadBalancers() error {
 	return nil
 }
 
-// migrateACLs adds vendor tag to ACLs that belong to kube-ovn
+// migrateACLs adds vendor tag to ACLs that belong to fabric
 func (c *OVNNbClient) migrateACLs(kubeOvnSwitches map[string]bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	// First, get all port groups that belong to kube-ovn (either already tagged or matching patterns)
+	// First, get all port groups that belong to fabric (either already tagged or matching patterns)
 	kubeOvnPortGroups := make(map[string]bool)
 	var pgList []ovnnb.PortGroup
 	if err := c.ovsDbClient.WhereCache(func(pg *ovnnb.PortGroup) bool {
@@ -511,7 +511,7 @@ func (c *OVNNbClient) migrateACLs(kubeOvnSwitches map[string]bool) error {
 		if len(pg.ExternalIDs) > 0 && pg.ExternalIDs["vendor"] == util.CniTypeName {
 			return true
 		}
-		// Include port groups matching kube-ovn patterns
+		// Include port groups matching fabric patterns
 		if sgPortGroupPattern.MatchString(pg.Name) {
 			return true
 		}
@@ -523,7 +523,7 @@ func (c *OVNNbClient) migrateACLs(kubeOvnSwitches map[string]bool) error {
 				return true
 			}
 		}
-		// Network policy port groups have kube-ovn specific externalIDs
+		// Network policy port groups have fabric specific externalIDs
 		// Don't use name patterns alone as they're too broad
 		return false
 	}).List(ctx, &pgList); err != nil {
@@ -541,14 +541,14 @@ func (c *OVNNbClient) migrateACLs(kubeOvnSwitches map[string]bool) error {
 			return false
 		}
 
-		// ACLs with 'parent' externalID pointing to kube-ovn port group or switch
+		// ACLs with 'parent' externalID pointing to fabric port group or switch
 		if len(acl.ExternalIDs) > 0 {
 			if parent, ok := acl.ExternalIDs[aclParentKey]; ok {
 				if kubeOvnPortGroups[parent] || kubeOvnSwitches[parent] {
 					return true
 				}
 			}
-			// ACLs with 'subnet' externalID pointing to kube-ovn switch
+			// ACLs with 'subnet' externalID pointing to fabric switch
 			if subnet, ok := acl.ExternalIDs["subnet"]; ok && kubeOvnSwitches[subnet] {
 				return true
 			}

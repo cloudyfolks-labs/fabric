@@ -23,7 +23,7 @@ restoreNB(){
     nodeIpVals=`kubectl get deployment -n kube-system ovn-central -o jsonpath='{.spec.template.spec.containers[0].env[1].value}'`
     nodeIps=(${nodeIpVals//,/ })
   else
-    nodeIps=`kubectl get node -lkube-ovn/role=master -o wide | grep -v "INTERNAL-IP" | awk '{print $6}'`
+    nodeIps=`kubectl get node -lfabric/role=master -o wide | grep -v "INTERNAL-IP" | awk '{print $6}'`
   fi
   firstIP=${nodeIps[0]}
   podNames=`kubectl get pod -n $KUBE_OVN_NS | grep ovs-ovn | awk '{print $1}'`

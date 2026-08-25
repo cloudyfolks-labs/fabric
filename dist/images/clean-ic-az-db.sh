@@ -3,7 +3,7 @@
 if [ "$#" -ne 2 ]; then
    echo "use method $0 {az|node} {azName|nodeName}"
    echo "   eg: ./clean-ic-az-db.sh az az1"
-   echo "   eg: ./clean-ic-az-db.sh node kube-ovn-worker; it will delete all resource of az that the node belong to"
+   echo "   eg: ./clean-ic-az-db.sh node fabric-worker; it will delete all resource of az that the node belong to"
    exit 1
 fi
 

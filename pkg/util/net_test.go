@@ -1349,20 +1349,20 @@ func TestGatewayContains(t *testing.T) {
 	}{
 		{
 			name:           "base",
-			gatewayNodeStr: "kube-ovn-worker:172.18.0.2, kube-ovn-control-plane:172.18.0.3",
-			gateway:        "kube-ovn-worker",
+			gatewayNodeStr: "fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3",
+			gateway:        "fabric-worker",
 			want:           true,
 		},
 		{
 			name:           "err",
-			gatewayNodeStr: "kube-ovn-worker:172.18.0.2, kube-ovn-control-plane:172.18.0.3",
-			gateway:        "kube-ovn-worker1",
+			gatewayNodeStr: "fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3",
+			gateway:        "fabric-worker1",
 			want:           false,
 		},
 		{
 			name:           "formatDiff",
-			gatewayNodeStr: "kube-ovn-worker, kube-ovn-control-plane:172.18.0.3",
-			gateway:        "kube-ovn-worker",
+			gatewayNodeStr: "fabric-worker, fabric-control-plane:172.18.0.3",
+			gateway:        "fabric-worker",
 			want:           true,
 		},
 	}

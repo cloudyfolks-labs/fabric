@@ -1,4 +1,4 @@
-{{- if and (include "kubeovn.renderFullOnly" .) .Values.ovsOvn.upgrade.enabled -}}
+{{- if and (include "fabric.renderFullOnly" .) .Values.ovsOvn.upgrade.enabled -}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -143,7 +143,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ovs-ovn-upgrade
-          image: "{{ .Values.global.registry.address}}/{{ .Values.global.images.kubeovn.repository }}:{{ .Values.global.images.kubeovn.tag }}"
+          image: "{{ .Values.global.registry.address}}/{{ .Values.global.images.fabric.repository }}:{{ .Values.global.images.fabric.tag }}"
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -153,10 +153,10 @@ spec:
               value: "{{ .Values.networking.enableSsl }}"
             {{- if .Values.central.hcp.enabled }}
             - name: OVN_NB_ADDR
-              value: "{{ include "kubeovn.ovnNbAddress" . }}"
+              value: "{{ include "fabric.ovnNbAddress" . }}"
             {{- else }}
             - name: OVN_DB_IPS
-              value: "{{ include "kubeovn.masterNodes" . | default (include "kubeovn.nodeIPs" .) }}"
+              value: "{{ include "fabric.masterNodes" . | default (include "fabric.nodeIPs" .) }}"
             {{- end }}
             - name: OVN_VERSION_COMPATIBILITY
               value: {{ .Values.ovsOvn.upgrade.versionCompatibility | quote }}
@@ -166,20 +166,20 @@ spec:
             - pipefail
             - -c
             - |
-              touch /var/log/kube-ovn/upgrade-ovs.log
-              chmod 640 /var/log/kube-ovn/upgrade-ovs.log
-              /kube-ovn/upgrade-ovs.sh 2>&1 | tee -a /var/log/kube-ovn/upgrade-ovs.log
+              touch /var/log/fabric/upgrade-ovs.log
+              chmod 640 /var/log/fabric/upgrade-ovs.log
+              /fabric/upgrade-ovs.sh 2>&1 | tee -a /var/log/fabric/upgrade-ovs.log
           volumeMounts:
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+            - mountPath: /var/log/fabric
+              name: fabric-log
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
+              name: fabric-tls
       volumes:
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: {{ .Values.logging.directory }}/kube-ovn
-        - name: kube-ovn-tls
+            path: {{ .Values.logging.directory }}/fabric
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 {{- end -}}

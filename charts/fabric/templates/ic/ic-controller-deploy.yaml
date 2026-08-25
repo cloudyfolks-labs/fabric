@@ -1,5 +1,5 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.features.enableOvnInterconnections }}
-{{- $icImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.ic.image) | fromYaml -}}
+{{- if and (include "fabric.renderDataPlane" .) .Values.features.enableOvnInterconnections }}
+{{- $icImage := include "fabric.imageSpec" (dict "root" . "image" .Values.ic.image) | fromYaml -}}
 kind: Deployment
 apiVersion: apps/v1
 metadata:
@@ -33,7 +33,7 @@ spec:
         - key: CriticalAddonsOnly
           operator: Exists
       affinity:
-        {{- include "kube-ovn.affinities.nodeAffinity" (dict "hardcodedRequired" (include "kubeovn.masterNodeRequired" . | fromYamlArray) "userPreferred" .Values.ic.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.ic.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) | nindent 8 }}
+        {{- include "fabric.affinities.nodeAffinity" (dict "hardcodedRequired" (include "fabric.masterNodeRequired" . | fromYamlArray) "userPreferred" .Values.ic.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution "userRequired" .Values.ic.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) | nindent 8 }}
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
@@ -54,7 +54,7 @@ spec:
           command:
             - sh
             - -c
-            - "chown -R nobody: /var/run/ovn /var/log/ovn /var/log/kube-ovn"
+            - "chown -R nobody: /var/run/ovn /var/log/ovn /var/log/fabric"
           securityContext:
             allowPrivilegeEscalation: true
             capabilities:
@@ -67,20 +67,20 @@ spec:
               name: host-run-ovn
             - mountPath: /var/log/ovn
               name: host-log-ovn
-            - name: kube-ovn-log
-              mountPath: /var/log/kube-ovn
+            - name: fabric-log
+              mountPath: /var/log/fabric
       containers:
         - name: ovn-ic-controller
           image: {{ $icImage.prefix }}{{ $icImage.repository }}:{{ $icImage.tag }}
           imagePullPolicy: {{ $icImage.pullPolicy }}
-          command: ["/kube-ovn/start-ic-controller.sh"]
+          command: ["/fabric/start-ic-controller.sh"]
           args:
-          - --log_file=/var/log/kube-ovn/kube-ovn-ic-controller.log
+          - --log_file=/var/log/fabric/fabric-ic-controller.log
           - --log_file_max_size=200
           - --logtostderr=false
           - --alsologtostderr=true
           securityContext:
-            runAsUser: {{ include "kubeovn.runAsUser" . }}
+            runAsUser: {{ include "fabric.runAsUser" . }}
             privileged: false
             capabilities:
               add:
@@ -95,12 +95,12 @@ spec:
                   fieldPath: metadata.namespace
             {{- if .Values.central.hcp.enabled }}
             - name: OVN_NB_ADDR
-              value: "{{ include "kubeovn.ovnNbAddress" . }}"
+              value: "{{ include "fabric.ovnNbAddress" . }}"
             - name: OVN_SB_ADDR
-              value: "{{ include "kubeovn.ovnSbAddress" . }}"
+              value: "{{ include "fabric.ovnSbAddress" . }}"
             {{- else }}
             - name: OVN_DB_IPS
-              value: "{{ include "kubeovn.masterNodes" . | default (include "kubeovn.nodeIPs" .) }}"
+              value: "{{ include "fabric.masterNodes" . | default (include "fabric.nodeIPs" .) }}"
             {{- end }}
             {{- with .Values.ic.extraEnv }}
               {{- toYaml . | nindent 12 }}
@@ -121,9 +121,9 @@ spec:
             - mountPath: /etc/localtime
               name: localtime
             - mountPath: /var/run/tls
-              name: kube-ovn-tls
-            - mountPath: /var/log/kube-ovn
-              name: kube-ovn-log
+              name: fabric-tls
+            - mountPath: /var/log/fabric
+              name: fabric-log
       nodeSelector:
         kubernetes.io/os: "linux"
       volumes:
@@ -136,11 +136,11 @@ spec:
         - name: localtime
           hostPath:
             path: /etc/localtime
-        - name: kube-ovn-log
+        - name: fabric-log
           hostPath:
-            path: /var/log/kube-ovn
-        - name: kube-ovn-tls
+            path: /var/log/fabric
+        - name: fabric-tls
           secret:
             optional: true
-            secretName: kube-ovn-tls
+            secretName: fabric-tls
 {{- end }}

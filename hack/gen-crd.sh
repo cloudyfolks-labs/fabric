@@ -13,7 +13,7 @@ rm -f ./yamls/gen/*.yaml
 "${CONTROLLER_GEN_BIN}" crd:allowDangerousTypes=true paths=./pkg/apis/kubeovn/v1 output:crd:artifacts:config=./yamls/gen
 
 GEN_DIR="yamls/gen"
-BUNDLE_FILE="yamls/gen/kube-ovn-crd.yaml"
+BUNDLE_FILE="yamls/gen/fabric-crd.yaml"
 
 rm -f "$BUNDLE_FILE"
 
@@ -61,7 +61,7 @@ END_ANCHOR="# END GENERATED KUBE-OVN CRD BUNDLE"
 awk -v start="$START_ANCHOR" -v end="$END_ANCHOR" -v bundle="$BUNDLE_FILE" '
     $0 ~ start {
         print
-        print "cat <<'"'"'EOF'"'"' > kube-ovn-crd.yaml"
+        print "cat <<'"'"'EOF'"'"' > fabric-crd.yaml"
         while ((getline line < bundle) > 0) {
             print line
         }

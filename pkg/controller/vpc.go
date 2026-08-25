@@ -321,7 +321,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		externalIDs         = map[string]string{"vendor": util.CniTypeName}
 	)
 
-	// only manage static routes which are kube-ovn managed, by filtering for vendor util.CniTypeName
+	// only manage static routes which are fabric managed, by filtering for vendor util.CniTypeName
 	staticExistedRoutes, err = c.OVNNbClient.ListLogicalRouterStaticRoutes(vpc.Name, nil, nil, "", externalIDs)
 	if err != nil {
 		klog.Errorf("failed to get vpc %s static route list, %v", vpc.Name, err)
@@ -1320,7 +1320,7 @@ func (c *Controller) externalGatewayChassises(vpcName string) ([]string, error) 
 	for _, gwNode := range gwNodes {
 		annoChassisName := gwNode.Annotations[util.ChassisAnnotation]
 		if annoChassisName == "" {
-			klog.Warningf("node %s has no chassis annotation, kube-ovn-cni not ready", gwNode.Name)
+			klog.Warningf("node %s has no chassis annotation, fabric-cni not ready", gwNode.Name)
 			continue
 		}
 		chassis, err := c.OVNSbClient.GetChassis(annoChassisName, false)

@@ -221,7 +221,7 @@ func generateCSRCode(newPrivKeyPath string) ([]byte, error) {
 	cmd := exec.Command("openssl", "req", "-new", "-text",
 		"-extensions", "v3_req",
 		"-addext", "subjectAltName = DNS:"+cn,
-		"-subj", "/C=CN/O=kubeovn/OU=kube-ovn/CN="+cn,
+		"-subj", "/C=CN/O=fabric/OU=fabric/CN="+cn,
 		"-key", newPrivKeyPath,
 		"-out", ipsecReqPath) // #nosec
 	output, err := cmd.CombinedOutput()

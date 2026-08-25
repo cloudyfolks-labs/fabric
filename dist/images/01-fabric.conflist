@@ -1,0 +1,16 @@
+{
+    "name":"fabric",
+    "cniVersion":"0.3.1",
+    "plugins":[
+        {
+            "type":"fabric",
+            "server_socket":"/run/openvswitch/fabric-daemon.sock"
+        },
+        {
+            "type":"portmap",
+            "capabilities":{
+                "portMappings":true
+            }
+        }
+    ]
+}

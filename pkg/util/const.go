@@ -14,7 +14,7 @@ const (
 	ReservedRoutingTableIDStart = 253
 	ReservedRoutingTableIDEnd   = 255
 
-	CniTypeName = "kube-ovn"
+	CniTypeName = "fabric"
 
 	DeprecatedFinalizerName    = "kube-ovn-controller"
 	LegacyControllerFinalizer  = "kubeovn.io/kube-ovn-controller"
@@ -269,7 +269,7 @@ const (
 	MirrorControlAnnotation = "fabric.cloudyfolks.io/mirror"
 	MirrorDefaultName       = "m0"
 
-	DenyAllSecurityGroup = "kubeovn_deny_all"
+	DenyAllSecurityGroup = "fabric_deny_all"
 
 	NetemQosLatencyAnnotation = "fabric.cloudyfolks.io/latency"
 	NetemQosLimitAnnotation   = "fabric.cloudyfolks.io/limit"

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	kubeOVNTLSSecretName              = "kube-ovn-tls" // #nosec G101 -- Kubernetes Secret resource name, not a credential.
+	kubeOVNTLSSecretName              = "fabric-tls" // #nosec G101 -- Kubernetes Secret resource name, not a credential.
 	kubeOVNTLSDefaultRotationInterval = 365 * 24 * time.Hour
 	kubeOVNTLSCADuration              = 10 * 365 * 24 * time.Hour
 	kubeOVNTLSCertDuration            = 10 * 365 * 24 * time.Hour
@@ -37,7 +37,7 @@ func (c *Controller) startKubeOVNTLSManager(ctx context.Context) {
 	}
 	interval, err := kubeOVNTLSRotationInterval()
 	if err != nil {
-		klog.Errorf("failed to parse kube-ovn TLS rotation interval: %v", err)
+		klog.Errorf("failed to parse fabric TLS rotation interval: %v", err)
 		return
 	}
 	if interval <= 0 {
@@ -46,7 +46,7 @@ func (c *Controller) startKubeOVNTLSManager(ctx context.Context) {
 
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		if err := c.reconcileKubeOVNTLS(ctx); err != nil {
-			klog.Errorf("failed to reconcile kube-ovn TLS secret: %v", err)
+			klog.Errorf("failed to reconcile fabric TLS secret: %v", err)
 		}
 	}, interval)
 }
@@ -89,7 +89,7 @@ func (c *Controller) reconcileKubeOVNTLS(ctx context.Context) error {
 		return err
 	}
 
-	// kube-ovn-tls keeps the legacy cacert/cert/key schema. The manager only
+	// fabric-tls keeps the legacy cacert/cert/key schema. The manager only
 	// adds metadata on first adoption so upgrades do not restart OVN workloads.
 	hash, err := kubeOVNTLSHash(secret.Data)
 	if err != nil {
@@ -132,7 +132,7 @@ func kubeOVNTLSNeedsRenewal(now time.Time, data map[string][]byte) (bool, error)
 func parseKubeOVNTLSCert(data map[string][]byte) (*x509.Certificate, error) {
 	cert, err := decodeCertificate(data["cert"])
 	if err != nil {
-		return nil, fmt.Errorf("parse kube-ovn-tls cert: %w", err)
+		return nil, fmt.Errorf("parse fabric-tls cert: %w", err)
 	}
 	return cert, nil
 }
@@ -152,7 +152,7 @@ func generateKubeOVNTLSData(now time.Time, caDuration, certDuration time.Duratio
 func kubeOVNTLSHash(data map[string][]byte) (string, error) {
 	for _, key := range []string{"cacert", "cert", "key"} {
 		if len(data[key]) == 0 {
-			return "", fmt.Errorf("kube-ovn-tls missing %s", key)
+			return "", fmt.Errorf("fabric-tls missing %s", key)
 		}
 	}
 	h := sha256.New()

@@ -190,7 +190,7 @@ func (f *Framework) IsUnderlay() bool {
 	return f.ClusterNetworkMode == Underlay
 }
 
-// BeforeEach gets a kube-ovn client
+// BeforeEach gets a fabric client
 func (f *Framework) BeforeEach() {
 	ginkgo.By("Setting kubernetes context")
 	ExpectNoError(f.useContext())

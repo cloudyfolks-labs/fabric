@@ -106,7 +106,7 @@ func checkOvsBindings() (set.Set[string], error) {
 	result := set.New[string]()
 	for line := range strings.SplitSeq(string(output), "\n") {
 		// In dual-stack clusters, the output may look like:
-		// "iface-id=kube-ovn-pinger-ljqss.kube-system ip=10.180.160.6,2341::10:180:160:6 ... vendor=kube-ovn"
+		// "iface-id=fabric-pinger-ljqss.kube-system ip=10.180.160.6,2341::10:180:160:6 ... vendor=fabric"
 		// so we need to trim the quotes and split by space.
 		for id := range strings.FieldsSeq(strings.Trim(line, `"`)) {
 			if after, found := strings.CutPrefix(id, "iface-id="); found {

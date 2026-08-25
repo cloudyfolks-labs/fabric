@@ -1,9 +1,9 @@
-{{- if and (include "kubeovn.renderDataPlane" .) .Values.validatingWebhook.enabled }}
-{{- $webhookImage := include "kubeovn.imageSpec" (dict "root" . "image" .Values.validatingWebhook.image) | fromYaml -}}
+{{- if and (include "fabric.renderDataPlane" .) .Values.validatingWebhook.enabled }}
+{{- $webhookImage := include "fabric.imageSpec" (dict "root" . "image" .Values.validatingWebhook.image) | fromYaml -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kube-ovn-webhook
+  name: fabric-webhook
   namespace: {{ .Values.namespace }}
   {{- with .Values.validatingWebhook.annotations }}
   annotations:
@@ -17,8 +17,8 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: kube-ovn-webhook
-      app.kubernetes.io/part-of: kube-ovn
+      app.kubernetes.io/name: fabric-webhook
+      app.kubernetes.io/part-of: fabric
   template:
     metadata:
       {{- with .Values.validatingWebhook.podAnnotations }}
@@ -26,8 +26,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        app.kubernetes.io/name: kube-ovn-webhook
-        app.kubernetes.io/part-of: kube-ovn
+        app.kubernetes.io/name: fabric-webhook
+        app.kubernetes.io/part-of: fabric
         {{- with .Values.validatingWebhook.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -40,8 +40,8 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app.kubernetes.io/name: kube-ovn-webhook
-                  app.kubernetes.io/part-of: kube-ovn
+                  app.kubernetes.io/name: fabric-webhook
+                  app.kubernetes.io/part-of: fabric
               topologyKey: kubernetes.io/hostname
       priorityClassName: system-cluster-critical
       serviceAccountName: ovn
@@ -50,11 +50,11 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: kube-ovn-webhook
+        - name: fabric-webhook
           image: {{ $webhookImage.prefix }}{{ $webhookImage.repository }}:{{ $webhookImage.tag }}
           imagePullPolicy: {{ $webhookImage.pullPolicy }}
           command:
-            - /kube-ovn/kube-ovn-webhook
+            - /fabric/fabric-webhook
           args:
             - --port=8443
             - --health-probe-port=8080
@@ -101,7 +101,7 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: kube-ovn-webhook-secret
+            secretName: fabric-webhook-secret
       nodeSelector:
         kubernetes.io/os: "linux"
 {{- end }}
