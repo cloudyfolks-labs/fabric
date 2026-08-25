@@ -63,7 +63,7 @@ KAMAJI_CHART_SOURCE_COMMIT=${KAMAJI_CHART_SOURCE_COMMIT:-5ce3f6c337edc63347a32b2
 KAMAJI_CHART_SHA256=${KAMAJI_CHART_SHA256:-2e642a485eae8bd964c0a363b4ce01bd8379d05b42960b7919676f96f7c63b36}
 KAMAJI_CHART_URL=${KAMAJI_CHART_URL:-https://raw.githubusercontent.com/clastix/charts/$KAMAJI_CHART_SOURCE_COMMIT/kamaji-$KAMAJI_CHART_VERSION.tgz}
 
-KUBEOVN_IMAGE=${KUBEOVN_IMAGE:-cloudyfolks-labs/fabric:dev}
+KUBEOVN_IMAGE=${KUBEOVN_IMAGE:-ghcr.io/cloudyfolks-labs/fabric:dev}
 JOB_DIR=${JOB_DIR:-/tmp/kamaji-e2e}
 REGISTRY_NAME=${REGISTRY_NAME:-kamaji-e2e-reg}
 
@@ -561,7 +561,7 @@ install_tenant_kube_proxy() {
 }
 
 cmd_render_tenant_kubeovn_image() {
-  echo "docker.io/cloudyfolks-labs/fabric:dev"
+  echo "ghcr.io/cloudyfolks-labs/fabric:dev"
 }
 
 cmd_render_tenant_e2e_images() {
