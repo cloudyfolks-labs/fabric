@@ -38,7 +38,7 @@ import (
 
 const (
 	dockerNetworkName         = "fabric-vlan"
-	localExternalVIPKeyPrefix = "fabric.cloudyfolks.io/local-external-vip/"
+	localExternalVIPKeyPrefix = "kube-ovn.io/local-external-vip/"
 	curlListenPort            = 80
 )
 

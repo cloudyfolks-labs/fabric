@@ -19,7 +19,7 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-const localExternalVIPKeyPrefix = "fabric.cloudyfolks.io/local-external-vip/"
+const localExternalVIPKeyPrefix = "kube-ovn.io/local-external-vip/"
 
 // CreateLoadBalancer create loadbalancer
 func (c *OVNNbClient) CreateLoadBalancer(lbName, protocol string, selectFields ...string) error {
