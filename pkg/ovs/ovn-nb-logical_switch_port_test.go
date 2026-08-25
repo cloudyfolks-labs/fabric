@@ -1725,7 +1725,7 @@ func (suite *OvnClientTestSuite) testCreateLogicalSwitchPortOp() {
 			GoMap: map[any]any{
 				LogicalSwitchKey: lsName,
 				"pod":            lspName,
-				"vendor":         "fabric",
+				"vendor":         util.VendorTag,
 			},
 		}, ops[0].Row["external_ids"])
 
@@ -1759,7 +1759,7 @@ func (suite *OvnClientTestSuite) testCreateLogicalSwitchPortOp() {
 		require.Equal(t, ovsdb.OvsMap{
 			GoMap: map[any]any{
 				LogicalSwitchKey: lsName,
-				"vendor":         "fabric",
+				"vendor":         util.VendorTag,
 			},
 		}, ops[0].Row["external_ids"])
 
