@@ -2,12 +2,28 @@ package framework
 
 import (
 	"context"
+	"time"
 
 	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 )
+
+func retryOnWebhookUnavailable(op func() error) error {
+	return wait.PollUntilContextTimeout(context.TODO(), 3*time.Second, 2*time.Minute, true, func(_ context.Context) (bool, error) {
+		err := op()
+		if err == nil {
+			return true, nil
+		}
+		if apierrors.IsInternalError(err) || apierrors.IsServiceUnavailable(err) || apierrors.IsTimeout(err) {
+			return false, nil
+		}
+		return false, err
+	})
+}
 
 type MetallbClientSet struct {
 	client *rest.RESTClient
@@ -31,23 +47,27 @@ func NewMetallbClientSet(config *rest.Config) (*MetallbClientSet, error) {
 
 func (c *MetallbClientSet) CreateIPAddressPool(pool *metallbv1beta1.IPAddressPool) (*metallbv1beta1.IPAddressPool, error) {
 	result := &metallbv1beta1.IPAddressPool{}
-	err := c.client.Post().
-		Namespace("metallb-system").
-		Resource("ipaddresspools").
-		Body(pool).
-		Do(context.TODO()).
-		Into(result)
+	err := retryOnWebhookUnavailable(func() error {
+		return c.client.Post().
+			Namespace("metallb-system").
+			Resource("ipaddresspools").
+			Body(pool).
+			Do(context.TODO()).
+			Into(result)
+	})
 	return result, err
 }
 
 func (c *MetallbClientSet) CreateL2Advertisement(advertisement *metallbv1beta1.L2Advertisement) (*metallbv1beta1.L2Advertisement, error) {
 	result := &metallbv1beta1.L2Advertisement{}
-	err := c.client.Post().
-		Namespace("metallb-system").
-		Resource("l2advertisements").
-		Body(advertisement).
-		Do(context.TODO()).
-		Into(result)
+	err := retryOnWebhookUnavailable(func() error {
+		return c.client.Post().
+			Namespace("metallb-system").
+			Resource("l2advertisements").
+			Body(advertisement).
+			Do(context.TODO()).
+			Into(result)
+	})
 	return result, err
 }
 
