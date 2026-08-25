@@ -62,7 +62,7 @@ func (c *OVNNbClient) EnsureDNSZone(zone string, records map[string]string) (str
 			},
 			Records: records,
 		}
-		ops, err := c.ovsDbClient.Create(dns)
+		ops, err := c.Create(dns)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate operations for creating dns zone %s: %w", zone, err)
 		}
