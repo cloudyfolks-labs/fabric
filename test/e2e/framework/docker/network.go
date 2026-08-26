@@ -128,7 +128,12 @@ func NetworkConnect(networkID, containerID string) error {
 	}
 	defer cli.Close()
 
-	_, err = cli.NetworkConnect(context.Background(), networkID, client.NetworkConnectOptions{Container: containerID})
+	_, err = cli.NetworkConnect(context.Background(), networkID, client.NetworkConnectOptions{
+		Container: containerID,
+		EndpointConfig: &network.EndpointSettings{
+			GwPriority: -1000,
+		},
+	})
 	return err
 }
 
