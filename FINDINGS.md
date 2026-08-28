@@ -242,25 +242,40 @@ the replacement.
 
 ## F11 — Adding a VRF instance restarts FRR
 
-**Open.** Reopened 2026-08-28.
+**Fixed.**
 
 `f92bdde06` removed the restart branch. `28c7dcce4` and `cab92203a`
 put it back: `frr-reload.py` reported success while leaving a new VRF
 instance without working kernel redistribution, so the reload loop
-now exits whenever the sorted set of `router bgp ... vrf` lines
-changes (`pkg/frr/init.go:36-43`, asserted by `pkg/frr/init_test.go`).
-The loop is PID 1 of the FRR container, so every VPC that gains or
-loses a VRF on a chassis restarts FRR there and drops every BGP session
-on that chassis. With graceful restart on the peer the routes survive
-the restart; without it every EIP on the chassis is withdrawn until the
-sessions reconverge. At 20 to 200 VPCs this is the scale blocker.
+exited whenever the sorted set of `router bgp ... vrf` lines changed.
+The loop is PID 1 of the FRR container, so every VPC that gained or
+lost a VRF on a chassis restarted FRR there and dropped every BGP
+session on that chassis.
 
-Fix: render one default BGP instance with `redistribute table-direct
-<vrfId> route-map <vpc>` per VPC and no per-VRF instances. Adding a
-VPC then becomes a one-line reload, the `import vrf default` leak
-(F25) disappears, and the absent-table case is empty instead of
-wedged. `vrfId` must stay at or below 65535 for `table-direct`. Prove
-the path once against FRR 10.7 before shipping.
+The agent now renders one default `router bgp <asn>` instance with
+`redistribute table-direct <vrfId> route-map KUBE-OVN-NH-<vpc>` per
+VPC. There is no per-VRF instance and no `import vrf`. Adding or
+removing a VPC changes one line inside the address family and applies
+with `frr-reload.py`; the restart branch of the reload loop is gone.
+`ValidateVpc` rejects `vrfId` above 65535, the `table-direct` range.
+The agent no longer imports peer routes into the VPC tables (F25); a
+VPC reaches a fabric prefix through its static routes. The design is
+recorded in `docs/dynamic-routing.md`.
+
+- Commits: `1803192b0`
+- Tests: `TestRenderFull` pins the whole rendered configuration for
+  two VPCs; `TestRenderSingleBgpInstance` asserts one `router bgp`
+  line and no ` vrf `, `import vrf` or `redistribute kernel`;
+  `TestReloadScriptAppliesEveryChangeByReload` asserts the loop has no
+  `exit 0` or restart path; `TestValidateRenderInput` rejects table id
+  0 and 65536; `TestValidateVpc` rejects `vrfId` 65536 and accepts
+  65535
+- End-to-end: the agent spec keeps the ToR and failover assertions.
+  The learned-route assertion had no equivalent under `table-direct`
+  and was replaced by a static route for the fabric loopback through
+  the ToR; the egress ping now proves the reply follows the advertised
+  EIP route. The path against FRR 10.7 is left to the dynamic routing
+  CI job of the pull request; it was not run locally.
 
 ## F12 — BGP ASN cannot express the 4-byte private range
 
@@ -473,6 +488,8 @@ an empty focus.
 
 ## F19: Withdrawal of a VPC can remove all VRF devices on its gateway chassis
 
+**Fixed on the agent side.** The OVN sweep below is still as observed.
+
 Observed once on the local e2e rig during the multi-VPC isolation spec.
 Three VPCs held dynamic-routing VRFs. Two VPCs failed over to the
 second gateway node, which then held all three VRFs. The test then
@@ -487,9 +504,21 @@ is in the OVN layer teardown path, not in the FRR agent. The trigger is
 sensitive to which chassis hosts the withdrawn VPC. The solo run of the
 same spec, where the withdrawn VPC was one of the moved VPCs, passes.
 
-Status: open. The e2e spec now always withdraws a moved VPC so the
-suite stays deterministic. Track the OVN route_exchange teardown bug
-separately before enabling dynamic routing at scale.
+Status: the agent no longer depends on the VRF device. It gates on
+the dynamic routing spec of the VPC and renders `table-direct` for the
+table id, so a swept VRF only empties the table until ovn-controller
+recreates it, and the surviving VPCs keep their configuration lines
+and recover without an agent change. The `/sys/class/net` poll and
+the VRF signature are gone. `maintainVrf` remains supported and is
+not required for advertisement (`docs/dynamic-routing.md`). The e2e
+spec still always withdraws a moved VPC. The OVN route_exchange sweep
+is still worth tracking, but it no longer takes advertisement down.
+
+- Commits: `f7586ee7c`
+- Tests: `TestVpcAdvertisementsNeedNoVrfDevice` asserts a VPC with a
+  dynamic routing spec, a `vrfId` and a ready LRP is rendered on a
+  host without any VRF device, and that VPCs without the spec, without
+  a `vrfId` or without an LRP are not
 
 Analysis (2026-08-28), against OVN branch-25.03 as built into the
 `kubeovn/kube-ovn-base:v1.17.0` image (the image clones the branch at
@@ -542,7 +571,15 @@ Next steps, in order:
 
 ## F20 — EIP pool CIDRs never reach the advertise filter
 
-**Open.** Found 2026-08-28.
+**Fixed.** The outbound prefix-list now carries the CIDR of every
+subnet that a `nat` type OvnEip draws from, as `ge 32 le 32`, next to
+the `announce: bgp` pool CIDRs.
+
+- Commits: `fa46bf96e`
+- Tests: `TestAdvertisedSubnetNamesIncludeNatEipSubnets` asserts the
+  bgp pool subnet and each nat EIP subnet appear once and the l2 pool
+  and LRP subnets do not; `TestHostRouteEntriesAreIPv4HostPrefixes`
+  asserts the entries are sorted IPv4 `ge 32 le 32` prefixes
 
 `pkg/frr/controller.go:307-312` and `pkg/frr/render.go:235-245` build
 the outbound route-map from `advertiseFilter` plus the CIDR of every
@@ -556,7 +593,16 @@ as `ge 32 le 32`, next to the pool CIDRs.
 
 ## F21 — RouterLBRule still requires an LRP on the pool subnet
 
-**Open.** Found 2026-08-28.
+**Fixed.** `checkEipAnnouncePath` looks for an `announce: bgp` pool on
+the EIP subnet. With one, the rule passes when the VPC redistributes
+`lb`, the same `checkBgpAnnouncePath` Services use. Without one the
+LRP check stays.
+
+- Commits: `b6524cfd9`
+- Tests: `Test_handleAddOrUpdateRouterLBRule` gains a case where an
+  EIP from a bgp pool subnet without any LRP creates the service, and
+  a case where the same EIP fails with "does not advertise loadbalancer
+  vips" when the VPC has no `lb` in `redistribute`
 
 `pkg/controller/router_lb_rule.go:358-366` demands a ready `lrp` EIP
 on the EIP's external subnet. F5 lifted that requirement for Services
@@ -567,7 +613,21 @@ Fix: apply the same split as `checkPoolAnnouncePath`.
 
 ## F22 — The default external subnet is never disconnected when extras arrive
 
-**Open.** Found 2026-08-28.
+**Fixed.** `reconcileVpcExternalSubnetConnections` plans connect and
+disconnect from the spec, the status and the presence of the default
+gateway LRP in the northbound database. The default subnet is
+connected only when no extras are set, and disconnected whenever
+extras are set or the LRP is left over from before this fix.
+
+- Commits: `2b1738695`
+- Tests: `TestPlanVpcExternalSubnetChanges` covers first enable,
+  extras added later, a leftover default LRP next to extras, extras
+  removed, steady state and disable;
+  `TestReconcileVpcExternalSubnetConnectionsDropsDefaultNextToExtras`
+  asserts the patch port and BFD of the default LRP are removed when
+  the status already lists the extra subnet;
+  `TestReconcileVpcExternalSubnetConnectionsKeepsSteadyState` asserts
+  nothing is touched when only the default subnet is wanted and present
 
 `handleUpdateVpcExternal` (`pkg/controller/vpc.go:610-663`) diffs only
 `extraExternalSubnets`. The default external subnet is disconnected
@@ -583,7 +643,18 @@ non-empty. Until then a migration needs `enableExternal: false`, then
 
 ## F23 — The BGP next hop is the alphabetically first LRP EIP
 
-**Open.** Found 2026-08-28.
+**Fixed.** `ValidateVpc` rejects `dynamicRouting.enabled` with more
+than one entry in `extraExternalSubnets`. `lrpAddress` takes the LRP
+of the single extra subnet when one is set, and otherwise requires
+exactly one gateway LRP; a VPC with more is skipped with a warning
+instead of advertising through the first name.
+
+- Commits: `e9885ef33`
+- Tests: `TestValidateVpc` rejects two extra subnets and accepts one;
+  `TestLrpAddressFollowsTheSingleExternalSubnet` asserts the extra
+  subnet LRP wins over the default one, the only LRP is used without
+  extras, two LRPs without extras are rejected, and a VPC without an
+  LRP is rejected
 
 `pkg/frr/controller.go:453-475` picks the next hop for every route of
 a VPC by sorting the VPC's `lrp` type OvnEips by name and taking the
@@ -610,7 +681,13 @@ recreation of affected pods.
 
 ## F25 — Cross-VRF leak depends on a shared ASN
 
-**Open.** Found 2026-08-28.
+**Fixed with F11.** There is no `import vrf default` and no VRF
+instance any more, so a peer that re-advertises the /32s of another
+chassis puts them only into the default kernel table of the chassis,
+never into a VPC table, and per-rack ASNs are safe.
+
+- Commits: `1803192b0`
+- Tests: `TestRenderSingleBgpInstance`
 
 `import vrf default` (`pkg/frr/render.go:183`) imports everything the
 peer sends into every VRF. A peer that re-advertises the /32s it
