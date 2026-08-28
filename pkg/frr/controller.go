@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -290,12 +291,12 @@ func (c *Controller) desiredConfig() (string, error) {
 		return "", err
 	}
 
-	poolEntries, err := c.collectPoolAdvertiseEntries()
+	hostRoutes, err := c.collectHostRouteEntries()
 	if err != nil {
 		return "", err
 	}
 	input := BuildRenderInput(conf, c.config.NodeName, routerID, vpcs)
-	input.AdvertiseFilter = mergeAdvertiseEntries(input.AdvertiseFilter, poolEntries)
+	input.AdvertiseFilter = mergeAdvertiseEntries(input.AdvertiseFilter, hostRoutes)
 	if err = ValidateRenderInput(input); err != nil {
 		return "", fmt.Errorf("invalid configuration from bgp-conf %s: %w", conf.Name, err)
 	}
@@ -368,21 +369,45 @@ func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip) []VpcAdv
 	return result
 }
 
-func (c *Controller) collectPoolAdvertiseEntries() ([]string, error) {
+func (c *Controller) collectHostRouteEntries() ([]string, error) {
 	pools, err := c.lbPoolLister.List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list loadbalancer-pools: %w", err)
 	}
-	entries := make([]string, 0, len(pools))
-	for _, pool := range pools {
-		if pool.Spec.Announce != kubeovnv1.LoadBalancerPoolAnnounceBGP {
-			continue
-		}
-		subnet, err := c.subnetLister.Get(pool.Spec.Subnet)
+	eips, err := c.ovnEipLister.List(labels.Everything())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ovn-eips: %w", err)
+	}
+	subnets := make([]*kubeovnv1.Subnet, 0)
+	for _, name := range advertisedSubnetNames(pools, eips) {
+		subnet, err := c.subnetLister.Get(name)
 		if err != nil {
-			klog.Warningf("loadbalancer-pool %s: subnet %s not found, skipping advertisement", pool.Name, pool.Spec.Subnet)
+			klog.Warningf("subnet %s not found, skipping its host routes in the advertise filter", name)
 			continue
 		}
+		subnets = append(subnets, subnet)
+	}
+	return hostRouteEntries(subnets), nil
+}
+
+func advertisedSubnetNames(pools []*kubeovnv1.LoadBalancerPool, eips []*kubeovnv1.OvnEip) []string {
+	names := make(map[string]struct{})
+	for _, pool := range pools {
+		if pool.Spec.Announce == kubeovnv1.LoadBalancerPoolAnnounceBGP {
+			names[pool.Spec.Subnet] = struct{}{}
+		}
+	}
+	for _, eip := range eips {
+		if eip.Spec.Type == util.OvnEipTypeNAT && eip.Spec.ExternalSubnet != "" {
+			names[eip.Spec.ExternalSubnet] = struct{}{}
+		}
+	}
+	return slices.Sorted(maps.Keys(names))
+}
+
+func hostRouteEntries(subnets []*kubeovnv1.Subnet) []string {
+	entries := make([]string, 0, len(subnets))
+	for _, subnet := range subnets {
 		for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
 			if cidr == "" || util.CheckProtocol(cidr) != kubeovnv1.ProtocolIPv4 {
 				continue
@@ -391,7 +416,7 @@ func (c *Controller) collectPoolAdvertiseEntries() ([]string, error) {
 		}
 	}
 	sort.Strings(entries)
-	return entries, nil
+	return entries
 }
 
 func mergeAdvertiseEntries(base, extra []string) []string {

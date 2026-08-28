@@ -26,6 +26,12 @@ The route-map `KUBE-OVN-NH-<vpc>` sets the next hop of every route of
 the VPC to the address of the external gateway LRP of that VPC. The
 peer then forwards traffic for an EIP to the LRP of the owning VPC.
 
+The outbound route-map `KUBE-OVN-OUT` permits the entries of
+`spec.advertiseFilter` on the BgpConf, the CIDR of every subnet behind
+a load balancer pool with `announce: bgp`, and the CIDR of every subnet
+that a `nat` type OvnEip draws from. The pool and EIP subnets enter the
+prefix-list as `ge 32 le 32`, so only host routes leave the chassis.
+
 `vrfId` must be at or below 65535. That is the highest table id
 `table-direct` addresses. The controller rejects a higher value.
 
