@@ -2583,6 +2583,7 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
+        env:
           K8S_VERSION: ${{ matrix.k8s-version }}
         run: |
           pipx install jinjanator
