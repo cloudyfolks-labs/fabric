@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -142,10 +141,7 @@ func (c *Controller) Run(ctx context.Context) error {
 
 	reassert := time.NewTicker(c.config.ReassertInterval)
 	defer reassert.Stop()
-	vrfPoll := time.NewTicker(2 * time.Second)
-	defer vrfPoll.Stop()
 
-	lastSignature := c.advertisementSignature()
 	c.requestReconcile()
 	for {
 		select {
@@ -157,11 +153,6 @@ func (c *Controller) Run(ctx context.Context) error {
 			c.reconcile()
 		case <-reassert.C:
 			c.reconcile()
-		case <-vrfPoll.C:
-			if signature := c.advertisementSignature(); signature != lastSignature {
-				lastSignature = signature
-				c.requestReconcile()
-			}
 		}
 	}
 }
@@ -349,7 +340,10 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ovn-eips: %w", err)
 	}
+	return vpcAdvertisements(vpcs, eips), nil
+}
 
+func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip) []VpcAdvertisement {
 	result := make([]VpcAdvertisement, 0, len(vpcs))
 	for _, vpc := range vpcs {
 		dr := vpc.Spec.DynamicRouting
@@ -358,10 +352,6 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 		}
 		if dr.VrfID == 0 {
 			klog.Warningf("vpc %s has dynamic routing enabled without an explicit vrfId, skipping advertisement", vpc.Name)
-			continue
-		}
-		if !vrfPresent(vrfDeviceName(dr)) {
-			klog.V(3).Infof("vpc %s vrf is not present on this chassis, skipping advertisement", vpc.Name)
 			continue
 		}
 		lrpIP := lrpAddress(eips, vpc.Name)
@@ -375,7 +365,7 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 			LrpIP:   lrpIP,
 		})
 	}
-	return result, nil
+	return result
 }
 
 func (c *Controller) collectPoolAdvertiseEntries() ([]string, error) {
@@ -412,37 +402,6 @@ func mergeAdvertiseEntries(base, extra []string) []string {
 		}
 	}
 	return merged
-}
-
-func vrfPresent(vrfName string) bool {
-	_, err := os.Stat("/sys/class/net/" + vrfName)
-	return err == nil
-}
-
-func vrfDeviceName(dr *kubeovnv1.VpcDynamicRouting) string {
-	if dr.VrfName != "" {
-		return dr.VrfName
-	}
-	return fmt.Sprintf("ovnvrf%d", dr.VrfID)
-}
-
-func (c *Controller) advertisementSignature() string {
-	vpcs, err := c.vpcLister.List(labels.Everything())
-	if err != nil {
-		return ""
-	}
-	names := make([]string, 0, len(vpcs))
-	for _, vpc := range vpcs {
-		dr := vpc.Spec.DynamicRouting
-		if !dr.IsEnabled() || dr.VrfID == 0 {
-			continue
-		}
-		if vrfPresent(vrfDeviceName(dr)) {
-			names = append(names, vpc.Name)
-		}
-	}
-	sort.Strings(names)
-	return strings.Join(names, ",")
 }
 
 func lrpAddress(eips []*kubeovnv1.OvnEip, vpcName string) string {

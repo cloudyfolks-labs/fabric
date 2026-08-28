@@ -54,7 +54,8 @@ fabric renamed the API domains. Replace `kubeovn.io/v1` with
 with `fabric.cloudyfolks.io/` — the full table is in
 [MIGRATION.md](MIGRATION.md). Documentation for the fabric-specific
 features lives in this repository; design rules are in
-[DESIGN.md](DESIGN.md) and proposals in
+[DESIGN.md](DESIGN.md), the BGP path in
+[docs/dynamic-routing.md](docs/dynamic-routing.md) and proposals in
 [docs/proposals/](docs/proposals/).
 
 ## Install
