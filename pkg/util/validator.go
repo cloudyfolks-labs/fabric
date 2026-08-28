@@ -641,6 +641,9 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 		if dr.VrfID >= ReservedRoutingTableIDStart && dr.VrfID <= ReservedRoutingTableIDEnd {
 			return fmt.Errorf("vrfId %d is in the reserved linux routing table range %d-%d", dr.VrfID, ReservedRoutingTableIDStart, ReservedRoutingTableIDEnd)
 		}
+		if dr.VrfID > MaxTableDirectID {
+			return fmt.Errorf("vrfId %d is above %d: FRR redistributes the VRF table with table-direct, which addresses tables 1-%d", dr.VrfID, MaxTableDirectID, MaxTableDirectID)
+		}
 	}
 
 	return nil

@@ -1706,6 +1706,34 @@ func TestValidateVpc(t *testing.T) {
 			wantErr: true,
 			errMsg:  "vrfId 254 is in the reserved linux routing table range 253-255",
 		},
+		{
+			name: "dynamic routing with vrf id above the table-direct range",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:      true,
+						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:        65536,
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "vrfId 65536 is above 65535: FRR redistributes the VRF table with table-direct, which addresses tables 1-65535",
+		},
+		{
+			name: "dynamic routing with the highest table-direct vrf id",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:      true,
+						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:        65535,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

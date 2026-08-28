@@ -13,6 +13,7 @@ import (
 const (
 	ReservedRoutingTableIDStart = 253
 	ReservedRoutingTableIDEnd   = 255
+	MaxTableDirectID            = 65535
 
 	CniTypeName = "fabric"
 	VendorTag   = "kube-ovn"

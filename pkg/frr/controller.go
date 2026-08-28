@@ -299,16 +299,11 @@ func (c *Controller) desiredConfig() (string, error) {
 		return "", err
 	}
 
-	imports := make([]string, 0, len(vpcs))
-	for _, vpc := range vpcs {
-		imports = append(imports, vpc.VrfName)
-	}
-
 	poolEntries, err := c.collectPoolAdvertiseEntries()
 	if err != nil {
 		return "", err
 	}
-	input := BuildRenderInput(conf, c.config.NodeName, routerID, vpcs, imports)
+	input := BuildRenderInput(conf, c.config.NodeName, routerID, vpcs)
 	input.AdvertiseFilter = mergeAdvertiseEntries(input.AdvertiseFilter, poolEntries)
 	if err = ValidateRenderInput(input); err != nil {
 		return "", fmt.Errorf("invalid configuration from bgp-conf %s: %w", conf.Name, err)
@@ -376,7 +371,6 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 		}
 		result = append(result, VpcAdvertisement{
 			VpcName: vpc.Name,
-			VrfName: vrfDeviceName(dr),
 			TableID: dr.VrfID,
 			LrpIP:   lrpIP,
 		})

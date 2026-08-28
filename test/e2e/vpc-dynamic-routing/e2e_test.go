@@ -301,14 +301,12 @@ ip protocol bgp route-map OVN-NO-FIB
 		framework.Logf("active chassis: %s, standby chassis: %s", activeName, standbyName)
 		activeNode := nodeByName[activeName]
 
-		ginkgo.By("Verifying the fabric route is learned into the VRF kernel table")
-		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
-			stdout, _, err := activeNode.Exec("ip", "route", "show", "vrf", agentVrfName)
-			if err != nil {
-				return false, nil
-			}
-			return strings.Contains(string(stdout), remoteLoopbackIP), nil
-		}, "fabric route learned into the VRF kernel table by the agent configuration")
+		ginkgo.By("Routing the fabric loopback " + remoteLoopbackIP + " through the ToR")
+		setVpcStaticRoutes(f, w.vpcName, []*apiv1.StaticRoute{{
+			Policy:    apiv1.PolicyDst,
+			CIDR:      remoteLoopbackIP + "/32",
+			NextHopIP: topo.torIP,
+		}})
 
 		ginkgo.By("Testing egress connectivity from workload pod to fabric loopback " + remoteLoopbackIP)
 		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
@@ -318,7 +316,7 @@ ip protocol bgp route-map OVN-NO-FIB
 				return false, nil
 			}
 			return strings.Contains(output, " 0% packet loss"), nil
-		}, "workload pod reaches the fabric loopback through the learned route")
+		}, "workload pod reaches the fabric loopback and the reply follows the advertised EIP route")
 
 		if standbyName != "" {
 			standbyNode := nodeByName[standbyName]

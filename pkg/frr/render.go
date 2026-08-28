@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 const (
@@ -20,7 +21,6 @@ const (
 
 type VpcAdvertisement struct {
 	VpcName string
-	VrfName string
 	TableID uint32
 	LrpIP   string
 }
@@ -44,10 +44,9 @@ type RenderInput struct {
 	EbgpMultiHop    bool
 	GracefulRestart bool
 	Vpcs            []VpcAdvertisement
-	ImportVrfs      []string
 }
 
-func BuildRenderInput(conf *kubeovnv1.BgpConf, nodeName, routerID string, vpcs []VpcAdvertisement, importVrfs []string) RenderInput {
+func BuildRenderInput(conf *kubeovnv1.BgpConf, nodeName, routerID string, vpcs []VpcAdvertisement) RenderInput {
 	input := RenderInput{
 		NodeName:        nodeName,
 		RouterID:        routerID,
@@ -56,7 +55,6 @@ func BuildRenderInput(conf *kubeovnv1.BgpConf, nodeName, routerID string, vpcs [
 		EbgpMultiHop:    conf.Spec.EbgpMultiHop,
 		GracefulRestart: conf.Spec.GracefulRestart,
 		Vpcs:            vpcs,
-		ImportVrfs:      importVrfs,
 	}
 	if conf.Spec.HoldTime.Duration > 0 {
 		input.HoldTime = int64(conf.Spec.HoldTime.Seconds())
@@ -123,6 +121,9 @@ func ValidateRenderInput(input RenderInput) error {
 		}
 	}
 	for _, vpc := range input.Vpcs {
+		if vpc.TableID == 0 || vpc.TableID > util.MaxTableDirectID {
+			return fmt.Errorf("vpc %s table id %d is outside the table-direct range 1-%d", vpc.VpcName, vpc.TableID, util.MaxTableDirectID)
+		}
 		addr, err := netip.ParseAddr(vpc.LrpIP)
 		if err != nil {
 			return fmt.Errorf("vpc %s lrp address %q is not a valid IP address", vpc.VpcName, vpc.LrpIP)
@@ -176,15 +177,6 @@ func Render(input RenderInput) string {
 		return b.String()
 	}
 
-	for _, vpc := range vpcs {
-		fmt.Fprintf(&b, "router bgp %d vrf %s\n", input.LocalASN, vpc.VrfName)
-		b.WriteString(" address-family ipv4 unicast\n")
-		fmt.Fprintf(&b, "  redistribute kernel route-map %s%s\n", nhRouteMap, vpc.VpcName)
-		b.WriteString("  import vrf default\n")
-		b.WriteString(" exit-address-family\n")
-		b.WriteString("exit\n!\n")
-	}
-
 	fmt.Fprintf(&b, "router bgp %d\n", input.LocalASN)
 	if input.RouterID != "" {
 		fmt.Fprintf(&b, " bgp router-id %s\n", input.RouterID)
@@ -211,17 +203,13 @@ func Render(input RenderInput) string {
 			fmt.Fprintf(&b, " neighbor %s bfd\n", n.Address)
 		}
 	}
-	imports := make([]string, len(input.ImportVrfs))
-	copy(imports, input.ImportVrfs)
-	sort.Strings(imports)
-
 	b.WriteString(" address-family ipv4 unicast\n")
 	for _, n := range input.Neighbors {
 		fmt.Fprintf(&b, "  neighbor %s activate\n", n.Address)
 		fmt.Fprintf(&b, "  neighbor %s route-map %s out\n", n.Address, outRouteMap)
 	}
-	for _, vrf := range imports {
-		fmt.Fprintf(&b, "  import vrf %s\n", vrf)
+	for _, vpc := range vpcs {
+		fmt.Fprintf(&b, "  redistribute table-direct %d route-map %s%s\n", vpc.TableID, nhRouteMap, vpc.VpcName)
 	}
 	b.WriteString(" exit-address-family\n")
 	b.WriteString("!\n")
