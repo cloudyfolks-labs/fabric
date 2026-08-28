@@ -726,3 +726,114 @@ func TestVpcExternalSubnets(t *testing.T) {
 	require.Equal(t, []string{"vlan-a", "vlan-b"}, vpcExternalSubnets(vpc, ""))
 	require.Equal(t, []string{"external"}, vpcExternalSubnets(&kubeovnv1.Vpc{}, "external"))
 }
+
+func TestPlanVpcExternalSubnetChanges(t *testing.T) {
+	t.Parallel()
+
+	vpc := func(specEnabled bool, specExtra []string, statusEnabled bool, statusExtra []string) *kubeovnv1.Vpc {
+		return &kubeovnv1.Vpc{
+			Spec:   kubeovnv1.VpcSpec{EnableExternal: specEnabled, ExtraExternalSubnets: specExtra},
+			Status: kubeovnv1.VpcStatus{EnableExternal: statusEnabled, ExtraExternalSubnets: statusExtra},
+		}
+	}
+	cases := []struct {
+		name             string
+		vpc              *kubeovnv1.Vpc
+		defaultExists    bool
+		defaultConnected bool
+		wantConnect      []string
+		wantDisconnect   []string
+	}{
+		{
+			name:          "first enable with no extras connects the default subnet",
+			vpc:           vpc(true, nil, false, nil),
+			defaultExists: true,
+			wantConnect:   []string{"external"},
+		},
+		{
+			name:          "first enable with extras connects only the extras",
+			vpc:           vpc(true, []string{"vlan-a"}, false, nil),
+			defaultExists: true,
+			wantConnect:   []string{"vlan-a"},
+		},
+		{
+			name:             "extras added later disconnect the default subnet",
+			vpc:              vpc(true, []string{"vlan-a"}, true, nil),
+			defaultExists:    true,
+			defaultConnected: true,
+			wantConnect:      []string{"vlan-a"},
+			wantDisconnect:   []string{"external"},
+		},
+		{
+			name:             "a default subnet left over next to extras is disconnected",
+			vpc:              vpc(true, []string{"vlan-a"}, true, []string{"vlan-a"}),
+			defaultExists:    true,
+			defaultConnected: true,
+			wantDisconnect:   []string{"external"},
+		},
+		{
+			name:           "extras removed reconnect the default subnet",
+			vpc:            vpc(true, nil, true, []string{"vlan-a"}),
+			defaultExists:  true,
+			wantConnect:    []string{"external"},
+			wantDisconnect: []string{"vlan-a"},
+		},
+		{
+			name:             "steady state changes nothing",
+			vpc:              vpc(true, nil, true, nil),
+			defaultExists:    true,
+			defaultConnected: true,
+		},
+		{
+			name:             "disable disconnects everything",
+			vpc:              vpc(false, nil, true, []string{"vlan-a", "vlan-b"}),
+			defaultExists:    true,
+			defaultConnected: true,
+			wantDisconnect:   []string{"external", "vlan-a", "vlan-b"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			connect, disconnect := planVpcExternalSubnetChanges(tc.vpc, "external", tc.defaultExists, tc.defaultConnected)
+			require.Equal(t, tc.wantConnect, connect)
+			require.Equal(t, tc.wantDisconnect, disconnect)
+		})
+	}
+}
+
+func TestReconcileVpcExternalSubnetConnectionsDropsDefaultNextToExtras(t *testing.T) {
+	t.Parallel()
+
+	vpc := &kubeovnv1.Vpc{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpc-transit"},
+		Spec:       kubeovnv1.VpcSpec{EnableExternal: true, ExtraExternalSubnets: []string{"transit"}},
+		Status:     kubeovnv1.VpcStatus{EnableExternal: true, ExtraExternalSubnets: []string{"transit"}},
+	}
+	fakeController := newFakeController(t)
+	ctrl := fakeController.fakeController
+	mockOvnClient := fakeController.mockOvnClient
+	ctrl.config.ExternalGatewaySwitch = "external"
+
+	mockOvnClient.EXPECT().LogicalRouterPortExists("vpc-transit-external").Return(true, nil)
+	mockOvnClient.EXPECT().RemoveLogicalPatchPort("external-vpc-transit", "vpc-transit-external").Return(nil)
+	mockOvnClient.EXPECT().DeleteBFDByDstIP("vpc-transit-external", "").Return(nil)
+
+	require.NoError(t, ctrl.reconcileVpcExternalSubnetConnections(vpc, true))
+}
+
+func TestReconcileVpcExternalSubnetConnectionsKeepsSteadyState(t *testing.T) {
+	t.Parallel()
+
+	vpc := &kubeovnv1.Vpc{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpc-default"},
+		Spec:       kubeovnv1.VpcSpec{EnableExternal: true},
+		Status:     kubeovnv1.VpcStatus{EnableExternal: true},
+	}
+	fakeController := newFakeController(t)
+	ctrl := fakeController.fakeController
+	ctrl.config.ExternalGatewaySwitch = "external"
+
+	fakeController.mockOvnClient.EXPECT().LogicalRouterPortExists("vpc-default-external").Return(true, nil)
+
+	require.NoError(t, ctrl.reconcileVpcExternalSubnetConnections(vpc, true))
+}
