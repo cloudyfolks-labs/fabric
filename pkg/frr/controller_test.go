@@ -87,3 +87,29 @@ func TestHostRouteEntriesAreIPv4HostPrefixes(t *testing.T) {
 		t.Errorf("expected sorted ipv4 host route entries, got %v", got)
 	}
 }
+
+func TestLrpAddressFollowsTheSingleExternalSubnet(t *testing.T) {
+	eips := []*kubeovnv1.OvnEip{
+		lrpEip("vpc-a", "external", "10.0.0.21"),
+		lrpEip("vpc-a", "transit", "10.1.0.21"),
+		lrpEip("vpc-b", "external", "10.0.0.22"),
+	}
+
+	got, err := lrpAddress(eips, dynamicRoutingVpc("vpc-a", 1001, "transit"))
+	if err != nil || got != "10.1.0.21" {
+		t.Errorf("expected the lrp of the extra external subnet, got %q %v", got, err)
+	}
+
+	got, err = lrpAddress(eips, dynamicRoutingVpc("vpc-b", 1002))
+	if err != nil || got != "10.0.0.22" {
+		t.Errorf("expected the only lrp of the vpc, got %q %v", got, err)
+	}
+
+	if _, err = lrpAddress(eips, dynamicRoutingVpc("vpc-a", 1001)); err == nil {
+		t.Error("expected two gateway lrps without an explicit external subnet to be rejected")
+	}
+
+	if _, err = lrpAddress(eips, dynamicRoutingVpc("vpc-c", 1003)); err == nil {
+		t.Error("expected a vpc without a ready lrp to be rejected")
+	}
+}

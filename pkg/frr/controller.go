@@ -355,9 +355,9 @@ func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip) []VpcAdv
 			klog.Warningf("vpc %s has dynamic routing enabled without an explicit vrfId, skipping advertisement", vpc.Name)
 			continue
 		}
-		lrpIP := lrpAddress(eips, vpc.Name)
-		if lrpIP == "" {
-			klog.Warningf("vpc %s has no ready lrp ovn-eip, skipping advertisement", vpc.Name)
+		lrpIP, err := lrpAddress(eips, vpc)
+		if err != nil {
+			klog.Warningf("vpc %s: %v, skipping advertisement", vpc.Name, err)
 			continue
 		}
 		result = append(result, VpcAdvertisement{
@@ -429,25 +429,26 @@ func mergeAdvertiseEntries(base, extra []string) []string {
 	return merged
 }
 
-func lrpAddress(eips []*kubeovnv1.OvnEip, vpcName string) string {
-	var names []string
-	byName := make(map[string]string)
+func lrpAddress(eips []*kubeovnv1.OvnEip, vpc *kubeovnv1.Vpc) (string, error) {
+	var candidates []string
 	for _, eip := range eips {
-		if eip.Spec.Type != util.OvnEipTypeLRP {
+		if eip.Spec.Type != util.OvnEipTypeLRP || eip.Spec.ExternalSubnet == "" || eip.Status.V4Ip == "" {
 			continue
 		}
-		if eip.Spec.ExternalSubnet == "" || eip.Name != vpcName+"-"+eip.Spec.ExternalSubnet {
+		if eip.Name != vpc.Name+"-"+eip.Spec.ExternalSubnet {
 			continue
 		}
-		if eip.Status.V4Ip == "" {
+		if len(vpc.Spec.ExtraExternalSubnets) == 1 && eip.Spec.ExternalSubnet != vpc.Spec.ExtraExternalSubnets[0] {
 			continue
 		}
-		names = append(names, eip.Name)
-		byName[eip.Name] = eip.Status.V4Ip
+		candidates = append(candidates, eip.Status.V4Ip)
 	}
-	if len(names) == 0 {
-		return ""
+	switch len(candidates) {
+	case 0:
+		return "", errors.New("no ready lrp ovn-eip on the external subnet")
+	case 1:
+		return candidates[0], nil
+	default:
+		return "", fmt.Errorf("%d gateway lrps, dynamic routing needs exactly one external subnet", len(candidates))
 	}
-	sort.Strings(names)
-	return byName[names[0]]
 }

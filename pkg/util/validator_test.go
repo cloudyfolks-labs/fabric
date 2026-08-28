@@ -1707,6 +1707,36 @@ func TestValidateVpc(t *testing.T) {
 			errMsg:  "vrfId 254 is in the reserved linux routing table range 253-255",
 		},
 		{
+			name: "dynamic routing with two external subnets",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					EnableExternal:       true,
+					ExtraExternalSubnets: []string{"transit-a", "transit-b"},
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:      true,
+						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:        1001,
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "dynamic routing supports one external subnet, the BGP next hop is its LRP: extraExternalSubnets has 2 entries",
+		},
+		{
+			name: "dynamic routing with one extra external subnet",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					EnableExternal:       true,
+					ExtraExternalSubnets: []string{"transit-a"},
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:      true,
+						Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:        1001,
+					},
+				},
+			},
+		},
+		{
 			name: "dynamic routing with vrf id above the table-direct range",
 			vpc: &kubeovnv1.Vpc{
 				Spec: kubeovnv1.VpcSpec{
