@@ -757,11 +757,8 @@ class E2EControlTest(unittest.TestCase):
         self.assertIn("allowed=('TAG','GO_VERSION','E2E_DIR','VERSION','DEBUG_WRAPPER')", workflow)
         self.assertNotIn("actions: write", workflow)
         self.assertNotIn("checks: write", workflow)
-        self.assertIn("GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}", workflow)
-        self.assertNotIn(
-            "GHCR_TOKEN: ${{ github.event_name == 'push' && secrets.GITHUB_TOKEN || '' }}",
-            workflow,
-        )
+        self.assertNotIn("GHCR_TOKEN", workflow)
+        self.assertNotIn("kind-ghcr-pull", workflow)
         self.assertIn("Initialize fail-closed conformance matrices", workflow)
         self.assertIn("steps.fallbackMatrices.outputs.k8sConformanceMatrix", workflow)
         self.assertIn(
@@ -792,14 +789,11 @@ class E2EControlTest(unittest.TestCase):
                 self.assertIn("inputs.headSHA || github.sha", block)
                 self.assertIn("persist-credentials: false", block)
 
-    def testKindPullUsesAnonymousGhcrWhenTokenIsAbsent(self):
+    def testKindPullsNodeImageFromUpstreamOnly(self):
         makefile = (repoRoot / "makefiles/kind.mk").read_text()
 
-        self.assertIn('if [ -n "$${GHCR_TOKEN:-}" ]', makefile)
-        self.assertNotIn(
-            "@echo $${GHCR_TOKEN} | docker login ghcr.io",
-            makefile,
-        )
+        self.assertNotIn("cloudyfolks-labs/kindest-node", makefile)
+        self.assertNotIn("GHCR_TOKEN", makefile)
 
 
 if __name__ == "__main__":

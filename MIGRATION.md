@@ -20,9 +20,9 @@ Identifiers internal to the OVN and OVS databases do not change. The
 OVN logical topology of an existing cluster stays valid.
 
 `domainName` rules in AdminNetworkPolicy and ClusterNetworkPolicy need
-the fabric build of the CoreDNS resolver plugin
-(`ghcr.io/cloudyfolks-labs/fabric-dns`); the kube-ovn build watches the
-old API group and does not work with fabric.
+a CoreDNS resolver plugin built against the fabric API group. The
+kube-ovn build of that plugin watches the old API group and does not
+work with fabric. fabric does not ship the plugin.
 
 ## Removed features
 

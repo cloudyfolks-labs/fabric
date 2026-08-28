@@ -921,11 +921,9 @@ jobs:
           fi
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -1126,11 +1124,9 @@ jobs:
           fi
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -1298,11 +1294,9 @@ jobs:
           fi
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         env:
@@ -1480,11 +1474,9 @@ jobs:
           fi
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -1667,8 +1659,6 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind clusters
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
           make kind-init-ovn-ic-${{ matrix.ip-family }}
@@ -1825,11 +1815,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -1975,11 +1963,9 @@ jobs:
           docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Mults-CNI, Cilium, and Kube-OVN
         id: install
@@ -2232,11 +2218,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -2297,11 +2281,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-dual
+          make kind-init-dual
 
       - name: Install Kube-OVN
         id: install
@@ -2360,11 +2342,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN without LoadBalancer
         id: install
@@ -2425,11 +2405,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -2534,11 +2512,9 @@ jobs:
           docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN with webhook
         id: install
@@ -2607,12 +2583,10 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           K8S_VERSION: ${{ matrix.k8s-version }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -2727,11 +2701,9 @@ jobs:
           fi
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -2865,11 +2837,9 @@ jobs:
           fi
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -3012,11 +2982,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-cilium-chaining-${{ matrix.ip-family }}
+          make kind-init-cilium-chaining-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN with Cilium chaining
         id: install
@@ -3168,11 +3136,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-ha-${{ matrix.ip-family }}
+          make kind-init-ha-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -3276,11 +3242,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init-ovn-submariner
+          make kind-init-ovn-submariner
 
       - name: Install Kube-OVN and Submariner
         id: install
@@ -3388,11 +3352,9 @@ jobs:
         run: docker load --input fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          n_worker=2 make kind-ghcr-pull kind-init-ipv4
+          n_worker=2 make kind-init-ipv4
 
       - name: Install Kube-OVN
         id: install
@@ -3526,11 +3488,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -3670,11 +3630,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -3809,11 +3767,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -3952,11 +3908,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -4065,11 +4019,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          n_worker=2 make kind-ghcr-pull kind-init-${{ matrix.ip-family }}
+          n_worker=2 make kind-init-${{ matrix.ip-family }}
 
       - name: Install Kube-OVN
         id: install
@@ -4203,11 +4155,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install
@@ -4339,11 +4289,9 @@ jobs:
         run: docker load -i fabric.tar
 
       - name: Create kind cluster
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pipx install jinjanator
-          make kind-ghcr-pull kind-init
+          make kind-init
 
       - name: Install Kube-OVN
         id: install

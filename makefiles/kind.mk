@@ -744,17 +744,6 @@ kind-clean-ovn-ic: kind-clean
 kind-clean-ovn-submariner: kind-clean
 	kind delete cluster --name=fabric1
 
-.PHONY: kind-ghcr-pull
-kind-ghcr-pull:
-	@if [ -n "$${GHCR_TOKEN:-}" ]; then \
-		printf '%s' "$${GHCR_TOKEN}" | docker login ghcr.io -u github-actions --password-stdin; \
-	fi
-	@if docker pull ghcr.io/cloudyfolks-labs/kindest-node:$(K8S_VERSION); then \
-		docker tag ghcr.io/cloudyfolks-labs/kindest-node:$(K8S_VERSION) kindest/node:$(K8S_VERSION); \
-	else \
-		docker pull kindest/node:$(K8S_VERSION); \
-	fi
-
 .PHONY: kind-install-multus-cilium-fabric-non-primary
 kind-install-multus-cilium-fabric-non-primary: kind-install-multus-cilium-fabric-non-primary-ipv4
 
