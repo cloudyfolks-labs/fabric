@@ -242,20 +242,25 @@ the replacement.
 
 ## F11 — Adding a VRF instance restarts FRR
 
-**Fixed.**
+**Open.** Reopened 2026-08-28.
 
-The reload loop no longer exits when a new `router bgp ... vrf ...` line
-appears. `frr-reload.py --reload --overwrite` applies a new VRF instance
-in the FRR release this chart ships (10.7), so the restart branch had no
-purpose and killed PID 1 of the FRR container.
+`f92bdde06` removed the restart branch. `28c7dcce4` and `cab92203a`
+put it back: `frr-reload.py` reported success while leaving a new VRF
+instance without working kernel redistribution, so the reload loop
+now exits whenever the sorted set of `router bgp ... vrf` lines
+changes (`pkg/frr/init.go:36-43`, asserted by `pkg/frr/init_test.go`).
+The loop is PID 1 of the FRR container, so every VPC that gains or
+loses a VRF on a chassis restarts FRR there and drops every BGP session
+on that chassis. With graceful restart on the peer the routes survive
+the restart; without it every EIP on the chassis is withdrawn until the
+sessions reconverge. At 20 to 200 VPCs this is the scale blocker.
 
-- Commits: `f92bdde06`
-- Tests: `TestReloadScriptNeverExits`
-
-Remaining: nothing in this repository proves the reload path against a
-running FRR. The dynamic routing e2e covers it indirectly, because a
-failover onto a chassis adds a VRF instance there and the suite asserts
-the ToR relearns the route without a session reset.
+Fix: render one default BGP instance with `redistribute table-direct
+<vrfId> route-map <vpc>` per VPC and no per-VRF instances. Adding a
+VPC then becomes a one-line reload, the `import vrf default` leak
+(F25) disappears, and the absent-table case is empty instead of
+wedged. `vrfId` must stay at or below 65535 for `table-direct`. Prove
+the path once against FRR 10.7 before shipping.
 
 ## F12 — BGP ASN cannot express the 4-byte private range
 
@@ -534,3 +539,85 @@ Next steps, in order:
    VPC, create and delete the devices from the VPC list the agent
    already renders). That removes the OVN sweep from the failure
    domain and survives ovn-controller restarts without a VRF flap.
+
+## F20 — EIP pool CIDRs never reach the advertise filter
+
+**Open.** Found 2026-08-28.
+
+`pkg/frr/controller.go:307-312` and `pkg/frr/render.go:235-245` build
+the outbound route-map from `advertiseFilter` plus the CIDR of every
+`announce: bgp` load balancer pool. The subnets that `nat` type OvnEips
+draw from are never merged. A VPC whose EIPs come from a provider-less
+pool advertises nothing once one BGP load balancer pool exists and the
+BgpConf carries no explicit filter.
+
+Fix: merge the CIDR of every subnet referenced by a `nat` type OvnEip,
+as `ge 32 le 32`, next to the pool CIDRs.
+
+## F21 — RouterLBRule still requires an LRP on the pool subnet
+
+**Open.** Found 2026-08-28.
+
+`pkg/controller/router_lb_rule.go:358-366` demands a ready `lrp` EIP
+on the EIP's external subnet. F5 lifted that requirement for Services
+of type LoadBalancer only (`pkg/controller/service_lb_ovn.go:387-401`).
+A RouterLBRule on a provider-less BGP pool therefore fails.
+
+Fix: apply the same split as `checkPoolAnnouncePath`.
+
+## F22 — The default external subnet is never disconnected when extras arrive
+
+**Open.** Found 2026-08-28.
+
+`handleUpdateVpcExternal` (`pkg/controller/vpc.go:610-663`) diffs only
+`extraExternalSubnets`. The default external subnet is disconnected
+only when `enableExternal` flips to false, while the create-time rule
+at `vpc.go:629` connects it only when no extras are set. A VPC that
+moves from the default external subnet to a transit subnet ends with
+two gateway LRPs, and northd then rejects every NAT whose address is
+outside both LRP subnets (`northd/en-lr-nat.c:296-316`).
+
+Fix: disconnect the default subnet whenever `extraExternalSubnets` is
+non-empty. Until then a migration needs `enableExternal: false`, then
+`true` with the new list, which is a per-VPC outage.
+
+## F23 — The BGP next hop is the alphabetically first LRP EIP
+
+**Open.** Found 2026-08-28.
+
+`pkg/frr/controller.go:453-475` picks the next hop for every route of
+a VPC by sorting the VPC's `lrp` type OvnEips by name and taking the
+first. A VPC with more than one external subnet gets whichever sorts
+first, and a transit subnet named after a services subnet advertises
+the services LRP as next hop for every EIP.
+
+Fix: reject dynamic routing with more than one external subnet in
+`ValidateVpc`, or select the LRP by an explicit field on the Vpc.
+
+## F24 — The LSP sweep deletes ports of the old provider name
+
+**Open.** Found 2026-08-28. Migration only.
+
+`markAndCleanLSP` (`pkg/controller/gc.go:397-412,458-506`) builds its
+keep set with the renamed provider suffix. A secondary-NIC port created
+before the migration carries the old suffix and is marked on the first
+sweep and deleted on the second, six to twelve minutes after the
+controller starts, while its pod still runs.
+
+Fix: accept both suffixes in the keep set for one release, or document
+`--gc-interval=0` for the first start after a migration and a staged
+recreation of affected pods.
+
+## F25 — Cross-VRF leak depends on a shared ASN
+
+**Open.** Found 2026-08-28.
+
+`import vrf default` (`pkg/frr/render.go:183`) imports everything the
+peer sends into every VRF. A peer that re-advertises the /32s it
+learned from one chassis to another is stopped only by AS-path loop
+detection, so all chassis must share one ASN. Per-rack ASNs would put
+every EIP of the cluster into every VRF as kernel routes, learned
+routes and logical flows.
+
+Fix: an inbound route-map that permits only the default route, or no
+import at all under the table-direct design of F11.

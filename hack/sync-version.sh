@@ -11,7 +11,7 @@ CRD_CHART=charts/fabric/charts/fabric-crds/Chart.yaml
 VALUES=charts/fabric/values.yaml
 
 awk -v version="${VERSION}" '
-  /^    kubeovn:$/ { pending = "      " }
+  /^    fabric:$/ { pending = "      " }
   /^    repository: ghcr.io\/cloudyfolks-labs\/vpc-nat-gateway$/ { pending = "    " }
   /^    # -- DPDK image tag.$/ { pending = "    " }
   pending != "" && index($0, pending "tag: ") == 1 { sub(/tag: .*/, "tag: " version); pending = "" }
