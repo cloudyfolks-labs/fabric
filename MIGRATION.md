@@ -24,6 +24,17 @@ no resolver plugin. The controller resolves the domain names against
 cluster DNS itself. Remove the kube-ovn CoreDNS resolver plugin and
 its DNSNameResolver objects; fabric does not read them.
 
+## Upgrading a running kube-ovn release
+
+`helm upgrade` over an existing kube-ovn release fails on `ovs-ovn` and
+`ovn-central`: fabric changes their immutable selector labels (F26 in
+FINDINGS.md). Apply the fabric CRDs and the converted resources, then
+delete the `kube-ovn-cni` and `kube-ovn-pinger` daemonsets, scale
+`ovn-central` to zero, delete the `ovs-ovn` daemonset and the
+`ovn-central` deployment, and run the upgrade. Between the deletion and
+the new pods the datapath has no controller and no OVN databases, so
+keep that gap as short as the upgrade command itself.
+
 ## Removed features
 
 fabric does not carry these kube-ovn features. If your cluster uses

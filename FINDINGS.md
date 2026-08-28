@@ -621,3 +621,21 @@ routes and logical flows.
 
 Fix: an inbound route-map that permits only the default route, or no
 import at all under the table-direct design of F11.
+
+## F26 — The chart cannot upgrade a kube-ovn release in place
+
+**Open.** Found 2026-08-28 during a real migration.
+
+The fabric chart keeps the `ovs-ovn` DaemonSet and `ovn-central`
+Deployment names but changes their selector labels
+(`app.kubernetes.io/name: fabric-ovs`, `app.kubernetes.io/part-of:
+fabric`). A selector is immutable, so `helm upgrade` over a kube-ovn
+release creates every other fabric workload and then fails on those
+two. The operator must delete the old objects and run the upgrade
+again, and until the new pods are ready the cluster has no
+ovn-controller and no OVN databases.
+
+Fix: keep the kube-ovn selector labels on those two workloads, or
+document a two-step upgrade in MIGRATION.md with the exact deletion
+order (old CNI daemonsets first, then ovn-central, then ovs-ovn,
+then helm) and the expected control-plane gap.
