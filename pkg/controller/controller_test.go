@@ -87,6 +87,7 @@ type FakeControllerOptions struct {
 	Services           []*corev1.Service
 	Vpcs               []*kubeovnv1.Vpc
 	RouterLBRules      []*kubeovnv1.RouterLBRule
+	LoadBalancerPools  []*kubeovnv1.LoadBalancerPool
 	OvnEips            []*kubeovnv1.OvnEip
 	OvnDnatRules       []*kubeovnv1.OvnDnatRule
 	OvnFipRules        []*kubeovnv1.OvnFip
@@ -197,6 +198,13 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 			return nil, err
 		}
 	}
+	for _, pool := range opts.LoadBalancerPools {
+		_, err := kubeovnClient.FabricV1().LoadBalancerPools().Create(
+			context.Background(), pool, metav1.CreateOptions{})
+		if err != nil {
+			return nil, err
+		}
+	}
 	for _, eip := range opts.OvnEips {
 		_, err := kubeovnClient.FabricV1().OvnEips().Create(
 			context.Background(), eip, metav1.CreateOptions{})
@@ -262,6 +270,7 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	providerNetworkInformer := kubeovnInformerFactory.Fabric().V1().ProviderNetworks()
 	ippoolInformer := kubeovnInformerFactory.Fabric().V1().IPPools()
 	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
+	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
 	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DNSZones()
 	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
 	ovnDnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnDnatRules()
@@ -303,6 +312,8 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		providerNetworksLister:  providerNetworkInformer.Lister(),
 		routerLBRuleLister:      routerLBRuleInformer.Lister(),
 		routerLBRuleSynced:      alwaysReady,
+		loadBalancerPoolLister:  loadBalancerPoolInformer.Lister(),
+		loadBalancerPoolSynced:  alwaysReady,
 		dnsZoneLister:           dnsZoneInformer.Lister(),
 		dnsZoneSynced:           alwaysReady,
 		dnsZoneKeyMutex:         keymutex.NewHashed(0),

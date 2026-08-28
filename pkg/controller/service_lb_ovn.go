@@ -386,22 +386,55 @@ func vpcAdvertisesLoadBalancerVips(vpc *kubeovnv1.Vpc) bool {
 
 func (c *Controller) checkPoolAnnouncePath(pool *kubeovnv1.LoadBalancerPool, vpcName string) string {
 	if poolAnnounceMode(pool) == kubeovnv1.LoadBalancerPoolAnnounceBGP {
-		vpc, err := c.vpcsLister.Get(vpcName)
-		if err != nil {
-			return fmt.Sprintf("vpc %s of loadbalancer pool %s: %v", vpcName, pool.Name, err)
-		}
-		if !vpcAdvertisesLoadBalancerVips(vpc) {
-			return fmt.Sprintf("vpc %s does not advertise loadbalancer vips: enable dynamicRouting and add lb to redistribute", vpcName)
-		}
-		return ""
+		return c.checkBgpAnnouncePath(pool, vpcName)
 	}
+	return c.checkLrpAnnouncePath(vpcName, pool.Spec.Subnet)
+}
 
-	lrpEipName := fmt.Sprintf("%s-%s", vpcName, pool.Spec.Subnet)
-	lrpEip, err := c.ovnEipsLister.Get(lrpEipName)
-	if err != nil || !lrpEip.Status.Ready || lrpEip.Spec.Type != util.OvnEipTypeLRP {
-		return fmt.Sprintf("vpc %s has no ready LRP on external subnet %s: ensure the subnet is in the vpc external subnets", vpcName, pool.Spec.Subnet)
+func (c *Controller) checkEipAnnouncePath(eip *kubeovnv1.OvnEip, vpcName string) string {
+	pool, err := c.bgpPoolOnSubnet(eip.Spec.ExternalSubnet)
+	if err != nil {
+		return err.Error()
+	}
+	if pool != nil {
+		return c.checkBgpAnnouncePath(pool, vpcName)
+	}
+	return c.checkLrpAnnouncePath(vpcName, eip.Spec.ExternalSubnet)
+}
+
+func (c *Controller) checkBgpAnnouncePath(pool *kubeovnv1.LoadBalancerPool, vpcName string) string {
+	vpc, err := c.vpcsLister.Get(vpcName)
+	if err != nil {
+		return fmt.Sprintf("vpc %s of loadbalancer pool %s: %v", vpcName, pool.Name, err)
+	}
+	if !vpcAdvertisesLoadBalancerVips(vpc) {
+		return fmt.Sprintf("vpc %s does not advertise loadbalancer vips: enable dynamicRouting and add lb to redistribute", vpcName)
 	}
 	return ""
+}
+
+func (c *Controller) checkLrpAnnouncePath(vpcName, subnet string) string {
+	lrpEip, err := c.ovnEipsLister.Get(fmt.Sprintf("%s-%s", vpcName, subnet))
+	if err != nil || !lrpEip.Status.Ready || lrpEip.Spec.Type != util.OvnEipTypeLRP {
+		return fmt.Sprintf("vpc %s has no ready LRP on external subnet %s: ensure the subnet is in the vpc external subnets", vpcName, subnet)
+	}
+	return ""
+}
+
+func (c *Controller) bgpPoolOnSubnet(subnet string) (*kubeovnv1.LoadBalancerPool, error) {
+	if !c.config.EnableOvnLbSvc || !c.config.EnableLb {
+		return nil, nil
+	}
+	pools, err := c.loadBalancerPoolLister.List(labels.Everything())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list loadbalancer pools: %w", err)
+	}
+	for _, pool := range pools {
+		if poolAnnounceMode(pool) == kubeovnv1.LoadBalancerPoolAnnounceBGP && pool.Spec.Subnet == subnet {
+			return pool, nil
+		}
+	}
+	return nil, nil
 }
 
 func (c *Controller) getServiceLbPool(svc *corev1.Service) (*kubeovnv1.LoadBalancerPool, error) {
