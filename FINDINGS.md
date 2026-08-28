@@ -484,4 +484,53 @@ same spec, where the withdrawn VPC was one of the moved VPCs, passes.
 
 Status: open. The e2e spec now always withdraws a moved VPC so the
 suite stays deterministic. Track the OVN route_exchange teardown bug
-separately before enabling dynamic routing at scale on Bedrock.
+separately before enabling dynamic routing at scale.
+
+Analysis (2026-08-28), against OVN branch-25.03 as built into the
+`kubeovn/kube-ovn-base:v1.17.0` image (the image clones the branch at
+build time; the current image was built on 2026-08-27):
+
+- The 25.03 branch already carries every route-exchange fix that
+  landed on it: `cec627b` (netlink failures on VRF and route updates),
+  `14f9a15` (stop deleting non-existent VRFs), `e4ab209` (retry on
+  error). None of them changes the VRF sweep described below.
+- Upstream `main` adds `8874d9d` and `ce663bb` (June 2026). They let
+  several datapaths share one VRF table and move the per-table sync
+  after the datapath loop. They do not touch the sweep, and they do
+  not apply to 25.03 without a manual port. They are not the fix.
+- The only code path that removes every VRF at once is the end of
+  `route_exchange_run` in `controller/route-exchange.c`. Each run
+  swaps `_maintained_vrfs` into an old set, re-adds one name per
+  datapath in `announce_routes`, and deletes every name that was not
+  re-added. So one run in which `announce_routes` holds no entry for
+  the surviving routers deletes their VRFs, and nothing recreates a
+  VRF until a later run lists the router again. Two skips inside the
+  loop happen before the re-add: an invalid or duplicate table id,
+  and a failed `re_nl_create_vrf`. A duplicate table id therefore
+  costs the datapath its VRF. The isolation spec uses distinct ids
+  (1101..1103), so the duplicate skip is not the trigger there.
+- `route_exchange_cleanup_vrfs` runs on every graceful exit of
+  `ovn-controller` (`controller/ovn-controller.c`). A restart of the
+  ovs-ovn pod on a gateway node therefore removes all VRF devices on
+  that node and recreates them on the first run after restart. This
+  is by design upstream, but it means a controller restart during a
+  withdrawal is a candidate for the observed state.
+- fabric's option placement is correct: `dynamic-routing-vrf-name`
+  and `dynamic-routing-vrf-id` on the logical router, and
+  `dynamic-routing-maintain-vrf` on the gateway LRP. northd copies
+  the first two from the router and the third from the port
+  (`northd/northd.c`).
+
+Next steps, in order:
+
+1. Reproduce on a rig with `ovn-appctl -t ovn-controller vlog/set
+   route_exchange:dbg exchange:dbg route_exchange_netlink:dbg` on the
+   gateway nodes, and record `ip -d link show type vrf` after each
+   step of the isolation spec. The log line "Unable to sync routes
+   for datapath" or an ovn-controller restart in the same window
+   pins the branch above.
+2. If the sweep is the cause, the durable fix is on the fabric side:
+   let the FRR agent own the VRF devices (`maintainVrf: false` on the
+   VPC, create and delete the devices from the VPC list the agent
+   already renders). That removes the OVN sweep from the failure
+   domain and survives ovn-controller restarts without a VRF flap.
