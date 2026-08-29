@@ -537,7 +537,6 @@ func Test_createVpcRouter_dynamicRouting(t *testing.T) {
 					"mac_binding_age_threshold":               "300",
 					"dynamic_neigh_routers":                   "true",
 					"dynamic-routing":                         "true",
-					"dynamic-routing-redistribute":            "nat,lb",
 					"dynamic-routing-redistribute-local-only": "true",
 					"dynamic-routing-vrf-name":                "vpc-dr",
 					"dynamic-routing-vrf-id":                  "1001",
@@ -583,67 +582,92 @@ func Test_createVpcRouter_dynamicRouting(t *testing.T) {
 func Test_reconcileVpcDynamicRoutingLrpOptions(t *testing.T) {
 	t.Parallel()
 
-	t.Run("maintain vrf set on existing external lrp", func(t *testing.T) {
-		fakeController := newFakeController(t)
-		ctrl := fakeController.fakeController
-		mockOvnClient := fakeController.mockOvnClient
-		ctrl.config.ExternalGatewaySwitch = "external204"
+	routerPorts := []ovnnb.LogicalRouterPort{
+		{Name: "test-vpc-dr-int"},
+		{Name: "test-vpc-dr-external204"},
+		{Name: "test-vpc-dr-peer"},
+	}
 
-		vpc := &kubeovnv1.Vpc{
+	newVpc := func(dr *kubeovnv1.VpcDynamicRouting) *kubeovnv1.Vpc {
+		return &kubeovnv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-dr"},
-			Spec: kubeovnv1.VpcSpec{
-				EnableExternal: true,
-				DynamicRouting: &kubeovnv1.VpcDynamicRouting{
-					Enabled:     true,
-					MaintainVrf: true,
+			Spec:       kubeovnv1.VpcSpec{EnableExternal: true, DynamicRouting: dr},
+			Status:     kubeovnv1.VpcStatus{Subnets: []string{"int"}},
+		}
+	}
+
+	tests := []struct {
+		name string
+		dr   *kubeovnv1.VpcDynamicRouting
+		want map[string]map[string]string
+	}{
+		{
+			name: "nat and lb ride the subnet lrp only",
+			dr: &kubeovnv1.VpcDynamicRouting{
+				Enabled: true,
+				Redistribute: []kubeovnv1.RedistributeType{
+					kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB, kubeovnv1.RedistributeStatic,
 				},
 			},
-		}
+			want: map[string]map[string]string{
+				"test-vpc-dr-int":         {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": "nat,lb,static"},
+				"test-vpc-dr-external204": {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": "static"},
+				"test-vpc-dr-peer":        {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": "static"},
+			},
+		},
+		{
+			name: "maintain vrf rides the external gateway lrp only",
+			dr: &kubeovnv1.VpcDynamicRouting{
+				Enabled:     true,
+				MaintainVrf: true,
+				Redistribute: []kubeovnv1.RedistributeType{
+					kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB, kubeovnv1.RedistributeStatic,
+				},
+			},
+			want: map[string]map[string]string{
+				"test-vpc-dr-int":         {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": "nat,lb,static"},
+				"test-vpc-dr-external204": {"dynamic-routing-maintain-vrf": "true", "dynamic-routing-redistribute": "static"},
+				"test-vpc-dr-peer":        {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": "static"},
+			},
+		},
+		{
+			name: "a nat only vpc leaves the external gateway lrp empty",
+			dr: &kubeovnv1.VpcDynamicRouting{
+				Enabled:      true,
+				Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+			},
+			want: map[string]map[string]string{
+				"test-vpc-dr-int":         {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": "nat"},
+				"test-vpc-dr-external204": {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": ""},
+				"test-vpc-dr-peer":        {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": ""},
+			},
+		},
+		{
+			name: "dynamic routing disabled clears every lrp",
+			dr:   nil,
+			want: map[string]map[string]string{
+				"test-vpc-dr-int":         {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": ""},
+				"test-vpc-dr-external204": {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": ""},
+				"test-vpc-dr-peer":        {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": ""},
+			},
+		},
+	}
 
-		lrpName := "test-vpc-dr-external204"
-		mockOvnClient.EXPECT().GetLogicalRouterPort(lrpName, true).Return(&ovnnb.LogicalRouterPort{Name: lrpName}, nil)
-		mockOvnClient.EXPECT().UpdateLogicalRouterPortOptions(lrpName, map[string]string{
-			"dynamic-routing-maintain-vrf": "true",
-		}).Return(nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeController := newFakeController(t)
+			ctrl := fakeController.fakeController
+			mockOvnClient := fakeController.mockOvnClient
+			ctrl.config.ExternalGatewaySwitch = "external204"
 
-		require.NoError(t, ctrl.reconcileVpcDynamicRoutingLrpOptions(vpc))
-	})
+			mockOvnClient.EXPECT().ListLogicalRouterPorts(map[string]string{"lr": "test-vpc-dr"}, nil).Return(routerPorts, nil)
+			for lrpName, options := range tt.want {
+				mockOvnClient.EXPECT().UpdateLogicalRouterPortOptions(lrpName, options).Return(nil)
+			}
 
-	t.Run("maintain vrf cleared when dynamic routing disabled", func(t *testing.T) {
-		fakeController := newFakeController(t)
-		ctrl := fakeController.fakeController
-		mockOvnClient := fakeController.mockOvnClient
-		ctrl.config.ExternalGatewaySwitch = "external204"
-
-		vpc := &kubeovnv1.Vpc{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-dr"},
-			Spec:       kubeovnv1.VpcSpec{EnableExternal: true},
-		}
-
-		lrpName := "test-vpc-dr-external204"
-		mockOvnClient.EXPECT().GetLogicalRouterPort(lrpName, true).Return(&ovnnb.LogicalRouterPort{Name: lrpName}, nil)
-		mockOvnClient.EXPECT().UpdateLogicalRouterPortOptions(lrpName, map[string]string{
-			"dynamic-routing-maintain-vrf": "",
-		}).Return(nil)
-
-		require.NoError(t, ctrl.reconcileVpcDynamicRoutingLrpOptions(vpc))
-	})
-
-	t.Run("missing lrp is skipped", func(t *testing.T) {
-		fakeController := newFakeController(t)
-		ctrl := fakeController.fakeController
-		mockOvnClient := fakeController.mockOvnClient
-		ctrl.config.ExternalGatewaySwitch = "external204"
-
-		vpc := &kubeovnv1.Vpc{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-dr"},
-			Spec:       kubeovnv1.VpcSpec{EnableExternal: true},
-		}
-
-		mockOvnClient.EXPECT().GetLogicalRouterPort("test-vpc-dr-external204", true).Return(nil, nil)
-
-		require.NoError(t, ctrl.reconcileVpcDynamicRoutingLrpOptions(vpc))
-	})
+			require.NoError(t, ctrl.reconcileVpcDynamicRoutingLrpOptions(newVpc(tt.dr)))
+		})
+	}
 }
 
 func Test_enqueueUpdateVpc_dynamicRouting(t *testing.T) {

@@ -1179,13 +1179,6 @@ func (c *Controller) createVpcRouter(vpc *kubeovnv1.Vpc, learnFromARPRequest boo
 	}
 	if dr := vpc.Spec.DynamicRouting; dr.IsEnabled() {
 		lrOptions["dynamic-routing"] = "true"
-		if len(dr.Redistribute) != 0 {
-			redistribute := make([]string, 0, len(dr.Redistribute))
-			for _, t := range dr.Redistribute {
-				redistribute = append(redistribute, string(t))
-			}
-			lrOptions["dynamic-routing-redistribute"] = strings.Join(redistribute, ",")
-		}
 		if dr.LocalOnly {
 			lrOptions["dynamic-routing-redistribute-local-only"] = "true"
 		}
@@ -1212,29 +1205,45 @@ func (c *Controller) deleteVpcRouter(lr string) error {
 	return c.OVNNbClient.DeleteLogicalRouter(lr)
 }
 
-// reconcileVpcDynamicRoutingLrpOptions sets or clears the dynamic-routing-maintain-vrf
-// option on the VPC's external gateway LRPs so that ovn-controller manages the VRF
-// on the gateway chassis when dynamic routing is enabled
-func (c *Controller) reconcileVpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc) error {
-	maintainVrf := ""
-	if dr := vpc.Spec.DynamicRouting; dr.IsEnabled() && dr.MaintainVrf {
-		maintainVrf = "true"
+func vpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc, externalGatewaySwitch, lrpName string) map[string]string {
+	options := map[string]string{
+		"dynamic-routing-maintain-vrf": "",
+		"dynamic-routing-redistribute": "",
 	}
 
-	for _, subnet := range vpcExternalSubnets(vpc, c.config.ExternalGatewaySwitch) {
-		lrpName := fmt.Sprintf("%s-%s", vpc.Name, subnet)
-		lrp, err := c.OVNNbClient.GetLogicalRouterPort(lrpName, true)
-		if err != nil {
-			klog.Error(err)
-			return err
+	dr := vpc.Spec.DynamicRouting
+	if !dr.IsEnabled() {
+		return options
+	}
+
+	subnet, ownedByVpc := strings.CutPrefix(lrpName, vpc.Name+"-")
+	if dr.MaintainVrf && ownedByVpc && slices.Contains(vpcExternalSubnets(vpc, externalGatewaySwitch), subnet) {
+		options["dynamic-routing-maintain-vrf"] = "true"
+	}
+
+	onVpcSubnet := ownedByVpc && slices.Contains(vpc.Status.Subnets, subnet)
+	redistribute := make([]string, 0, len(dr.Redistribute))
+	for _, t := range dr.Redistribute {
+		if onVpcSubnet || (t != kubeovnv1.RedistributeNAT && t != kubeovnv1.RedistributeLB) {
+			redistribute = append(redistribute, string(t))
 		}
-		if lrp == nil {
-			continue
-		}
-		if err = c.OVNNbClient.UpdateLogicalRouterPortOptions(lrpName, map[string]string{
-			"dynamic-routing-maintain-vrf": maintainVrf,
-		}); err != nil {
-			klog.Errorf("failed to update dynamic routing options of lrp %s: %v", lrpName, err)
+	}
+	options["dynamic-routing-redistribute"] = strings.Join(redistribute, ",")
+
+	return options
+}
+
+func (c *Controller) reconcileVpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc) error {
+	lrps, err := c.OVNNbClient.ListLogicalRouterPorts(map[string]string{logicalRouterKey: vpc.Name}, nil)
+	if err != nil {
+		klog.Errorf("failed to list logical router ports of vpc %s: %v", vpc.Name, err)
+		return err
+	}
+
+	for _, lrp := range lrps {
+		options := vpcDynamicRoutingLrpOptions(vpc, c.config.ExternalGatewaySwitch, lrp.Name)
+		if err := c.OVNNbClient.UpdateLogicalRouterPortOptions(lrp.Name, options); err != nil {
+			klog.Errorf("failed to update dynamic routing options of lrp %s: %v", lrp.Name, err)
 			return err
 		}
 	}
