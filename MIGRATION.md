@@ -38,6 +38,32 @@ workloads and creates their `fabric-` counterparts. The CR conversion
 before the upgrade and the CRD cleanup after it stay the steps of
 "Existing kube-ovn clusters" below.
 
+## Upgrading a fabric v1.0.0 release
+
+The v1.0.0 chart rendered fabric selector labels on `ovs-ovn` and
+`ovn-central`; v1.1.0 restored the kube-ovn ones (F26). A selector is
+immutable, so `helm upgrade` from v1.0.0 fails on those two objects
+after it has replaced the other workloads. Recover without a
+control-plane gap:
+
+```sh
+kubectl -n kube-system delete deploy ovn-central --cascade=orphan
+kubectl -n kube-system delete ds ovs-ovn --cascade=orphan
+helm upgrade kube-ovn oci://ghcr.io/cloudyfolks-labs/charts/fabric --version 1.1.1 -f values.yaml
+```
+
+The upgrade creates the two objects with the new selectors. The new
+`ovn-central` pods stay pending while the orphans hold the host
+ports; delete one orphan at a time and wait for the replacement to
+join the raft cluster. A new `ovs-ovn` pod starts next to its orphan
+and does not own the OVS daemons, so on each node delete the orphan
+and the new pod together and wait for the daemonset to recreate one
+pod. Finish with the orphaned ReplicaSet:
+
+```sh
+kubectl -n kube-system delete rs -l app.kubernetes.io/part-of=fabric,app.kubernetes.io/name=ovn-central
+```
+
 ## Removed features
 
 fabric does not carry these kube-ovn features. If your cluster uses
