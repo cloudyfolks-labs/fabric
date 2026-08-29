@@ -532,6 +532,19 @@ true`, which the manual-FRR spec still exercises.
 - End-to-end: the agent failover spec locates the active chassis by
   the EIP route in table `vrfId`, checks the ToR keeps the EIP through
   the failover, and checks the withdrawal
+- End-to-end, the trigger of this finding: the multi-VPC isolation
+  spec binds two VPCs to the first gateway node and one to the second
+  by choosing VPC names under the controller's chassis order, fails the
+  first node over so the second holds all three tables, withdraws the
+  VPC native to the second node with `maintainVrf: false`, and asserts
+  the two moved VPCs keep their EIP on the ToR via their LRP from that
+  node while the withdrawn EIP disappears
+- End-to-end, the restart branch of the analysis: the ovs-ovn restart
+  spec deletes the ovs-ovn pod on the gateway node of one VPC and
+  asserts the EIP is back on the ToR within three minutes, that the
+  EIP of the VPC on the other gateway node never leaves the ToR during
+  the restart, and that a withdrawal after the restart still reaches
+  the ToR
 
 Analysis (2026-08-28), against OVN branch-25.03 as built into the
 `kubeovn/kube-ovn-base:v1.17.0` image (the image clones the branch at
@@ -720,7 +733,7 @@ import at all under the table-direct design of F11.
 
 ## F26 — The chart cannot upgrade a kube-ovn release in place
 
-**Open.** Found 2026-08-28 during a real migration.
+**Fixed.** Found 2026-08-28 during a real migration.
 
 The fabric chart keeps the `ovs-ovn` DaemonSet and `ovn-central`
 Deployment names but changes their selector labels
@@ -735,3 +748,15 @@ Fix: keep the kube-ovn selector labels on those two workloads, or
 document a two-step upgrade in MIGRATION.md with the exact deletion
 order (old CNI daemonsets first, then ovn-central, then ovs-ovn,
 then helm) and the expected control-plane gap.
+
+Status: the `ovs-ovn` and `ovs-ovn-dpdk` DaemonSets and the
+`ovn-central` Deployment carry the kube-ovn selectors again
+(`app.kubernetes.io/name: kube-ovn-ovs`, `kube-ovn-ovs-dpdk`,
+`ovn-central` with `app.kubernetes.io/part-of: kube-ovn`), the pod
+templates and the four ovn-central services match them, and a fresh
+install renders and lints with them. The upstream `kube-ovn-v2` chart
+and the fabric chart render byte-identical selectors for the three
+workloads, so `helm upgrade` patches them in place and only the
+renamed controller, cni, pinger and monitor workloads are replaced.
+`charts/fabric/tests/upgrade_selectors_test.yaml` pins the selectors
+for `helm unittest`. MIGRATION.md describes the in-place upgrade.
