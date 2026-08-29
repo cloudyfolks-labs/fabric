@@ -2,6 +2,7 @@ package frr
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -131,5 +132,42 @@ func TestLrpAddressFollowsTheSingleExternalSubnet(t *testing.T) {
 
 	if _, err = lrpAddress(eips, dynamicRoutingVpc("vpc-c", 1003)); err == nil {
 		t.Error("expected a vpc without a ready lrp to be rejected")
+	}
+}
+
+func TestLrpAddressFollowsTheNamedExternalSubnet(t *testing.T) {
+	eips := []*kubeovnv1.OvnEip{
+		lrpEip("vpc-a", "transit", "10.1.0.21"),
+		lrpEip("vpc-a", "services", "10.2.0.21"),
+		lrpEip("vpc-b", "external", "10.0.0.22"),
+	}
+	named := func(name string, subnet string, extra ...string) *kubeovnv1.Vpc {
+		vpc := dynamicRoutingVpc(name, 1001, extra...)
+		vpc.Spec.DynamicRouting.ExternalSubnet = subnet
+		return vpc
+	}
+
+	got, err := lrpAddress(eips, named("vpc-a", "transit", "services", "transit"))
+	if err != nil || got != "10.1.0.21" {
+		t.Errorf("expected the lrp of the named external subnet, got %q %v", got, err)
+	}
+
+	got, err = lrpAddress(eips, named("vpc-a", "services", "services", "transit"))
+	if err != nil || got != "10.2.0.21" {
+		t.Errorf("expected the lrp of the other named external subnet, got %q %v", got, err)
+	}
+
+	_, err = lrpAddress(eips, named("vpc-a", "missing", "services", "transit"))
+	if err == nil || !strings.Contains(err.Error(), "missing") {
+		t.Errorf("expected the missing named subnet to be reported, got %v", err)
+	}
+
+	_, err = lrpAddress(eips, named("vpc-b", "transit"))
+	if err == nil || !strings.Contains(err.Error(), "transit") {
+		t.Errorf("expected a named subnet without an lrp of the vpc to be reported, got %v", err)
+	}
+
+	if _, err = lrpAddress(eips, dynamicRoutingVpc("vpc-a", 1001, "services", "transit")); err == nil {
+		t.Error("expected two gateway lrps without a named external subnet to be rejected")
 	}
 }
