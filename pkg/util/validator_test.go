@@ -1720,7 +1720,53 @@ func TestValidateVpc(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "dynamic routing supports one external subnet, the BGP next hop is its LRP: extraExternalSubnets has 2 entries",
+			errMsg:  "dynamicRouting.externalSubnet must name the external subnet whose LRP is the BGP next hop: extraExternalSubnets has 2 entries",
+		},
+		{
+			name: "dynamic routing with two external subnets and the next hop subnet named",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					EnableExternal:       true,
+					ExtraExternalSubnets: []string{"transit-a", "transit-b"},
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:        true,
+						Redistribute:   []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:          1001,
+						ExternalSubnet: "transit-b",
+					},
+				},
+			},
+		},
+		{
+			name: "dynamic routing with the next hop subnet outside the external subnets",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					EnableExternal:       true,
+					ExtraExternalSubnets: []string{"transit-a", "transit-b"},
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:        true,
+						Redistribute:   []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:          1001,
+						ExternalSubnet: "services",
+					},
+				},
+			},
+			wantErr: true,
+			errMsg:  "dynamicRouting.externalSubnet services is not an external subnet of the VPC: extraExternalSubnets is [transit-a transit-b]",
+		},
+		{
+			name: "dynamic routing with the next hop subnet named and no extra external subnets",
+			vpc: &kubeovnv1.Vpc{
+				Spec: kubeovnv1.VpcSpec{
+					EnableExternal: true,
+					DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+						Enabled:        true,
+						Redistribute:   []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+						VrfID:          1001,
+						ExternalSubnet: "external",
+					},
+				},
+			},
 		},
 		{
 			name: "dynamic routing with one extra external subnet",

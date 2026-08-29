@@ -141,6 +141,13 @@ type VpcDynamicRouting struct {
 	// +kubebuilder:validation:Format=int64
 	// +kubebuilder:validation:XValidation:rule="self < 253 || self > 255",message="vrfId 253, 254 and 255 are reserved by the host routing tables"
 	VrfID uint32 `json:"vrfId,omitempty"`
+
+	// Name of the external subnet whose gateway LRP address is the BGP
+	// next hop of every advertised route. Required when the VPC has more
+	// than one external subnet. Must be one of the external subnets of
+	// the VPC: an entry of extraExternalSubnets, or the default external
+	// subnet when extraExternalSubnets is empty.
+	ExternalSubnet string `json:"externalSubnet,omitempty"`
 }
 
 func (r *VpcDynamicRouting) IsEnabled() bool {
