@@ -151,15 +151,20 @@ func (c *Controller) handleAddOvnSnatRule(key string) error {
 		klog.Error(err)
 		return err
 	}
+	gatewayPort, err := c.natGatewayPort(vpcName)
+	if err != nil {
+		klog.Errorf("failed to resolve nat gateway port for snat %s, %v", key, err)
+		return err
+	}
 	// about conflicts: if multi vpc snat use the same eip, if only one gw node exist, it may should work
 	if v4IpCidr != "" && v4Eip != "" {
-		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeSNAT, v4Eip, v4IpCidr, "", "", nil); err != nil {
+		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeSNAT, v4Eip, v4IpCidr, "", "", gatewayPort, nil); err != nil {
 			klog.Errorf("failed to create v4 snat, %v", err)
 			return err
 		}
 	}
 	if v6IpCidr != "" && v6Eip != "" {
-		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeSNAT, v6Eip, v6IpCidr, "", "", nil); err != nil {
+		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeSNAT, v6Eip, v6IpCidr, "", "", gatewayPort, nil); err != nil {
 			klog.Errorf("failed to create v6 snat, %v", err)
 			return err
 		}
@@ -330,6 +335,23 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 		err := fmt.Errorf("failed to update snat %s, v6 ip cidr changed", key)
 		klog.Error(err)
 		return err
+	}
+	gatewayPort, err := c.natGatewayPort(vpcName)
+	if err != nil {
+		klog.Errorf("failed to resolve nat gateway port for snat %s, %v", key, err)
+		return err
+	}
+	if v4IpCidr != "" && v4Eip != "" {
+		if err = c.OVNNbClient.EnsureNatGatewayPort(vpcName, ovnnb.NATTypeSNAT, v4Eip, v4IpCidr, gatewayPort); err != nil {
+			klog.Errorf("failed to set gateway port on v4 snat %s, %v", key, err)
+			return err
+		}
+	}
+	if v6IpCidr != "" && v6Eip != "" {
+		if err = c.OVNNbClient.EnsureNatGatewayPort(vpcName, ovnnb.NATTypeSNAT, v6Eip, v6IpCidr, gatewayPort); err != nil {
+			klog.Errorf("failed to set gateway port on v6 snat %s, %v", key, err)
+			return err
+		}
 	}
 	return nil
 }

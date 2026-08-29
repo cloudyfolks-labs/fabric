@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -8,8 +9,68 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
+
+func TestNatGatewayPort(t *testing.T) {
+	routedVpc := func(name string, routing *kubeovnv1.VpcDynamicRouting) *kubeovnv1.Vpc {
+		return &kubeovnv1.Vpc{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: kubeovnv1.VpcSpec{
+				ExtraExternalSubnets: []string{"transit", "services"},
+				DynamicRouting:       routing,
+			},
+		}
+	}
+
+	t.Run("routed vpc names the lrp of the external subnet", func(t *testing.T) {
+		vpc := routedVpc("vpc-a", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		require.NoError(t, err)
+		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-a-transit", false).Return(&ovnnb.LogicalRouterPort{UUID: "lrp-uuid"}, nil)
+
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-a")
+		require.NoError(t, err)
+		require.Equal(t, "lrp-uuid", gatewayPort)
+	})
+
+	t.Run("routed vpc without the lrp is retried", func(t *testing.T) {
+		vpc := routedVpc("vpc-b", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		require.NoError(t, err)
+		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-b-transit", false).Return(nil, errors.New("not found"))
+
+		_, err = fc.fakeController.natGatewayPort("vpc-b")
+		require.Error(t, err)
+	})
+
+	t.Run("routed vpc without a named external subnet leaves the choice to northd", func(t *testing.T) {
+		vpc := routedVpc("vpc-c", &kubeovnv1.VpcDynamicRouting{Enabled: true})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		require.NoError(t, err)
+
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-c")
+		require.NoError(t, err)
+		require.Empty(t, gatewayPort)
+	})
+
+	t.Run("vpc without dynamic routing leaves the choice to northd", func(t *testing.T) {
+		vpc := routedVpc("vpc-d", nil)
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		require.NoError(t, err)
+
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-d")
+		require.NoError(t, err)
+		require.Empty(t, gatewayPort)
+	})
+
+	t.Run("missing vpc is an error", func(t *testing.T) {
+		fc := newFakeController(t)
+		_, err := fc.fakeController.natGatewayPort("vpc-e")
+		require.Error(t, err)
+	})
+}
 
 func Test_getOvnEipNat(t *testing.T) {
 	// NAT rules always carry an eip_v4_ip label, so a pure-IPv6 rule still has

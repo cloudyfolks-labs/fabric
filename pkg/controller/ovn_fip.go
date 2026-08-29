@@ -194,35 +194,15 @@ func (c *Controller) handleAddOvnFip(key string) error {
 	// ovn add fip
 	stateless := cachedFip.Spec.Type == kubeovnv1.GWDistributedType
 	options := map[string]string{"stateless": strconv.FormatBool(stateless)}
-
-	// support v4:v4
-	if v4IP != "" && v4Eip != "" {
-		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeDNATAndSNAT, v4Eip, v4IP, mac, cachedFip.Spec.IPName, options); err != nil {
-			klog.Errorf("failed to create v4:v4 fip, %v", err)
-			return err
-		}
+	gatewayPort, err := c.natGatewayPort(vpcName)
+	if err != nil {
+		klog.Errorf("failed to resolve nat gateway port for fip %s, %v", key, err)
+		return err
 	}
 
-	// support v6:v6
-	if v6IP != "" && v6Eip != "" {
-		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeDNATAndSNAT, v6Eip, v6IP, mac, cachedFip.Spec.IPName, options); err != nil {
-			klog.Errorf("failed to create v6:v6 fip, %v", err)
-			return err
-		}
-	}
-
-	// support v4:v6
-	if v4IP != "" && v6IP == "" && v4Eip == "" && v6Eip != "" {
-		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeDNATAndSNAT, v6Eip, v4IP, mac, cachedFip.Spec.IPName, options); err != nil {
-			klog.Errorf("failed to create v4:v6 fip, %v", err)
-			return err
-		}
-	}
-
-	// support v6:v4
-	if v6IP != "" && v4IP == "" && v6Eip == "" && v4Eip != "" {
-		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeDNATAndSNAT, v4Eip, v6IP, mac, cachedFip.Spec.IPName, options); err != nil {
-			klog.Errorf("failed to create v6:v4 fip, %v", err)
+	for _, nat := range ovnFipNats(v4Eip, v6Eip, v4IP, v6IP) {
+		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeDNATAndSNAT, nat.externalIP, nat.logicalIP, mac, cachedFip.Spec.IPName, gatewayPort, options); err != nil {
+			klog.Errorf("failed to create fip %s -> %s, %v", nat.externalIP, nat.logicalIP, err)
 			return err
 		}
 	}
@@ -404,7 +384,43 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 		klog.Error(err)
 		return err
 	}
+	gatewayPort, err := c.natGatewayPort(vpcName)
+	if err != nil {
+		klog.Errorf("failed to resolve nat gateway port for fip %s, %v", key, err)
+		return err
+	}
+	for _, nat := range ovnFipNats(v4Eip, v6Eip, v4IP, v6IP) {
+		if err = c.OVNNbClient.EnsureNatGatewayPort(vpcName, ovnnb.NATTypeDNATAndSNAT, nat.externalIP, nat.logicalIP, gatewayPort); err != nil {
+			klog.Errorf("failed to set gateway port on fip %s -> %s, %v", nat.externalIP, nat.logicalIP, err)
+			return err
+		}
+	}
 	return nil
+}
+
+type ovnFipNat struct {
+	externalIP string
+	logicalIP  string
+}
+
+// ovnFipNats returns the dnat_and_snat pairs of a fip: one per address
+// family that has both an external and an internal address, or the single
+// cross-family pair when each side has only one family.
+func ovnFipNats(v4Eip, v6Eip, v4IP, v6IP string) []ovnFipNat {
+	var nats []ovnFipNat
+	if v4IP != "" && v4Eip != "" {
+		nats = append(nats, ovnFipNat{externalIP: v4Eip, logicalIP: v4IP})
+	}
+	if v6IP != "" && v6Eip != "" {
+		nats = append(nats, ovnFipNat{externalIP: v6Eip, logicalIP: v6IP})
+	}
+	if v4IP != "" && v6IP == "" && v4Eip == "" && v6Eip != "" {
+		nats = append(nats, ovnFipNat{externalIP: v6Eip, logicalIP: v4IP})
+	}
+	if v6IP != "" && v4IP == "" && v6Eip == "" && v4Eip != "" {
+		nats = append(nats, ovnFipNat{externalIP: v4Eip, logicalIP: v6IP})
+	}
+	return nats
 }
 
 func (c *Controller) handleDelOvnFip(key string) error {
