@@ -821,3 +821,29 @@ the placement.
   before the fix and green after it, with the watcher showing the
   tables holding one EIP each through the restart
 
+## F28 — A v1.0.0 release cannot upgrade to v1.1.x in place
+
+**Open.** Found 2026-08-29 during the first upgrade of a v1.0.0 cluster.
+
+The F26 fix restored the kube-ovn selector labels on `ovs-ovn` and
+`ovn-central` in v1.1.0. A cluster installed with the v1.0.0 chart
+carries the fabric selectors (`app.kubernetes.io/name: fabric-ovs`,
+`app.kubernetes.io/part-of: fabric`) on those two objects, so
+`helm upgrade` to v1.1.x fails on the same immutable field, after it
+has already replaced the controller, cni, pinger and monitor
+workloads. The release is left `failed` with mixed images.
+
+Workaround, verified with no control-plane gap: delete the two
+objects with `--cascade=orphan`, run the upgrade again, then replace
+the orphaned pods node by node. Each new `ovs-ovn` pod finds the OVS
+daemons of the orphan already running and does not own them, so the
+orphan and the new pod on a node are deleted together and the
+daemonset recreates one pod that starts OVS itself. The orphaned
+`ovn-central` ReplicaSet keeps creating pending pods and is deleted
+last. MIGRATION.md carries the procedure.
+
+Fix: the chart should detect the selectors of an existing release
+and render the same ones, or the v1.0.0 selectors should be the
+documented exception with this procedure. A selector change on a
+workload that owns the datapath must never ship again in a minor.
+
