@@ -30,7 +30,6 @@ spec:
         {{- with .Values.agent.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        # Legacy labels
         app: fabric-cni
         component: network
         type: infra

@@ -532,6 +532,19 @@ true`, which the manual-FRR spec still exercises.
 - End-to-end: the agent failover spec locates the active chassis by
   the EIP route in table `vrfId`, checks the ToR keeps the EIP through
   the failover, and checks the withdrawal
+- End-to-end, the trigger of this finding: the multi-VPC isolation
+  spec binds two VPCs to the first gateway node and one to the second
+  by choosing VPC names under the controller's chassis order, fails the
+  first node over so the second holds all three tables, withdraws the
+  VPC native to the second node with `maintainVrf: false`, and asserts
+  the two moved VPCs keep their EIP on the ToR via their LRP from that
+  node while the withdrawn EIP disappears
+- End-to-end, the restart branch of the analysis: the ovs-ovn restart
+  spec deletes the ovs-ovn pod on the gateway node of one VPC and
+  asserts the EIP is back on the ToR within three minutes, that the
+  EIP of the VPC on the other gateway node never leaves the ToR during
+  the restart, and that a withdrawal after the restart still reaches
+  the ToR
 
 Analysis (2026-08-28), against OVN branch-25.03 as built into the
 `kubeovn/kube-ovn-base:v1.17.0` image (the image clones the branch at
@@ -720,7 +733,7 @@ import at all under the table-direct design of F11.
 
 ## F26 — The chart cannot upgrade a kube-ovn release in place
 
-**Open.** Found 2026-08-28 during a real migration.
+**Fixed.** Found 2026-08-28 during a real migration.
 
 The fabric chart keeps the `ovs-ovn` DaemonSet and `ovn-central`
 Deployment names but changes their selector labels
@@ -735,3 +748,76 @@ Fix: keep the kube-ovn selector labels on those two workloads, or
 document a two-step upgrade in MIGRATION.md with the exact deletion
 order (old CNI daemonsets first, then ovn-central, then ovs-ovn,
 then helm) and the expected control-plane gap.
+
+Status: the `ovs-ovn` and `ovs-ovn-dpdk` DaemonSets and the
+`ovn-central` Deployment carry the kube-ovn selectors again
+(`app.kubernetes.io/name: kube-ovn-ovs`, `kube-ovn-ovs-dpdk`,
+`ovn-central` with `app.kubernetes.io/part-of: kube-ovn`), the pod
+templates and the four ovn-central services match them, and a fresh
+install renders and lints with them. The upstream `kube-ovn-v2` chart
+and the fabric chart render byte-identical selectors for the three
+workloads, so `helm upgrade` patches them in place and only the
+renamed controller, cni, pinger and monitor workloads are replaced.
+`charts/fabric/tests/upgrade_selectors_test.yaml` pins the selectors
+for `helm unittest`. MIGRATION.md describes the in-place upgrade.
+
+## F27 — A gateway node that loses one VPC withdraws the EIPs of the others
+
+**Fixed.** Found 2026-08-29 by the ovs-ovn restart spec on the local
+rig, before the spec first passed.
+
+Two VPCs, wa bound to the first gateway node and wb to the second.
+The ovs-ovn pod on the first node was deleted. Four seconds later
+ovn-controller on the second node claimed the gateway port of wa, one
+second after that the restarted controller took it back, and the ToR
+lost the EIP of wb, which had not moved. A half-second watcher on the
+rig showed why. While the second node held both ports, its kernel
+tables 1201 and 1202 each carried both EIPs. Releasing wa flushed
+table 1201 there, and the ToR dropped the EIP of wb at the same tick
+although table 1202 still held it. Nothing re-announced it.
+
+Two upstream behaviours combine:
+
+- northd `build_nat_connected_routes` and `build_lb_connected_routes`
+  (`northd/en-advertised-route-sync.c`, branch-25.03) advertise,
+  through every LRP that carries the `nat` or `lb` mode, the NAT
+  addresses and VIPs of every router on the peer logical switch of
+  that LRP, tracked by the gateway port of the owning router. fabric
+  set the modes on the logical router, so the external gateway LRP on
+  the shared external switch carried them, and the Advertised_Route
+  set of every VPC held the EIPs of every other VPC. ovn-controller
+  (`controller/route.c`) programs such a route on a chassis where the
+  tracked port is local, so a gateway node that binds two VPCs writes
+  both EIPs into both tables.
+- FRR bgpd keys redistributed routes by prefix and type only.
+  `bgp_redistribute_delete` (`bgpd/bgp_route.c`, stable/10.7) matches
+  `pi->peer == bgp->peer_self && pi->type == type` and ignores the
+  instance, so a delete from `table-direct` 1201 removes the path that
+  `table-direct` 1202 still holds.
+
+A production gateway node binds several VPCs, so every failover or
+withdrawal on a node withdrew the EIPs of the other VPCs bound to it
+until their own tables changed. This is the symptom F19 recorded with
+three VPCs on one node.
+
+Fix: the controller no longer sets `dynamic-routing-redistribute` on
+the logical router. It sets the option per LRP. `nat` and `lb` go on
+the LRPs of the subnets of the VPC, whose peer switch has no other
+router. `static` and `connected` go on every LRP. A table now holds
+only the EIPs of its own VPC, so a flush of one table never touches a
+prefix that another table holds. `docs/dynamic-routing.md` records
+the placement.
+
+- Commits: `9cbc7e3b0`
+- Tests: `Test_reconcileVpcDynamicRoutingLrpOptions` asserts the
+  subnet LRP gets `nat,lb,static`, the external and peer LRPs get
+  `static`, a nat-only VPC leaves the external LRP without the option,
+  and a disabled VPC clears every LRP; `Test_createVpcRouter_dynamicRouting`
+  asserts the router carries no redistribute option
+- End-to-end: the ovs-ovn restart spec asserts the EIP of the VPC on
+  the other gateway node never leaves the ToR during the restart, and
+  the isolation spec asserts every table on the surviving node holds
+  only its own EIP after the failover. Both were red on the local rig
+  before the fix and green after it, with the watcher showing the
+  tables holding one EIP each through the restart
+

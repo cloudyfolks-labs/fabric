@@ -32,7 +32,7 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: ovn-central
-      app.kubernetes.io/part-of: fabric
+      app.kubernetes.io/part-of: kube-ovn
   template:
     metadata:
       {{- with .Values.central.podAnnotations }}
@@ -41,11 +41,10 @@ spec:
       {{- end }}
       labels:
         app.kubernetes.io/name: ovn-central
-        app.kubernetes.io/part-of: fabric
+        app.kubernetes.io/part-of: kube-ovn
         {{- with .Values.central.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        # Legacy labels
         app: ovn-central
         component: network
         type: infra
@@ -238,7 +237,7 @@ spec:
         name: ovn-data
         labels:
           app.kubernetes.io/name: ovn-central
-          app.kubernetes.io/part-of: fabric
+          app.kubernetes.io/part-of: kube-ovn
           app: ovn-central
       spec:
         accessModes:

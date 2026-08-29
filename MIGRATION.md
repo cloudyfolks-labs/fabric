@@ -26,14 +26,17 @@ its DNSNameResolver objects; fabric does not read them.
 
 ## Upgrading a running kube-ovn release
 
-`helm upgrade` over an existing kube-ovn release fails on `ovs-ovn` and
-`ovn-central`: fabric changes their immutable selector labels (F26 in
-FINDINGS.md). Apply the fabric CRDs and the converted resources, then
-delete the `kube-ovn-cni` and `kube-ovn-pinger` daemonsets, scale
-`ovn-central` to zero, delete the `ovs-ovn` daemonset and the
-`ovn-central` deployment, and run the upgrade. Between the deletion and
-the new pods the datapath has no controller and no OVN databases, so
-keep that gap as short as the upgrade command itself.
+`helm upgrade` over an existing kube-ovn release patches `ovs-ovn` and
+`ovn-central` in place. Both keep the kube-ovn selector labels, so no
+object needs deletion first. The `ovs-ovn` pods roll to the fabric
+image one node at a time: the chart selects `RollingUpdate` for an
+existing daemonset whose image is 1.12.0 or newer. `ovn-central` rolls
+with `maxUnavailable: 1`, so a three-replica cluster keeps its raft
+quorum. The same upgrade deletes the `kube-ovn-cni`,
+`kube-ovn-controller`, `kube-ovn-pinger` and `kube-ovn-monitor`
+workloads and creates their `fabric-` counterparts. The CR conversion
+before the upgrade and the CRD cleanup after it stay the steps of
+"Existing kube-ovn clusters" below.
 
 ## Removed features
 

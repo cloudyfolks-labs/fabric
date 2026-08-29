@@ -36,7 +36,6 @@ spec:
         {{- with .Values.monitor.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        # Legacy labels
         app: fabric-monitor
         component: network
         type: infra

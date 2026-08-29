@@ -46,6 +46,24 @@ Egress traffic of a VPC follows the static routes of the VPC through
 the external subnet gateway. A VPC that needs a route to a fabric
 prefix declares it in `spec.staticRoutes`.
 
+## Where each redistribute mode lands
+
+The controller does not set `dynamic-routing-redistribute` on the
+logical router. It sets the option on each LRP of the router. The
+`nat` and `lb` modes go on the LRPs of the subnets of the VPC. The
+`static` and `connected` modes go on every LRP, the external gateway
+LRP included. A VPC that carries no subnet therefore advertises no
+EIP and no VIP.
+
+northd advertises through an LRP that carries the `nat` or `lb` mode
+the NAT addresses and the load balancer VIPs of every router that
+shares the peer logical switch with that LRP, so the external gateway
+LRP of a VPC would carry the EIPs of every other VPC on the shared
+external switch. FRR keeps one BGP route per prefix across all
+`table-direct` tables, so a prefix that two tables hold leaves BGP as
+soon as either table is flushed, and a gateway node that loses one VPC
+would withdraw the EIPs of the other.
+
 ## VRF devices and `maintainVrf`
 
 Leave `maintainVrf` at its default, `false`, on a VPC that the agent

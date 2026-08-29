@@ -1,0 +1,117 @@
+suite: Immutable selectors carried over from kube-ovn
+templates:
+  - ovs-ovn/ovs-ovn-daemonset.yaml
+  - ovs-ovn/ovs-ovn-dpdk-daemonset.yaml
+  - central/central-deployment.yaml
+  - central/central-service.yaml
+  - central/northbound-service.yaml
+  - central/southbound-service.yaml
+  - central/northd-service.yaml
+tests:
+  - it: keeps the kube-ovn selector on the ovs-ovn daemonset
+    template: ovs-ovn/ovs-ovn-daemonset.yaml
+    set:
+      masterNodes:
+        - "10.0.0.1"
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: kube-ovn-ovs
+            app.kubernetes.io/part-of: kube-ovn
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/name"]
+          value: kube-ovn-ovs
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
+          value: kube-ovn
+
+  - it: keeps the kube-ovn selector on the ovs-ovn-dpdk daemonset
+    template: ovs-ovn/ovs-ovn-dpdk-daemonset.yaml
+    set:
+      masterNodes:
+        - "10.0.0.1"
+      ovsOvn.dpdkHybrid.enabled: true
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: kube-ovn-ovs-dpdk
+            app.kubernetes.io/part-of: kube-ovn
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/name"]
+          value: kube-ovn-ovs-dpdk
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
+          value: kube-ovn
+
+  - it: keeps the kube-ovn selector on the ovn-central deployment
+    template: central/central-deployment.yaml
+    set:
+      masterNodes:
+        - "10.0.0.1"
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: ovn-central
+            app.kubernetes.io/part-of: kube-ovn
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/name"]
+          value: ovn-central
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
+          value: kube-ovn
+
+  - it: keeps the kube-ovn selector on the ovn-central statefulset and its claims
+    template: central/central-deployment.yaml
+    set:
+      masterNodes:
+        - "10.0.0.1"
+      central.hcp.enabled: true
+      central.hcp.nbAddress: "1.2.3.4"
+      central.hcp.sbAddress: "1.2.3.4"
+      central.hcp.namespace: hcp
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - equal:
+          path: spec.selector.matchLabels
+          value:
+            app.kubernetes.io/name: ovn-central
+            app.kubernetes.io/part-of: kube-ovn
+      - equal:
+          path: spec.volumeClaimTemplates[0].metadata.labels["app.kubernetes.io/part-of"]
+          value: kube-ovn
+
+  - it: points the leader services at the ovn-central pods
+    templates:
+      - central/northbound-service.yaml
+      - central/southbound-service.yaml
+      - central/northd-service.yaml
+    set:
+      masterNodes:
+        - "10.0.0.1"
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: ovn-central
+      - equal:
+          path: spec.selector["app.kubernetes.io/part-of"]
+          value: kube-ovn
+
+  - it: points the headless HCP service at the ovn-central pods
+    template: central/central-service.yaml
+    set:
+      masterNodes:
+        - "10.0.0.1"
+      central.hcp.enabled: true
+      central.hcp.nbAddress: "1.2.3.4"
+      central.hcp.sbAddress: "1.2.3.4"
+      central.hcp.namespace: hcp
+    asserts:
+      - equal:
+          path: spec.selector
+          value:
+            app.kubernetes.io/name: ovn-central
+            app.kubernetes.io/part-of: kube-ovn

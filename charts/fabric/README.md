@@ -73,7 +73,7 @@ require workload recreation.
 | fabric-monitor | `app: fabric-monitor` | `app.kubernetes.io/name: fabric-monitor` |
 | fabric-controller | `app: fabric-controller` | `app.kubernetes.io/name: fabric-controller` |
 | ovn-central | `app: ovn-central` | `app.kubernetes.io/name: ovn-central` |
-| ovs-ovn | `app: ovs` | `app.kubernetes.io/name: fabric-ovs` |
+| ovs-ovn | `app: ovs` | `app.kubernetes.io/name: kube-ovn-ovs` |
 | fabric-cni | `app: fabric-cni` | `app.kubernetes.io/name: fabric-cni` |
 
 > **Note:** The fabric-cni component is called **agent** in the v2 chart templates (`templates/agent/`).
