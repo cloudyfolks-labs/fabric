@@ -135,7 +135,7 @@ var _ = framework.SerialDescribe("[group:vpc-dynamic-routing]", func() {
 
 		topo := setupTopology(f, 1)
 		gwNodeName := topo.gwNodeNames[0]
-		w := setupVpcWorkload(f, topo, vrfName, vrfID, true, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
+		w := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), vrfName, vrfID, true, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
 
 		var gwNode kind.Node
 		for _, node := range topo.kindNodes {
@@ -254,7 +254,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 2)
-		w := setupVpcWorkload(f, topo, agentVrfName, agentVrfID, false, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
+		w := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), agentVrfName, agentVrfID, false, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
 		deployAgent(f, topo)
 
 		ginkgo.By("Verifying ToR learns the EIP with the LRP as next hop")
@@ -346,7 +346,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 1)
-		w := setupVpcWorkload(f, topo, lbVrfName, lbVrfID, false, framework.RandomCIDR(f.ClusterIPFamily), "",
+		w := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), lbVrfName, lbVrfID, false, framework.RandomCIDR(f.ClusterIPFamily), "",
 			[]apiv1.RedistributeType{apiv1.RedistributeNAT, apiv1.RedistributeLB})
 		deployAgent(f, topo)
 
@@ -461,9 +461,9 @@ ip protocol bgp route-map OVN-NO-FIB
 		sharedCIDR := "10.100.0.0/24"
 		sharedPodIP := "10.100.0.100"
 		static := []apiv1.RedistributeType{apiv1.RedistributeStatic}
-		wa := setupVpcWorkload(f, topo, "ovnvrf1101", 1101, false, sharedCIDR, sharedPodIP, static)
-		wb := setupVpcWorkload(f, topo, "ovnvrf1102", 1102, false, sharedCIDR, sharedPodIP, static)
-		wc := setupVpcWorkload(f, topo, "ovnvrf1103", 1103, false, "10.200.0.0/24", "", static)
+		wa := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), "ovnvrf1101", 1101, false, sharedCIDR, sharedPodIP, static)
+		wb := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), "ovnvrf1102", 1102, false, sharedCIDR, sharedPodIP, static)
+		wc := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), "ovnvrf1103", 1103, false, "10.200.0.0/24", "", static)
 
 		for _, w := range []*drWorkload{wa, wb, wc} {
 			ginkgo.By("Adding per-EIP static route for VPC " + w.vpcName)
@@ -766,7 +766,7 @@ router bgp %d
 	}
 }
 
-func setupVpcWorkload(f *framework.Framework, topo *drTopology, vrf string, tableID uint32, maintainVrf bool, cidr, podIP string, redistribute []apiv1.RedistributeType) *drWorkload {
+func setupVpcWorkload(f *framework.Framework, topo *drTopology, vpcName, vrf string, tableID uint32, maintainVrf bool, cidr, podIP string, redistribute []apiv1.RedistributeType) *drWorkload {
 	ginkgo.GinkgoHelper()
 
 	namespaceName := f.Namespace.Name
@@ -776,9 +776,8 @@ func setupVpcWorkload(f *framework.Framework, topo *drTopology, vrf string, tabl
 	ovnFipClient := f.OvnFipClient()
 	podClient := f.PodClient()
 
-	w := &drWorkload{vrfName: vrf, tableID: tableID}
+	w := &drWorkload{vpcName: vpcName, vrfName: vrf, tableID: tableID}
 
-	w.vpcName = "vpc-" + framework.RandomSuffix()
 	ginkgo.By("Creating VPC " + w.vpcName + " with dynamic routing enabled")
 	vpc := &apiv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: w.vpcName},
