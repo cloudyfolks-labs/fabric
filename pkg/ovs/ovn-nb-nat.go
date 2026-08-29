@@ -16,7 +16,10 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
 
-func (c *OVNNbClient) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port string, options map[string]string) error {
+// AddNat creates a nat rule on the logical router. A non-empty gatewayPort
+// is the UUID of the logical router port that the rule names as gateway_port;
+// an existing snat rule is updated to carry it.
+func (c *OVNNbClient) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort string, options map[string]string) error {
 	// The logical_port and external_mac are only accepted
 	// when router is a distributed router (rather than a gateway router)
 	// and type is dnat_and_snat. The logical_port is the name
@@ -29,10 +32,11 @@ func (c *OVNNbClient) AddNat(lrName, natType, externalIP, logicalIP, logicalMac,
 	// All packets transmitted with source IP address equal to external_ip will be sent using the external_mac.
 
 	if natType == ovnnb.NATTypeDNATAndSNAT {
-		return c.addOrUpdateDnatAndSnat(lrName, externalIP, logicalIP, logicalMac, port, options)
+		return c.addOrUpdateDnatAndSnat(lrName, externalIP, logicalIP, logicalMac, port, gatewayPort, options)
 	}
 
 	nat, err := c.newNat(lrName, natType, externalIP, logicalIP, logicalMac, port, func(nat *ovnnb.NAT) {
+		setNatGatewayPort(nat, gatewayPort)
 		if len(options) == 0 {
 			return
 		}
@@ -45,15 +49,50 @@ func (c *OVNNbClient) AddNat(lrName, natType, externalIP, logicalIP, logicalMac,
 		klog.Errorf("failed to new nat: %v", err)
 		return err
 	}
+	if nat == nil {
+		return c.EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort)
+	}
 
 	return c.CreateNats(lrName, nat)
+}
+
+// EnsureNatGatewayPort sets gateway_port on an existing nat rule to the UUID
+// gatewayPort. An empty gatewayPort or a missing rule leaves the database
+// unchanged.
+func (c *OVNNbClient) EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort string) error {
+	if gatewayPort == "" {
+		return nil
+	}
+
+	nat, err := c.GetNat(lrName, natType, externalIP, logicalIP, true)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	if nat == nil || (nat.GatewayPort != nil && *nat.GatewayPort == gatewayPort) {
+		return nil
+	}
+
+	nat.GatewayPort = &gatewayPort
+	if err = c.UpdateNat(nat, &nat.GatewayPort); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("set gateway port %s on nat 'type %s external ip %s logical ip %s' of logical router %s: %w", gatewayPort, natType, externalIP, logicalIP, lrName, err)
+	}
+
+	return nil
+}
+
+func setNatGatewayPort(nat *ovnnb.NAT, gatewayPort string) {
+	if gatewayPort != "" {
+		nat.GatewayPort = &gatewayPort
+	}
 }
 
 // addOrUpdateDnatAndSnat is the robust path for dnat_and_snat.
 // On EIP primary-pod swap we do a broad Delete (by externalIP) + fresh
 // Create. This avoids libovsdb cache staleness. We bypass newNat to skip
 // the stale "found, ignore".
-func (c *OVNNbClient) addOrUpdateDnatAndSnat(lrName, externalIP, logicalIP, logicalMac, port string, options map[string]string) error {
+func (c *OVNNbClient) addOrUpdateDnatAndSnat(lrName, externalIP, logicalIP, logicalMac, port, gatewayPort string, options map[string]string) error {
 	if externalIP == "" {
 		err := fmt.Errorf("external ip is required when nat type is %s", ovnnb.NATTypeDNATAndSNAT)
 		klog.Error(err)
@@ -79,13 +118,14 @@ func (c *OVNNbClient) addOrUpdateDnatAndSnat(lrName, externalIP, logicalIP, logi
 	if port != "" {
 		nat.LogicalPort = &port
 	}
+	setNatGatewayPort(nat, gatewayPort)
 	if len(options) > 0 {
 		nat.Options = make(map[string]string, len(options))
 		maps.Copy(nat.Options, options)
 	}
 
-	klog.V(2).Infof("installing dnat_and_snat external_ip=%s logical_ip=%s logical_port=%s",
-		externalIP, logicalIP, port)
+	klog.V(2).Infof("installing dnat_and_snat external_ip=%s logical_ip=%s logical_port=%s gateway_port=%s",
+		externalIP, logicalIP, port, gatewayPort)
 	return c.CreateNats(lrName, nat)
 }
 

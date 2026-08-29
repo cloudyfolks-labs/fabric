@@ -3070,17 +3070,17 @@ func (m *MockNAT) EXPECT() *MockNATMockRecorder {
 }
 
 // AddNat mocks base method.
-func (m *MockNAT) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port string, options map[string]string) error {
+func (m *MockNAT) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort string, options map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddNat", lrName, natType, externalIP, logicalIP, logicalMac, port, options)
+	ret := m.ctrl.Call(m, "AddNat", lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddNat indicates an expected call of AddNat.
-func (mr *MockNATMockRecorder) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port, options any) *gomock.Call {
+func (mr *MockNATMockRecorder) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort, options any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNat", reflect.TypeOf((*MockNAT)(nil).AddNat), lrName, natType, externalIP, logicalIP, logicalMac, port, options)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNat", reflect.TypeOf((*MockNAT)(nil).AddNat), lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort, options)
 }
 
 // DeleteNat mocks base method.
@@ -3109,6 +3109,20 @@ func (m *MockNAT) DeleteNats(lrName, natType, logicalIP string) error {
 func (mr *MockNATMockRecorder) DeleteNats(lrName, natType, logicalIP any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNats", reflect.TypeOf((*MockNAT)(nil).DeleteNats), lrName, natType, logicalIP)
+}
+
+// EnsureNatGatewayPort mocks base method.
+func (m *MockNAT) EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureNatGatewayPort", lrName, natType, externalIP, logicalIP, gatewayPort)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureNatGatewayPort indicates an expected call of EnsureNatGatewayPort.
+func (mr *MockNATMockRecorder) EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureNatGatewayPort", reflect.TypeOf((*MockNAT)(nil).EnsureNatGatewayPort), lrName, natType, externalIP, logicalIP, gatewayPort)
 }
 
 // EnsureSnat mocks base method.
@@ -3453,17 +3467,17 @@ func (mr *MockNbClientMockRecorder) AddLogicalRouterStaticRoute(lrName, routeTab
 }
 
 // AddNat mocks base method.
-func (m *MockNbClient) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port string, options map[string]string) error {
+func (m *MockNbClient) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort string, options map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddNat", lrName, natType, externalIP, logicalIP, logicalMac, port, options)
+	ret := m.ctrl.Call(m, "AddNat", lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddNat indicates an expected call of AddNat.
-func (mr *MockNbClientMockRecorder) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port, options any) *gomock.Call {
+func (mr *MockNbClientMockRecorder) AddNat(lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort, options any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNat", reflect.TypeOf((*MockNbClient)(nil).AddNat), lrName, natType, externalIP, logicalIP, logicalMac, port, options)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNat", reflect.TypeOf((*MockNbClient)(nil).AddNat), lrName, natType, externalIP, logicalIP, logicalMac, port, gatewayPort, options)
 }
 
 // AddressSetUpdateAddress mocks base method.
@@ -4520,6 +4534,20 @@ func (m *MockNbClient) EnsureDNSZone(zone string, records map[string]string) (st
 func (mr *MockNbClientMockRecorder) EnsureDNSZone(zone, records any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDNSZone", reflect.TypeOf((*MockNbClient)(nil).EnsureDNSZone), zone, records)
+}
+
+// EnsureNatGatewayPort mocks base method.
+func (m *MockNbClient) EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureNatGatewayPort", lrName, natType, externalIP, logicalIP, gatewayPort)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureNatGatewayPort indicates an expected call of EnsureNatGatewayPort.
+func (mr *MockNbClientMockRecorder) EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureNatGatewayPort", reflect.TypeOf((*MockNbClient)(nil).EnsureNatGatewayPort), lrName, natType, externalIP, logicalIP, gatewayPort)
 }
 
 // EnsureSnat mocks base method.
