@@ -32,11 +32,15 @@ a load balancer pool with `announce: bgp`, and the CIDR of every subnet
 that a `nat` type OvnEip draws from. The pool and EIP subnets enter the
 prefix-list as `ge 32 le 32`, so only host routes leave the chassis.
 
-A VPC with dynamic routing has exactly one external subnet: the
-default external subnet, or one entry in `spec.extraExternalSubnets`.
-The controller rejects more entries. The agent takes the LRP of that
-subnet as the BGP next hop and skips a VPC that carries more than one
-gateway LRP.
+A VPC with dynamic routing and one external subnet, the default
+external subnet or one entry in `spec.extraExternalSubnets`, advertises
+through the LRP of that subnet. A VPC with more than one entry in
+`spec.extraExternalSubnets` names the subnet whose LRP is the BGP next
+hop in `spec.dynamicRouting.externalSubnet`. The controller rejects
+more than one entry without that field, and rejects a field value that
+is not one of the entries. The agent takes the LRP of the named subnet
+and skips the VPC with a warning when that LRP has no ready OvnEip, or
+when no subnet is named and the VPC carries more than one gateway LRP.
 
 `vrfId` must be at or below 65535. That is the highest table id
 `table-direct` addresses. The controller rejects a higher value.

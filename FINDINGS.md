@@ -679,7 +679,9 @@ non-empty. Until then a migration needs `enableExternal: false`, then
 than one entry in `extraExternalSubnets`. `lrpAddress` takes the LRP
 of the single extra subnet when one is set, and otherwise requires
 exactly one gateway LRP; a VPC with more is skipped with a warning
-instead of advertising through the first name.
+instead of advertising through the first name. F29 adds
+`dynamicRouting.externalSubnet`, which names the next hop subnet of a
+VPC with more than one external subnet.
 
 - Commits: `e9885ef33`
 - Tests: `TestValidateVpc` rejects two extra subnets and accepts one;
@@ -847,3 +849,36 @@ and render the same ones, or the v1.0.0 selectors should be the
 documented exception with this procedure. A selector change on a
 workload that owns the datapath must never ship again in a minor.
 
+## F29 — Dynamic routing skips a VPC with a second external subnet
+
+**Fixed.** Found 2026-08-29 on a cluster where a VPC carries a transit
+subnet, whose LRP is the BGP next hop, and a second external subnet
+for an internal services plane, both in `extraExternalSubnets`.
+
+The F23 rule made `lrpAddress` refuse a VPC with two gateway LRPs, so
+the fabric-frr agent logged `2 gateway lrps, dynamic routing needs
+exactly one external subnet` and advertised nothing for the VPC. The
+webhook was not in the path of that cluster, so `ValidateVpc` did not
+reject the VPC either. A VPC with more than one external subnet is a
+legitimate layout, and the strict rule left it without a way to say
+which LRP is the next hop.
+
+Fix: `spec.dynamicRouting.externalSubnet` names the external subnet
+whose LRP is the BGP next hop. `lrpAddress` takes the LRP OvnEip of
+that subnet when the field is set and reports the subnet name when the
+EIP is not ready; without the field the F23 behaviour is unchanged.
+`ValidateVpc` requires the field when `extraExternalSubnets` has more
+than one entry, and rejects a value that is not one of the entries.
+With no extras the only external subnet is the default one, whose name
+is a controller flag the validator does not see, so a wrong value
+there surfaces as the agent warning.
+
+- Commits: `759f2a1ed`, `317929f31`
+- Tests: `TestLrpAddressFollowsTheNamedExternalSubnet` asserts the
+  named subnet wins over the other extra subnet in both orders, a
+  named subnet without a ready LRP is reported by name, and two LRPs
+  without the field are still rejected;
+  `TestLrpAddressFollowsTheSingleExternalSubnet` keeps the F23 cases;
+  `TestValidateVpc` accepts two extras with the field naming one of
+  them, rejects the field naming a subnet outside the extras, accepts
+  the field with no extras and keeps rejecting two extras without it
