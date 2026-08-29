@@ -10,7 +10,7 @@ global:
   images:
     fabric:
       repository: fabric
-      tag: v1.1.2
+      tag: v1.1.3
 
 # -- Image configuration.
 # @section -- Global parameters
@@ -555,7 +555,7 @@ ovsOvn:
       pullPolicy: ""
     # -- DPDK image tag.
     # @section -- OVS/OVN daemons configuration
-    tag: v1.1.2
+    tag: v1.1.3
     # -- Affinity for the ovs-ovn-dpdk DaemonSet.
     # @section -- OVS/OVN daemons configuration
     affinity: {}
