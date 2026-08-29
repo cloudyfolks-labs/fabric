@@ -50,6 +50,27 @@ Egress traffic of a VPC follows the static routes of the VPC through
 the external subnet gateway. A VPC that needs a route to a fabric
 prefix declares it in `spec.staticRoutes`.
 
+## NAT gateway ports
+
+A VPC with `spec.dynamicRouting.externalSubnet` carries one distributed
+gateway LRP per external subnet. northd resolves the gateway port of a
+NAT rule that names none by the LRP whose network holds the external
+IP of the rule. An EIP of a routed VPC is drawn from a pool subnet that
+is not attached to the router, so no LRP network holds it, and northd
+marks the rule invalid: it renders no NAT flows and no `Advertised_Route`
+row for it, and logs `Unable to determine gateway_port for NAT with
+external_ip`.
+
+The controller therefore writes `gateway_port` on every `dnat_and_snat`
+row of an OvnFip and every `snat` row of an OvnSnatRule of such a VPC.
+The value is the LRP `<vpc>-<externalSubnet>`, the same LRP that
+carries the BGP next hop. The controller requeues the rule until that
+LRP exists, and sets the column on an existing row at the next
+reconcile of the rule. An OvnDnatRule is a load balancer, not a NAT
+row, and needs no gateway port. A VPC without dynamic routing, or
+without `externalSubnet`, keeps `gateway_port` empty and leaves the
+choice to northd.
+
 ## Where each redistribute mode lands
 
 The controller does not set `dynamic-routing-redistribute` on the
