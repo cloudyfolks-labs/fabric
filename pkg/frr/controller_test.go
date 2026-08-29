@@ -141,7 +141,7 @@ func TestLrpAddressFollowsTheNamedExternalSubnet(t *testing.T) {
 		lrpEip("vpc-a", "services", "10.2.0.21"),
 		lrpEip("vpc-b", "external", "10.0.0.22"),
 	}
-	named := func(name string, subnet string, extra ...string) *kubeovnv1.Vpc {
+	named := func(name, subnet string, extra ...string) *kubeovnv1.Vpc {
 		vpc := dynamicRoutingVpc(name, 1001, extra...)
 		vpc.Spec.DynamicRouting.ExternalSubnet = subnet
 		return vpc
