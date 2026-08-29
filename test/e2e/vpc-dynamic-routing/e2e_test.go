@@ -461,9 +461,10 @@ ip protocol bgp route-map OVN-NO-FIB
 		sharedCIDR := "10.100.0.0/24"
 		sharedPodIP := "10.100.0.100"
 		static := []apiv1.RedistributeType{apiv1.RedistributeStatic}
-		wa := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), "ovnvrf1101", 1101, false, sharedCIDR, sharedPodIP, static)
-		wb := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), "ovnvrf1102", 1102, false, sharedCIDR, sharedPodIP, static)
-		wc := setupVpcWorkload(f, topo, "vpc-"+framework.RandomSuffix(), "ovnvrf1103", 1103, false, "10.200.0.0/24", "", static)
+		fromNode, toNode := topo.gwNodeNames[0], topo.gwNodeNames[1]
+		wa := setupVpcWorkload(f, topo, vpcNameBoundTo(f, topo, fromNode), "ovnvrf1101", 1101, false, sharedCIDR, sharedPodIP, static)
+		wb := setupVpcWorkload(f, topo, vpcNameBoundTo(f, topo, fromNode), "ovnvrf1102", 1102, false, sharedCIDR, sharedPodIP, static)
+		wc := setupVpcWorkload(f, topo, vpcNameBoundTo(f, topo, toNode), "ovnvrf1103", 1103, false, "10.200.0.0/24", "", static)
 
 		for _, w := range []*drWorkload{wa, wb, wc} {
 			ginkgo.By("Adding per-EIP static route for VPC " + w.vpcName)
@@ -495,6 +496,13 @@ ip protocol bgp route-map OVN-NO-FIB
 				return strings.Contains(nodeTableRoutes(topo, node, w.tableID), w.eipV4), nil
 			}, "VPC "+w.vpcName+" table holds its own EIP on the binding chassis")
 		}
+
+		layout := fmt.Sprintf("intended layout: %s and %s bind %s, %s binds %s",
+			wa.vpcName, wb.vpcName, fromNode, wc.vpcName, toNode)
+		ginkgo.By("Verifying the discovered bindings match the intended layout")
+		framework.ExpectEqual(bindings[wa.vpcName], fromNode, layout)
+		framework.ExpectEqual(bindings[wb.vpcName], fromNode, layout)
+		framework.ExpectEqual(bindings[wc.vpcName], toNode, layout)
 		for _, w := range []*drWorkload{wa, wb, wc} {
 			routes := nodeTableRoutes(topo, bindings[w.vpcName], w.tableID)
 			for _, other := range []*drWorkload{wa, wb, wc} {
@@ -534,83 +542,62 @@ ip protocol bgp route-map OVN-NO-FIB
 			waitTorLearnsEip(topo, w)
 		}
 
-		ginkgo.By("Failing over the chassis that hosts " + wa.vpcName)
-		fromNode := bindings[wa.vpcName]
-		framework.ExpectNotEmpty(fromNode)
-		var toNode string
-		for _, gwName := range topo.gwNodeNames {
-			if gwName != fromNode {
-				toNode = gwName
-			}
-		}
-		var moved, kept []*drWorkload
-		for _, w := range []*drWorkload{wa, wb, wc} {
-			if bindings[w.vpcName] == fromNode {
-				moved = append(moved, w)
-			} else {
-				kept = append(kept, w)
-			}
-		}
-		movedVpcs := make([]string, 0, len(moved))
-		for _, w := range moved {
-			movedVpcs = append(movedVpcs, w.vpcName)
-		}
-		failOverGatewayNode(f, topo, movedVpcs, fromNode)
+		ginkgo.By("Failing over " + fromNode + ", the chassis of " + wa.vpcName + " and " + wb.vpcName)
+		failOverGatewayNode(f, topo, []string{wa.vpcName, wb.vpcName}, fromNode)
 
-		ginkgo.By("Verifying every VPC keeps its own path after the failover")
-		var toNodeExec kind.Node
-		for _, node := range topo.kindNodes {
-			if node.Name() == toNode {
-				toNodeExec = node
-			}
-		}
-		for _, w := range moved {
+		ginkgo.By("Verifying " + wa.vpcName + " and " + wb.vpcName + " are advertised from " + toNode)
+		for _, w := range []*drWorkload{wa, wb} {
 			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
-				stdout, _, err := toNodeExec.Exec("ip", "route", "show", "table", "all")
-				if err != nil {
-					return false, nil
-				}
-				return strings.Contains(string(stdout), w.eipV4), nil
-			}, "EIP of "+w.vpcName+" advertised from the surviving chassis")
-		}
-		for _, w := range kept {
+				return strings.Contains(nodeTableRoutes(topo, toNode, w.tableID), w.eipV4), nil
+			}, "EIP of "+w.vpcName+" present in its own kernel table on "+toNode)
 			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
 				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
 				if err != nil {
 					return false, nil
 				}
-				return bgpPathFromPeer(string(stdout), topo.nodeIPMap[bindings[w.vpcName]]), nil
-			}, "EIP of "+w.vpcName+" must still be advertised from its original chassis")
+				return bgpPathFromPeer(string(stdout), topo.nodeIPMap[toNode]), nil
+			}, "ToR path for EIP of "+w.vpcName+" comes from "+toNode)
 		}
 
-		withdrawn := moved[0]
-		survivors := make([]*drWorkload, 0, 2)
-		for _, w := range []*drWorkload{wa, wb, wc} {
-			if w != withdrawn {
-				survivors = append(survivors, w)
+		ginkgo.By("Verifying " + wc.vpcName + " is still advertised from " + toNode)
+		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+wc.eipV4+"/32")
+			if err != nil {
+				return false, nil
 			}
-		}
-		ginkgo.By("Withdrawing VPC " + withdrawn.vpcName + " only")
-		setVpcStaticRoutes(f, withdrawn.vpcName, nil)
-		f.OvnFipClient().DeleteSync(withdrawn.fipName)
-		withdrawn.fipCreated = false
-		f.OvnEipClient().DeleteSync(withdrawn.eipName)
-		withdrawn.eipCreated = false
+			return bgpPathFromPeer(string(stdout), topo.nodeIPMap[toNode]), nil
+		}, "ToR path for EIP of "+wc.vpcName+" comes from "+toNode)
+
+		ginkgo.By("Withdrawing " + wc.vpcName + ", the VPC native to " + toNode)
+		setVpcStaticRoutes(f, wc.vpcName, nil)
+		f.OvnFipClient().DeleteSync(wc.fipName)
+		wc.fipCreated = false
+		f.OvnEipClient().DeleteSync(wc.eipName)
+		wc.eipCreated = false
 		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
 			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
 			if err != nil {
 				return false, nil
 			}
-			return !strings.Contains(string(stdout), withdrawn.eipV4+"/32"), nil
-		}, "EIP of "+withdrawn.vpcName+" withdrawn on ToR")
-		for _, w := range survivors {
+			return !strings.Contains(string(stdout), wc.eipV4+"/32"), nil
+		}, "EIP of "+wc.vpcName+" withdrawn on ToR")
+
+		ginkgo.By("Verifying " + wa.vpcName + " and " + wb.vpcName + " keep their path after the withdrawal")
+		for _, w := range []*drWorkload{wa, wb} {
 			framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
 				stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
 				if err != nil {
 					return false, nil
 				}
-				return strings.Contains(string(stdout), w.eipV4+"/32"), nil
-			}, "EIP of "+w.vpcName+" must survive the withdrawal of "+withdrawn.vpcName)
+				if !strings.Contains(string(stdout), w.eipV4+"/32") || !strings.Contains(string(stdout), "via "+w.lrpIP) {
+					return false, nil
+				}
+				stdout, _, err = docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+w.eipV4+"/32")
+				if err != nil {
+					return false, nil
+				}
+				return bgpPathFromPeer(string(stdout), topo.nodeIPMap[toNode]), nil
+			}, "EIP of "+w.vpcName+" stays on the ToR from "+toNode+" after "+wc.vpcName+" is withdrawn")
 		}
 	})
 })
@@ -1080,6 +1067,33 @@ func eipStaticRoute(w *drWorkload, topo *drTopology) *apiv1.StaticRoute {
 		CIDR:      w.eipV4 + "/32",
 		NextHopIP: topo.externalGateway,
 	}
+}
+
+func vpcNameBoundTo(f *framework.Framework, topo *drTopology, nodeName string) string {
+	ginkgo.GinkgoHelper()
+
+	chassises := make([]string, 0, len(topo.gwNodeNames))
+	var target string
+	for _, gwName := range topo.gwNodeNames {
+		chassis := chassisOfNode(f, gwName)
+		chassises = append(chassises, chassis)
+		if gwName == nodeName {
+			target = chassis
+		}
+	}
+	framework.ExpectNotEmpty(target, "node "+nodeName+" must be an external gateway node")
+
+	const candidates = 100
+	for range candidates {
+		name := "vpc-" + framework.RandomSuffix()
+		if !slices.ContainsFunc(chassises, func(chassis string) bool {
+			return util.Sha256Hash([]byte(name+chassis)) < util.Sha256Hash([]byte(name+target))
+		}) {
+			return name
+		}
+	}
+	framework.Failf("none of %d candidate names binds the gateway chassis of node %s", candidates, nodeName)
+	return ""
 }
 
 func bindingNode(topo *drTopology, w *drWorkload) string {
