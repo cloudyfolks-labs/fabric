@@ -135,7 +135,7 @@ var _ = framework.SerialDescribe("[group:vpc-dynamic-routing]", func() {
 
 		topo := setupTopology(f, 1)
 		gwNodeName := topo.gwNodeNames[0]
-		w := setupVpcWorkload(f, topo, vrfName, vrfID, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
+		w := setupVpcWorkload(f, topo, vrfName, vrfID, true, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
 
 		var gwNode kind.Node
 		for _, node := range topo.kindNodes {
@@ -254,7 +254,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 2)
-		w := setupVpcWorkload(f, topo, agentVrfName, agentVrfID, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
+		w := setupVpcWorkload(f, topo, agentVrfName, agentVrfID, false, framework.RandomCIDR(f.ClusterIPFamily), "", []apiv1.RedistributeType{apiv1.RedistributeNAT})
 		deployAgent(f, topo)
 
 		ginkgo.By("Verifying ToR learns the EIP with the LRP as next hop")
@@ -289,26 +289,23 @@ ip protocol bgp route-map OVN-NO-FIB
 		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
 			activeName, standbyName = "", ""
 			for _, gwName := range topo.gwNodeNames {
-				node := nodeByName[gwName]
-				if _, _, err := node.Exec("ip", "link", "show", agentVrfName); err == nil {
+				if strings.Contains(nodeTableRoutes(topo, gwName, w.tableID), w.eipV4) {
 					activeName = gwName
 				} else {
 					standbyName = gwName
 				}
 			}
 			return activeName != "", nil
-		}, "one gateway chassis holds the VRF")
+		}, "one gateway chassis holds the EIP route in the VPC table")
 		framework.Logf("active chassis: %s, standby chassis: %s", activeName, standbyName)
 		activeNode := nodeByName[activeName]
 
-		ginkgo.By("Verifying the fabric route is learned into the VRF kernel table")
-		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
-			stdout, _, err := activeNode.Exec("ip", "route", "show", "vrf", agentVrfName)
-			if err != nil {
-				return false, nil
-			}
-			return strings.Contains(string(stdout), remoteLoopbackIP), nil
-		}, "fabric route learned into the VRF kernel table by the agent configuration")
+		ginkgo.By("Routing the fabric loopback " + remoteLoopbackIP + " through the ToR")
+		setVpcStaticRoutes(f, w.vpcName, []*apiv1.StaticRoute{{
+			Policy:    apiv1.PolicyDst,
+			CIDR:      remoteLoopbackIP + "/32",
+			NextHopIP: topo.torIP,
+		}})
 
 		ginkgo.By("Testing egress connectivity from workload pod to fabric loopback " + remoteLoopbackIP)
 		framework.WaitUntil(3*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
@@ -318,7 +315,7 @@ ip protocol bgp route-map OVN-NO-FIB
 				return false, nil
 			}
 			return strings.Contains(output, " 0% packet loss"), nil
-		}, "workload pod reaches the fabric loopback through the learned route")
+		}, "workload pod reaches the fabric loopback and the reply follows the advertised EIP route")
 
 		if standbyName != "" {
 			standbyNode := nodeByName[standbyName]
@@ -326,14 +323,13 @@ ip protocol bgp route-map OVN-NO-FIB
 			ginkgo.By("Taking the external gateway label off " + activeNode.Name())
 			failOverGatewayNode(f, topo, []string{w.vpcName}, activeNode.Name())
 
-			ginkgo.By("Verifying the VRF and routes move to " + standbyNode.Name())
+			ginkgo.By("Verifying the routes move to " + standbyNode.Name())
 			framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
-				stdout, _, err := standbyNode.Exec("ip", "route", "show", "vrf", agentVrfName)
-				if err != nil {
-					return false, nil
-				}
-				return strings.Contains(string(stdout), w.eipV4), nil
+				return strings.Contains(nodeTableRoutes(topo, standbyNode.Name(), w.tableID), w.eipV4), nil
 			}, "advertised route mirrored on the standby chassis")
+
+			ginkgo.By("Verifying the ToR keeps the EIP through the failover")
+			waitTorLearnsEip(topo, w)
 
 		}
 
@@ -350,7 +346,7 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		topo := setupTopology(f, 1)
-		w := setupVpcWorkload(f, topo, lbVrfName, lbVrfID, framework.RandomCIDR(f.ClusterIPFamily), "",
+		w := setupVpcWorkload(f, topo, lbVrfName, lbVrfID, false, framework.RandomCIDR(f.ClusterIPFamily), "",
 			[]apiv1.RedistributeType{apiv1.RedistributeNAT, apiv1.RedistributeLB})
 		deployAgent(f, topo)
 
@@ -465,9 +461,9 @@ ip protocol bgp route-map OVN-NO-FIB
 		sharedCIDR := "10.100.0.0/24"
 		sharedPodIP := "10.100.0.100"
 		static := []apiv1.RedistributeType{apiv1.RedistributeStatic}
-		wa := setupVpcWorkload(f, topo, "ovnvrf1101", 1101, sharedCIDR, sharedPodIP, static)
-		wb := setupVpcWorkload(f, topo, "ovnvrf1102", 1102, sharedCIDR, sharedPodIP, static)
-		wc := setupVpcWorkload(f, topo, "ovnvrf1103", 1103, "10.200.0.0/24", "", static)
+		wa := setupVpcWorkload(f, topo, "ovnvrf1101", 1101, false, sharedCIDR, sharedPodIP, static)
+		wb := setupVpcWorkload(f, topo, "ovnvrf1102", 1102, false, sharedCIDR, sharedPodIP, static)
+		wc := setupVpcWorkload(f, topo, "ovnvrf1103", 1103, false, "10.200.0.0/24", "", static)
 
 		for _, w := range []*drWorkload{wa, wb, wc} {
 			ginkgo.By("Adding per-EIP static route for VPC " + w.vpcName)
@@ -770,7 +766,7 @@ router bgp %d
 	}
 }
 
-func setupVpcWorkload(f *framework.Framework, topo *drTopology, vrf string, tableID uint32, cidr, podIP string, redistribute []apiv1.RedistributeType) *drWorkload {
+func setupVpcWorkload(f *framework.Framework, topo *drTopology, vrf string, tableID uint32, maintainVrf bool, cidr, podIP string, redistribute []apiv1.RedistributeType) *drWorkload {
 	ginkgo.GinkgoHelper()
 
 	namespaceName := f.Namespace.Name
@@ -792,7 +788,7 @@ func setupVpcWorkload(f *framework.Framework, topo *drTopology, vrf string, tabl
 				Enabled:      true,
 				Redistribute: redistribute,
 				LocalOnly:    true,
-				MaintainVrf:  true,
+				MaintainVrf:  maintainVrf,
 				VrfName:      vrf,
 				VrfID:        tableID,
 			},
@@ -1089,13 +1085,8 @@ func eipStaticRoute(w *drWorkload, topo *drTopology) *apiv1.StaticRoute {
 
 func bindingNode(topo *drTopology, w *drWorkload) string {
 	for _, gwName := range topo.gwNodeNames {
-		for _, node := range topo.kindNodes {
-			if node.Name() != gwName {
-				continue
-			}
-			if _, _, err := node.Exec("ip", "link", "show", w.vrfName); err == nil {
-				return gwName
-			}
+		if strings.Contains(nodeTableRoutes(topo, gwName, w.tableID), w.eipV4) {
+			return gwName
 		}
 	}
 	return ""

@@ -616,6 +616,9 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 		if !vpc.Spec.EnableExternal {
 			return errors.New("dynamic routing requires enableExternal: the VPC advertises through its external gateway LRP")
 		}
+		if len(vpc.Spec.ExtraExternalSubnets) > 1 {
+			return fmt.Errorf("dynamic routing supports one external subnet, the BGP next hop is its LRP: extraExternalSubnets has %d entries", len(vpc.Spec.ExtraExternalSubnets))
+		}
 		if len(dr.Redistribute) == 0 {
 			return errors.New("redistribute must be set explicitly when dynamic routing is enabled")
 		}
@@ -640,6 +643,9 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 		}
 		if dr.VrfID >= ReservedRoutingTableIDStart && dr.VrfID <= ReservedRoutingTableIDEnd {
 			return fmt.Errorf("vrfId %d is in the reserved linux routing table range %d-%d", dr.VrfID, ReservedRoutingTableIDStart, ReservedRoutingTableIDEnd)
+		}
+		if dr.VrfID > MaxTableDirectID {
+			return fmt.Errorf("vrfId %d is above %d: FRR redistributes the VRF table with table-direct, which addresses tables 1-%d", dr.VrfID, MaxTableDirectID, MaxTableDirectID)
 		}
 	}
 

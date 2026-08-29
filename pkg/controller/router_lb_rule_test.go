@@ -556,6 +556,54 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
+	t.Run("EIP from a bgp pool subnet needs no LRP when the VPC advertises lb", func(t *testing.T) {
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
+		vpc := makeVpc("vpc1", "vpc1-tcp-lb")
+		vpc.Spec.EnableExternal = true
+		vpc.Spec.DynamicRouting = &kubeovnv1.VpcDynamicRouting{
+			Enabled:      true,
+			VrfID:        1001,
+			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+		}
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
+			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
+			Vpcs:          []*kubeovnv1.Vpc{vpc},
+			LoadBalancerPools: []*kubeovnv1.LoadBalancerPool{{
+				ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"},
+				Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: kubeovnv1.LoadBalancerPoolAnnounceBGP},
+			}},
+		})
+		require.NoError(t, err)
+		fc.fakeController.config.EnableOvnLbSvc = true
+		fc.fakeController.config.EnableLb = true
+		fc.mockOvnClient.EXPECT().
+			LogicalRouterUpdateLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		require.NoError(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
+	})
+
+	t.Run("EIP from a bgp pool subnet returns error when the VPC does not advertise lb", func(t *testing.T) {
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
+			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
+			Vpcs:          []*kubeovnv1.Vpc{makeVpc("vpc1", "vpc1-tcp-lb")},
+			LoadBalancerPools: []*kubeovnv1.LoadBalancerPool{{
+				ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"},
+				Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: kubeovnv1.LoadBalancerPoolAnnounceBGP},
+			}},
+		})
+		require.NoError(t, err)
+		fc.fakeController.config.EnableOvnLbSvc = true
+		fc.fakeController.config.EnableLb = true
+
+		err = fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not advertise loadbalancer vips")
+	})
+
 	t.Run("port conflict with another RouterLBRule returns error", func(t *testing.T) {
 		// "rlr1" claims eip1:80; "existing-rlr" already owns eip1:80.
 		existing := makeRlr("existing-rlr", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})

@@ -355,13 +355,8 @@ func (c *Controller) handleAddOrUpdateRouterLBRule(key string) error {
 		klog.Error(err)
 		return err
 	}
-	// Verify the VPC router has an active LRP on the EIP's external subnet so that
-	// OVN installs ARP proxy flows for the LB VIP on the external network.
-	lrpEipName := fmt.Sprintf("%s-%s", rlr.Spec.Vpc, eip.Spec.ExternalSubnet)
-	lrpEip, err := c.ovnEipsLister.Get(lrpEipName)
-	if err != nil || !lrpEip.Status.Ready || lrpEip.Spec.Type != util.OvnEipTypeLRP {
-		err = fmt.Errorf("vpc %s has no ready LRP on external subnet %s: ensure spec.extraExternalSubnets contains it",
-			rlr.Spec.Vpc, eip.Spec.ExternalSubnet)
+	if msg := c.checkEipAnnouncePath(eip, rlr.Spec.Vpc); msg != "" {
+		err = fmt.Errorf("RouterLBRule %s: %s", key, msg)
 		klog.Error(err)
 		return err
 	}

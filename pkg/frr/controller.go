@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"slices"
 	"sort"
@@ -142,10 +143,7 @@ func (c *Controller) Run(ctx context.Context) error {
 
 	reassert := time.NewTicker(c.config.ReassertInterval)
 	defer reassert.Stop()
-	vrfPoll := time.NewTicker(2 * time.Second)
-	defer vrfPoll.Stop()
 
-	lastSignature := c.advertisementSignature()
 	c.requestReconcile()
 	for {
 		select {
@@ -157,11 +155,6 @@ func (c *Controller) Run(ctx context.Context) error {
 			c.reconcile()
 		case <-reassert.C:
 			c.reconcile()
-		case <-vrfPoll.C:
-			if signature := c.advertisementSignature(); signature != lastSignature {
-				lastSignature = signature
-				c.requestReconcile()
-			}
 		}
 	}
 }
@@ -299,17 +292,12 @@ func (c *Controller) desiredConfig() (string, error) {
 		return "", err
 	}
 
-	imports := make([]string, 0, len(vpcs))
-	for _, vpc := range vpcs {
-		imports = append(imports, vpc.VrfName)
-	}
-
-	poolEntries, err := c.collectPoolAdvertiseEntries()
+	hostRoutes, err := c.collectHostRouteEntries()
 	if err != nil {
 		return "", err
 	}
-	input := BuildRenderInput(conf, c.config.NodeName, routerID, vpcs, imports)
-	input.AdvertiseFilter = mergeAdvertiseEntries(input.AdvertiseFilter, poolEntries)
+	input := BuildRenderInput(conf, c.config.NodeName, routerID, vpcs)
+	input.AdvertiseFilter = mergeAdvertiseEntries(input.AdvertiseFilter, hostRoutes)
 	if err = ValidateRenderInput(input); err != nil {
 		return "", fmt.Errorf("invalid configuration from bgp-conf %s: %w", conf.Name, err)
 	}
@@ -354,7 +342,22 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ovn-eips: %w", err)
 	}
+	return vpcAdvertisements(vpcs, eips, netDevicePresent), nil
+}
 
+func netDevicePresent(name string) bool {
+	_, err := os.Stat("/sys/class/net/" + name)
+	return err == nil
+}
+
+func vrfDeviceName(dr *kubeovnv1.VpcDynamicRouting) string {
+	if dr.VrfName != "" {
+		return dr.VrfName
+	}
+	return fmt.Sprintf("ovnvrf%d", dr.VrfID)
+}
+
+func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip, devicePresent func(string) bool) []VpcAdvertisement {
 	result := make([]VpcAdvertisement, 0, len(vpcs))
 	for _, vpc := range vpcs {
 		dr := vpc.Spec.DynamicRouting
@@ -365,40 +368,63 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 			klog.Warningf("vpc %s has dynamic routing enabled without an explicit vrfId, skipping advertisement", vpc.Name)
 			continue
 		}
-		if !vrfPresent(vrfDeviceName(dr)) {
-			klog.V(3).Infof("vpc %s vrf is not present on this chassis, skipping advertisement", vpc.Name)
+		if device := vrfDeviceName(dr); devicePresent(device) {
+			klog.Warningf("vpc %s: vrf device %s owns table %d and FRR table-direct does not follow routes of a vrf table, set maintainVrf to false, skipping advertisement", vpc.Name, device, dr.VrfID)
 			continue
 		}
-		lrpIP := lrpAddress(eips, vpc.Name)
-		if lrpIP == "" {
-			klog.Warningf("vpc %s has no ready lrp ovn-eip, skipping advertisement", vpc.Name)
+		lrpIP, err := lrpAddress(eips, vpc)
+		if err != nil {
+			klog.Warningf("vpc %s: %v, skipping advertisement", vpc.Name, err)
 			continue
 		}
 		result = append(result, VpcAdvertisement{
 			VpcName: vpc.Name,
-			VrfName: vrfDeviceName(dr),
 			TableID: dr.VrfID,
 			LrpIP:   lrpIP,
 		})
 	}
-	return result, nil
+	return result
 }
 
-func (c *Controller) collectPoolAdvertiseEntries() ([]string, error) {
+func (c *Controller) collectHostRouteEntries() ([]string, error) {
 	pools, err := c.lbPoolLister.List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list loadbalancer-pools: %w", err)
 	}
-	entries := make([]string, 0, len(pools))
-	for _, pool := range pools {
-		if pool.Spec.Announce != kubeovnv1.LoadBalancerPoolAnnounceBGP {
-			continue
-		}
-		subnet, err := c.subnetLister.Get(pool.Spec.Subnet)
+	eips, err := c.ovnEipLister.List(labels.Everything())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ovn-eips: %w", err)
+	}
+	subnets := make([]*kubeovnv1.Subnet, 0)
+	for _, name := range advertisedSubnetNames(pools, eips) {
+		subnet, err := c.subnetLister.Get(name)
 		if err != nil {
-			klog.Warningf("loadbalancer-pool %s: subnet %s not found, skipping advertisement", pool.Name, pool.Spec.Subnet)
+			klog.Warningf("subnet %s not found, skipping its host routes in the advertise filter", name)
 			continue
 		}
+		subnets = append(subnets, subnet)
+	}
+	return hostRouteEntries(subnets), nil
+}
+
+func advertisedSubnetNames(pools []*kubeovnv1.LoadBalancerPool, eips []*kubeovnv1.OvnEip) []string {
+	names := make(map[string]struct{})
+	for _, pool := range pools {
+		if pool.Spec.Announce == kubeovnv1.LoadBalancerPoolAnnounceBGP {
+			names[pool.Spec.Subnet] = struct{}{}
+		}
+	}
+	for _, eip := range eips {
+		if eip.Spec.Type == util.OvnEipTypeNAT && eip.Spec.ExternalSubnet != "" {
+			names[eip.Spec.ExternalSubnet] = struct{}{}
+		}
+	}
+	return slices.Sorted(maps.Keys(names))
+}
+
+func hostRouteEntries(subnets []*kubeovnv1.Subnet) []string {
+	entries := make([]string, 0, len(subnets))
+	for _, subnet := range subnets {
 		for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
 			if cidr == "" || util.CheckProtocol(cidr) != kubeovnv1.ProtocolIPv4 {
 				continue
@@ -407,7 +433,7 @@ func (c *Controller) collectPoolAdvertiseEntries() ([]string, error) {
 		}
 	}
 	sort.Strings(entries)
-	return entries, nil
+	return entries
 }
 
 func mergeAdvertiseEntries(base, extra []string) []string {
@@ -420,56 +446,26 @@ func mergeAdvertiseEntries(base, extra []string) []string {
 	return merged
 }
 
-func vrfPresent(vrfName string) bool {
-	_, err := os.Stat("/sys/class/net/" + vrfName)
-	return err == nil
-}
-
-func vrfDeviceName(dr *kubeovnv1.VpcDynamicRouting) string {
-	if dr.VrfName != "" {
-		return dr.VrfName
-	}
-	return fmt.Sprintf("ovnvrf%d", dr.VrfID)
-}
-
-func (c *Controller) advertisementSignature() string {
-	vpcs, err := c.vpcLister.List(labels.Everything())
-	if err != nil {
-		return ""
-	}
-	names := make([]string, 0, len(vpcs))
-	for _, vpc := range vpcs {
-		dr := vpc.Spec.DynamicRouting
-		if !dr.IsEnabled() || dr.VrfID == 0 {
-			continue
-		}
-		if vrfPresent(vrfDeviceName(dr)) {
-			names = append(names, vpc.Name)
-		}
-	}
-	sort.Strings(names)
-	return strings.Join(names, ",")
-}
-
-func lrpAddress(eips []*kubeovnv1.OvnEip, vpcName string) string {
-	var names []string
-	byName := make(map[string]string)
+func lrpAddress(eips []*kubeovnv1.OvnEip, vpc *kubeovnv1.Vpc) (string, error) {
+	var candidates []string
 	for _, eip := range eips {
-		if eip.Spec.Type != util.OvnEipTypeLRP {
+		if eip.Spec.Type != util.OvnEipTypeLRP || eip.Spec.ExternalSubnet == "" || eip.Status.V4Ip == "" {
 			continue
 		}
-		if eip.Spec.ExternalSubnet == "" || eip.Name != vpcName+"-"+eip.Spec.ExternalSubnet {
+		if eip.Name != vpc.Name+"-"+eip.Spec.ExternalSubnet {
 			continue
 		}
-		if eip.Status.V4Ip == "" {
+		if len(vpc.Spec.ExtraExternalSubnets) == 1 && eip.Spec.ExternalSubnet != vpc.Spec.ExtraExternalSubnets[0] {
 			continue
 		}
-		names = append(names, eip.Name)
-		byName[eip.Name] = eip.Status.V4Ip
+		candidates = append(candidates, eip.Status.V4Ip)
 	}
-	if len(names) == 0 {
-		return ""
+	switch len(candidates) {
+	case 0:
+		return "", errors.New("no ready lrp ovn-eip on the external subnet")
+	case 1:
+		return candidates[0], nil
+	default:
+		return "", fmt.Errorf("%d gateway lrps, dynamic routing needs exactly one external subnet", len(candidates))
 	}
-	sort.Strings(names)
-	return byName[names[0]]
 }

@@ -595,77 +595,17 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 
 func (c *Controller) handleUpdateVpcExternal(vpc *kubeovnv1.Vpc, custVpcEnableExternalEcmp, defaultExternalSubnetExist bool, externalSubnetGW string) error {
 	if !vpc.Spec.EnableExternal && !vpc.Status.EnableExternal {
-		// no need to handle external connection
 		return nil
 	}
 
-	// handle any vpc external
 	if vpc.Spec.EnableExternal && !defaultExternalSubnetExist && vpc.Spec.ExtraExternalSubnets == nil {
-		// at least have a external subnet
 		err := fmt.Errorf("failed to get external subnet for enable external vpc %s", vpc.Name)
 		klog.Error(err)
 		return err
 	}
 
-	if !vpc.Spec.EnableExternal && vpc.Status.EnableExternal {
-		// just del all external subnets connection
-		klog.Infof("disconnect default external subnet %s to vpc %s", c.config.ExternalGatewaySwitch, vpc.Name)
-		if err := c.handleDelVpcExternalSubnet(vpc.Name, c.config.ExternalGatewaySwitch); err != nil {
-			klog.Errorf("failed to delete external subnet %s connection for vpc %s, error %v", c.config.ExternalGatewaySwitch, vpc.Name, err)
-			return err
-		}
-		for _, subnet := range vpc.Status.ExtraExternalSubnets {
-			klog.Infof("disconnect external subnet %s to vpc %s", subnet, vpc.Name)
-			if err := c.handleDelVpcExternalSubnet(vpc.Name, subnet); err != nil {
-				klog.Errorf("failed to delete external subnet %s connection for vpc %s, error %v", subnet, vpc.Name, err)
-				return err
-			}
-		}
-	}
-
-	if vpc.Spec.EnableExternal {
-		if !vpc.Status.EnableExternal {
-			// just add external connection
-			if vpc.Spec.ExtraExternalSubnets == nil && defaultExternalSubnetExist {
-				// only connect default external subnet
-				klog.Infof("connect default external subnet %s with vpc %s", c.config.ExternalGatewaySwitch, vpc.Name)
-				if err := c.handleAddVpcExternalSubnet(vpc.Name, c.config.ExternalGatewaySwitch); err != nil {
-					klog.Errorf("failed to add external subnet %s connection for vpc %s, error %v", c.config.ExternalGatewaySwitch, vpc.Name, err)
-					return err
-				}
-			}
-
-			// only connect provider network vlan external subnet
-			for _, subnet := range vpc.Spec.ExtraExternalSubnets {
-				klog.Infof("connect external subnet %s with vpc %s", subnet, vpc.Name)
-				if err := c.handleAddVpcExternalSubnet(vpc.Name, subnet); err != nil {
-					klog.Errorf("failed to add external subnet %s connection for vpc %s, error %v", subnet, vpc.Name, err)
-					return err
-				}
-			}
-		}
-
-		// diff to add
-		for _, subnet := range vpc.Spec.ExtraExternalSubnets {
-			if !slices.Contains(vpc.Status.ExtraExternalSubnets, subnet) {
-				klog.Infof("connect external subnet %s with vpc %s", subnet, vpc.Name)
-				if err := c.handleAddVpcExternalSubnet(vpc.Name, subnet); err != nil {
-					klog.Errorf("failed to add external subnet %s connection for vpc %s, error %v", subnet, vpc.Name, err)
-					return err
-				}
-			}
-		}
-
-		// diff to del
-		for _, subnet := range vpc.Status.ExtraExternalSubnets {
-			if !slices.Contains(vpc.Spec.ExtraExternalSubnets, subnet) {
-				klog.Infof("disconnect external subnet %s to vpc %s", subnet, vpc.Name)
-				if err := c.handleDelVpcExternalSubnet(vpc.Name, subnet); err != nil {
-					klog.Errorf("failed to delete external subnet %s connection for vpc %s, error %v", subnet, vpc.Name, err)
-					return err
-				}
-			}
-		}
+	if err := c.reconcileVpcExternalSubnetConnections(vpc, defaultExternalSubnetExist); err != nil {
+		return err
 	}
 
 	if err := c.reconcileVpcExternalGatewayChassis(vpc); err != nil {
@@ -1381,6 +1321,62 @@ func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *kubeovnv1.Vpc) erro
 		}
 	}
 	return nil
+}
+
+func (c *Controller) reconcileVpcExternalSubnetConnections(vpc *kubeovnv1.Vpc, defaultExternalSubnetExist bool) error {
+	defaultSubnet := c.config.ExternalGatewaySwitch
+	defaultConnected, err := c.OVNNbClient.LogicalRouterPortExists(fmt.Sprintf("%s-%s", vpc.Name, defaultSubnet))
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	connect, disconnect := planVpcExternalSubnetChanges(vpc, defaultSubnet, defaultExternalSubnetExist, defaultConnected)
+	for _, subnet := range disconnect {
+		klog.Infof("disconnect external subnet %s from vpc %s", subnet, vpc.Name)
+		if err := c.handleDelVpcExternalSubnet(vpc.Name, subnet); err != nil {
+			klog.Errorf("failed to delete external subnet %s connection for vpc %s, error %v", subnet, vpc.Name, err)
+			return err
+		}
+	}
+	for _, subnet := range connect {
+		klog.Infof("connect external subnet %s with vpc %s", subnet, vpc.Name)
+		if err := c.handleAddVpcExternalSubnet(vpc.Name, subnet); err != nil {
+			klog.Errorf("failed to add external subnet %s connection for vpc %s, error %v", subnet, vpc.Name, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func planVpcExternalSubnetChanges(vpc *kubeovnv1.Vpc, defaultSubnet string, defaultExists, defaultConnected bool) (connect, disconnect []string) {
+	wantDefault := vpc.Spec.EnableExternal && defaultExists && len(vpc.Spec.ExtraExternalSubnets) == 0
+	hadDefault := vpc.Status.EnableExternal && len(vpc.Status.ExtraExternalSubnets) == 0
+	if wantDefault && !hadDefault {
+		connect = append(connect, defaultSubnet)
+	}
+	if !wantDefault && defaultConnected {
+		disconnect = append(disconnect, defaultSubnet)
+	}
+
+	var wantExtra []string
+	if vpc.Spec.EnableExternal {
+		wantExtra = vpc.Spec.ExtraExternalSubnets
+	}
+	var haveExtra []string
+	if vpc.Status.EnableExternal {
+		haveExtra = vpc.Status.ExtraExternalSubnets
+	}
+	for _, subnet := range wantExtra {
+		if !slices.Contains(haveExtra, subnet) {
+			connect = append(connect, subnet)
+		}
+	}
+	for _, subnet := range haveExtra {
+		if !slices.Contains(wantExtra, subnet) {
+			disconnect = append(disconnect, subnet)
+		}
+	}
+	return connect, disconnect
 }
 
 func (c *Controller) handleAddVpcExternalSubnet(key, subnet string) error {

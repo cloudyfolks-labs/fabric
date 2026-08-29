@@ -35,49 +35,73 @@ func TestRenderFull(t *testing.T) {
 		HoldTime:        30,
 		KeepaliveTime:   10,
 		Vpcs: []VpcAdvertisement{
-			{VpcName: "vpc-b", VrfName: "ovnvrf1002", TableID: 1002, LrpIP: "172.19.0.24"},
-			{VpcName: "vpc-a", VrfName: "ovnvrf1001", TableID: 1001, LrpIP: "172.19.0.21"},
+			{VpcName: "vpc-b", TableID: 1002, LrpIP: "172.19.0.24"},
+			{VpcName: "vpc-a", TableID: 1001, LrpIP: "172.19.0.21"},
 		},
-		ImportVrfs: []string{"ovnvrf1002", "ovnvrf1001"},
 	}
-	config := Render(input)
+	want := `frr defaults traditional
+hostname node1
+!
+router bgp 65002
+ bgp router-id 172.19.0.2
+ no bgp ebgp-requires-policy
+ neighbor 172.19.0.4 remote-as 65001
+ neighbor 172.19.0.4 timers 10 30
+ neighbor 172.19.0.4 bfd
+ neighbor 172.19.0.5 remote-as 65003
+ neighbor 172.19.0.5 password secret
+ neighbor 172.19.0.5 timers 10 30
+ address-family ipv4 unicast
+  neighbor 172.19.0.4 activate
+  neighbor 172.19.0.4 route-map KUBE-OVN-OUT out
+  neighbor 172.19.0.5 activate
+  neighbor 172.19.0.5 route-map KUBE-OVN-OUT out
+  redistribute table-direct 1001 route-map KUBE-OVN-NH-vpc-a
+  redistribute table-direct 1002 route-map KUBE-OVN-NH-vpc-b
+ exit-address-family
+!
+route-map KUBE-OVN-NH-vpc-a permit 10
+ set ip next-hop 172.19.0.21
+exit
+!
+route-map KUBE-OVN-NH-vpc-b permit 10
+ set ip next-hop 172.19.0.24
+exit
+!
+ip prefix-list KUBE-OVN-ADVERTISE seq 5 permit 91.246.31.0/24 ge 32 le 32
+route-map KUBE-OVN-OUT permit 10
+ match ip address prefix-list KUBE-OVN-ADVERTISE
+exit
+!
+route-map KUBE-OVN-NO-FIB deny 10
+exit
+!
+ip protocol bgp route-map KUBE-OVN-NO-FIB
+`
+	if got := Render(input); got != want {
+		t.Errorf("rendered config differs from the expected shape\nwant:\n%s\ngot:\n%s", want, got)
+	}
+}
 
-	for _, want := range []string{
-		"router bgp 65002 vrf ovnvrf1001",
-		"router bgp 65002 vrf ovnvrf1002",
-		"  redistribute kernel route-map KUBE-OVN-NH-vpc-a",
-		"  redistribute kernel route-map KUBE-OVN-NH-vpc-b",
-		"  import vrf default",
-		" no bgp ebgp-requires-policy",
-		"router bgp 65002",
-		" bgp router-id 172.19.0.2",
-		" neighbor 172.19.0.4 remote-as 65001",
-		" neighbor 172.19.0.4 bfd",
-		" neighbor 172.19.0.5 remote-as 65003",
-		" neighbor 172.19.0.5 password secret",
-		" neighbor 172.19.0.4 timers 10 30",
-		"  neighbor 172.19.0.4 activate",
-		"  neighbor 172.19.0.4 route-map KUBE-OVN-OUT out",
-		"  import vrf ovnvrf1001",
-		"  import vrf ovnvrf1002",
-		"route-map KUBE-OVN-NH-vpc-a permit 10",
-		" set ip next-hop 172.19.0.21",
-		"ip prefix-list KUBE-OVN-ADVERTISE seq 5 permit 91.246.31.0/24 ge 32 le 32",
-		" match ip address prefix-list KUBE-OVN-ADVERTISE",
-		"route-map KUBE-OVN-NO-FIB deny 10",
-	} {
-		if !strings.Contains(config, want) {
-			t.Errorf("expected %q in config:\n%s", want, config)
+func TestRenderSingleBgpInstance(t *testing.T) {
+	config := Render(RenderInput{
+		NodeName:  "node1",
+		RouterID:  "10.0.0.1",
+		LocalASN:  65002,
+		Neighbors: []Neighbor{{Address: "10.0.0.9", ASN: 65001}},
+		Vpcs: []VpcAdvertisement{
+			{VpcName: "vpc-a", TableID: 1001, LrpIP: "10.0.0.21"},
+			{VpcName: "vpc-b", TableID: 1002, LrpIP: "10.0.0.22"},
+		},
+	})
+
+	if got := strings.Count(config, "router bgp "); got != 1 {
+		t.Errorf("expected exactly one bgp instance, got %d:\n%s", got, config)
+	}
+	for _, forbidden := range []string{" vrf ", "import vrf", "redistribute kernel"} {
+		if strings.Contains(config, forbidden) {
+			t.Errorf("expected no per-vrf instance or vrf import, found %q:\n%s", forbidden, config)
 		}
-	}
-
-	posA := strings.Index(config, "router bgp 65002 vrf ovnvrf1001")
-	posB := strings.Index(config, "router bgp 65002 vrf ovnvrf1002")
-	if posA > posB {
-		t.Errorf("expected vpc-a before vpc-b:\n%s", config)
-	}
-	if posMain := strings.Index(config, "router bgp 65002\n"); posMain < posB {
-		t.Errorf("expected vrf instances before the default instance:\n%s", config)
 	}
 }
 
@@ -100,42 +124,37 @@ func TestRenderDeterministic(t *testing.T) {
 	}
 }
 
-func TestRenderLearnsRoutesFromPeer(t *testing.T) {
+func TestRenderAcceptsRoutesFromPeer(t *testing.T) {
 	config := Render(RenderInput{
 		NodeName:  "node1",
 		RouterID:  "10.0.0.1",
 		LocalASN:  65002,
 		Neighbors: []Neighbor{{Address: "10.0.0.9", ASN: 65001}},
-		Vpcs: []VpcAdvertisement{
-			{VpcName: "vpc-a", VrfName: "ovnvrf1001", TableID: 1001, LrpIP: "10.0.0.21"},
-			{VpcName: "vpc-b", VrfName: "ovnvrf1002", TableID: 1002, LrpIP: "10.0.0.22"},
-		},
-		ImportVrfs: []string{"ovnvrf1001", "ovnvrf1002"},
+		Vpcs:      []VpcAdvertisement{{VpcName: "vpc-a", TableID: 1001, LrpIP: "10.0.0.21"}},
 	})
 
 	if !strings.Contains(config, " no bgp ebgp-requires-policy\n") {
 		t.Errorf("expected inbound prefixes to be permitted, got:\n%s", config)
 	}
-	if got := strings.Count(config, "  import vrf default\n"); got != 2 {
-		t.Errorf("expected each vrf instance to import the default vrf, got %d:\n%s", got, config)
+	if strings.Contains(config, "neighbor 10.0.0.9 route-map ") && strings.Contains(config, " in\n") {
+		t.Errorf("expected no inbound route-map, got:\n%s", config)
 	}
 }
 
 func TestRenderAdvertisesWithLrpNextHop(t *testing.T) {
 	config := Render(RenderInput{
-		NodeName:   "node1",
-		RouterID:   "10.0.0.1",
-		LocalASN:   65002,
-		Neighbors:  []Neighbor{{Address: "10.0.0.9", ASN: 65001}},
-		Vpcs:       []VpcAdvertisement{{VpcName: "vpc-a", VrfName: "ovnvrf1001", TableID: 1001, LrpIP: "10.0.0.21"}},
-		ImportVrfs: []string{"ovnvrf1001"},
+		NodeName:  "node1",
+		RouterID:  "10.0.0.1",
+		LocalASN:  65002,
+		Neighbors: []Neighbor{{Address: "10.0.0.9", ASN: 65001}},
+		Vpcs:      []VpcAdvertisement{{VpcName: "vpc-a", TableID: 1001, LrpIP: "10.0.0.21"}},
 	})
 
 	if strings.Contains(config, "network ") {
-		t.Errorf("expected no origin networks, every advertised prefix comes from the kernel table:\n%s", config)
+		t.Errorf("expected no origin networks, every advertised prefix comes from the vrf table:\n%s", config)
 	}
-	if !strings.Contains(config, "  redistribute kernel route-map KUBE-OVN-NH-vpc-a\n") {
-		t.Errorf("expected the kernel routes to carry the next-hop route-map:\n%s", config)
+	if !strings.Contains(config, "  redistribute table-direct 1001 route-map KUBE-OVN-NH-vpc-a\n") {
+		t.Errorf("expected the vrf table routes to carry the next-hop route-map:\n%s", config)
 	}
 	if !strings.Contains(config, "route-map KUBE-OVN-NH-vpc-a permit 10\n set ip next-hop 10.0.0.21\n") {
 		t.Errorf("expected the lrp address as next hop:\n%s", config)
@@ -174,7 +193,7 @@ func TestBuildRenderInput(t *testing.T) {
 			AdvertiseFilter: []string{"192.0.2.0/24 le 32"},
 		},
 	}
-	input := BuildRenderInput(conf, "node1", "10.0.0.1", nil, nil)
+	input := BuildRenderInput(conf, "node1", "10.0.0.1", nil)
 
 	if len(input.Neighbors) != 3 {
 		t.Fatalf("expected 3 neighbors, got %d", len(input.Neighbors))
@@ -202,7 +221,7 @@ func TestValidateRenderInput(t *testing.T) {
 		LocalASN:        65002,
 		Neighbors:       []Neighbor{{Address: "10.0.0.9", ASN: 65001, Password: "secret"}},
 		AdvertiseFilter: []string{"192.0.2.0/24 ge 32 le 32"},
-		Vpcs:            []VpcAdvertisement{{VpcName: "vpc-a", LrpIP: "10.0.0.21"}},
+		Vpcs:            []VpcAdvertisement{{VpcName: "vpc-a", TableID: 65535, LrpIP: "10.0.0.21"}},
 	}
 	if err := ValidateRenderInput(valid); err != nil {
 		t.Errorf("expected valid input to pass, got %v", err)
@@ -220,6 +239,8 @@ func TestValidateRenderInput(t *testing.T) {
 		"filter injected line":  func(in *RenderInput) { in.AdvertiseFilter[0] = "192.0.2.0/24\nge 32" },
 		"filter bad length":     func(in *RenderInput) { in.AdvertiseFilter[0] = "192.0.2.0/24 ge 300" },
 		"lrp address missing":   func(in *RenderInput) { in.Vpcs[0].LrpIP = "" },
+		"table id zero":         func(in *RenderInput) { in.Vpcs[0].TableID = 0 },
+		"table id above 65535":  func(in *RenderInput) { in.Vpcs[0].TableID = 65536 },
 		"lrp address not an ip": func(in *RenderInput) { in.Vpcs[0].LrpIP = "bogus" },
 		"neighbor is ipv6":      func(in *RenderInput) { in.Neighbors[0].Address = "fd00::9" },
 		"lrp address is ipv6":   func(in *RenderInput) { in.Vpcs[0].LrpIP = "fd00::21" },
