@@ -600,6 +600,70 @@ ip protocol bgp route-map OVN-NO-FIB
 			}, "EIP of "+w.vpcName+" stays on the ToR from "+toNode+" after "+wc.vpcName+" is withdrawn")
 		}
 	})
+
+	framework.ConformanceIt("should survive an ovs-ovn restart on a gateway node", func() {
+		f.SkipVersionPriorTo(1, 17, "dynamic routing requires v1.17+")
+		if !f.HasIPv4() {
+			ginkgo.Skip("dynamic routing e2e test requires IPv4 support")
+		}
+
+		topo := setupTopology(f, 2)
+		if len(topo.gwNodeNames) < 2 {
+			ginkgo.Skip("the ovs-ovn restart test requires at least 2 gateway nodes")
+		}
+
+		restartNode, peerNode := topo.gwNodeNames[0], topo.gwNodeNames[1]
+		nat := []apiv1.RedistributeType{apiv1.RedistributeNAT}
+		wa := setupVpcWorkload(f, topo, vpcNameBoundTo(f, topo, restartNode), "ovnvrf1201", 1201, false,
+			framework.RandomCIDR(f.ClusterIPFamily), "", nat)
+		wb := setupVpcWorkload(f, topo, vpcNameBoundTo(f, topo, peerNode), "ovnvrf1202", 1202, false,
+			framework.RandomCIDR(f.ClusterIPFamily), "", nat)
+
+		deployAgent(f, topo)
+		waitTorLearnsEip(topo, wa)
+		waitTorLearnsEip(topo, wb)
+
+		var boundA, boundB string
+		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
+			boundA, boundB = bindingNode(topo, wa), bindingNode(topo, wb)
+			return boundA != "" && boundB != "", nil
+		}, "each VPC table holds its own EIP on a gateway chassis")
+
+		layout := fmt.Sprintf("intended layout: %s binds %s, %s binds %s", wa.vpcName, restartNode, wb.vpcName, peerNode)
+		ginkgo.By("Verifying the discovered bindings match the intended layout")
+		framework.ExpectEqual(boundA, restartNode, layout)
+		framework.ExpectEqual(boundB, peerNode, layout)
+
+		dsClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+		ovsPod, err := dsClient.GetPodOnNode(dsClient.Get(framework.DaemonSetOvsOvn), restartNode)
+		framework.ExpectNoError(err, "finding the ovs-ovn pod on "+restartNode)
+
+		ginkgo.By("Deleting ovs-ovn pod " + ovsPod.Name + " on " + restartNode)
+		f.PodClientNS(framework.KubeOvnNamespace).DeleteSync(ovsPod.Name)
+		framework.WaitUntil(2*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
+			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
+			if err != nil {
+				return false, nil
+			}
+			routes := string(stdout)
+			if !strings.Contains(routes, wb.eipV4+"/32") {
+				return false, fmt.Errorf("EIP %s of %s left the ToR while ovs-ovn restarted on %s", wb.eipV4, wb.vpcName, restartNode)
+			}
+			return strings.Contains(routes, wa.eipV4+"/32") && strings.Contains(routes, "via "+wa.lrpIP), nil
+		}, "EIP of "+wa.vpcName+" back on the ToR within three minutes while the EIP of "+wb.vpcName+" never left")
+
+		dsClient.RolloutStatus(framework.DaemonSetOvsOvn)
+		waitTorLearnsEip(topo, wa)
+		waitTorLearnsEip(topo, wb)
+
+		ginkgo.By("Verifying the ToR still learns the EIP of " + wb.vpcName + " from " + peerNode)
+		stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show bgp ipv4 unicast "+wb.eipV4+"/32")
+		framework.ExpectNoError(err, "reading the ToR path of EIP "+wb.eipV4)
+		framework.ExpectTrue(bgpPathFromPeer(string(stdout), topo.nodeIPMap[peerNode]),
+			"ToR path for EIP of "+wb.vpcName+" must come from "+peerNode)
+
+		deleteNatAndVerifyWithdrawal(f, topo, wa, nil)
+	})
 })
 
 func setupTopology(f *framework.Framework, gwNodeCount int) *drTopology {
