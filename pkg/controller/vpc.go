@@ -1350,7 +1350,8 @@ func (c *Controller) reconcileVpcExternalSubnetConnections(vpc *kubeovnv1.Vpc, d
 
 func planVpcExternalSubnetChanges(vpc *kubeovnv1.Vpc, defaultSubnet string, defaultExists, defaultConnected bool) (connect, disconnect []string) {
 	wantDefault := vpc.Spec.EnableExternal && defaultExists && len(vpc.Spec.ExtraExternalSubnets) == 0
-	if wantDefault && !defaultConnected {
+	hadDefault := vpc.Status.EnableExternal && len(vpc.Status.ExtraExternalSubnets) == 0
+	if wantDefault && !hadDefault {
 		connect = append(connect, defaultSubnet)
 	}
 	if !wantDefault && defaultConnected {

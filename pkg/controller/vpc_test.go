@@ -785,6 +785,11 @@ func TestPlanVpcExternalSubnetChanges(t *testing.T) {
 			defaultConnected: true,
 		},
 		{
+			name:          "a default lrp deleted by hand is not recreated",
+			vpc:           vpc(true, nil, true, nil),
+			defaultExists: true,
+		},
+		{
 			name:             "disable disconnects everything",
 			vpc:              vpc(false, nil, true, []string{"vlan-a", "vlan-b"}),
 			defaultExists:    true,
