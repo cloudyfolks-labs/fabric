@@ -475,6 +475,31 @@ func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
 	return nil
 }
 
+// natGatewayPort returns the UUID of the logical router port that the nat
+// rules of the VPC name as gateway_port, or an empty string when northd picks
+// the port itself. A VPC with dynamic routing and dynamicRouting.externalSubnet
+// carries one distributed gateway port per external subnet, and northd cannot
+// resolve the port of an external IP that lies outside every port network, so
+// the rules name the port of the subnet whose LRP is the BGP next hop.
+func (c *Controller) natGatewayPort(vpcName string) (string, error) {
+	vpc, err := c.vpcsLister.Get(vpcName)
+	if err != nil {
+		klog.Errorf("failed to get vpc %s, %v", vpcName, err)
+		return "", err
+	}
+	routing := vpc.Spec.DynamicRouting
+	if !routing.IsEnabled() || routing.ExternalSubnet == "" {
+		return "", nil
+	}
+	lrpName := fmt.Sprintf("%s-%s", vpc.Name, routing.ExternalSubnet)
+	lrp, err := c.OVNNbClient.GetLogicalRouterPort(lrpName, false)
+	if err != nil {
+		klog.Errorf("failed to get gateway port %s of vpc %s, %v", lrpName, vpc.Name, err)
+		return "", err
+	}
+	return lrp.UUID, nil
+}
+
 func (c *Controller) natLabelAndAnnoOvnEip(eipName, natName, vpcName string) error {
 	cachedEip, err := c.ovnEipsLister.Get(eipName)
 	if err != nil {

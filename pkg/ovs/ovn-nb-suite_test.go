@@ -957,6 +957,10 @@ func (suite *OvnClientTestSuite) Test_AddNat() {
 	suite.testAddNat()
 }
 
+func (suite *OvnClientTestSuite) Test_EnsureNatGatewayPort() {
+	suite.testEnsureNatGatewayPort()
+}
+
 func (suite *OvnClientTestSuite) Test_GetNATByUUID() {
 	suite.testGetNATByUUID()
 }

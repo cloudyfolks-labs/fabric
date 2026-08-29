@@ -882,3 +882,49 @@ there surfaces as the agent warning.
   `TestValidateVpc` accepts two extras with the field naming one of
   them, rejects the field naming a subnet outside the extras, accepts
   the field with no extras and keeps rejecting two extras without it
+
+The same layout also loses its NAT rules in northd; F30 records that.
+
+## F30 — northd drops the NATs of a routed VPC with two gateway ports
+
+**Fixed.** Found 2026-08-29 on the F29 cluster, OVN 25.03.4, after the
+agent advertised the VPC: the transit-plane EIPs never reached the
+peer while the services-plane SNAT kept working.
+
+The VPC carries a transit subnet and a services subnet in
+`extraExternalSubnets`, so its router has two distributed gateway
+ports. northd (`northd/en-lr-nat.c`, `lr_nat_entry_set_dgw_port`)
+resolves the gateway port of a NAT row that has no `gateway_port` by
+the DGW port whose network contains the `external_ip` of the row. An
+EIP of a routed VPC is allocated from a pool subnet that is not
+attached to the router, so no LRP network contains it, and northd logs
+`Unable to determine gateway_port for NAT with external_ip: X
+configured on logical router: Y with multiple distributed gateway
+ports`, marks the row invalid, renders no NAT logical flows and no
+`Advertised_Route` row for it. A NAT whose external IP lies inside an
+LRP network, the services-plane SNAT here, resolves and keeps working,
+so the failure is silent per EIP: the CR is ready, the row is in the
+northbound database, and nothing forwards or advertises the address.
+
+Fix: the controller writes `gateway_port` on every `dnat_and_snat` row
+of an OvnFip and every `snat` row of an OvnSnatRule whose VPC has
+dynamic routing enabled and `dynamicRouting.externalSubnet` set. The
+value is the UUID of the LRP `<vpc>-<externalSubnet>`, the LRP that
+`lrpAddress` in the agent uses as the BGP next hop. The rule is
+requeued until that LRP exists. `AddNat` sets the column on a new row
+and on an existing `snat` row, and the update handlers of both CRs call
+`EnsureNatGatewayPort`, so rows written before the fix pick the column
+up at their next reconcile. An OvnDnatRule is a load balancer, not a
+NAT row, and is not affected. A VPC without dynamic routing, or
+without the field, keeps `gateway_port` empty and northd behaves as
+before.
+
+- Commits: `ea66d75a5`, `7de512120`
+- Tests: `Test_AddNat` asserts a `dnat_and_snat` and a `snat` row are
+  created with `gateway_port`, and an existing `snat` row gains it on
+  the next `AddNat`; `Test_EnsureNatGatewayPort` asserts a missing row
+  and an empty port are no-ops and a set port is idempotent;
+  `TestNatGatewayPort` asserts a routed VPC with the field resolves the
+  LRP UUID, errors when the LRP is missing, and returns empty without
+  the field, without dynamic routing or when the VPC is missing;
+  `TestOvnFipNats` keeps the four address family pairings of a fip

@@ -298,7 +298,7 @@ func (suite *OvnClientTestSuite) testUpdateNat() {
 	})
 
 	t.Run("update nat fields", func(t *testing.T) {
-		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", nil)
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", nil)
 		require.NoError(t, err)
 
 		nat, err := nbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
@@ -413,7 +413,7 @@ func (suite *OvnClientTestSuite) testDeleteNatIsIdempotent() {
 	require.NoError(t, nbClient.DeleteNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP))
 
 	// (b) Create -> Delete -> Delete: second delete must be a no-op.
-	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP, "00:00:00:cc:cc:cc", "pod-c.ns", nil))
+	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP, "00:00:00:cc:cc:cc", "pod-c.ns", "", nil))
 	require.NoError(t, nbClient.DeleteNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP))
 	require.NoError(t, nbClient.DeleteNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP))
 }
@@ -438,14 +438,14 @@ func (suite *OvnClientTestSuite) testAddNatDeleteAndCreateOnSwap() {
 	defer func() { _ = nbClient.DeleteLogicalRouter(lrName) }()
 
 	// Install A
-	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, podA, macA, portA, nil))
+	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, podA, macA, portA, "", nil))
 	natA, err := nbClient.GetNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, "", false)
 	require.NoError(t, err)
 	require.Equal(t, podA, natA.LogicalIP)
 	uuidA := natA.UUID
 
 	// Swap to B on same EIP: must create a fresh row
-	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, podB, macB, portB, nil))
+	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, podB, macB, portB, "", nil))
 	natB, err := nbClient.GetNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, "", false)
 	require.NoError(t, err)
 	require.Equal(t, podB, natB.LogicalIP, "LogicalIP must reflect B (no leftover A)")
@@ -456,7 +456,7 @@ func (suite *OvnClientTestSuite) testAddNatDeleteAndCreateOnSwap() {
 	require.NotEqual(t, uuidA, natB.UUID, "must create a fresh row (UUID changed)")
 
 	// Idempotent re-add of B still produces correct row
-	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, podB, macB, portB, nil))
+	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, podB, macB, portB, "", nil))
 	natB2, err := nbClient.GetNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, "", false)
 	require.NoError(t, err)
 	require.Equal(t, podB, natB2.LogicalIP)
@@ -477,7 +477,7 @@ func (suite *OvnClientTestSuite) testGetNatTupleMatchForDnatAndSnat() {
 	require.NoError(t, nbClient.CreateLogicalRouter(lrName))
 	defer func() { _ = nbClient.DeleteLogicalRouter(lrName) }()
 
-	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP, "00:00:00:cc:cc:01", "pod-c.ns", nil))
+	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP, "00:00:00:cc:cc:01", "pod-c.ns", "", nil))
 
 	// exact match returns the row
 	nat, err := nbClient.GetNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, logicalIP, true)
@@ -516,7 +516,7 @@ func (suite *OvnClientTestSuite) testDeleteNatStaleLogicalIPSkipped() {
 	defer func() { _ = nbClient.DeleteLogicalRouter(lrName) }()
 
 	// Install live row
-	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, livePodIP, "00:00:00:dd:dd:01", "live-pod.ns", nil))
+	require.NoError(t, nbClient.AddNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, livePodIP, "00:00:00:dd:dd:01", "live-pod.ns", "", nil))
 
 	// Stale delete with wrong logicalIP must be a no-op
 	require.NoError(t, nbClient.DeleteNat(lrName, ovnnb.NATTypeDNATAndSNAT, eip, stalePodIP),
@@ -708,7 +708,7 @@ func (suite *OvnClientTestSuite) testGetNat() {
 		externalIP := "192.168.30.254"
 		logicalIP := "10.250.0.4"
 
-		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", nil)
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", nil)
 		require.NoError(t, err)
 
 		t.Run("found nat", func(t *testing.T) {
@@ -733,7 +733,7 @@ func (suite *OvnClientTestSuite) testGetNat() {
 		externalIP := "192.168.30.254"
 		logicalIP := "10.250.0.4"
 
-		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", nil)
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", nil)
 		require.NoError(t, err)
 
 		t.Run("found nat", func(t *testing.T) {
@@ -752,7 +752,7 @@ func (suite *OvnClientTestSuite) testGetNat() {
 		natType := "dnat"
 		externalIP := "192.168.30.254"
 		logicalIP := "10.250.0.4"
-		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", nil)
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", nil)
 		require.Error(t, err)
 	})
 
@@ -762,7 +762,7 @@ func (suite *OvnClientTestSuite) testGetNat() {
 		externalIP := "192.168.30.250"
 		logicalIP := "10.250.0.10"
 		options := map[string]string{"k1": "v1"}
-		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", options)
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", options)
 		require.Nil(t, err)
 	})
 
@@ -772,7 +772,7 @@ func (suite *OvnClientTestSuite) testGetNat() {
 		externalIP := "192.168.30.254"
 		logicalIP := "10.250.0.4"
 
-		err := failedNbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", nil)
+		err := failedNbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", nil)
 		require.Error(t, err)
 
 		_, err = failedNbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
@@ -1086,7 +1086,7 @@ func (suite *OvnClientTestSuite) testAddNat() {
 	require.NoError(t, err)
 
 	t.Run("add nat with logical port and mac", func(t *testing.T) {
-		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, externalMac, logicalPort, nil)
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, externalMac, logicalPort, "", nil)
 		require.NoError(t, err)
 
 		nat, err := nbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
@@ -1096,7 +1096,7 @@ func (suite *OvnClientTestSuite) testAddNat() {
 	})
 
 	t.Run("add nat with options", func(t *testing.T) {
-		err := nbClient.AddNat(lrName+"1", natType, externalIP, logicalIP, externalMac, logicalPort, options)
+		err := nbClient.AddNat(lrName+"1", natType, externalIP, logicalIP, externalMac, logicalPort, "", options)
 		require.NoError(t, err)
 
 		nat, err := nbClient.GetNat(lrName+"1", natType, externalIP, logicalIP, false)
@@ -1105,8 +1105,107 @@ func (suite *OvnClientTestSuite) testAddNat() {
 	})
 
 	t.Run("add nat with empty lrName", func(t *testing.T) {
-		err := nbClient.AddNat("", natType, externalIP, logicalIP, externalMac, logicalPort, options)
+		err := nbClient.AddNat("", natType, externalIP, logicalIP, externalMac, logicalPort, "", options)
 		require.ErrorContains(t, err, "the logical router name is required")
+	})
+
+	t.Run("add dnat_and_snat with gateway port", func(t *testing.T) {
+		lrName := lrName + "-dnat-and-snat-gw"
+		require.NoError(t, nbClient.CreateLogicalRouter(lrName))
+		gatewayPort := createTestGatewayPort(t, nbClient, lrName)
+
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, externalMac, logicalPort, gatewayPort, nil)
+		require.NoError(t, err)
+
+		nat, err := nbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
+		require.NoError(t, err)
+		require.NotNil(t, nat.GatewayPort)
+		require.Equal(t, gatewayPort, *nat.GatewayPort)
+	})
+
+	t.Run("add snat with gateway port", func(t *testing.T) {
+		lrName := lrName + "-snat-gw"
+		require.NoError(t, nbClient.CreateLogicalRouter(lrName))
+		gatewayPort := createTestGatewayPort(t, nbClient, lrName)
+
+		err := nbClient.AddNat(lrName, "snat", externalIP, logicalIP, "", "", gatewayPort, nil)
+		require.NoError(t, err)
+
+		nat, err := nbClient.GetNat(lrName, "snat", externalIP, logicalIP, false)
+		require.NoError(t, err)
+		require.NotNil(t, nat.GatewayPort)
+		require.Equal(t, gatewayPort, *nat.GatewayPort)
+	})
+
+	t.Run("add existing snat sets gateway port", func(t *testing.T) {
+		lrName := lrName + "-snat-existing"
+		require.NoError(t, nbClient.CreateLogicalRouter(lrName))
+		gatewayPort := createTestGatewayPort(t, nbClient, lrName)
+
+		require.NoError(t, nbClient.AddNat(lrName, "snat", externalIP, logicalIP, "", "", "", nil))
+		nat, err := nbClient.GetNat(lrName, "snat", externalIP, logicalIP, false)
+		require.NoError(t, err)
+		require.Nil(t, nat.GatewayPort)
+
+		require.NoError(t, nbClient.AddNat(lrName, "snat", externalIP, logicalIP, "", "", gatewayPort, nil))
+		nat, err = nbClient.GetNat(lrName, "snat", externalIP, logicalIP, false)
+		require.NoError(t, err)
+		require.NotNil(t, nat.GatewayPort)
+		require.Equal(t, gatewayPort, *nat.GatewayPort)
+	})
+}
+
+func createTestGatewayPort(t *testing.T, nbClient *OVNNbClient, lrName string) string {
+	t.Helper()
+	lrpName := lrName + "-transit"
+	require.NoError(t, nbClient.CreateLogicalRouterPort(lrName, lrpName, "", []string{"172.16.0.1/24"}))
+	lrp, err := nbClient.GetLogicalRouterPort(lrpName, false)
+	require.NoError(t, err)
+	return lrp.UUID
+}
+
+func (suite *OvnClientTestSuite) testEnsureNatGatewayPort() {
+	t := suite.T()
+	t.Parallel()
+
+	nbClient := suite.ovnNBClient
+	lrName := "test-ensure-nat-gateway-port-lr"
+	natType := "snat"
+	externalIP := "192.168.30.254"
+	logicalIP := "10.250.0.0/24"
+
+	require.NoError(t, nbClient.CreateLogicalRouter(lrName))
+	gatewayPort := createTestGatewayPort(t, nbClient, lrName)
+
+	t.Run("missing nat is left alone", func(t *testing.T) {
+		require.NoError(t, nbClient.EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort))
+	})
+
+	require.NoError(t, nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", nil))
+
+	t.Run("empty gateway port is a no-op", func(t *testing.T) {
+		require.NoError(t, nbClient.EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, ""))
+		nat, err := nbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
+		require.NoError(t, err)
+		require.Nil(t, nat.GatewayPort)
+	})
+
+	t.Run("gateway port is set and kept", func(t *testing.T) {
+		require.NoError(t, nbClient.EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort))
+		nat, err := nbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
+		require.NoError(t, err)
+		require.NotNil(t, nat.GatewayPort)
+		require.Equal(t, gatewayPort, *nat.GatewayPort)
+
+		require.NoError(t, nbClient.EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort))
+		nat, err = nbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
+		require.NoError(t, err)
+		require.Equal(t, gatewayPort, *nat.GatewayPort)
+	})
+
+	t.Run("failed client", func(t *testing.T) {
+		err := suite.failedOvnNBClient.EnsureNatGatewayPort(lrName, natType, externalIP, logicalIP, gatewayPort)
+		require.Error(t, err)
 	})
 }
 
@@ -1124,7 +1223,7 @@ func (suite *OvnClientTestSuite) testGetNATByUUID() {
 	require.NoError(t, err)
 
 	t.Run("get existing nat by uuid", func(t *testing.T) {
-		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", nil)
+		err := nbClient.AddNat(lrName, natType, externalIP, logicalIP, "", "", "", nil)
 		require.NoError(t, err)
 
 		originalNat, err := nbClient.GetNat(lrName, natType, externalIP, logicalIP, false)
