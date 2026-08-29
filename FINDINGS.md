@@ -504,21 +504,34 @@ is in the OVN layer teardown path, not in the FRR agent. The trigger is
 sensitive to which chassis hosts the withdrawn VPC. The solo run of the
 same spec, where the withdrawn VPC was one of the moved VPCs, passes.
 
-Status: the agent no longer depends on the VRF device. It gates on
-the dynamic routing spec of the VPC and renders `table-direct` for the
-table id, so a swept VRF only empties the table until ovn-controller
-recreates it, and the surviving VPCs keep their configuration lines
-and recover without an agent change. The `/sys/class/net` poll and
-the VRF signature are gone. `maintainVrf` remains supported and is
-not required for advertisement (`docs/dynamic-routing.md`). The e2e
-spec still always withdraws a moved VPC. The OVN route_exchange sweep
-is still worth tracking, but it no longer takes advertisement down.
+Status: the agent path no longer uses VRF devices at all. The first
+CI run of the `table-direct` design (PR #2) failed in two specs and
+pinned the reason in FRR 10.7 `zebra/redistribute.c:168-177`:
+`zebra_redistribute_is_table_direct` requires `re->vrf_id ==
+VRF_DEFAULT`, so a table that a VRF device owns is copied once when the
+`redistribute table-direct` line is configured and never updated. A
+VIP added later never reached the ToR, and a withdrawn EIP was never
+withdrawn. With `maintainVrf: false` ovn-controller still syncs the
+routes into the plain table (`controller/route-exchange.c:265-291`
+runs `re_nl_sync_routes` regardless of the VRF), and zebra follows
+every add and delete there. The agent therefore skips a VPC whose VRF
+device exists on the chassis and logs the reason, the agent e2e specs
+run with `maintainVrf: false`, and `docs/dynamic-routing.md` records
+the rule. The OVN sweep of this finding only affects `maintainVrf:
+true`, which the manual-FRR spec still exercises.
 
-- Commits: `f7586ee7c`
+- Commits: `f7586ee7c`, and the follow-up in this PR that skips
+  VRF-owned tables
 - Tests: `TestVpcAdvertisementsNeedNoVrfDevice` asserts a VPC with a
   dynamic routing spec, a `vrfId` and a ready LRP is rendered on a
   host without any VRF device, and that VPCs without the spec, without
-  a `vrfId` or without an LRP are not
+  a `vrfId` or without an LRP are not;
+  `TestVpcAdvertisementsSkipTablesOwnedByAVrfDevice` asserts a VPC is
+  skipped when a device with its `vrfName` or the default `ovnvrf<id>`
+  name exists
+- End-to-end: the agent failover spec locates the active chassis by
+  the EIP route in table `vrfId`, checks the ToR keeps the EIP through
+  the failover, and checks the withdrawal
 
 Analysis (2026-08-28), against OVN branch-25.03 as built into the
 `kubeovn/kube-ovn-base:v1.17.0` image (the image clones the branch at
@@ -619,10 +632,16 @@ gateway LRP in the northbound database. The default subnet is
 connected only when no extras are set, and disconnected whenever
 extras are set or the LRP is left over from before this fix.
 
-- Commits: `2b1738695`
+The default subnet is connected on a status transition only, never
+because its LRP is missing: the NAT gateway e2e deletes the LRP OvnEip
+by hand with `enableExternal` still true and expects it to stay gone,
+and the first CI run of this PR recreated it.
+
+- Commits: `2b1738695`, and the follow-up in this PR that keeps a
+  hand-deleted default LRP deleted
 - Tests: `TestPlanVpcExternalSubnetChanges` covers first enable,
   extras added later, a leftover default LRP next to extras, extras
-  removed, steady state and disable;
+  removed, steady state, a default LRP deleted by hand and disable;
   `TestReconcileVpcExternalSubnetConnectionsDropsDefaultNextToExtras`
   asserts the patch port and BFD of the default LRP are removed when
   the status already lists the extra subnet;
