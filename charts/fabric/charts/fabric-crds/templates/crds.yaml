@@ -2830,6 +2830,14 @@ spec:
                   enabled:
                     default: false
                     type: boolean
+                  externalSubnet:
+                    description: |-
+                      Name of the external subnet whose gateway LRP address is the BGP
+                      next hop of every advertised route. Required when the VPC has more
+                      than one external subnet. Must be one of the external subnets of
+                      the VPC: an entry of extraExternalSubnets, or the default external
+                      subnet when extraExternalSubnets is empty.
+                    type: string
                   localOnly:
                     description: |-
                       Advertise chassis-specific routes (NAT/LB IPs) only from the chassis

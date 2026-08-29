@@ -447,6 +447,14 @@ func mergeAdvertiseEntries(base, extra []string) []string {
 }
 
 func lrpAddress(eips []*kubeovnv1.OvnEip, vpc *kubeovnv1.Vpc) (string, error) {
+	if subnet := vpc.Spec.DynamicRouting.ExternalSubnet; subnet != "" {
+		for _, eip := range eips {
+			if eip.Spec.Type == util.OvnEipTypeLRP && eip.Spec.ExternalSubnet == subnet && eip.Name == vpc.Name+"-"+subnet && eip.Status.V4Ip != "" {
+				return eip.Status.V4Ip, nil
+			}
+		}
+		return "", fmt.Errorf("no ready lrp ovn-eip on external subnet %s named by dynamicRouting.externalSubnet", subnet)
+	}
 	var candidates []string
 	for _, eip := range eips {
 		if eip.Spec.Type != util.OvnEipTypeLRP || eip.Spec.ExternalSubnet == "" || eip.Status.V4Ip == "" {
@@ -466,6 +474,6 @@ func lrpAddress(eips []*kubeovnv1.OvnEip, vpc *kubeovnv1.Vpc) (string, error) {
 	case 1:
 		return candidates[0], nil
 	default:
-		return "", fmt.Errorf("%d gateway lrps, dynamic routing needs exactly one external subnet", len(candidates))
+		return "", fmt.Errorf("%d gateway lrps, dynamicRouting.externalSubnet must name the one whose lrp is the bgp next hop", len(candidates))
 	}
 }
