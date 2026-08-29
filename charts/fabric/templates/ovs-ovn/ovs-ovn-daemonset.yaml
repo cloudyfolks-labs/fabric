@@ -17,8 +17,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: fabric-ovs
-      app.kubernetes.io/part-of: fabric
+      app.kubernetes.io/name: kube-ovn-ovs
+      app.kubernetes.io/part-of: kube-ovn
   updateStrategy:
     type: {{ include "fabric.ovs-ovn.updateStrategy" . }}
     {{- if eq (include "fabric.ovs-ovn.updateStrategy" .) "RollingUpdate" }}
@@ -34,8 +34,8 @@ spec:
       {{- end }}
       labels:
         {{- include "fabric.labels" . | nindent 8 }}
-        app.kubernetes.io/name: fabric-ovs
-        app.kubernetes.io/part-of: fabric
+        app.kubernetes.io/name: kube-ovn-ovs
+        app.kubernetes.io/part-of: kube-ovn
         {{- with .Values.ovsOvn.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

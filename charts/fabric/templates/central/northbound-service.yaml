@@ -27,7 +27,7 @@ spec:
   {{- end }}
   selector:
     app.kubernetes.io/name: ovn-central
-    app.kubernetes.io/part-of: fabric
+    app.kubernetes.io/part-of: kube-ovn
     ovn-nb-leader: "true"
   sessionAffinity: None
 {{- end }}

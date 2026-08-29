@@ -26,5 +26,5 @@ spec:
       targetPort: 6644
   selector:
     app.kubernetes.io/name: ovn-central
-    app.kubernetes.io/part-of: fabric
+    app.kubernetes.io/part-of: kube-ovn
 {{- end }}
