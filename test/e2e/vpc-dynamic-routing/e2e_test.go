@@ -568,6 +568,19 @@ ip protocol bgp route-map OVN-NO-FIB
 			return bgpPathFromPeer(string(stdout), topo.nodeIPMap[toNode]), nil
 		}, "ToR path for EIP of "+wc.vpcName+" comes from "+toNode)
 
+		ginkgo.By("Verifying every VPC table on " + toNode + " holds only its own EIP")
+		for _, w := range []*drWorkload{wa, wb, wc} {
+			routes := nodeTableRoutes(topo, toNode, w.tableID)
+			framework.ExpectTrue(strings.Contains(routes, w.eipV4), "VPC "+w.vpcName+" table on "+toNode+" must hold its own EIP")
+			for _, other := range []*drWorkload{wa, wb, wc} {
+				if other == w {
+					continue
+				}
+				framework.ExpectFalse(strings.Contains(routes, other.eipV4),
+					"VPC "+w.vpcName+" table on "+toNode+" must not contain EIP of "+other.vpcName)
+			}
+		}
+
 		ginkgo.By("Withdrawing " + wc.vpcName + ", the VPC native to " + toNode)
 		setVpcStaticRoutes(f, wc.vpcName, nil)
 		f.OvnFipClient().DeleteSync(wc.fipName)
