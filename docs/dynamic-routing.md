@@ -48,19 +48,23 @@ prefix declares it in `spec.staticRoutes`.
 
 ## VRF devices and `maintainVrf`
 
-The agent reads no VRF device. It renders the `table-direct` line for
-every VPC that carries a dynamic routing spec, a `vrfId` and a ready
-`lrp` OvnEip. A table that is empty or absent on a chassis advertises
-nothing and produces no error. When the LRP moves to another chassis,
-the table on the old chassis empties and the table on the new chassis
-fills, and the advertisement follows without a change to the FRR
-configuration.
+Leave `maintainVrf` at its default, `false`, on a VPC that the agent
+advertises. ovn-controller then writes the routes of the VPC into the
+plain kernel table `vrfId` and no VRF device exists. FRR follows every
+route add and delete in such a table, so an EIP appears on the peer
+when it is created and disappears when it is withdrawn or when the
+gateway LRP moves to another chassis.
 
-`maintainVrf: true` lets ovn-controller create and delete the VRF
-device that owns table `vrfId` on the gateway chassis. The option
-remains supported and is the usual choice. It is not required for
-advertisement: the agent never inspects `/sys/class/net`, and the
-rendered configuration is the same with or without the device. With
-`maintainVrf: false` the VRF device is the responsibility of the
-operator, as described on the `vrfName` and `maintainVrf` fields of the
-Vpc resource.
+`maintainVrf: true` makes ovn-controller create a VRF device that owns
+table `vrfId`. zebra then files the routes under that VRF, and
+`table-direct` only copies them once, when the line is configured: a
+route added or removed later never reaches BGP (`zebra/redistribute.c`,
+`zebra_redistribute_is_table_direct`). The agent therefore skips a VPC
+whose VRF device exists on the chassis and logs a warning that names
+the device. Set `maintainVrf: true` only for an external FRR that runs
+one BGP instance per VRF with `redistribute kernel`.
+
+The agent renders the `table-direct` line for every VPC that carries a
+dynamic routing spec, a `vrfId`, a ready `lrp` OvnEip and no VRF
+device. A table that is empty on a chassis advertises nothing and
+produces no error.

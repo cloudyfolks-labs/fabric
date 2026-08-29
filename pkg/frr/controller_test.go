@@ -46,11 +46,31 @@ func TestVpcAdvertisementsNeedNoVrfDevice(t *testing.T) {
 		lrpEip("vpc-static", "external", "10.0.0.24"),
 	}
 
-	got := vpcAdvertisements(vpcs, eips)
+	noDevice := func(string) bool { return false }
+	got := vpcAdvertisements(vpcs, eips, noDevice)
 
 	want := []VpcAdvertisement{{VpcName: "vpc-a", TableID: 1001, LrpIP: "10.0.0.21"}}
 	if len(got) != len(want) || got[0] != want[0] {
 		t.Errorf("expected only the vpc with a dynamic routing spec, a vrf id and a ready lrp, got %+v", got)
+	}
+}
+
+func TestVpcAdvertisementsSkipTablesOwnedByAVrfDevice(t *testing.T) {
+	named := dynamicRoutingVpc("vpc-named", 1001)
+	named.Spec.DynamicRouting.VrfName = "tenant-a"
+	vpcs := []*kubeovnv1.Vpc{named, dynamicRoutingVpc("vpc-default-name", 1002), dynamicRoutingVpc("vpc-plain", 1003)}
+	eips := []*kubeovnv1.OvnEip{
+		lrpEip("vpc-named", "external", "10.0.0.21"),
+		lrpEip("vpc-default-name", "external", "10.0.0.22"),
+		lrpEip("vpc-plain", "external", "10.0.0.23"),
+	}
+	devices := map[string]bool{"tenant-a": true, "ovnvrf1002": true}
+
+	got := vpcAdvertisements(vpcs, eips, func(name string) bool { return devices[name] })
+
+	want := []VpcAdvertisement{{VpcName: "vpc-plain", TableID: 1003, LrpIP: "10.0.0.23"}}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Errorf("expected only the vpc whose table no vrf device owns, got %+v", got)
 	}
 }
 

@@ -119,9 +119,11 @@ type VpcDynamicRouting struct {
 	// where the backing port is bound.
 	LocalOnly bool `json:"localOnly,omitempty"`
 
-	// Let ovn-controller create and maintain the VRF on the gateway chassis.
-	// When false, the VRF must already exist on the chassis with a table id
-	// equal to the logical router's datapath tunnel key.
+	// Let ovn-controller create and maintain a VRF device that owns the
+	// routing table vrfId on the gateway chassis. Leave it false with the
+	// fabric-frr agent: FRR redistributes the table with table-direct, which
+	// follows route changes only in a table that no VRF device owns. Set it
+	// only for an external FRR that runs one BGP instance per VRF.
 	MaintainVrf bool `json:"maintainVrf,omitempty"`
 
 	// Name of the VRF used to advertise and learn routes.

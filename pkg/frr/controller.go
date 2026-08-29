@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -341,10 +342,22 @@ func (c *Controller) collectVpcAdvertisements() ([]VpcAdvertisement, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ovn-eips: %w", err)
 	}
-	return vpcAdvertisements(vpcs, eips), nil
+	return vpcAdvertisements(vpcs, eips, netDevicePresent), nil
 }
 
-func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip) []VpcAdvertisement {
+func netDevicePresent(name string) bool {
+	_, err := os.Stat("/sys/class/net/" + name)
+	return err == nil
+}
+
+func vrfDeviceName(dr *kubeovnv1.VpcDynamicRouting) string {
+	if dr.VrfName != "" {
+		return dr.VrfName
+	}
+	return fmt.Sprintf("ovnvrf%d", dr.VrfID)
+}
+
+func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip, devicePresent func(string) bool) []VpcAdvertisement {
 	result := make([]VpcAdvertisement, 0, len(vpcs))
 	for _, vpc := range vpcs {
 		dr := vpc.Spec.DynamicRouting
@@ -353,6 +366,10 @@ func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip) []VpcAdv
 		}
 		if dr.VrfID == 0 {
 			klog.Warningf("vpc %s has dynamic routing enabled without an explicit vrfId, skipping advertisement", vpc.Name)
+			continue
+		}
+		if device := vrfDeviceName(dr); devicePresent(device) {
+			klog.Warningf("vpc %s: vrf device %s owns table %d and FRR table-direct does not follow routes of a vrf table, set maintainVrf to false, skipping advertisement", vpc.Name, device, dr.VrfID)
 			continue
 		}
 		lrpIP, err := lrpAddress(eips, vpc)
