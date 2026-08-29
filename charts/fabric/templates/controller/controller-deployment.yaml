@@ -36,7 +36,6 @@ spec:
         {{- with .Values.controller.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        # Legacy labels
         app: fabric-controller
         component: network
         type: infra

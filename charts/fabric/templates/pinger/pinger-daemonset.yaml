@@ -32,7 +32,6 @@ spec:
         {{- with .Values.pinger.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        # Legacy labels
         app: fabric-pinger
         component: network
         type: infra

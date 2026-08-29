@@ -45,7 +45,6 @@ spec:
         {{- with .Values.central.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        # Legacy labels
         app: ovn-central
         component: network
         type: infra
