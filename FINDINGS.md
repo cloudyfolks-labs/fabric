@@ -760,3 +760,64 @@ workloads, so `helm upgrade` patches them in place and only the
 renamed controller, cni, pinger and monitor workloads are replaced.
 `charts/fabric/tests/upgrade_selectors_test.yaml` pins the selectors
 for `helm unittest`. MIGRATION.md describes the in-place upgrade.
+
+## F27 — A gateway node that loses one VPC withdraws the EIPs of the others
+
+**Fixed.** Found 2026-08-29 by the ovs-ovn restart spec on the local
+rig, before the spec first passed.
+
+Two VPCs, wa bound to the first gateway node and wb to the second.
+The ovs-ovn pod on the first node was deleted. Four seconds later
+ovn-controller on the second node claimed the gateway port of wa, one
+second after that the restarted controller took it back, and the ToR
+lost the EIP of wb, which had not moved. A half-second watcher on the
+rig showed why. While the second node held both ports, its kernel
+tables 1201 and 1202 each carried both EIPs. Releasing wa flushed
+table 1201 there, and the ToR dropped the EIP of wb at the same tick
+although table 1202 still held it. Nothing re-announced it.
+
+Two upstream behaviours combine:
+
+- northd `build_nat_connected_routes` and `build_lb_connected_routes`
+  (`northd/en-advertised-route-sync.c`, branch-25.03) advertise,
+  through every LRP that carries the `nat` or `lb` mode, the NAT
+  addresses and VIPs of every router on the peer logical switch of
+  that LRP, tracked by the gateway port of the owning router. fabric
+  set the modes on the logical router, so the external gateway LRP on
+  the shared external switch carried them, and the Advertised_Route
+  set of every VPC held the EIPs of every other VPC. ovn-controller
+  (`controller/route.c`) programs such a route on a chassis where the
+  tracked port is local, so a gateway node that binds two VPCs writes
+  both EIPs into both tables.
+- FRR bgpd keys redistributed routes by prefix and type only.
+  `bgp_redistribute_delete` (`bgpd/bgp_route.c`, stable/10.7) matches
+  `pi->peer == bgp->peer_self && pi->type == type` and ignores the
+  instance, so a delete from `table-direct` 1201 removes the path that
+  `table-direct` 1202 still holds.
+
+A production gateway node binds several VPCs, so every failover or
+withdrawal on a node withdrew the EIPs of the other VPCs bound to it
+until their own tables changed. This is the symptom F19 recorded with
+three VPCs on one node.
+
+Fix: the controller no longer sets `dynamic-routing-redistribute` on
+the logical router. It sets the option per LRP. `nat` and `lb` go on
+the LRPs of the subnets of the VPC, whose peer switch has no other
+router. `static` and `connected` go on every LRP. A table now holds
+only the EIPs of its own VPC, so a flush of one table never touches a
+prefix that another table holds. `docs/dynamic-routing.md` records
+the placement.
+
+- Commits: `9cbc7e3b0`
+- Tests: `Test_reconcileVpcDynamicRoutingLrpOptions` asserts the
+  subnet LRP gets `nat,lb,static`, the external and peer LRPs get
+  `static`, a nat-only VPC leaves the external LRP without the option,
+  and a disabled VPC clears every LRP; `Test_createVpcRouter_dynamicRouting`
+  asserts the router carries no redistribute option
+- End-to-end: the ovs-ovn restart spec asserts the EIP of the VPC on
+  the other gateway node never leaves the ToR during the restart, and
+  the isolation spec asserts every table on the surviving node holds
+  only its own EIP after the failover. Both were red on the local rig
+  before the fix and green after it, with the watcher showing the
+  tables holding one EIP each through the restart
+
