@@ -985,3 +985,28 @@ table with a netlink replace.
   asserts owned tables, foreign protocols and reserved tables are
   never touched
 
+## F33 — Orphaned NAT rows survive and wear another router's identity
+
+**Open.** Found 2026-08-31 while chasing why the F32 purge target kept
+returning: a router carried three snat rows whose external IP is the
+shared-plane SNAT identity of another router (no gateway_port, no
+owning OvnSnatRule or OvnFip) — left behind by an earlier repair. The
+controller never reconciles `lr-nat-list` against the CRs, so unowned
+rows live forever. Consequences: northd advertises the address on the
+wrong router, ovn-controller writes it into the wrong vrf table, FRR
+advertises it with the wrong next hop while the true owner advertises
+nothing — and the router can egress to the shared plane wearing the
+other router's identity, which defeats source-identity ACLs.
+
+Removed by hand after an NB-wide audit (join every Logical_Router.nat
+row's external_ip against the OvnEip CRs). Two fixes wanted:
+
+- the controller garbage-collects NAT rows of a router that no CR of
+  that router's VPC owns;
+- the agent re-asserts an owned table route into BGP when the shared
+  prefix vanishes from another table — FRR keeps one BGP route per
+  prefix across table-direct tables, so today the withdrawal of the
+  foreign copy silently drops the owner's advertisement until
+  something replays the route (the F32 purge path does, an NB-side
+  removal does not).
+
