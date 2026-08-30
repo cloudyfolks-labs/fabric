@@ -962,3 +962,26 @@ the kernel's reserved 253-255, or equal to the vrf table of a VPC.
   `TestBuildRenderInputHostTables` asserts sorted unique ids;
   `TestValidateRenderInputHostTables` covers the four rejections
 
+## F32 — A renumbered VPC leaves its routes in the old kernel table
+
+**Fixed.** Found 2026-08-31 on a cluster whose vrfIds were renumbered:
+kernel table 9 on one chassis still held the services SNAT /32 of the
+VPC that had become vrf 4. ovn-controller writes the routes of a
+routed VPC into table `vrfId` and does not clear the old table when
+the id changes. FRR keeps one BGP route per prefix across all
+`table-direct` tables, so the stale copy was advertised with the next
+hop of the VPC that owns table 9 now, and the true owner advertised
+nothing — the vpc-not-advertised alert fired on a healthy VPC.
+
+Fix: the agent purges, on every reconcile, IPv4 routes of the OVN
+routing protocol from tables in the table-direct range that no routed
+VPC owns and that `redistributeTables` does not name; reserved tables
+253-255 are never touched. Deleting the stale copy also withdraws the
+shared BGP route, so the agent re-asserts the prefix in the owner's
+table with a netlink replace.
+
+- Tests: `TestPlanRoutePurge` asserts the stale route is purged and
+  the owner's copy re-asserted; `TestPlanRoutePurgeKeepsOwnedAndForeign`
+  asserts owned tables, foreign protocols and reserved tables are
+  never touched
+

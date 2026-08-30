@@ -129,6 +129,22 @@ dynamic routing spec, a `vrfId`, a ready `lrp` OvnEip and no VRF
 device. A table that is empty on a chassis advertises nothing and
 produces no error.
 
+## Stale tables
+
+ovn-controller writes the routes of a routed VPC into the kernel table
+`vrfId` and does not clear the old table when the id changes, so a
+renumbered VPC leaves its routes behind. FRR keeps one BGP route per
+prefix across all `table-direct` tables, and the stale copy can win
+with the next hop of whatever VPC owns the old id now.
+
+The agent therefore purges, on every reconcile, IPv4 routes of the OVN
+routing protocol (84) from tables inside the table-direct range that
+no routed VPC owns and that the BgpConf does not name in
+`redistributeTables`; the kernel's reserved tables 253-255 are never
+touched. After a purge the agent re-asserts the same prefix in the
+table of its owner, because zebra drops the shared BGP route when
+either copy is withdrawn.
+
 ## Metrics
 
 The agent serves Prometheus metrics on its `--pprof-port`, `10668` by
