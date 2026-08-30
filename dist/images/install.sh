@@ -497,7 +497,7 @@ spec:
                 type: array
               redistributeTables:
                 items:
-                  format: int64
+                  format: int32
                   maximum: 65535
                   minimum: 1
                   type: integer
