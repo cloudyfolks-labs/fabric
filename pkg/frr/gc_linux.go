@@ -2,6 +2,7 @@ package frr
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -15,6 +16,9 @@ func purgeStaleOvnRoutes(owned map[uint32]struct{}) (int, error) {
 	routes := make([]tableRoute, 0, len(dump))
 	byKey := make(map[tableRoute]netlink.Route, len(dump))
 	for _, r := range dump {
+		if r.Table < 0 || r.Table > math.MaxUint32 {
+			continue
+		}
 		var dst string
 		if r.Dst != nil {
 			dst = r.Dst.String()
