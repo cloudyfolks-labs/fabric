@@ -217,6 +217,32 @@ func (c *Controller) reconcile() {
 	}
 	if conf != nil {
 		c.reportNodeState(conf.Name, state, s, message)
+		c.purgeStaleTables(conf)
+	}
+}
+
+func (c *Controller) purgeStaleTables(conf *kubeovnv1.BgpConf) {
+	vpcs, err := c.vpcLister.List(labels.Everything())
+	if err != nil {
+		klog.Errorf("failed to list vpcs for the stale table purge: %v", err)
+		return
+	}
+	owned := make(map[uint32]struct{}, len(vpcs)+len(conf.Spec.RedistributeTables))
+	for _, vpc := range vpcs {
+		if dr := vpc.Spec.DynamicRouting; dr.IsEnabled() && dr.VrfID != 0 {
+			owned[dr.VrfID] = struct{}{}
+		}
+	}
+	for _, table := range conf.Spec.RedistributeTables {
+		owned[table] = struct{}{}
+	}
+	purged, err := purgeStaleOvnRoutes(owned)
+	if err != nil {
+		klog.Errorf("failed to purge stale ovn routes: %v", err)
+		return
+	}
+	if purged > 0 {
+		klog.Infof("purged %d ovn routes from tables no vpc owns", purged)
 	}
 }
 
