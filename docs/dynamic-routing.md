@@ -89,6 +89,23 @@ external switch. FRR keeps one BGP route per prefix across all
 soon as either table is flushed, and a gateway node that loses one VPC
 would withdraw the EIPs of the other.
 
+## Host tables
+
+`spec.redistributeTables` on the BgpConf lists kernel routing tables
+of the node that the agent redistributes in the default VRF, without a
+next-hop rewrite: FRR advertises their routes with the node as the
+next hop. The advertise filter still decides what leaves the node, so
+a table entry outside the filter advertises nothing.
+
+The tables carry addresses that an external manager writes on the node
+that owns them. kube-vip in routing-table mode is the shape this is
+for: it writes the VIP of a LoadBalancer service into a table on the
+elected node, the agent advertises the /32 from that node, and the
+peer moves the VIP when the election moves. A table id must stay
+outside the vrfId of every routed VPC and outside the kernel's
+reserved tables 253-255; the agent rejects the configuration
+otherwise.
+
 ## VRF devices and `maintainVrf`
 
 Leave `maintainVrf` at its default, `false`, on a VPC that the agent

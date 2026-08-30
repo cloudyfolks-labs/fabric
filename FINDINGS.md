@@ -940,3 +940,25 @@ before.
   LRP UUID, errors when the LRP is missing, and returns empty without
   the field, without dynamic routing or when the VPC is missing;
   `TestOvnFipNats` keeps the four address family pairings of a fip
+
+## F31 — No path for a host-owned VIP into BGP
+
+**Added.** Wanted 2026-08-31 on a cluster that announces the edge VIP
+of its ingress by ARP on an access VLAN: the last consumer of that
+VLAN on the hosts. kube-vip in routing-table mode writes the VIP into
+a kernel table on the elected node, but nothing redistributed such a
+table: the agent renders `table-direct` lines only for VPC vrf tables,
+each with a next-hop rewrite to a gateway LRP, which is wrong for an
+address the node itself owns.
+
+`spec.redistributeTables` on the BgpConf lists host tables the agent
+redistributes in the default VRF with no route-map, so FRR advertises
+their routes next hop self. The advertise filter still applies. The
+agent rejects a table id of 0, above the table-direct range, inside
+the kernel's reserved 253-255, or equal to the vrf table of a VPC.
+
+- Tests: `TestRenderHostTables` asserts the sorted plain
+  `table-direct` lines and the absence of a next-hop route-map;
+  `TestBuildRenderInputHostTables` asserts sorted unique ids;
+  `TestValidateRenderInputHostTables` covers the four rejections
+
