@@ -3,6 +3,7 @@ package frr
 import (
 	"fmt"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,6 +45,7 @@ type RenderInput struct {
 	EbgpMultiHop    bool
 	GracefulRestart bool
 	Vpcs            []VpcAdvertisement
+	HostTables      []uint32
 }
 
 func BuildRenderInput(conf *kubeovnv1.BgpConf, nodeName, routerID string, vpcs []VpcAdvertisement) RenderInput {
@@ -55,6 +57,9 @@ func BuildRenderInput(conf *kubeovnv1.BgpConf, nodeName, routerID string, vpcs [
 		EbgpMultiHop:    conf.Spec.EbgpMultiHop,
 		GracefulRestart: conf.Spec.GracefulRestart,
 		Vpcs:            vpcs,
+	}
+	if len(conf.Spec.RedistributeTables) > 0 {
+		input.HostTables = slices.Compact(slices.Sorted(slices.Values(conf.Spec.RedistributeTables)))
 	}
 	if conf.Spec.HoldTime.Duration > 0 {
 		input.HoldTime = int64(conf.Spec.HoldTime.Seconds())
@@ -130,6 +135,21 @@ func ValidateRenderInput(input RenderInput) error {
 		}
 		if !addr.Is4() {
 			return fmt.Errorf("vpc %s lrp address %q is IPv6: dynamic routing supports IPv4 only", vpc.VpcName, vpc.LrpIP)
+		}
+	}
+	vpcTables := make(map[uint32]string, len(input.Vpcs))
+	for _, vpc := range input.Vpcs {
+		vpcTables[vpc.TableID] = vpc.VpcName
+	}
+	for _, table := range input.HostTables {
+		if table == 0 || table > util.MaxTableDirectID {
+			return fmt.Errorf("host table id %d is outside the table-direct range 1-%d", table, util.MaxTableDirectID)
+		}
+		if table >= util.ReservedRoutingTableIDStart && table <= util.ReservedRoutingTableIDEnd {
+			return fmt.Errorf("host table id %d is reserved by the kernel", table)
+		}
+		if vpc, ok := vpcTables[table]; ok {
+			return fmt.Errorf("host table id %d is the vrf table of vpc %s", table, vpc)
 		}
 	}
 	return nil
@@ -210,6 +230,11 @@ func Render(input RenderInput) string {
 	}
 	for _, vpc := range vpcs {
 		fmt.Fprintf(&b, "  redistribute table-direct %d route-map %s%s\n", vpc.TableID, nhRouteMap, vpc.VpcName)
+	}
+	hostTables := slices.Clone(input.HostTables)
+	slices.Sort(hostTables)
+	for _, table := range slices.Compact(hostTables) {
+		fmt.Fprintf(&b, "  redistribute table-direct %d\n", table)
 	}
 	b.WriteString(" exit-address-family\n")
 	b.WriteString("!\n")

@@ -25,19 +25,20 @@ import (
 // BgpConfSpecApplyConfiguration represents a declarative configuration of the BgpConfSpec type for use
 // with apply.
 type BgpConfSpecApplyConfiguration struct {
-	LocalASN        *uint32                     `json:"localASN,omitempty"`
-	PeerASN         *uint32                     `json:"peerASN,omitempty"`
-	RouterID        *string                     `json:"routerId,omitempty"`
-	Neighbours      []string                    `json:"neighbours,omitempty"`
-	Password        *string                     `json:"password,omitempty"`
-	HoldTime        *metav1.Duration            `json:"holdTime,omitempty"`
-	KeepaliveTime   *metav1.Duration            `json:"keepaliveTime,omitempty"`
-	ConnectTime     *metav1.Duration            `json:"connectTime,omitempty"`
-	EbgpMultiHop    *bool                       `json:"ebgpMultiHop,omitempty"`
-	GracefulRestart *bool                       `json:"gracefulRestart,omitempty"`
-	NodeSelector    map[string]string           `json:"nodeSelector,omitempty"`
-	Peers           []BgpPeerApplyConfiguration `json:"peers,omitempty"`
-	AdvertiseFilter []string                    `json:"advertiseFilter,omitempty"`
+	LocalASN           *uint32                     `json:"localASN,omitempty"`
+	PeerASN            *uint32                     `json:"peerASN,omitempty"`
+	RouterID           *string                     `json:"routerId,omitempty"`
+	Neighbours         []string                    `json:"neighbours,omitempty"`
+	Password           *string                     `json:"password,omitempty"`
+	HoldTime           *metav1.Duration            `json:"holdTime,omitempty"`
+	KeepaliveTime      *metav1.Duration            `json:"keepaliveTime,omitempty"`
+	ConnectTime        *metav1.Duration            `json:"connectTime,omitempty"`
+	EbgpMultiHop       *bool                       `json:"ebgpMultiHop,omitempty"`
+	GracefulRestart    *bool                       `json:"gracefulRestart,omitempty"`
+	NodeSelector       map[string]string           `json:"nodeSelector,omitempty"`
+	Peers              []BgpPeerApplyConfiguration `json:"peers,omitempty"`
+	AdvertiseFilter    []string                    `json:"advertiseFilter,omitempty"`
+	RedistributeTables []uint32                    `json:"redistributeTables,omitempty"`
 }
 
 // BgpConfSpecApplyConfiguration constructs a declarative configuration of the BgpConfSpec type for use with
@@ -161,6 +162,16 @@ func (b *BgpConfSpecApplyConfiguration) WithPeers(values ...*BgpPeerApplyConfigu
 func (b *BgpConfSpecApplyConfiguration) WithAdvertiseFilter(values ...string) *BgpConfSpecApplyConfiguration {
 	for i := range values {
 		b.AdvertiseFilter = append(b.AdvertiseFilter, values[i])
+	}
+	return b
+}
+
+// WithRedistributeTables adds the given value to the RedistributeTables field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the RedistributeTables field.
+func (b *BgpConfSpecApplyConfiguration) WithRedistributeTables(values ...uint32) *BgpConfSpecApplyConfiguration {
+	for i := range values {
+		b.RedistributeTables = append(b.RedistributeTables, values[i])
 	}
 	return b
 }
