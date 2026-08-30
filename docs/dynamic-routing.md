@@ -111,3 +111,30 @@ The agent renders the `table-direct` line for every VPC that carries a
 dynamic routing spec, a `vrfId`, a ready `lrp` OvnEip and no VRF
 device. A table that is empty on a chassis advertises nothing and
 produces no error.
+
+## Metrics
+
+The agent serves Prometheus metrics on its `--pprof-port`, `10668` by
+default. The chart exposes that port as `metrics` on the headless
+Service `fabric-frr`, so a Prometheus that discovers endpoints by
+Service name scrapes every agent. The agent refreshes the gauges on
+every reconcile, on the reassert ticker and on each object event.
+
+| Metric | Labels | Meaning |
+| --- | --- | --- |
+| `fabric_frr_bgp_peer_up` | `peer`, `node` | `1` when the BGP session to the peer is `Established`, `0` otherwise. One series per neighbour of the BgpConf, a peer that FRR does not report is `0`. |
+| `fabric_frr_bgp_peer_prefixes_advertised` | `peer`, `node` | Number of prefixes sent to the peer, `pfxSnt` of `show bgp summary json`. |
+| `fabric_frr_vpc_advertised_prefixes` | `vpc`, `node` | Number of prefixes in the BGP table of the chassis whose next hop is the external gateway LRP of the VPC, counted from `show bgp ipv4 unicast json`. The route-map `KUBE-OVN-NH-<vpc>` sets that next hop, so this is what the VPC contributes to BGP before the outbound filter. |
+| `fabric_frr_vpc_table_routes` | `vpc`, `table`, `node` | Number of IPv4 routes in the kernel table `vrfId` of the VPC, read over netlink. |
+
+`node` is the name of the node the agent runs on.
+
+The agent container has no `vtysh` and no FRR socket. The reload loop
+in the FRR container runs `vtysh -c 'show bgp summary json'` and
+`vtysh -c 'show bgp ipv4 unicast json'` every five seconds while the
+`bgpd` socket exists, and writes the output to
+`.fabric-frr-bgp-summary.json` and `.fabric-frr-bgp-routes.json` in the
+shared `/etc/frr`. The agent reads those files on reconcile and ignores
+a file older than thirty seconds, so a stopped FRR container reports
+every peer as down within that window. Without a `router bgp` block in
+the rendered configuration the agent reads no snapshot.

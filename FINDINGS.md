@@ -304,8 +304,20 @@ nothing changed. This is the last-applied result the item asks for.
   `bgp-confs/status`
 - Tests: `TestNodeApplyState`
 
-**Not done: peer session state.** The design, and why it is not in this
-pass:
+**Peer session state: exposed as metrics.** The agent serves
+`fabric_frr_bgp_peer_up`, `fabric_frr_bgp_peer_prefixes_advertised`,
+`fabric_frr_vpc_advertised_prefixes` and `fabric_frr_vpc_table_routes`
+on its metrics port, and the chart adds the headless Service
+`fabric-frr` with a `metrics` port for scraping. The FRR container
+snapshots `show bgp summary json` and `show bgp ipv4 unicast json`
+into the shared `/etc/frr` from its reload loop, so the agent needs no
+`vtysh` and no socket mount. See the Metrics section of
+`docs/dynamic-routing.md`. Tests: `TestParseBgpSummary`,
+`TestCountPrefixesByNextHop`,
+`TestSetMetricsReportsEveryConfiguredPeerAndVpc`.
+
+**Not done: peer state in the BgpConf status.** The original design,
+and why it is not in this pass:
 
 The agent cannot read the session state today. `fabric-frr` and `frr`
 are separate containers of the same pod. They share `/etc/frr` only, so
