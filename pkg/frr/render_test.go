@@ -273,3 +273,60 @@ func TestNodeApplyState(t *testing.T) {
 		t.Errorf("expected a pending state, got %q", state)
 	}
 }
+
+func TestRenderHostTables(t *testing.T) {
+	config := Render(RenderInput{
+		NodeName:   "node1",
+		RouterID:   "10.0.0.1",
+		LocalASN:   65002,
+		Neighbors:  []Neighbor{{Address: "10.0.0.9", ASN: 65001}},
+		Vpcs:       []VpcAdvertisement{{VpcName: "vpc-a", TableID: 1001, LrpIP: "10.0.0.21"}},
+		HostTables: []uint32{201, 198},
+	})
+	if !strings.Contains(config, "  redistribute table-direct 198\n  redistribute table-direct 201\n exit-address-family\n") {
+		t.Errorf("expected sorted host table redistribute lines, got:\n%s", config)
+	}
+	if strings.Contains(config, "table-direct 198 route-map") {
+		t.Errorf("expected no next-hop route-map on a host table, got:\n%s", config)
+	}
+}
+
+func TestBuildRenderInputHostTables(t *testing.T) {
+	conf := &kubeovnv1.BgpConf{
+		Spec: kubeovnv1.BgpConfSpec{
+			LocalASN:           65002,
+			PeerASN:            65001,
+			RedistributeTables: []uint32{201, 198, 198},
+		},
+	}
+	input := BuildRenderInput(conf, "node1", "10.0.0.1", nil)
+	if len(input.HostTables) != 2 || input.HostTables[0] != 198 || input.HostTables[1] != 201 {
+		t.Errorf("expected sorted unique host tables, got %v", input.HostTables)
+	}
+}
+
+func TestValidateRenderInputHostTables(t *testing.T) {
+	base := RenderInput{
+		RouterID:  "10.0.0.1",
+		LocalASN:  65002,
+		Neighbors: []Neighbor{{Address: "10.0.0.9", ASN: 65001}},
+		Vpcs:      []VpcAdvertisement{{VpcName: "vpc-a", TableID: 1001, LrpIP: "10.0.0.21"}},
+	}
+	ok := base
+	ok.HostTables = []uint32{198}
+	if err := ValidateRenderInput(ok); err != nil {
+		t.Errorf("expected host table 198 to validate, got %v", err)
+	}
+	for name, tables := range map[string][]uint32{
+		"zero":         {0},
+		"out of range": {65536},
+		"reserved":     {254},
+		"vpc table":    {1001},
+	} {
+		bad := base
+		bad.HostTables = tables
+		if err := ValidateRenderInput(bad); err == nil {
+			t.Errorf("expected the %s host table %v to be rejected", name, tables)
+		}
+	}
+}

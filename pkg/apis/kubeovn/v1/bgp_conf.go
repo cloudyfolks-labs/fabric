@@ -79,6 +79,11 @@ type BgpConfSpec struct {
 	NodeSelector    map[string]string `json:"nodeSelector,omitempty"`
 	Peers           []BgpPeer         `json:"peers,omitempty"`
 	AdvertiseFilter []string          `json:"advertiseFilter,omitempty"`
+
+	// +optional
+	// +kubebuilder:validation:items:Minimum=1
+	// +kubebuilder:validation:items:Maximum=65535
+	RedistributeTables []uint32 `json:"redistributeTables,omitempty"`
 }
 
 type BgpPeer struct {

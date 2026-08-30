@@ -495,6 +495,13 @@ spec:
                   - address
                   type: object
                 type: array
+              redistributeTables:
+                items:
+                  format: int32
+                  maximum: 65535
+                  minimum: 1
+                  type: integer
+                type: array
               routerId:
                 type: string
             type: object

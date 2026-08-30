@@ -173,6 +173,11 @@ func (in *BgpConfSpec) DeepCopyInto(out *BgpConfSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.RedistributeTables != nil {
+		in, out := &in.RedistributeTables, &out.RedistributeTables
+		*out = make([]uint32, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
