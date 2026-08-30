@@ -184,7 +184,7 @@ func (c *Controller) reconcile() {
 		return
 	}
 
-	config, err := c.desiredConfig()
+	input, err := c.desiredInput()
 	if err != nil {
 		klog.Errorf("failed to compute desired FRR configuration: %v", err)
 		if conf != nil {
@@ -192,8 +192,11 @@ func (c *Controller) reconcile() {
 		}
 		return
 	}
+	if c.config.EnableMetrics {
+		c.refreshMetrics(input)
+	}
 
-	s, err := c.applier.Apply(config)
+	s, err := c.applier.Apply(Render(input))
 	if err != nil {
 		klog.Errorf("failed to apply FRR configuration: %v", err)
 		if conf != nil {
@@ -265,18 +268,18 @@ func (c *Controller) reportNodeState(confName, state, serial, message string) {
 	}
 }
 
-func (c *Controller) desiredConfig() (string, error) {
+func (c *Controller) desiredInput() (RenderInput, error) {
 	node, err := c.nodeLister.Get(c.config.NodeName)
 	if err != nil {
-		return "", fmt.Errorf("failed to get node %s: %w", c.config.NodeName, err)
+		return RenderInput{}, fmt.Errorf("failed to get node %s: %w", c.config.NodeName, err)
 	}
 
 	conf, err := c.selectBgpConf(node)
 	if err != nil {
-		return "", err
+		return RenderInput{}, err
 	}
 	if conf == nil {
-		return Render(RenderInput{NodeName: c.config.NodeName}), nil
+		return RenderInput{NodeName: c.config.NodeName}, nil
 	}
 
 	routerID := conf.Spec.RouterID
@@ -284,24 +287,65 @@ func (c *Controller) desiredConfig() (string, error) {
 		routerID, _ = util.GetNodeInternalIP(*node)
 	}
 	if routerID == "" {
-		return "", fmt.Errorf("node %s has no IPv4 internal address, set spec.routerId on bgp-conf %s", c.config.NodeName, conf.Name)
+		return RenderInput{}, fmt.Errorf("node %s has no IPv4 internal address, set spec.routerId on bgp-conf %s", c.config.NodeName, conf.Name)
 	}
 
 	vpcs, err := c.collectVpcAdvertisements()
 	if err != nil {
-		return "", err
+		return RenderInput{}, err
 	}
 
 	hostRoutes, err := c.collectHostRouteEntries()
 	if err != nil {
-		return "", err
+		return RenderInput{}, err
 	}
 	input := BuildRenderInput(conf, c.config.NodeName, routerID, vpcs)
 	input.AdvertiseFilter = mergeAdvertiseEntries(input.AdvertiseFilter, hostRoutes)
 	if err = ValidateRenderInput(input); err != nil {
-		return "", fmt.Errorf("invalid configuration from bgp-conf %s: %w", conf.Name, err)
+		return RenderInput{}, fmt.Errorf("invalid configuration from bgp-conf %s: %w", conf.Name, err)
 	}
-	return Render(input), nil
+	return input, nil
+}
+
+func (c *Controller) refreshMetrics(input RenderInput) {
+	neighbors := make([]string, 0, len(input.Neighbors))
+	for _, n := range input.Neighbors {
+		neighbors = append(neighbors, n.Address)
+	}
+	peers, prefixes := c.bgpState(input.LocalASN != 0)
+	setMetrics(metricsInput{
+		node:        c.config.NodeName,
+		neighbors:   neighbors,
+		vpcs:        input.Vpcs,
+		peers:       peers,
+		prefixes:    prefixes,
+		tableRoutes: tableRouteCount,
+	})
+}
+
+func (c *Controller) bgpState(bgpRendered bool) (map[string]BgpPeer, map[string]int) {
+	peers := map[string]BgpPeer{}
+	prefixes := map[string]int{}
+	if !bgpRendered {
+		return peers, prefixes
+	}
+	if data, ok := readSnapshot(c.config.FrrDir, bgpSummaryFileName); ok {
+		parsed, err := ParseBgpSummary(data)
+		if err != nil {
+			klog.Warningf("failed to read the bgp summary snapshot: %v", err)
+		} else {
+			peers = parsed
+		}
+	}
+	if data, ok := readSnapshot(c.config.FrrDir, bgpRoutesFileName); ok {
+		parsed, err := CountPrefixesByNextHop(data)
+		if err != nil {
+			klog.Warningf("failed to read the bgp routes snapshot: %v", err)
+		} else {
+			prefixes = parsed
+		}
+	}
+	return peers, prefixes
 }
 
 func (c *Controller) selectBgpConf(node *corev1.Node) (*kubeovnv1.BgpConf, error) {

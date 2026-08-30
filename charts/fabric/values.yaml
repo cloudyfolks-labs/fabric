@@ -628,6 +628,13 @@ frr:
   # -- Args passed to the fabric-frr agent.
   # @section -- FRR agent configuration
   args: []
+  # -- fabric-frr metrics configuration.
+  # @section -- FRR agent configuration
+  # @default -- "{}"
+  metrics:
+    # -- Configure the port on which the fabric-frr service will serve metrics.
+    # @section -- FRR agent configuration
+    port: 10668
 
 # -- Configuration for fabric-pinger, the agent monitoring and returning metrics for OVS/external connectivity.
 # @section -- Ping daemon configuration

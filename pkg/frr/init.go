@@ -22,8 +22,21 @@ FRR_DIR=${FRR_DIR:-/etc/frr}
 RELOAD_PY=/usr/lib/frr/frr-reload.py
 [ -f "$RELOAD_PY" ] || RELOAD_PY=$(command -v frr-reload.py)
 REDACT='s/password .*/password (redacted)/'
+SUMMARY="$FRR_DIR/.fabric-frr-bgp-summary.json"
+ROUTES="$FRR_DIR/.fabric-frr-bgp-routes.json"
+snapshot() {
+  if [ ! -S /var/run/frr/bgpd.vty ]; then
+    rm -f "$SUMMARY" "$ROUTES"
+    return
+  fi
+  vtysh -c 'show bgp summary json' > "$SUMMARY.tmp" 2>/dev/null && mv "$SUMMARY.tmp" "$SUMMARY"
+  vtysh -c 'show bgp ipv4 unicast json' > "$ROUTES.tmp" 2>/dev/null && mv "$ROUTES.tmp" "$ROUTES"
+}
+tick=0
 while true; do
   sleep 1
+  tick=$((tick + 1))
+  [ $((tick % 5)) -eq 0 ] && snapshot
   [ -f "$FRR_DIR/.fabric-frr-apply" ] || continue
   want=$(cat "$FRR_DIR/.fabric-frr-apply")
   have=$(cat "$FRR_DIR/.fabric-frr-applied" 2>/dev/null)

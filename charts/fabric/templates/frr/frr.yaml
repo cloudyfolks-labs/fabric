@@ -66,6 +66,27 @@ subjects:
     name: fabric-frr
     namespace: {{ .Values.namespace }}
 ---
+kind: Service
+apiVersion: v1
+metadata:
+  name: fabric-frr
+  namespace: {{ .Values.namespace }}
+  {{- with .Values.frr.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/name: fabric-frr
+    app.kubernetes.io/part-of: fabric
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: fabric-frr
+    app.kubernetes.io/part-of: fabric
+  ports:
+    - port: {{ .Values.frr.metrics.port }}
+      name: metrics
+---
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -149,9 +170,13 @@ spec:
             - --alsologtostderr=true
             - --log_file=/var/log/fabric/fabric-frr.log
             - --log_file_max_size=200
+            - --pprof-port={{ .Values.frr.metrics.port }}
           {{- with .Values.frr.args }}
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.frr.metrics.port }}
           env:
             - name: NODE_NAME
               valueFrom:
