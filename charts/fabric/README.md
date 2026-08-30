@@ -1481,6 +1481,24 @@ false
 			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
+			<td>frr.metrics</td>
+			<td>object</td>
+			<td><pre lang="">
+"{}"
+</pre>
+</td>
+			<td>fabric-frr metrics configuration.</td>
+		</tr>
+		<tr>
+			<td>frr.metrics.port</td>
+			<td>int</td>
+			<td><pre lang="json">
+10668
+</pre>
+</td>
+			<td>Configure the port on which the fabric-frr service will serve metrics.</td>
+		</tr>
+		<tr>
 			<td>frr.nodeSelector</td>
 			<td>object</td>
 			<td><pre lang="json">

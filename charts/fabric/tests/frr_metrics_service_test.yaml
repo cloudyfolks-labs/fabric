@@ -1,0 +1,51 @@
+suite: FRR metrics service
+templates:
+  - frr/frr.yaml
+tests:
+  - it: exposes the agent metrics port through a headless service
+    set:
+      frr.enabled: true
+    documentIndex: 3
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: metadata.name
+          value: fabric-frr
+      - equal:
+          path: spec.clusterIP
+          value: None
+      - equal:
+          path: spec.selector
+          value:
+            app.kubernetes.io/name: fabric-frr
+            app.kubernetes.io/part-of: fabric
+      - contains:
+          path: spec.ports
+          content:
+            name: metrics
+            port: 10668
+
+  - it: declares the metrics port on the agent container
+    set:
+      frr.enabled: true
+      frr.metrics.port: 10700
+    documentIndex: 4
+    asserts:
+      - isKind:
+          of: DaemonSet
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: --pprof-port=10700
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            name: metrics
+            containerPort: 10700
+
+  - it: renders nothing when the agent is disabled
+    set:
+      frr.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
