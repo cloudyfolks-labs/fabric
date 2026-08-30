@@ -35,6 +35,7 @@ func AgentMain() {
 	go func() {
 		if config.EnableMetrics {
 			metrics.InitKlogMetrics()
+			frragent.RegisterMetrics()
 			if err := metrics.Run(ctx, nil, util.JoinHostPort("0.0.0.0", config.PprofPort), false, false, "", "", nil); err != nil {
 				util.LogFatalAndExit(err, "failed to run metrics server")
 			}
