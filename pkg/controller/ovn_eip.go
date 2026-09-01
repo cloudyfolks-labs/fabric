@@ -478,10 +478,13 @@ func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
 // natGatewayPort returns the UUID of the logical router port that the nat
 // rules of the VPC name as gateway_port, or an empty string when northd picks
 // the port itself. A VPC with dynamic routing and dynamicRouting.externalSubnet
-// carries one distributed gateway port per external subnet, and northd cannot
-// resolve the port of an external IP that lies outside every port network, so
-// the rules name the port of the subnet whose LRP is the BGP next hop.
-func (c *Controller) natGatewayPort(vpcName string) (string, error) {
+// carries one distributed gateway port per external subnet, and a nat rule
+// only applies to traffic leaving through its gateway_port — so a rule whose
+// external IP belongs to a subnet with an LRP on the router names that LRP.
+// northd cannot resolve the port of an external IP that lies outside every
+// port network (the L2 public pools), so those rules fall back to the port of
+// the subnet whose LRP is the BGP next hop.
+func (c *Controller) natGatewayPort(vpcName, externalSubnet string) (string, error) {
 	vpc, err := c.vpcsLister.Get(vpcName)
 	if err != nil {
 		klog.Errorf("failed to get vpc %s, %v", vpcName, err)
@@ -490,6 +493,16 @@ func (c *Controller) natGatewayPort(vpcName string) (string, error) {
 	routing := vpc.Spec.DynamicRouting
 	if !routing.IsEnabled() || routing.ExternalSubnet == "" {
 		return "", nil
+	}
+	if externalSubnet != "" && externalSubnet != routing.ExternalSubnet {
+		lrp, err := c.OVNNbClient.GetLogicalRouterPort(fmt.Sprintf("%s-%s", vpc.Name, externalSubnet), true)
+		if err != nil {
+			klog.Errorf("failed to get gateway port of subnet %s for vpc %s, %v", externalSubnet, vpc.Name, err)
+			return "", err
+		}
+		if lrp != nil {
+			return lrp.UUID, nil
+		}
 	}
 	lrpName := fmt.Sprintf("%s-%s", vpc.Name, routing.ExternalSubnet)
 	lrp, err := c.OVNNbClient.GetLogicalRouterPort(lrpName, false)

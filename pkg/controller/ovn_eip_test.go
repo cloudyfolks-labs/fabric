@@ -30,7 +30,30 @@ func TestNatGatewayPort(t *testing.T) {
 		require.NoError(t, err)
 		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-a-transit", false).Return(&ovnnb.LogicalRouterPort{UUID: "lrp-uuid"}, nil)
 
-		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-a")
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-a", "transit")
+		require.NoError(t, err)
+		require.Equal(t, "lrp-uuid", gatewayPort)
+	})
+
+	t.Run("nat on an external subnet with its own lrp names that lrp", func(t *testing.T) {
+		vpc := routedVpc("vpc-f", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		require.NoError(t, err)
+		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-f-services", true).Return(&ovnnb.LogicalRouterPort{UUID: "services-lrp-uuid"}, nil)
+
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-f", "services")
+		require.NoError(t, err)
+		require.Equal(t, "services-lrp-uuid", gatewayPort)
+	})
+
+	t.Run("nat on a pool subnet without an lrp falls back to the bgp next hop", func(t *testing.T) {
+		vpc := routedVpc("vpc-g", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		require.NoError(t, err)
+		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-g-public-pool", true).Return(nil, nil)
+		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-g-transit", false).Return(&ovnnb.LogicalRouterPort{UUID: "lrp-uuid"}, nil)
+
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-g", "public-pool")
 		require.NoError(t, err)
 		require.Equal(t, "lrp-uuid", gatewayPort)
 	})
@@ -41,7 +64,7 @@ func TestNatGatewayPort(t *testing.T) {
 		require.NoError(t, err)
 		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-b-transit", false).Return(nil, errors.New("not found"))
 
-		_, err = fc.fakeController.natGatewayPort("vpc-b")
+		_, err = fc.fakeController.natGatewayPort("vpc-b", "")
 		require.Error(t, err)
 	})
 
@@ -50,7 +73,7 @@ func TestNatGatewayPort(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
 		require.NoError(t, err)
 
-		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-c")
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-c", "services")
 		require.NoError(t, err)
 		require.Empty(t, gatewayPort)
 	})
@@ -60,14 +83,14 @@ func TestNatGatewayPort(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
 		require.NoError(t, err)
 
-		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-d")
+		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-d", "services")
 		require.NoError(t, err)
 		require.Empty(t, gatewayPort)
 	})
 
 	t.Run("missing vpc is an error", func(t *testing.T) {
 		fc := newFakeController(t)
-		_, err := fc.fakeController.natGatewayPort("vpc-e")
+		_, err := fc.fakeController.natGatewayPort("vpc-e", "")
 		require.Error(t, err)
 	})
 }

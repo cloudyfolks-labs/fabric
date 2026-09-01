@@ -194,7 +194,7 @@ func (c *Controller) handleAddOvnFip(key string) error {
 	// ovn add fip
 	stateless := cachedFip.Spec.Type == kubeovnv1.GWDistributedType
 	options := map[string]string{"stateless": strconv.FormatBool(stateless)}
-	gatewayPort, err := c.natGatewayPort(vpcName)
+	gatewayPort, err := c.natGatewayPort(vpcName, cachedEip.Spec.ExternalSubnet)
 	if err != nil {
 		klog.Errorf("failed to resolve nat gateway port for fip %s, %v", key, err)
 		return err
@@ -384,7 +384,7 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 		klog.Error(err)
 		return err
 	}
-	gatewayPort, err := c.natGatewayPort(vpcName)
+	gatewayPort, err := c.natGatewayPort(vpcName, cachedEip.Spec.ExternalSubnet)
 	if err != nil {
 		klog.Errorf("failed to resolve nat gateway port for fip %s, %v", key, err)
 		return err
