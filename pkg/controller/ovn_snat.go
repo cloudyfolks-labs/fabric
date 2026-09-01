@@ -151,7 +151,7 @@ func (c *Controller) handleAddOvnSnatRule(key string) error {
 		klog.Error(err)
 		return err
 	}
-	gatewayPort, err := c.natGatewayPort(vpcName)
+	gatewayPort, err := c.natGatewayPort(vpcName, cachedEip.Spec.ExternalSubnet)
 	if err != nil {
 		klog.Errorf("failed to resolve nat gateway port for snat %s, %v", key, err)
 		return err
@@ -336,7 +336,7 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 		klog.Error(err)
 		return err
 	}
-	gatewayPort, err := c.natGatewayPort(vpcName)
+	gatewayPort, err := c.natGatewayPort(vpcName, cachedEip.Spec.ExternalSubnet)
 	if err != nil {
 		klog.Errorf("failed to resolve nat gateway port for snat %s, %v", key, err)
 		return err
