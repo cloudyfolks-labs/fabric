@@ -82,8 +82,7 @@ func (c *Controller) handleAddOvnSnatRule(key string) error {
 		return err
 	}
 	if cachedSnat.Status.Ready {
-		// already ok
-		return nil
+		return c.convergeOvnSnatGatewayPort(cachedSnat)
 	}
 	klog.Infof("handle add ovn snat %s", key)
 	// check eip
@@ -350,6 +349,40 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 	if v6IpCidr != "" && v6Eip != "" {
 		if err = c.OVNNbClient.EnsureNatGatewayPort(vpcName, ovnnb.NATTypeSNAT, v6Eip, v6IpCidr, gatewayPort); err != nil {
 			klog.Errorf("failed to set gateway port on v6 snat %s, %v", key, err)
+			return err
+		}
+	}
+	return nil
+}
+
+// convergeOvnSnatGatewayPort re-derives gateway_port for a rule that is
+// already Ready. The informer replays every rule as an add on controller
+// start, so this is the convergence path for rules created before the
+// per-subnet derivation existed: the add path otherwise returns before
+// touching the nb, and the update path only fires on spec changes.
+func (c *Controller) convergeOvnSnatGatewayPort(cachedSnat *kubeovnv1.OvnSnatRule) error {
+	if cachedSnat.Status.Vpc == "" {
+		return nil
+	}
+	cachedEip, err := c.GetOvnEip(cachedSnat.Spec.OvnEip)
+	if err != nil {
+		klog.Errorf("failed to get eip, %v", err)
+		return err
+	}
+	gatewayPort, err := c.natGatewayPort(cachedSnat.Status.Vpc, cachedEip.Spec.ExternalSubnet)
+	if err != nil {
+		klog.Errorf("failed to resolve nat gateway port for snat %s, %v", cachedSnat.Name, err)
+		return err
+	}
+	if cachedSnat.Status.V4Eip != "" && cachedSnat.Status.V4IpCidr != "" {
+		if err = c.OVNNbClient.EnsureNatGatewayPort(cachedSnat.Status.Vpc, ovnnb.NATTypeSNAT, cachedSnat.Status.V4Eip, cachedSnat.Status.V4IpCidr, gatewayPort); err != nil {
+			klog.Errorf("failed to converge gateway port on v4 snat %s, %v", cachedSnat.Name, err)
+			return err
+		}
+	}
+	if cachedSnat.Status.V6Eip != "" && cachedSnat.Status.V6IpCidr != "" {
+		if err = c.OVNNbClient.EnsureNatGatewayPort(cachedSnat.Status.Vpc, ovnnb.NATTypeSNAT, cachedSnat.Status.V6Eip, cachedSnat.Status.V6IpCidr, gatewayPort); err != nil {
+			klog.Errorf("failed to converge gateway port on v6 snat %s, %v", cachedSnat.Name, err)
 			return err
 		}
 	}

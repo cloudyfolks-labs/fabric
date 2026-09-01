@@ -102,8 +102,7 @@ func (c *Controller) handleAddOvnFip(key string) error {
 		return err
 	}
 	if cachedFip.Status.Ready && cachedFip.Status.V4Ip != "" {
-		// already ok
-		return nil
+		return c.convergeOvnFipGatewayPort(cachedFip)
 	}
 	klog.Infof("handle add fip %s", key)
 	// check eip
@@ -556,6 +555,32 @@ func (c *Controller) patchOvnFipStatus(key, vpcName, v4Eip, podIP string, ready 
 		if _, err = c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch fip %s, %v", fip.Name, err)
+			return err
+		}
+	}
+	return nil
+}
+
+// convergeOvnFipGatewayPort mirrors convergeOvnSnatGatewayPort for fip
+// rules: a Ready rule replayed as an add on controller start gets its
+// gateway_port re-derived instead of being skipped.
+func (c *Controller) convergeOvnFipGatewayPort(cachedFip *kubeovnv1.OvnFip) error {
+	if cachedFip.Status.Vpc == "" {
+		return nil
+	}
+	cachedEip, err := c.GetOvnEip(cachedFip.Spec.OvnEip)
+	if err != nil {
+		klog.Errorf("failed to get eip, %v", err)
+		return err
+	}
+	gatewayPort, err := c.natGatewayPort(cachedFip.Status.Vpc, cachedEip.Spec.ExternalSubnet)
+	if err != nil {
+		klog.Errorf("failed to resolve nat gateway port for fip %s, %v", cachedFip.Name, err)
+		return err
+	}
+	for _, nat := range ovnFipNats(cachedFip.Status.V4Eip, cachedFip.Status.V6Eip, cachedFip.Status.V4Ip, cachedFip.Status.V6Ip) {
+		if err = c.OVNNbClient.EnsureNatGatewayPort(cachedFip.Status.Vpc, ovnnb.NATTypeDNATAndSNAT, nat.externalIP, nat.logicalIP, gatewayPort); err != nil {
+			klog.Errorf("failed to converge gateway port on fip %s -> %s, %v", nat.externalIP, nat.logicalIP, err)
 			return err
 		}
 	}
