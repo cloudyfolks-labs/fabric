@@ -556,6 +556,28 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
+	t.Run("EIP needs no LRP and no pool when the VPC advertises lb", func(t *testing.T) {
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
+		vpc := makeVpc("vpc1", "vpc1-tcp-lb")
+		vpc.Spec.EnableExternal = true
+		vpc.Spec.DynamicRouting = &kubeovnv1.VpcDynamicRouting{
+			Enabled:      true,
+			VrfID:        1001,
+			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+		}
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
+			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
+			Vpcs:          []*kubeovnv1.Vpc{vpc},
+		})
+		require.NoError(t, err)
+		fc.mockOvnClient.EXPECT().
+			LogicalRouterUpdateLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		require.NoError(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
+	})
+
 	t.Run("EIP from a bgp pool subnet needs no LRP when the VPC advertises lb", func(t *testing.T) {
 		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
 		vpc := makeVpc("vpc1", "vpc1-tcp-lb")
