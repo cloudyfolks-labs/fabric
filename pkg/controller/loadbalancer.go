@@ -89,8 +89,7 @@ func (c *Controller) handleAddOrUpdateLoadBalancer(name string) error {
 	if hasVip == hasEip {
 		err := fmt.Errorf("LoadBalancer %s: exactly one of frontend.vip and frontend.ovnEip must be set", name)
 		klog.Error(err)
-		c.patchLoadBalancerStatus(lb, "", "ValidateFailed", err.Error())
-		return nil
+		return c.patchLoadBalancerStatus(lb, "", "ValidateFailed", err.Error())
 	}
 
 	child := lbChildName(lb.Name)
@@ -257,7 +256,7 @@ func (c *Controller) patchLoadBalancerStatus(lb *kubeovnv1.LoadBalancer, vip, re
 func toSwitchLBRulePorts(ports []kubeovnv1.LoadBalancerPort) []kubeovnv1.SwitchLBRulePort {
 	out := make([]kubeovnv1.SwitchLBRulePort, 0, len(ports))
 	for _, p := range ports {
-		out = append(out, kubeovnv1.SwitchLBRulePort{Name: p.Name, Port: p.Port, TargetPort: p.TargetPort, Protocol: p.Protocol})
+		out = append(out, kubeovnv1.SwitchLBRulePort(p))
 	}
 	return out
 }
@@ -265,7 +264,7 @@ func toSwitchLBRulePorts(ports []kubeovnv1.LoadBalancerPort) []kubeovnv1.SwitchL
 func toRouterLBRulePorts(ports []kubeovnv1.LoadBalancerPort) []kubeovnv1.RouterLBRulePort {
 	out := make([]kubeovnv1.RouterLBRulePort, 0, len(ports))
 	for _, p := range ports {
-		out = append(out, kubeovnv1.RouterLBRulePort{Name: p.Name, Port: p.Port, TargetPort: p.TargetPort, Protocol: p.Protocol})
+		out = append(out, kubeovnv1.RouterLBRulePort(p))
 	}
 	return out
 }
