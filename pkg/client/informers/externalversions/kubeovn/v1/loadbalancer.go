@@ -33,37 +33,37 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// DNSZoneInformer provides access to a shared informer and lister for
-// DNSZones.
-type DNSZoneInformer interface {
+// LoadBalancerInformer provides access to a shared informer and lister for
+// LoadBalancers.
+type LoadBalancerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() kubeovnv1.DNSZoneLister
+	Lister() kubeovnv1.LoadBalancerLister
 }
 
-type dNSZoneInformer struct {
+type loadBalancerInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewDNSZoneInformer constructs a new informer for DNSZone type.
+// NewLoadBalancerInformer constructs a new informer for LoadBalancer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewDNSZoneInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewDNSZoneInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+func NewLoadBalancerInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewLoadBalancerInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
 }
 
-// NewFilteredDNSZoneInformer constructs a new informer for DNSZone type.
+// NewFilteredLoadBalancerInformer constructs a new informer for LoadBalancer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredDNSZoneInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewDNSZoneInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+func NewFilteredLoadBalancerInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	return NewLoadBalancerInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
 }
 
-// NewDNSZoneInformerWithOptions constructs a new informer for DNSZone type with additional options.
+// NewLoadBalancerInformerWithOptions constructs a new informer for LoadBalancer type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewDNSZoneInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
-	gvr := schema.GroupVersionResource{Group: "fabric.cloudyfolks.io", Version: "v1", Resource: "dnszones"}
+func NewLoadBalancerInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	gvr := schema.GroupVersionResource{Group: "fabric.cloudyfolks.io", Version: "v1", Resource: "loadbalancers"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
 	return cache.NewSharedIndexInformerWithOptions(
@@ -72,28 +72,28 @@ func NewDNSZoneInformerWithOptions(client versioned.Interface, options internali
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().DNSZones().List(context.Background(), opts)
+				return client.FabricV1().LoadBalancers().List(context.Background(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().DNSZones().Watch(context.Background(), opts)
+				return client.FabricV1().LoadBalancers().Watch(context.Background(), opts)
 			},
 			ListWithContextFunc: func(ctx context.Context, opts metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().DNSZones().List(ctx, opts)
+				return client.FabricV1().LoadBalancers().List(ctx, opts)
 			},
 			WatchFuncWithContext: func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&opts)
 				}
-				return client.FabricV1().DNSZones().Watch(ctx, opts)
+				return client.FabricV1().LoadBalancers().Watch(ctx, opts)
 			},
 		}, client),
-		&apiskubeovnv1.DNSZone{},
+		&apiskubeovnv1.LoadBalancer{},
 		cache.SharedIndexInformerOptions{
 			ResyncPeriod: options.ResyncPeriod,
 			Indexers:     options.Indexers,
@@ -102,14 +102,14 @@ func NewDNSZoneInformerWithOptions(client versioned.Interface, options internali
 	)
 }
 
-func (f *dNSZoneInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewDNSZoneInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+func (f *loadBalancerInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewLoadBalancerInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
-func (f *dNSZoneInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apiskubeovnv1.DNSZone{}, f.defaultInformer)
+func (f *loadBalancerInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&apiskubeovnv1.LoadBalancer{}, f.defaultInformer)
 }
 
-func (f *dNSZoneInformer) Lister() kubeovnv1.DNSZoneLister {
-	return kubeovnv1.NewDNSZoneLister(f.Informer().GetIndexer())
+func (f *loadBalancerInformer) Lister() kubeovnv1.LoadBalancerLister {
+	return kubeovnv1.NewLoadBalancerLister(f.Informer().GetIndexer())
 }

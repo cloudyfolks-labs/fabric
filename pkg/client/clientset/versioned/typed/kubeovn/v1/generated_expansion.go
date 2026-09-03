@@ -26,6 +26,8 @@ type IPExpansion interface{}
 
 type IPPoolExpansion interface{}
 
+type LoadBalancerExpansion interface{}
+
 type LoadBalancerPoolExpansion interface{}
 
 type OvnDnatRuleExpansion interface{}

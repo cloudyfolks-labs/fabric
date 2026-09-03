@@ -69,6 +69,8 @@ rules:
           - ovn-dnat-rules/status
           - switch-lb-rules
           - switch-lb-rules/status
+          - loadbalancers
+          - loadbalancers/status
           - router-lb-rules
           - router-lb-rules/status
     verbs:

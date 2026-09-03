@@ -34,6 +34,10 @@ type IPListerExpansion interface{}
 // IPPoolLister.
 type IPPoolListerExpansion interface{}
 
+// LoadBalancerListerExpansion allows custom methods to be added to
+// LoadBalancerLister.
+type LoadBalancerListerExpansion interface{}
+
 // LoadBalancerPoolListerExpansion allows custom methods to be added to
 // LoadBalancerPoolLister.
 type LoadBalancerPoolListerExpansion interface{}

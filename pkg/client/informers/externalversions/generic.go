@@ -61,6 +61,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().IPs().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ippools"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().IPPools().Informer()}, nil
+	case v1.SchemeGroupVersion.WithResource("loadbalancers"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().LoadBalancers().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("loadbalancer-pools"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Fabric().V1().LoadBalancerPools().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("ovn-dnat-rules"):

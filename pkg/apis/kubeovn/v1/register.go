@@ -55,6 +55,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SubnetList{},
 		&RouterLBRule{},
 		&RouterLBRuleList{},
+		&LoadBalancer{},
+		&LoadBalancerList{},
 		&SwitchLBRule{},
 		&SwitchLBRuleList{},
 		&Vip{},

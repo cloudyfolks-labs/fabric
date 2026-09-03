@@ -44,6 +44,10 @@ func (c *FakeFabricV1) IPPools() v1.IPPoolInterface {
 	return newFakeIPPools(c)
 }
 
+func (c *FakeFabricV1) LoadBalancers() v1.LoadBalancerInterface {
+	return newFakeLoadBalancers(c)
+}
+
 func (c *FakeFabricV1) LoadBalancerPools() v1.LoadBalancerPoolInterface {
 	return newFakeLoadBalancerPools(c)
 }
