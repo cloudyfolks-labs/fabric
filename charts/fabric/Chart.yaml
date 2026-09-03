@@ -2,13 +2,13 @@ apiVersion: v2
 name: fabric
 description: Kubernetes network fabric for multi-tenant clouds, a fork of fabric
 type: application
-version: 1.1.9
-appVersion: v1.1.9
+version: 1.2.0
+appVersion: v1.2.0
 kubeVersion: ">= 1.29.0-0"
 home: https://github.com/cloudyfolks-labs/fabric
 sources:
   - https://github.com/cloudyfolks-labs/fabric
 dependencies:
   - name: fabric-crds
-    version: 1.1.9
+    version: 1.2.0
     condition: crds.enabled
