@@ -3716,6 +3716,8 @@ rules:
       - switch-lb-rules/status
       - router-lb-rules
       - router-lb-rules/status
+      - loadbalancers
+      - loadbalancers/status
       - dns-zones
       - dns-zones/status
       - bgp-confs
