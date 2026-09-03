@@ -7,7 +7,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
@@ -102,19 +101,14 @@ func (c *Controller) handleAddOrUpdateLoadBalancer(name string) error {
 			return err
 		}
 		vip := lb.Spec.Frontend.Vip
-		subnet, err := c.subnetForVpcAddress(lb.Spec.Vpc, vip)
-		if err != nil {
-			c.patchLoadBalancerStatus(lb, "", "SubnetNotFound", err.Error())
-			return err
-		}
+		// No network annotations: the endpoint funnel resolves the VPC
+		// and the backends' subnet from the endpoint targets, which is
+		// exactly the placement the old annotation contract asked the
+		// caller to know.
 		desired := &kubeovnv1.SwitchLBRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   child,
 				Labels: childLabels,
-				Annotations: map[string]string{
-					util.LogicalRouterAnnotation: lb.Spec.Vpc,
-					util.LogicalSwitchAnnotation: subnet,
-				},
 			},
 			Spec: kubeovnv1.SwitchLBRuleSpec{
 				Vip:             vip,
@@ -182,22 +176,6 @@ func (c *Controller) handleDelLoadBalancer(name string) error {
 		return err
 	}
 	return c.deleteLoadBalancerChildRouterRule(child)
-}
-
-// subnetForVpcAddress finds the VPC subnet whose CIDR holds the
-// address; the child SwitchLBRule needs it for its network
-// annotations, which the endpoint funnel resolves forwarding from.
-func (c *Controller) subnetForVpcAddress(vpc, address string) (string, error) {
-	subnets, err := c.subnetsLister.List(labels.Everything())
-	if err != nil {
-		return "", err
-	}
-	for _, subnet := range subnets {
-		if subnet.Spec.Vpc == vpc && util.CIDRContainIP(subnet.Spec.CIDRBlock, address) {
-			return subnet.Name, nil
-		}
-	}
-	return "", fmt.Errorf("no subnet of vpc %s holds address %s", vpc, address)
 }
 
 func (c *Controller) upsertLoadBalancerChildSwitchRule(desired *kubeovnv1.SwitchLBRule) error {
