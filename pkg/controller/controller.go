@@ -105,6 +105,10 @@ type Controller struct {
 
 	routerLBRuleLister      kubeovnlister.RouterLBRuleLister
 	routerLBRuleSynced      cache.InformerSynced
+	loadBalancerLister      kubeovnlister.LoadBalancerLister
+	loadBalancerSynced      cache.InformerSynced
+	addLoadBalancerQueue    workqueue.TypedRateLimitingInterface[string]
+	delLoadBalancerQueue    workqueue.TypedRateLimitingInterface[string]
 	addRouterLBRuleQueue    workqueue.TypedRateLimitingInterface[string]
 	updateRouterLBRuleQueue workqueue.TypedRateLimitingInterface[*RouterLBRuleInfo]
 	delRouterLBRuleQueue    workqueue.TypedRateLimitingInterface[*RouterLBRuleInfo]
@@ -381,6 +385,7 @@ func Run(ctx context.Context, config *Configuration) {
 	npInformer := informerFactory.Networking().V1().NetworkPolicies()
 	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DNSZones()
 	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
+	loadBalancerInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancers()
 	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
 	switchLBRuleInformer := kubeovnInformerFactory.Fabric().V1().SwitchLBRules()
 	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
@@ -565,6 +570,10 @@ func Run(ctx context.Context, config *Configuration) {
 	if config.EnableLb {
 		controller.routerLBRuleLister = routerLBRuleInformer.Lister()
 		controller.routerLBRuleSynced = routerLBRuleInformer.Informer().HasSynced
+		controller.loadBalancerLister = loadBalancerInformer.Lister()
+		controller.loadBalancerSynced = loadBalancerInformer.Informer().HasSynced
+		controller.addLoadBalancerQueue = newTypedRateLimitingQueue("AddLoadBalancer", custCrdRateLimiter)
+		controller.delLoadBalancerQueue = newTypedRateLimitingQueue[string]("DeleteLoadBalancer", nil)
 		controller.addRouterLBRuleQueue = newTypedRateLimitingQueue("AddRouterLBRule", custCrdRateLimiter)
 		controller.delRouterLBRuleQueue = newTypedRateLimitingQueue(
 			"DeleteRouterLBRule",
@@ -700,7 +709,7 @@ func Run(ctx context.Context, config *Configuration) {
 		controller.ovnDnatRuleSynced,
 	}
 	if controller.config.EnableLb {
-		cacheSyncs = append(cacheSyncs, controller.routerLBRuleSynced, controller.switchLBRuleSynced)
+		cacheSyncs = append(cacheSyncs, controller.routerLBRuleSynced, controller.switchLBRuleSynced, controller.loadBalancerSynced)
 	}
 	cacheSyncs = append(cacheSyncs, controller.dnsZoneSynced)
 	if controller.ovnLbSvcEnabled() {
@@ -867,6 +876,26 @@ func Run(ctx context.Context, config *Configuration) {
 			DeleteFunc: controller.enqueueDeleteSwitchLBRule,
 		}); err != nil {
 			util.LogFatalAndExit(err, "failed to add switch lb rule event handler")
+		}
+
+		if _, err = loadBalancerInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.enqueueAddLoadBalancer,
+			UpdateFunc: controller.enqueueUpdateLoadBalancer,
+			DeleteFunc: controller.enqueueDeleteLoadBalancer,
+		}); err != nil {
+			util.LogFatalAndExit(err, "failed to add loadbalancer event handler")
+		}
+
+		childToOwner := cache.ResourceEventHandlerFuncs{
+			AddFunc:    controller.enqueueLoadBalancerForChild,
+			UpdateFunc: func(_, newObj any) { controller.enqueueLoadBalancerForChild(newObj) },
+			DeleteFunc: controller.enqueueLoadBalancerForChild,
+		}
+		if _, err = switchLBRuleInformer.Informer().AddEventHandler(childToOwner); err != nil {
+			util.LogFatalAndExit(err, "failed to add loadbalancer child (slr) event handler")
+		}
+		if _, err = routerLBRuleInformer.Informer().AddEventHandler(childToOwner); err != nil {
+			util.LogFatalAndExit(err, "failed to add loadbalancer child (rlr) event handler")
 		}
 	}
 
@@ -1092,6 +1121,8 @@ func (c *Controller) shutdown() {
 
 	if c.config.EnableLb {
 		c.addRouterLBRuleQueue.ShutDown()
+		c.addLoadBalancerQueue.ShutDown()
+		c.delLoadBalancerQueue.ShutDown()
 		c.delRouterLBRuleQueue.ShutDown()
 		c.updateRouterLBRuleQueue.ShutDown()
 
@@ -1221,6 +1252,8 @@ func (c *Controller) startWorkers(ctx context.Context) {
 		go wait.Until(runWorker("delete service", c.deleteServiceQueue, c.handleDeleteService), time.Second, ctx.Done())
 
 		go wait.Until(runWorker("add/update router lb rule", c.addRouterLBRuleQueue, c.handleAddOrUpdateRouterLBRule), time.Second, ctx.Done())
+		go wait.Until(runWorker("add/update loadbalancer", c.addLoadBalancerQueue, c.handleAddOrUpdateLoadBalancer), time.Second, ctx.Done())
+		go wait.Until(runWorker("delete loadbalancer", c.delLoadBalancerQueue, c.handleDelLoadBalancer), time.Second, ctx.Done())
 		go wait.Until(runWorker("delete router lb rule", c.delRouterLBRuleQueue, c.handleDelRouterLBRule), time.Second, ctx.Done())
 		go wait.Until(runWorker("update router lb rule", c.updateRouterLBRuleQueue, c.handleUpdateRouterLBRule), time.Second, ctx.Done())
 

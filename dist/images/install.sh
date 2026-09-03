@@ -1102,6 +1102,157 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
+  name: loadbalancers.fabric.cloudyfolks.io
+spec:
+  group: fabric.cloudyfolks.io
+  names:
+    kind: LoadBalancer
+    listKind: LoadBalancerList
+    plural: loadbalancers
+    shortNames:
+    - flb
+    singular: loadbalancer
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.vpc
+      name: vpc
+      type: string
+    - jsonPath: .status.vip
+      name: vip
+      type: string
+    - jsonPath: .status.ports
+      name: port(s)
+      type: string
+    - jsonPath: .status.service
+      name: service
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          LoadBalancer is the one L4 balancer object: the frontend field picks
+          the OVN realization. A literal vip attaches to the VPC's switches
+          (the SwitchLBRule shape); an ovnEip attaches to the router and uses
+          the EIP's public address as the VIP (the RouterLBRule shape).
+          Exactly one frontend field must be set.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              endpoints:
+                items:
+                  type: string
+                type: array
+              frontend:
+                properties:
+                  ovnEip:
+                    type: string
+                  vip:
+                    type: string
+                type: object
+              namespace:
+                type: string
+              ports:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    port:
+                      format: int32
+                      type: integer
+                    protocol:
+                      type: string
+                    targetPort:
+                      format: int32
+                      type: integer
+                  type: object
+                type: array
+              selector:
+                items:
+                  type: string
+                type: array
+              sessionAffinity:
+                type: string
+              vpc:
+                type: string
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  description: Condition describes the state of an object at a certain
+                    point.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    lastUpdateTime:
+                      description: Last time the condition was probed
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        ObservedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9,
+                        the condition is out of date with respect to the current state of the instance.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition.
+                      type: string
+                  type: object
+                type: array
+              ports:
+                type: string
+              service:
+                type: string
+              vip:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
   name: ovn-dnat-rules.fabric.cloudyfolks.io
 spec:
   group: fabric.cloudyfolks.io
@@ -3565,6 +3716,8 @@ rules:
       - switch-lb-rules/status
       - router-lb-rules
       - router-lb-rules/status
+      - loadbalancers
+      - loadbalancers/status
       - dns-zones
       - dns-zones/status
       - bgp-confs

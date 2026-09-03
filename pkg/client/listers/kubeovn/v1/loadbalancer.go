@@ -25,24 +25,24 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// DNSZoneLister helps list DNSZones.
+// LoadBalancerLister helps list LoadBalancers.
 // All objects returned here must be treated as read-only.
-type DNSZoneLister interface {
-	// List lists all DNSZones in the indexer.
+type LoadBalancerLister interface {
+	// List lists all LoadBalancers in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*kubeovnv1.DNSZone, err error)
-	// Get retrieves the DNSZone from the index for a given name.
+	List(selector labels.Selector) (ret []*kubeovnv1.LoadBalancer, err error)
+	// Get retrieves the LoadBalancer from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*kubeovnv1.DNSZone, error)
-	DNSZoneListerExpansion
+	Get(name string) (*kubeovnv1.LoadBalancer, error)
+	LoadBalancerListerExpansion
 }
 
-// dNSZoneLister implements the DNSZoneLister interface.
-type dNSZoneLister struct {
-	listers.ResourceIndexer[*kubeovnv1.DNSZone]
+// loadBalancerLister implements the LoadBalancerLister interface.
+type loadBalancerLister struct {
+	listers.ResourceIndexer[*kubeovnv1.LoadBalancer]
 }
 
-// NewDNSZoneLister returns a new DNSZoneLister.
-func NewDNSZoneLister(indexer cache.Indexer) DNSZoneLister {
-	return &dNSZoneLister{listers.New[*kubeovnv1.DNSZone](indexer, kubeovnv1.Resource("dnszone"))}
+// NewLoadBalancerLister returns a new LoadBalancerLister.
+func NewLoadBalancerLister(indexer cache.Indexer) LoadBalancerLister {
+	return &loadBalancerLister{listers.New[*kubeovnv1.LoadBalancer](indexer, kubeovnv1.Resource("loadbalancer"))}
 }

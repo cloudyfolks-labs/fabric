@@ -87,6 +87,7 @@ type FakeControllerOptions struct {
 	Services           []*corev1.Service
 	Vpcs               []*kubeovnv1.Vpc
 	RouterLBRules      []*kubeovnv1.RouterLBRule
+	LoadBalancers      []*kubeovnv1.LoadBalancer
 	LoadBalancerPools  []*kubeovnv1.LoadBalancerPool
 	OvnEips            []*kubeovnv1.OvnEip
 	OvnDnatRules       []*kubeovnv1.OvnDnatRule
@@ -191,6 +192,13 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 			return nil, err
 		}
 	}
+	for _, lb := range opts.LoadBalancers {
+		_, err := kubeovnClient.FabricV1().LoadBalancers().Create(
+			context.Background(), lb, metav1.CreateOptions{})
+		if err != nil {
+			return nil, err
+		}
+	}
 	for _, zone := range opts.DNSZones {
 		_, err := kubeovnClient.FabricV1().DNSZones().Create(
 			context.Background(), zone, metav1.CreateOptions{})
@@ -270,6 +278,8 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	providerNetworkInformer := kubeovnInformerFactory.Fabric().V1().ProviderNetworks()
 	ippoolInformer := kubeovnInformerFactory.Fabric().V1().IPPools()
 	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
+	loadBalancerInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancers()
+	switchLBRuleInformer := kubeovnInformerFactory.Fabric().V1().SwitchLBRules()
 	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
 	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DNSZones()
 	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
@@ -312,6 +322,10 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		providerNetworksLister:  providerNetworkInformer.Lister(),
 		routerLBRuleLister:      routerLBRuleInformer.Lister(),
 		routerLBRuleSynced:      alwaysReady,
+		loadBalancerLister:      loadBalancerInformer.Lister(),
+		loadBalancerSynced:      alwaysReady,
+		switchLBRuleLister:      switchLBRuleInformer.Lister(),
+		switchLBRuleSynced:      alwaysReady,
 		loadBalancerPoolLister:  loadBalancerPoolInformer.Lister(),
 		loadBalancerPoolSynced:  alwaysReady,
 		dnsZoneLister:           dnsZoneInformer.Lister(),

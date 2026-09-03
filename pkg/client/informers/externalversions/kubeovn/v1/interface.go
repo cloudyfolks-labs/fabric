@@ -32,6 +32,8 @@ type Interface interface {
 	IPs() IPInformer
 	// IPPools returns a IPPoolInformer.
 	IPPools() IPPoolInformer
+	// LoadBalancers returns a LoadBalancerInformer.
+	LoadBalancers() LoadBalancerInformer
 	// LoadBalancerPools returns a LoadBalancerPoolInformer.
 	LoadBalancerPools() LoadBalancerPoolInformer
 	// OvnDnatRules returns a OvnDnatRuleInformer.
@@ -78,7 +80,7 @@ func (v *version) BgpConves() BgpConfInformer {
 
 // DNSZones returns a DNSZoneInformer.
 func (v *version) DNSZones() DNSZoneInformer {
-	return &dnsZoneInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+	return &dNSZoneInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // IPs returns a IPInformer.
@@ -89,6 +91,11 @@ func (v *version) IPs() IPInformer {
 // IPPools returns a IPPoolInformer.
 func (v *version) IPPools() IPPoolInformer {
 	return &iPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// LoadBalancers returns a LoadBalancerInformer.
+func (v *version) LoadBalancers() LoadBalancerInformer {
+	return &loadBalancerInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // LoadBalancerPools returns a LoadBalancerPoolInformer.

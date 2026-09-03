@@ -39,9 +39,11 @@ type VpcDynamicRoutingApplyConfiguration struct {
 	// Advertise chassis-specific routes (NAT/LB IPs) only from the chassis
 	// where the backing port is bound.
 	LocalOnly *bool `json:"localOnly,omitempty"`
-	// Let ovn-controller create and maintain the VRF on the gateway chassis.
-	// When false, the VRF must already exist on the chassis with a table id
-	// equal to the logical router's datapath tunnel key.
+	// Let ovn-controller create and maintain a VRF device that owns the
+	// routing table vrfId on the gateway chassis. Leave it false with the
+	// fabric-frr agent: FRR redistributes the table with table-direct, which
+	// follows route changes only in a table that no VRF device owns. Set it
+	// only for an external FRR that runs one BGP instance per VRF.
 	MaintainVrf *bool `json:"maintainVrf,omitempty"`
 	// Name of the VRF used to advertise and learn routes.
 	// Must be a valid Linux interface name.
@@ -51,6 +53,12 @@ type VpcDynamicRoutingApplyConfiguration struct {
 	// Required when dynamic routing is enabled and unique across VPCs.
 	// 253, 254 and 255 are reserved by the host routing tables.
 	VrfID *uint32 `json:"vrfId,omitempty"`
+	// Name of the external subnet whose gateway LRP address is the BGP
+	// next hop of every advertised route. Required when the VPC has more
+	// than one external subnet. Must be one of the external subnets of
+	// the VPC: an entry of extraExternalSubnets, or the default external
+	// subnet when extraExternalSubnets is empty.
+	ExternalSubnet *string `json:"externalSubnet,omitempty"`
 }
 
 // VpcDynamicRoutingApplyConfiguration constructs a declarative configuration of the VpcDynamicRouting type for use with
@@ -106,5 +114,13 @@ func (b *VpcDynamicRoutingApplyConfiguration) WithVrfName(value string) *VpcDyna
 // If called multiple times, the VrfID field is set to the value of the last call.
 func (b *VpcDynamicRoutingApplyConfiguration) WithVrfID(value uint32) *VpcDynamicRoutingApplyConfiguration {
 	b.VrfID = &value
+	return b
+}
+
+// WithExternalSubnet sets the ExternalSubnet field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ExternalSubnet field is set to the value of the last call.
+func (b *VpcDynamicRoutingApplyConfiguration) WithExternalSubnet(value string) *VpcDynamicRoutingApplyConfiguration {
+	b.ExternalSubnet = &value
 	return b
 }
