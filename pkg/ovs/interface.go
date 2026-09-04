@@ -142,6 +142,7 @@ type LoadBalancer interface {
 	LoadBalancerAddVip(lbName, vip string, backends ...string) error
 	SetLoadBalancerVIPExternalTrafficLocal(lbName, vip, vipNodeLSP string) error
 	SetLoadBalancerPreferLocalBackend(lbName string, preferLocalBackend bool) error
+	SetLoadBalancerHairpinSNATIP(lbName, hairpinSNATIP string) error
 	LoadBalancerDeleteVip(lbName, vip string, ignoreHealthCheck bool) error
 	LoadBalancerAddIPPortMapping(lbName, vip string, ipPortMappings map[string]string) error
 	LoadBalancerUpdateIPPortMapping(lbName, vip string, ipPortMappings map[string]string) error

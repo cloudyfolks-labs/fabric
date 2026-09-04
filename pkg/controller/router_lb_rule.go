@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net"
 	"slices"
 	"strconv"
 	"strings"
@@ -162,6 +163,85 @@ func (c *Controller) checkEipPortConflict(eipName, portStr, excludeRlr, excludeD
 	return nil
 }
 
+func backendSubnetGateway(subnets []*kubeovnv1.Subnet, backendIPs []string) string {
+	if len(backendIPs) == 0 {
+		return ""
+	}
+	for _, subnet := range subnets {
+		if subnet.Spec.Gateway == "" {
+			continue
+		}
+		holdsAll := true
+		for _, ip := range backendIPs {
+			if !util.CIDRContainIP(subnet.Spec.CIDRBlock, ip) {
+				holdsAll = false
+				break
+			}
+		}
+		if holdsAll {
+			return subnet.Spec.Gateway
+		}
+	}
+	return ""
+}
+
+func (c *Controller) vpcSubnets(vpc *kubeovnv1.Vpc) []*kubeovnv1.Subnet {
+	subnets := make([]*kubeovnv1.Subnet, 0, len(vpc.Status.Subnets))
+	for _, name := range vpc.Status.Subnets {
+		subnet, err := c.subnetsLister.Get(name)
+		if err != nil {
+			klog.Warningf("failed to get subnet %s of VPC %s: %v", name, vpc.Name, err)
+			continue
+		}
+		subnets = append(subnets, subnet)
+	}
+	return subnets
+}
+
+func vpcLoadBalancerNames(vpc *kubeovnv1.Vpc) []string {
+	names := make([]string, 0, 6)
+	for _, lb := range []string{
+		vpc.Status.TCPLoadBalancer, vpc.Status.TCPSessionLoadBalancer,
+		vpc.Status.UDPLoadBalancer, vpc.Status.UDPSessionLoadBalancer,
+		vpc.Status.SctpLoadBalancer, vpc.Status.SctpSessionLoadBalancer,
+	} {
+		if lb != "" {
+			names = append(names, lb)
+		}
+	}
+	return names
+}
+
+func (c *Controller) setVpcLBHairpinSNATIP(vpc *kubeovnv1.Vpc, lbNames []string) error {
+	subnets := c.vpcSubnets(vpc)
+	for _, lbName := range lbNames {
+		lb, err := c.OVNNbClient.GetLoadBalancer(lbName, true)
+		if err != nil {
+			klog.Errorf("failed to get LB %s: %v", lbName, err)
+			return err
+		}
+		if lb == nil {
+			continue
+		}
+
+		backendIPs := set.New[string]()
+		for _, backends := range lb.Vips {
+			for backend := range strings.SplitSeq(backends, ",") {
+				if host, _, e := net.SplitHostPort(strings.TrimSpace(backend)); e == nil {
+					backendIPs.Insert(host)
+				}
+			}
+		}
+
+		gateway := backendSubnetGateway(subnets, backendIPs.SortedList())
+		if err = c.OVNNbClient.SetLoadBalancerHairpinSNATIP(lbName, gateway); err != nil {
+			klog.Errorf("failed to set hairpin snat ip of LB %s: %v", lbName, err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Controller) attachVpcLBsToRouter(vpcName string) error {
 	vpc, err := c.vpcsLister.Get(vpcName)
 	if err != nil {
@@ -169,20 +249,14 @@ func (c *Controller) attachVpcLBsToRouter(vpcName string) error {
 		return err
 	}
 
-	vpcLBs := []string{
-		vpc.Status.TCPLoadBalancer, vpc.Status.TCPSessionLoadBalancer,
-		vpc.Status.UDPLoadBalancer, vpc.Status.UDPSessionLoadBalancer,
-		vpc.Status.SctpLoadBalancer, vpc.Status.SctpSessionLoadBalancer,
-	}
-	var nonEmptyVpcLBs []string
-	for _, lb := range vpcLBs {
-		if lb != "" {
-			nonEmptyVpcLBs = append(nonEmptyVpcLBs, lb)
-		}
-	}
+	nonEmptyVpcLBs := vpcLoadBalancerNames(vpc)
 	if len(nonEmptyVpcLBs) > 0 {
 		if err = c.OVNNbClient.LogicalRouterUpdateLoadBalancers(vpcName, ovsdb.MutateOperationInsert, nonEmptyVpcLBs...); err != nil {
 			klog.Errorf("failed to attach LBs to router %s: %v", vpcName, err)
+			return err
+		}
+		if err = c.setVpcLBHairpinSNATIP(vpc, nonEmptyVpcLBs); err != nil {
+			klog.Error(err)
 			return err
 		}
 	}
@@ -527,6 +601,12 @@ func (c *Controller) handleDelRouterLBRule(info *RouterLBRuleInfo) error {
 			if err = c.OVNNbClient.LogicalRouterUpdateLoadBalancers(vpcForRlr, ovsdb.MutateOperationDelete, lbs...); err != nil {
 				klog.Errorf("failed to detach LBs from router %s: %v", vpcForRlr, err)
 				return err
+			}
+			for _, lbName := range lbs {
+				if err = c.OVNNbClient.SetLoadBalancerHairpinSNATIP(lbName, ""); err != nil {
+					klog.Errorf("failed to clear hairpin snat ip of LB %s: %v", lbName, err)
+					return err
+				}
 			}
 			klog.Infof("detached LBs from router %s after last RouterLBRule %s deleted", vpcForRlr, info.Name)
 		}

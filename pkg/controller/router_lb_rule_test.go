@@ -272,6 +272,176 @@ func Test_newRouterLBRuleInfo(t *testing.T) {
 	})
 }
 
+func Test_backendSubnetGateway(t *testing.T) {
+	nodeSubnet := &kubeovnv1.Subnet{
+		ObjectMeta: metav1.ObjectMeta{Name: "node-subnet"},
+		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.3.0.0/16", Gateway: "10.3.1.1"},
+	}
+	podSubnet := &kubeovnv1.Subnet{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod-subnet"},
+		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.4.0.0/16", Gateway: "10.4.1.1"},
+	}
+	noGateway := &kubeovnv1.Subnet{
+		ObjectMeta: metav1.ObjectMeta{Name: "no-gateway"},
+		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.3.0.0/16"},
+	}
+	dualStack := &kubeovnv1.Subnet{
+		ObjectMeta: metav1.ObjectMeta{Name: "dual"},
+		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.5.0.0/16,fd00:5::/64", Gateway: "10.5.1.1,fd00:5::1"},
+	}
+
+	tests := []struct {
+		name       string
+		subnets    []*kubeovnv1.Subnet
+		backendIPs []string
+		expected   string
+	}{
+		{
+			name:       "backends in one subnet",
+			subnets:    []*kubeovnv1.Subnet{podSubnet, nodeSubnet},
+			backendIPs: []string{"10.3.1.11", "10.3.1.12", "10.3.1.13"},
+			expected:   "10.3.1.1",
+		},
+		{
+			name:       "no backends",
+			subnets:    []*kubeovnv1.Subnet{nodeSubnet},
+			backendIPs: nil,
+			expected:   "",
+		},
+		{
+			name:       "backends span two subnets",
+			subnets:    []*kubeovnv1.Subnet{nodeSubnet, podSubnet},
+			backendIPs: []string{"10.3.1.11", "10.4.1.11"},
+			expected:   "",
+		},
+		{
+			name:       "no subnet holds the backends",
+			subnets:    []*kubeovnv1.Subnet{nodeSubnet},
+			backendIPs: []string{"10.9.1.11"},
+			expected:   "",
+		},
+		{
+			name:       "subnet without gateway is skipped",
+			subnets:    []*kubeovnv1.Subnet{noGateway, nodeSubnet},
+			backendIPs: []string{"10.3.1.11"},
+			expected:   "10.3.1.1",
+		},
+		{
+			name:       "no subnets",
+			subnets:    nil,
+			backendIPs: []string{"10.3.1.11"},
+			expected:   "",
+		},
+		{
+			name:       "dual stack subnet",
+			subnets:    []*kubeovnv1.Subnet{dualStack},
+			backendIPs: []string{"10.5.1.11"},
+			expected:   "10.5.1.1,fd00:5::1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, backendSubnetGateway(tt.subnets, tt.backendIPs))
+		})
+	}
+}
+
+func Test_setVpcLBHairpinSNATIP(t *testing.T) {
+	makeSubnets := func() []*kubeovnv1.Subnet {
+		return []*kubeovnv1.Subnet{{
+			ObjectMeta: metav1.ObjectMeta{Name: "node-subnet"},
+			Spec:       kubeovnv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.3.0.0/16", Gateway: "10.3.1.1"},
+		}}
+	}
+	makeVpcWithSubnet := func() *kubeovnv1.Vpc {
+		return &kubeovnv1.Vpc{
+			ObjectMeta: metav1.ObjectMeta{Name: "vpc1"},
+			Status: kubeovnv1.VpcStatus{
+				TCPLoadBalancer: "vpc1-tcp-lb",
+				Subnets:         []string{"node-subnet"},
+			},
+		}
+	}
+
+	t.Run("programs the backend subnet router port address", func(t *testing.T) {
+		vpc := makeVpcWithSubnet()
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+			Vpcs:    []*kubeovnv1.Vpc{vpc},
+			Subnets: makeSubnets(),
+		})
+		require.NoError(t, err)
+
+		fc.mockOvnClient.EXPECT().
+			GetLoadBalancer("vpc1-tcp-lb", true).
+			Return(&ovnnb.LoadBalancer{
+				Name: "vpc1-tcp-lb",
+				Vips: map[string]string{
+					"91.246.31.10:443": "10.3.1.11:443,10.3.1.12:443,10.3.1.13:443",
+				},
+			}, nil)
+		fc.mockOvnClient.EXPECT().
+			SetLoadBalancerHairpinSNATIP("vpc1-tcp-lb", "10.3.1.1").
+			Return(nil)
+
+		require.NoError(t, fc.fakeController.setVpcLBHairpinSNATIP(vpc, []string{"vpc1-tcp-lb"}))
+	})
+
+	t.Run("clears the option when no subnet holds the backends", func(t *testing.T) {
+		vpc := makeVpcWithSubnet()
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+			Vpcs:    []*kubeovnv1.Vpc{vpc},
+			Subnets: makeSubnets(),
+		})
+		require.NoError(t, err)
+
+		fc.mockOvnClient.EXPECT().
+			GetLoadBalancer("vpc1-tcp-lb", true).
+			Return(&ovnnb.LoadBalancer{
+				Name: "vpc1-tcp-lb",
+				Vips: map[string]string{"91.246.31.10:443": "10.9.1.11:443"},
+			}, nil)
+		fc.mockOvnClient.EXPECT().
+			SetLoadBalancerHairpinSNATIP("vpc1-tcp-lb", "").
+			Return(nil)
+
+		require.NoError(t, fc.fakeController.setVpcLBHairpinSNATIP(vpc, []string{"vpc1-tcp-lb"}))
+	})
+
+	t.Run("skips a load balancer that does not exist", func(t *testing.T) {
+		vpc := makeVpcWithSubnet()
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
+			Vpcs:    []*kubeovnv1.Vpc{vpc},
+			Subnets: makeSubnets(),
+		})
+		require.NoError(t, err)
+
+		fc.mockOvnClient.EXPECT().
+			GetLoadBalancer("vpc1-tcp-lb", true).
+			Return(nil, nil)
+
+		require.NoError(t, fc.fakeController.setVpcLBHairpinSNATIP(vpc, []string{"vpc1-tcp-lb"}))
+	})
+}
+
+func Test_vpcLoadBalancerNames(t *testing.T) {
+	t.Run("empty names are dropped", func(t *testing.T) {
+		vpc := &kubeovnv1.Vpc{
+			ObjectMeta: metav1.ObjectMeta{Name: "vpc1"},
+			Status: kubeovnv1.VpcStatus{
+				TCPLoadBalancer:  "vpc1-tcp-load",
+				UDPLoadBalancer:  "",
+				SctpLoadBalancer: "vpc1-sctp-load",
+			},
+		}
+		assert.Equal(t, []string{"vpc1-tcp-load", "vpc1-sctp-load"}, vpcLoadBalancerNames(vpc))
+	})
+
+	t.Run("no load balancers", func(t *testing.T) {
+		assert.Empty(t, vpcLoadBalancerNames(&kubeovnv1.Vpc{}))
+	})
+}
+
 // getVipIps is in service.go; these cases cover the RouterLBRuleVipsAnnotation
 // branch added alongside the fix.
 func Test_getVipIps_routerLBRule(t *testing.T) {
@@ -574,6 +744,10 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		fc.mockOvnClient.EXPECT().
 			LogicalRouterUpdateLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
+		fc.mockOvnClient.EXPECT().
+			GetLoadBalancer(gomock.Any(), gomock.Any()).
+			Return(nil, nil).
+			AnyTimes()
 
 		require.NoError(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
@@ -602,6 +776,10 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		fc.mockOvnClient.EXPECT().
 			LogicalRouterUpdateLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
+		fc.mockOvnClient.EXPECT().
+			GetLoadBalancer(gomock.Any(), gomock.Any()).
+			Return(nil, nil).
+			AnyTimes()
 
 		require.NoError(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
@@ -682,6 +860,10 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		fc.mockOvnClient.EXPECT().
 			LogicalRouterUpdateLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil)
+		fc.mockOvnClient.EXPECT().
+			GetLoadBalancer(gomock.Any(), gomock.Any()).
+			Return(nil, nil).
+			AnyTimes()
 
 		require.NoError(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 
@@ -770,6 +952,9 @@ func Test_handleDelRouterLBRule(t *testing.T) {
 
 		fc.mockOvnClient.EXPECT().
 			LogicalRouterUpdateLoadBalancers(testVpc, ovsdb.MutateOperationDelete, testTCPLB).
+			Return(nil)
+		fc.mockOvnClient.EXPECT().
+			SetLoadBalancerHairpinSNATIP(testTCPLB, "").
 			Return(nil)
 		fc.mockOvnClient.EXPECT().
 			LoadBalancerDeleteVip(testTCPLB, testVip, true).
