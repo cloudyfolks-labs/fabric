@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REGISTRY="ghcr.io/cloudyfolks-labs"
-VERSION="v1.2.0"
+VERSION="v1.2.1"
 
 DEL_NON_HOST_NET_POD=${DEL_NON_HOST_NET_POD:-true}
 IPV6=${IPV6:-false}
