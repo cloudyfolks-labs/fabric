@@ -326,6 +326,34 @@ func (c *OVNNbClient) SetLoadBalancerPreferLocalBackend(lbName string, preferLoc
 	return nil
 }
 
+func (c *OVNNbClient) SetLoadBalancerHairpinSNATIP(lbName, hairpinSNATIP string) error {
+	lb, err := c.GetLoadBalancer(lbName, false)
+	if err != nil {
+		klog.Errorf("failed to get lb: %v", err)
+		return err
+	}
+
+	current, ok := lb.Options["hairpin_snat_ip"]
+	if current == hairpinSNATIP || (hairpinSNATIP == "" && !ok) {
+		return nil
+	}
+
+	options := make(map[string]string, len(lb.Options)+1)
+	maps.Copy(options, lb.Options)
+	if hairpinSNATIP == "" {
+		delete(options, "hairpin_snat_ip")
+	} else {
+		options["hairpin_snat_ip"] = hairpinSNATIP
+	}
+
+	lb.Options = options
+	if err = c.UpdateLoadBalancer(lb, &lb.Options); err != nil {
+		klog.Error(err)
+		return fmt.Errorf("failed to set hairpin snat ip of lb %s to %q: %w", lbName, hairpinSNATIP, err)
+	}
+	return nil
+}
+
 // SetLoadBalancerCtFlush sets the LB's ct_flush option to flush conntrack entries when backends are removed
 func (c *OVNNbClient) SetLoadBalancerCtFlush(lbName string, ctFlush bool) error {
 	var (

@@ -393,6 +393,81 @@ func (suite *OvnClientTestSuite) testSetLoadBalancerAffinityTimeout() {
 	)
 }
 
+func (suite *OvnClientTestSuite) testSetLoadBalancerHairpinSNATIP() {
+	t := suite.T()
+	t.Parallel()
+
+	nbClient := suite.ovnNBClient
+	lbName := "test-set-lb-hairpin-snat-ip"
+
+	err := nbClient.CreateLoadBalancer(lbName, "tcp")
+	require.NoError(t, err)
+
+	lb, err := nbClient.GetLoadBalancer(lbName, false)
+	require.NoError(t, err)
+
+	lb.Options = map[string]string{"affinity_timeout": "30"}
+	err = nbClient.UpdateLoadBalancer(lb, &lb.Options)
+	require.NoError(t, err)
+
+	t.Run("set hairpin snat ip", func(t *testing.T) {
+		err := nbClient.SetLoadBalancerHairpinSNATIP(lbName, "10.3.1.1")
+		require.NoError(t, err)
+
+		lb, err := nbClient.GetLoadBalancer(lbName, false)
+		require.NoError(t, err)
+
+		require.Equal(t, "10.3.1.1", lb.Options["hairpin_snat_ip"])
+		require.Equal(t, "30", lb.Options["affinity_timeout"])
+	})
+
+	t.Run("set the same hairpin snat ip repeatedly", func(t *testing.T) {
+		err := nbClient.SetLoadBalancerHairpinSNATIP(lbName, "10.3.1.1")
+		require.NoError(t, err)
+
+		lb, err := nbClient.GetLoadBalancer(lbName, false)
+		require.NoError(t, err)
+
+		require.Equal(t, "10.3.1.1", lb.Options["hairpin_snat_ip"])
+	})
+
+	t.Run("replace hairpin snat ip", func(t *testing.T) {
+		err := nbClient.SetLoadBalancerHairpinSNATIP(lbName, "10.3.2.1")
+		require.NoError(t, err)
+
+		lb, err := nbClient.GetLoadBalancer(lbName, false)
+		require.NoError(t, err)
+
+		require.Equal(t, "10.3.2.1", lb.Options["hairpin_snat_ip"])
+	})
+
+	t.Run("clear hairpin snat ip", func(t *testing.T) {
+		err := nbClient.SetLoadBalancerHairpinSNATIP(lbName, "")
+		require.NoError(t, err)
+
+		lb, err := nbClient.GetLoadBalancer(lbName, false)
+		require.NoError(t, err)
+
+		require.NotContains(t, lb.Options, "hairpin_snat_ip")
+		require.Equal(t, "30", lb.Options["affinity_timeout"])
+	})
+
+	t.Run("clear hairpin snat ip when it is not set", func(t *testing.T) {
+		err := nbClient.SetLoadBalancerHairpinSNATIP(lbName, "")
+		require.NoError(t, err)
+
+		lb, err := nbClient.GetLoadBalancer(lbName, false)
+		require.NoError(t, err)
+
+		require.NotContains(t, lb.Options, "hairpin_snat_ip")
+	})
+
+	t.Run("set hairpin snat ip on a missing load balancer", func(t *testing.T) {
+		err := nbClient.SetLoadBalancerHairpinSNATIP("test-set-lb-hairpin-snat-ip-absent", "10.3.1.1")
+		require.Error(t, err)
+	})
+}
+
 func (suite *OvnClientTestSuite) testSetLoadBalancerCtFlush() {
 	t := suite.T()
 	t.Parallel()

@@ -1872,6 +1872,20 @@ func (mr *MockLoadBalancerMockRecorder) SetLoadBalancerCtFlush(lbName, ctFlush a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLoadBalancerCtFlush", reflect.TypeOf((*MockLoadBalancer)(nil).SetLoadBalancerCtFlush), lbName, ctFlush)
 }
 
+// SetLoadBalancerHairpinSNATIP mocks base method.
+func (m *MockLoadBalancer) SetLoadBalancerHairpinSNATIP(lbName, hairpinSNATIP string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLoadBalancerHairpinSNATIP", lbName, hairpinSNATIP)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLoadBalancerHairpinSNATIP indicates an expected call of SetLoadBalancerHairpinSNATIP.
+func (mr *MockLoadBalancerMockRecorder) SetLoadBalancerHairpinSNATIP(lbName, hairpinSNATIP any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLoadBalancerHairpinSNATIP", reflect.TypeOf((*MockLoadBalancer)(nil).SetLoadBalancerHairpinSNATIP), lbName, hairpinSNATIP)
+}
+
 // SetLoadBalancerPreferLocalBackend mocks base method.
 func (m *MockLoadBalancer) SetLoadBalancerPreferLocalBackend(lbName string, preferLocalBackend bool) error {
 	m.ctrl.T.Helper()
@@ -5662,6 +5676,20 @@ func (m *MockNbClient) SetLoadBalancerCtFlush(lbName string, ctFlush bool) error
 func (mr *MockNbClientMockRecorder) SetLoadBalancerCtFlush(lbName, ctFlush any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLoadBalancerCtFlush", reflect.TypeOf((*MockNbClient)(nil).SetLoadBalancerCtFlush), lbName, ctFlush)
+}
+
+// SetLoadBalancerHairpinSNATIP mocks base method.
+func (m *MockNbClient) SetLoadBalancerHairpinSNATIP(lbName, hairpinSNATIP string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLoadBalancerHairpinSNATIP", lbName, hairpinSNATIP)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLoadBalancerHairpinSNATIP indicates an expected call of SetLoadBalancerHairpinSNATIP.
+func (mr *MockNbClientMockRecorder) SetLoadBalancerHairpinSNATIP(lbName, hairpinSNATIP any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLoadBalancerHairpinSNATIP", reflect.TypeOf((*MockNbClient)(nil).SetLoadBalancerHairpinSNATIP), lbName, hairpinSNATIP)
 }
 
 // SetLoadBalancerPreferLocalBackend mocks base method.

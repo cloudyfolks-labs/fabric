@@ -559,6 +559,10 @@ func (suite *OvnClientTestSuite) Test_SetLoadBalancerAffinityTimeout() {
 	suite.testSetLoadBalancerAffinityTimeout()
 }
 
+func (suite *OvnClientTestSuite) Test_SetLoadBalancerHairpinSNATIP() {
+	suite.testSetLoadBalancerHairpinSNATIP()
+}
+
 func (suite *OvnClientTestSuite) Test_SetLoadBalancerCtFlush() {
 	suite.testSetLoadBalancerCtFlush()
 }
