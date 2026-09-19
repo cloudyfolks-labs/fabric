@@ -832,27 +832,6 @@ func InvalidNetworkMask(network *net.IPNet) error {
 	return nil
 }
 
-// ValidatePort checks if the port string is a valid port number (1-65535).
-func ValidatePort(port string) error {
-	p, err := strconv.Atoi(port)
-	if err != nil {
-		return errors.New("must be a number")
-	}
-	if p < 1 || p > 65535 {
-		return errors.New("must be between 1 and 65535")
-	}
-	return nil
-}
-
-// ValidateProtocol checks if the protocol is valid (tcp or udp).
-func ValidateProtocol(protocol string) error {
-	p := strings.ToLower(protocol)
-	if p != ProtocolTCP && p != ProtocolUDP {
-		return fmt.Errorf("must be %s or %s", ProtocolTCP, ProtocolUDP)
-	}
-	return nil
-}
-
 // GetAnnotationWithIfNameOverride returns the annotation value with interface name override if ifName is provided, otherwise return the annotation value without interface name.
 func GetAnnotationWithIfNameOverride(annotations map[string]string, provider, ifName, annotationTemplate string, appendIfName bool) string {
 	// default behaviour when no interface name is specified

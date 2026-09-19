@@ -1300,30 +1300,6 @@ func TestIPAMIPPoolStatistics(t *testing.T) {
 	require.Empty(t, v6UsingRange)
 }
 
-func TestGetSubnetV4Mask(t *testing.T) {
-	ipam := NewIPAM()
-	// get mask for exist subnet
-	v4ExcludeIps := []string{
-		"10.0.0.2", "10.0.0.4", "10.0.0.100",
-		"10.0.0.252", "10.0.0.253", "10.0.0.254",
-	}
-	v4SubnetName := "v4Subnet"
-	ipv4CIDR := "10.0.0.0/24"
-	v4Gw := "10.0.0.1"
-	v4SubnetMask := "24"
-	err := ipam.AddOrUpdateSubnet(v4SubnetName, ipv4CIDR, v4Gw, v4ExcludeIps)
-	require.NoError(t, err)
-	mask, err := ipam.GetSubnetV4Mask(v4SubnetName)
-	require.NoError(t, err)
-	require.Equal(t, mask, v4SubnetMask)
-
-	// get mask for non-exist subnet
-	nonExistSubnetName := "nonExistSubnet"
-	mask, err = ipam.GetSubnetV4Mask(nonExistSubnetName)
-	require.Equal(t, err, ErrNoAvailable)
-	require.Empty(t, mask)
-}
-
 func TestIPAMNamedPoolDoesNotAllocateNewlyExcludedAddresses(t *testing.T) {
 	tests := []struct {
 		name    string

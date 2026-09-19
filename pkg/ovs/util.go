@@ -38,10 +38,6 @@ func LogicalRouterPortName(lr, ls string) string {
 	return fmt.Sprintf("%s-%s", lr, ls)
 }
 
-func LogicalSwitchPortName(lr, ls string) string {
-	return fmt.Sprintf("%s-%s", ls, lr)
-}
-
 func GetSgPortGroupName(sgName string) string {
 	if sgName == "" {
 		return ""

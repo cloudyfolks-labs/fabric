@@ -222,41 +222,6 @@ func TestVlanInternalPortName(t *testing.T) {
 	}
 }
 
-func TestIsVlanInternalPort(t *testing.T) {
-	tests := []struct {
-		name     string
-		portName string
-		matched  bool
-		vlanID   int
-	}{
-		{
-			name:     "legacy name",
-			portName: "br-eth0-vlan10",
-			matched:  true,
-			vlanID:   10,
-		},
-		{
-			name:     "short name",
-			portName: "kv500-l2bvmi7mc",
-			matched:  true,
-			vlanID:   500,
-		},
-		{
-			name:     "invalid short name hash",
-			portName: "kv500-notbase3!",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			matched, vlanID := IsVlanInternalPort(tt.portName)
-			if matched != tt.matched || vlanID != tt.vlanID {
-				t.Fatalf("IsVlanInternalPort() = (%t, %d), want (%t, %d)", matched, vlanID, tt.matched, tt.vlanID)
-			}
-		})
-	}
-}
-
 func TestIsVlanInternalPortForBridge(t *testing.T) {
 	t.Parallel()
 

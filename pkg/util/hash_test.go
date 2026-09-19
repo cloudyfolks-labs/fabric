@@ -33,48 +33,6 @@ func TestSha256Hash(t *testing.T) {
 	}
 }
 
-func TestSha256HashObject(t *testing.T) {
-	tests := []struct {
-		name    string
-		arg     any
-		wantErr bool
-		hash    string
-	}{
-		{
-			name: "nil",
-			arg:  nil,
-			hash: "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-		},
-		{
-			name: "string slice",
-			arg:  []string{"hello", "world"},
-			hash: "94bedb26fb1cb9547b5b77902e89522f313c7f7fe2e9f0175cfb0a244878ee07",
-		},
-		{
-			name: "string map",
-			arg:  map[string]string{"hello": "world"},
-			hash: "93a23971a914e5eacbf0a8d25154cda309c3c1c72fbb9914d47c60f3cb681588",
-		},
-		{
-			name:    "unsupported type",
-			arg:     make(chan struct{}),
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hash, err := Sha256HashObject(tt.arg)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("got error = %#v, but wantErr = %v", err, tt.wantErr)
-			}
-			if hash != tt.hash {
-				t.Errorf("got hash %v, but want %v", hash, tt.hash)
-			}
-		})
-	}
-}
-
 func TestSha256HashGatewayChassisDistribution(t *testing.T) {
 	chassises := []string{
 		"efa09809-38e5-4c6d-b0a3-c8729fc40313",

@@ -101,18 +101,6 @@ func FindFabricAutoCreatedInterfaces(providerName string) ([]string, error) {
 	return createdInterfaces, nil
 }
 
-func IsVlanInternalPort(portName string) (bool, int) {
-	if matched, vlanID := isCompactVlanInternalPort(portName); matched {
-		return true, vlanID
-	}
-
-	separatorIndex := strings.LastIndex(portName, "-vlan")
-	if separatorIndex == -1 || !strings.HasPrefix(portName[:separatorIndex], "br-") {
-		return false, 0
-	}
-	return parseVlanID(portName[separatorIndex+len("-vlan"):])
-}
-
 // IsVlanInternalPortForBridge reports whether portName is a compact or legacy
 // VLAN internal port created for bridgeName.
 func IsVlanInternalPortForBridge(portName, bridgeName string) (bool, int) {

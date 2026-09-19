@@ -111,23 +111,6 @@ func TestServiceCIDRStoreNonReadyDoesNotShadowFlag(t *testing.T) {
 	}
 }
 
-func TestServiceCIDRStoreHashStability(t *testing.T) {
-	a := NewServiceCIDRStore("10.96.0.0/12,fd00::/108")
-	b := NewServiceCIDRStore("fd00::/108,10.96.0.0/12") // order-insensitive after merge
-	if a.Hash() != b.Hash() {
-		t.Fatalf("hash should be order-insensitive: a=%s b=%s", a.Hash(), b.Hash())
-	}
-	original := a.Hash()
-	a.UpsertFromAPI("x", []string{"10.97.0.0/16"})
-	if a.Hash() == original {
-		t.Fatalf("hash should change after upsert")
-	}
-	a.DeleteFromAPI("x")
-	if a.Hash() != original {
-		t.Fatalf("hash should restore after delete: got=%s want=%s", a.Hash(), original)
-	}
-}
-
 func TestServiceCIDRStoreInvalidIgnored(t *testing.T) {
 	s := NewServiceCIDRStore("10.96.0.0/12")
 	s.UpsertFromAPI("bogus", []string{"not-a-cidr", "", " "})

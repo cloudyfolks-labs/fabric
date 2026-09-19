@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -485,18 +484,6 @@ func (ipam *IPAM) IsIPAssignedToOtherPod(ip, subnetName, podName string) (string
 		return "", false
 	}
 	return subnet.isIPAssignedToOtherPod(ip, podName)
-}
-
-func (ipam *IPAM) GetSubnetV4Mask(subnetName string) (string, error) {
-	ipam.mutex.RLock()
-	defer ipam.mutex.RUnlock()
-
-	subnet, ok := ipam.Subnets[subnetName]
-	if ok {
-		mask, _ := subnet.V4CIDR.Mask.Size()
-		return strconv.Itoa(mask), nil
-	}
-	return "", ErrNoAvailable
 }
 
 func (ipam *IPAM) GetSubnetIPRangeString(subnetName string, excludeIps []string) (string, string, string, string) {

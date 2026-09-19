@@ -1,8 +1,6 @@
 package util
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"slices"
 	"sort"
 	"strings"
@@ -136,19 +134,6 @@ func (s *ServiceCIDRStore) byProtocol(proto string) []string {
 		}
 	}
 	return out
-}
-
-// Hash returns a stable SHA-256 over the sorted merged set. Used as a
-// deployment annotation to roll vpc-lb pods when the set changes.
-func (s *ServiceCIDRStore) Hash() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	h := sha256.New()
-	for _, cidr := range s.cached {
-		h.Write([]byte(cidr))
-		h.Write([]byte{0})
-	}
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 // UpsertFromAPI sets the CIDRs for a given ServiceCIDR object name. Returns

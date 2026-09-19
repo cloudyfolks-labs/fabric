@@ -19,11 +19,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/apis/fabric"
 )
 
-func TestKind(t *testing.T) {
-	gk := Kind("foo")
-	require.Equal(t, schema.GroupKind{Group: fabric.GroupName, Kind: "foo"}, gk)
-}
-
 func TestResource(t *testing.T) {
 	gr := Resource("foo")
 	require.Equal(t, schema.GroupResource{Group: fabric.GroupName, Resource: "foo"}, gr)
