@@ -408,7 +408,11 @@ var _ = framework.Describe("[group:subnet]", func() {
 		framework.ExpectEmpty(subnet.Spec.AllowSubnets)
 
 		ginkgo.By("Validating subnet status fields")
-		framework.ExpectContainElement(gatewayNodes, subnet.Status.ActivateGateway)
+		subnet = subnetClient.WaitUntil(subnetName, func(s *apiv1.Subnet) (bool, error) {
+			return gomega.ContainElement(s.Status.ActivateGateway).Match(gatewayNodes)
+		}, fmt.Sprintf("field .status.activateGateway is within %v", gatewayNodes),
+			time.Second, time.Minute,
+		)
 		expectSubnetIPsAvailable(subnet, cidrV4, cidrV6, nil, nil)
 
 		ginkgo.By("Creating pod " + podName)
