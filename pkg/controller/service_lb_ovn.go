@@ -25,7 +25,7 @@ import (
 
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -78,9 +78,9 @@ func parseOvnLbSvcLabelValue(value string) (namespace, name string, ok bool) {
 	return strings.Cut(value, ".")
 }
 
-func poolAnnounceMode(pool *kubeovnv1.LoadBalancerPool) string {
+func poolAnnounceMode(pool *fabricv1.LoadBalancerPool) string {
 	if pool.Spec.Announce == "" {
-		return kubeovnv1.LoadBalancerPoolAnnounceL2
+		return fabricv1.LoadBalancerPoolAnnounceL2
 	}
 	return pool.Spec.Announce
 }
@@ -110,19 +110,19 @@ func splitRequestedLbIPs(annotation, cidrBlock string) (v4, v6 string, err error
 			continue
 		}
 		proto := util.CheckProtocol(ip)
-		if proto != kubeovnv1.ProtocolIPv4 && proto != kubeovnv1.ProtocolIPv6 {
+		if proto != fabricv1.ProtocolIPv4 && proto != fabricv1.ProtocolIPv6 {
 			return "", "", fmt.Errorf("invalid requested ip %q", ip)
 		}
 		if !util.CIDRContainIP(cidrBlock, ip) {
 			return "", "", fmt.Errorf("requested ip %s is not in pool subnet cidr %s", ip, cidrBlock)
 		}
 		switch proto {
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			if v4 != "" {
 				return "", "", fmt.Errorf("multiple IPv4 addresses requested: %s, %s", v4, ip)
 			}
 			v4 = ip
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			if v6 != "" {
 				return "", "", fmt.Errorf("multiple IPv6 addresses requested: %s, %s", v6, ip)
 			}
@@ -132,7 +132,7 @@ func splitRequestedLbIPs(annotation, cidrBlock string) (v4, v6 string, err error
 	return v4, v6, nil
 }
 
-func matchesPoolSelector(pool *kubeovnv1.LoadBalancerPool, svcLabels map[string]string) (bool, error) {
+func matchesPoolSelector(pool *fabricv1.LoadBalancerPool, svcLabels map[string]string) (bool, error) {
 	if pool.Spec.ServiceSelector == nil {
 		return true, nil
 	}
@@ -143,8 +143,8 @@ func matchesPoolSelector(pool *kubeovnv1.LoadBalancerPool, svcLabels map[string]
 	return selector.Matches(labels.Set(svcLabels)), nil
 }
 
-func selectDefaultPool(pools []*kubeovnv1.LoadBalancerPool, svcLabels map[string]string) *kubeovnv1.LoadBalancerPool {
-	var selected *kubeovnv1.LoadBalancerPool
+func selectDefaultPool(pools []*fabricv1.LoadBalancerPool, svcLabels map[string]string) *fabricv1.LoadBalancerPool {
+	var selected *fabricv1.LoadBalancerPool
 	for _, pool := range pools {
 		if !pool.Spec.Default {
 			continue
@@ -174,7 +174,7 @@ func splitAnnotationIPs(annotation string) []string {
 	return ips
 }
 
-func ovnEipIPs(eip *kubeovnv1.OvnEip) []string {
+func ovnEipIPs(eip *fabricv1.OvnEip) []string {
 	var ips []string
 	if eip.Status.V4Ip != "" {
 		ips = append(ips, eip.Status.V4Ip)
@@ -210,14 +210,14 @@ func newOvnLbSvcRelease(svc *corev1.Service, defaultVpc string) *ovnLbSvcRelease
 }
 
 func (c *Controller) enqueueAddLoadBalancerPool(obj any) {
-	pool := obj.(*kubeovnv1.LoadBalancerPool)
+	pool := obj.(*fabricv1.LoadBalancerPool)
 	klog.V(3).Infof("enqueue services for new loadbalancer pool %s", pool.Name)
 	c.requeueOvnLbServices()
 }
 
 func (c *Controller) enqueueUpdateLoadBalancerPool(oldObj, newObj any) {
-	oldPool := oldObj.(*kubeovnv1.LoadBalancerPool)
-	newPool := newObj.(*kubeovnv1.LoadBalancerPool)
+	oldPool := oldObj.(*fabricv1.LoadBalancerPool)
+	newPool := newObj.(*fabricv1.LoadBalancerPool)
 	if oldPool.ResourceVersion == newPool.ResourceVersion ||
 		equality.Semantic.DeepEqual(oldPool.Spec, newPool.Spec) {
 		return
@@ -243,7 +243,7 @@ func (c *Controller) requeueOvnLbServices() {
 	}
 }
 
-func (c *Controller) requeueOvnLbSvcForEip(eip *kubeovnv1.OvnEip) {
+func (c *Controller) requeueOvnLbSvcForEip(eip *fabricv1.OvnEip) {
 	if !c.ovnLbSvcEnabled() {
 		return
 	}
@@ -318,7 +318,7 @@ func (c *Controller) handleAddOrUpdateOvnLbSvc(key string) error {
 
 	if msg := c.checkPoolAnnouncePath(pool, vpcName); msg != "" {
 		reason := reasonOvnLbSvcExternalSubnetNotReady
-		if poolAnnounceMode(pool) == kubeovnv1.LoadBalancerPoolAnnounceBGP {
+		if poolAnnounceMode(pool) == fabricv1.LoadBalancerPoolAnnounceBGP {
 			reason = reasonOvnLbSvcDynamicRoutingNotReady
 		}
 		c.recorder.Event(svc, corev1.EventTypeWarning, reason, msg)
@@ -368,7 +368,7 @@ func (c *Controller) handleAddOrUpdateOvnLbSvc(key string) error {
 		c.addOrUpdateEndpointSliceQueue.Add(key)
 	}
 
-	if poolAnnounceMode(pool) == kubeovnv1.LoadBalancerPoolAnnounceL2 {
+	if poolAnnounceMode(pool) == fabricv1.LoadBalancerPoolAnnounceL2 {
 		lspName := fmt.Sprintf("%s-%s", pool.Spec.Subnet, vpcName)
 		if err = c.OVNNbClient.SetLogicalSwitchPortNatAddresses(lspName, "router"); err != nil {
 			klog.Errorf("failed to set nat-addresses on lsp %s: %v", lspName, err)
@@ -379,19 +379,19 @@ func (c *Controller) handleAddOrUpdateOvnLbSvc(key string) error {
 	return c.updateOvnLbSvcStatus(svc, lbIPs, pool.Name)
 }
 
-func vpcAdvertisesLoadBalancerVips(vpc *kubeovnv1.Vpc) bool {
+func vpcAdvertisesLoadBalancerVips(vpc *fabricv1.Vpc) bool {
 	dr := vpc.Spec.DynamicRouting
-	return dr.IsEnabled() && slices.Contains(dr.Redistribute, kubeovnv1.RedistributeLB)
+	return dr.IsEnabled() && slices.Contains(dr.Redistribute, fabricv1.RedistributeLB)
 }
 
-func (c *Controller) checkPoolAnnouncePath(pool *kubeovnv1.LoadBalancerPool, vpcName string) string {
-	if poolAnnounceMode(pool) == kubeovnv1.LoadBalancerPoolAnnounceBGP {
+func (c *Controller) checkPoolAnnouncePath(pool *fabricv1.LoadBalancerPool, vpcName string) string {
+	if poolAnnounceMode(pool) == fabricv1.LoadBalancerPoolAnnounceBGP {
 		return c.checkBgpAnnouncePath(pool, vpcName)
 	}
 	return c.checkLrpAnnouncePath(vpcName, pool.Spec.Subnet)
 }
 
-func (c *Controller) checkEipAnnouncePath(eip *kubeovnv1.OvnEip, vpcName string) string {
+func (c *Controller) checkEipAnnouncePath(eip *fabricv1.OvnEip, vpcName string) string {
 	// A VPC that redistributes lb advertises its OVN load balancer VIPs
 	// through its own subnet LRPs (see docs/dynamic-routing.md), so the
 	// VIP reaches the fabric over BGP with no pool LRP on the router.
@@ -410,7 +410,7 @@ func (c *Controller) checkEipAnnouncePath(eip *kubeovnv1.OvnEip, vpcName string)
 	return c.checkLrpAnnouncePath(vpcName, eip.Spec.ExternalSubnet)
 }
 
-func (c *Controller) checkBgpAnnouncePath(pool *kubeovnv1.LoadBalancerPool, vpcName string) string {
+func (c *Controller) checkBgpAnnouncePath(pool *fabricv1.LoadBalancerPool, vpcName string) string {
 	vpc, err := c.vpcsLister.Get(vpcName)
 	if err != nil {
 		return fmt.Sprintf("vpc %s of loadbalancer pool %s: %v", vpcName, pool.Name, err)
@@ -429,7 +429,7 @@ func (c *Controller) checkLrpAnnouncePath(vpcName, subnet string) string {
 	return ""
 }
 
-func (c *Controller) bgpPoolOnSubnet(subnet string) (*kubeovnv1.LoadBalancerPool, error) {
+func (c *Controller) bgpPoolOnSubnet(subnet string) (*fabricv1.LoadBalancerPool, error) {
 	if !c.config.EnableOvnLbSvc || !c.config.EnableLb {
 		return nil, nil
 	}
@@ -438,14 +438,14 @@ func (c *Controller) bgpPoolOnSubnet(subnet string) (*kubeovnv1.LoadBalancerPool
 		return nil, fmt.Errorf("failed to list loadbalancer pools: %w", err)
 	}
 	for _, pool := range pools {
-		if poolAnnounceMode(pool) == kubeovnv1.LoadBalancerPoolAnnounceBGP && pool.Spec.Subnet == subnet {
+		if poolAnnounceMode(pool) == fabricv1.LoadBalancerPoolAnnounceBGP && pool.Spec.Subnet == subnet {
 			return pool, nil
 		}
 	}
 	return nil, nil
 }
 
-func (c *Controller) getServiceLbPool(svc *corev1.Service) (*kubeovnv1.LoadBalancerPool, error) {
+func (c *Controller) getServiceLbPool(svc *corev1.Service) (*fabricv1.LoadBalancerPool, error) {
 	if poolName := svc.Annotations[util.LoadBalancerPoolAnnotation]; poolName != "" {
 		pool, err := c.loadBalancerPoolLister.Get(poolName)
 		if err != nil {
@@ -463,7 +463,7 @@ func (c *Controller) getServiceLbPool(svc *corev1.Service) (*kubeovnv1.LoadBalan
 	return nil, fmt.Errorf("no default loadbalancer pool matches service %s/%s", svc.Namespace, svc.Name)
 }
 
-func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.LoadBalancerPool, subnet *kubeovnv1.Subnet) (*kubeovnv1.OvnEip, error) {
+func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *fabricv1.LoadBalancerPool, subnet *fabricv1.Subnet) (*fabricv1.OvnEip, error) {
 	eipName := ovnLbSvcEipName(svc.UID)
 	announce := poolAnnounceMode(pool)
 	labelValue := ovnLbSvcLabelValue(svc.Namespace, svc.Name)
@@ -482,7 +482,7 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 				klog.Error(err)
 				return nil, err
 			}
-			if err = c.config.KubeOvnClient.FabricV1().OvnEips().Delete(context.Background(), eipName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+			if err = c.config.FabricClient.FabricV1().OvnEips().Delete(context.Background(), eipName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 				klog.Error(err)
 				return nil, err
 			}
@@ -530,7 +530,7 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 		return nil, fmt.Errorf("%s", msg)
 	}
 
-	eip := &kubeovnv1.OvnEip{
+	eip := &fabricv1.OvnEip{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: eipName,
 			Labels: map[string]string{
@@ -539,7 +539,7 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 				util.VpcNameLabel:              c.ovnLbSvcVpc(svc),
 			},
 		},
-		Spec: kubeovnv1.OvnEipSpec{
+		Spec: fabricv1.OvnEipSpec{
 			ExternalSubnet: pool.Spec.Subnet,
 			Type:           util.OvnEipTypeNAT,
 			V4Ip:           requestedV4,
@@ -547,15 +547,15 @@ func (c *Controller) ensureOvnLbSvcEip(svc *corev1.Service, pool *kubeovnv1.Load
 		},
 	}
 	klog.Infof("create ovn eip %s for service %s/%s on subnet %s", eipName, svc.Namespace, svc.Name, pool.Spec.Subnet)
-	if _, err = c.config.KubeOvnClient.FabricV1().OvnEips().Create(context.Background(), eip, metav1.CreateOptions{}); err != nil && !k8serrors.IsAlreadyExists(err) {
+	if _, err = c.config.FabricClient.FabricV1().OvnEips().Create(context.Background(), eip, metav1.CreateOptions{}); err != nil && !k8serrors.IsAlreadyExists(err) {
 		klog.Error(err)
 		return nil, err
 	}
 	return nil, fmt.Errorf("waiting for ovn eip %s allocation", eipName)
 }
 
-func poolSubnetExhausted(subnet *kubeovnv1.Subnet) bool {
-	if util.CheckProtocol(subnet.Spec.CIDRBlock) == kubeovnv1.ProtocolIPv6 {
+func poolSubnetExhausted(subnet *fabricv1.Subnet) bool {
+	if util.CheckProtocol(subnet.Spec.CIDRBlock) == fabricv1.ProtocolIPv6 {
 		return subnet.Status.V6AvailableIPs.EqualInt64(0)
 	}
 	return subnet.Status.V4AvailableIPs.EqualInt64(0)
@@ -585,7 +585,7 @@ func (c *Controller) requestedLbIPsInUse(requestedV4, requestedV6 string) (strin
 	return "", nil
 }
 
-func (c *Controller) ensureOvnLbSvcEipLabels(eip *kubeovnv1.OvnEip, announce, serviceLabelValue, vpcName string) (*kubeovnv1.OvnEip, error) {
+func (c *Controller) ensureOvnLbSvcEipLabels(eip *fabricv1.OvnEip, announce, serviceLabelValue, vpcName string) (*fabricv1.OvnEip, error) {
 	patch := util.KVPatch{}
 	if eip.Labels[util.LoadBalancerAnnounceLabel] != announce {
 		patch[util.LoadBalancerAnnounceLabel] = announce
@@ -597,7 +597,7 @@ func (c *Controller) ensureOvnLbSvcEipLabels(eip *kubeovnv1.OvnEip, announce, se
 		patch[util.VpcNameLabel] = vpcName
 	}
 	if len(patch) > 0 {
-		if err := util.PatchLabels(c.config.KubeOvnClient.FabricV1().OvnEips(), eip.Name, patch); err != nil {
+		if err := util.PatchLabels(c.config.FabricClient.FabricV1().OvnEips(), eip.Name, patch); err != nil {
 			klog.Errorf("failed to patch labels of ovn eip %s: %v", eip.Name, err)
 			return nil, err
 		}
@@ -653,7 +653,7 @@ func (c *Controller) claimedOvnLbServices() ([]*corev1.Service, error) {
 	return claimed, nil
 }
 
-func (c *Controller) findOvnLbSvcSharedEip(svc *corev1.Service, sharedKey, poolSubnet string) (string, *kubeovnv1.OvnEip, error) {
+func (c *Controller) findOvnLbSvcSharedEip(svc *corev1.Service, sharedKey, poolSubnet string) (string, *fabricv1.OvnEip, error) {
 	claimed, err := c.claimedOvnLbServices()
 	if err != nil {
 		return "", nil, err
@@ -827,7 +827,7 @@ func (c *Controller) releaseOvnLbSvc(rel *ovnLbSvcRelease) error {
 		if eip.Labels[util.LoadBalancerServiceLabel] == ovnLbSvcLabelValue(namespace, name) {
 			ns, svcName, _ := cache.SplitMetaNamespaceKey(remaining[0])
 			patch := util.KVPatch{util.LoadBalancerServiceLabel: ovnLbSvcLabelValue(ns, svcName)}
-			if err = util.PatchLabels(c.config.KubeOvnClient.FabricV1().OvnEips(), eip.Name, patch); err != nil {
+			if err = util.PatchLabels(c.config.FabricClient.FabricV1().OvnEips(), eip.Name, patch); err != nil {
 				klog.Errorf("failed to patch labels of ovn eip %s: %v", eip.Name, err)
 				return err
 			}
@@ -870,7 +870,7 @@ func (c *Controller) detachVpcLBsFromRouterIfUnused(vpcName, excludeKey string, 
 	if err != nil {
 		return err
 	}
-	if slices.ContainsFunc(rlrs, func(r *kubeovnv1.RouterLBRule) bool { return r.Spec.Vpc == vpcName }) {
+	if slices.ContainsFunc(rlrs, func(r *fabricv1.RouterLBRule) bool { return r.Spec.Vpc == vpcName }) {
 		return nil
 	}
 	klog.Infof("detach LBs from router %s after last ovn lb service released", vpcName)
@@ -878,7 +878,7 @@ func (c *Controller) detachVpcLBsFromRouterIfUnused(vpcName, excludeKey string, 
 }
 
 func (c *Controller) deleteOvnLbSvcEips(rel *ovnLbSvcRelease) error {
-	if err := c.config.KubeOvnClient.FabricV1().OvnEips().Delete(context.Background(), ovnLbSvcEipName(rel.uid), metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+	if err := c.config.FabricClient.FabricV1().OvnEips().Delete(context.Background(), ovnLbSvcEipName(rel.uid), metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 	requirement, err := labels.NewRequirement(util.LoadBalancerServiceLabel, selection.Exists, nil)
@@ -894,7 +894,7 @@ func (c *Controller) deleteOvnLbSvcEips(rel *ovnLbSvcRelease) error {
 			continue
 		}
 		klog.Infof("delete orphaned ovn eip %s of released service %s", eip.Name, rel.key)
-		if err = c.config.KubeOvnClient.FabricV1().OvnEips().Delete(context.Background(), eip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+		if err = c.config.FabricClient.FabricV1().OvnEips().Delete(context.Background(), eip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -946,13 +946,13 @@ func loadBalancerPoolReadiness(subnetFound bool, available int64) (corev1.Condit
 	return corev1.ConditionTrue, reasonOvnLbSvcPoolReady, "pool is ready"
 }
 
-func (c *Controller) updateLoadBalancerPoolUsage(pool *kubeovnv1.LoadBalancerPool) error {
+func (c *Controller) updateLoadBalancerPoolUsage(pool *fabricv1.LoadBalancerPool) error {
 	var available int64
 	subnetFound := true
 	subnet, err := c.subnetsLister.Get(pool.Spec.Subnet)
 	switch {
 	case err == nil:
-		if util.CheckProtocol(subnet.Spec.CIDRBlock) == kubeovnv1.ProtocolIPv6 {
+		if util.CheckProtocol(subnet.Spec.CIDRBlock) == fabricv1.ProtocolIPv6 {
 			available = bigIntToInt64(subnet.Status.V6AvailableIPs)
 		} else {
 			available = bigIntToInt64(subnet.Status.V4AvailableIPs)
@@ -975,7 +975,7 @@ func (c *Controller) updateLoadBalancerPoolUsage(pool *kubeovnv1.LoadBalancerPoo
 	}
 
 	status, reason, message := loadBalancerPoolReadiness(subnetFound, available)
-	pools := c.config.KubeOvnClient.FabricV1().LoadBalancerPools()
+	pools := c.config.FabricClient.FabricV1().LoadBalancerPools()
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current, err := pools.Get(context.Background(), pool.Name, metav1.GetOptions{})
 		if err != nil {
@@ -987,8 +987,8 @@ func (c *Controller) updateLoadBalancerPoolUsage(pool *kubeovnv1.LoadBalancerPoo
 		newPool := current.DeepCopy()
 		newPool.Status.Available = available
 		newPool.Status.InUse = inUse
-		conditions := kubeovnv1.Conditions(newPool.Status.Conditions)
-		conditions.SetCondition(kubeovnv1.Ready, status, reason, message, newPool.Generation)
+		conditions := fabricv1.Conditions(newPool.Status.Conditions)
+		conditions.SetCondition(fabricv1.Ready, status, reason, message, newPool.Generation)
 		newPool.Status.Conditions = conditions
 		if equality.Semantic.DeepEqual(newPool.Status, current.Status) {
 			return nil

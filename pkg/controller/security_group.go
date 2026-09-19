@@ -17,21 +17,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddSg(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.SecurityGroup)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.SecurityGroup)).String()
 	klog.V(3).Infof("enqueue add securityGroup %s", key)
 	c.addOrUpdateSgQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateSg(oldObj, newObj any) {
-	oldSg := oldObj.(*kubeovnv1.SecurityGroup)
-	newSg := newObj.(*kubeovnv1.SecurityGroup)
+	oldSg := oldObj.(*fabricv1.SecurityGroup)
+	newSg := newObj.(*fabricv1.SecurityGroup)
 	if !reflect.DeepEqual(oldSg.Spec, newSg.Spec) {
 		key := cache.MetaObjectToName(newSg).String()
 		klog.V(3).Infof("enqueue update securityGroup %s", key)
@@ -40,12 +40,12 @@ func (c *Controller) enqueueUpdateSg(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDeleteSg(obj any) {
-	var sg *kubeovnv1.SecurityGroup
+	var sg *fabricv1.SecurityGroup
 	switch t := obj.(type) {
-	case *kubeovnv1.SecurityGroup:
+	case *fabricv1.SecurityGroup:
 		sg = t
 	case cache.DeletedFinalStateUnknown:
-		s, ok := t.Obj.(*kubeovnv1.SecurityGroup)
+		s, ok := t.Obj.(*fabricv1.SecurityGroup)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -262,7 +262,7 @@ func (c *Controller) handleAddOrUpdateSg(key string, force bool) error {
 	return nil
 }
 
-func (c *Controller) validateSgRule(sg *kubeovnv1.SecurityGroup) error {
+func (c *Controller) validateSgRule(sg *fabricv1.SecurityGroup) error {
 	// check sg rules
 	allRules := append(sg.Spec.IngressRules, sg.Spec.EgressRules...)
 	if err := util.ValidateSecurityGroupTier(sg.Spec.Tier); err != nil {
@@ -278,12 +278,12 @@ func (c *Controller) validateSgRule(sg *kubeovnv1.SecurityGroup) error {
 			return fmt.Errorf("priority '%d' is not in the range of %d to %d", rule.Priority, util.SecurityGroupPriorityMin, util.SecurityGroupPriorityMax)
 		}
 
-		if sg.Spec.Tier == util.SecurityGroupAPITierMaximum && rule.Policy == kubeovnv1.SgPolicyPass {
+		if sg.Spec.Tier == util.SecurityGroupAPITierMaximum && rule.Policy == fabricv1.SgPolicyPass {
 			return fmt.Errorf("policy pass not valid when the security group tier is maximum [%d]", util.SecurityGroupAPITierMaximum)
 		}
 
 		switch rule.RemoteType {
-		case kubeovnv1.SgRemoteTypeAddress:
+		case fabricv1.SgRemoteTypeAddress:
 			if strings.Contains(rule.RemoteAddress, "/") {
 				if err := util.CheckCidrs(rule.RemoteAddress); err != nil {
 					return fmt.Errorf("invalid CIDR '%s'", rule.RemoteAddress)
@@ -293,7 +293,7 @@ func (c *Controller) validateSgRule(sg *kubeovnv1.SecurityGroup) error {
 					return fmt.Errorf("invalid ip address '%s'", rule.RemoteAddress)
 				}
 			}
-		case kubeovnv1.SgRemoteTypeSg:
+		case fabricv1.SgRemoteTypeSg:
 			_, err := c.sgsLister.Get(rule.RemoteSecurityGroup)
 			if err != nil {
 				return fmt.Errorf("failed to get remote sg '%s', %w", rule.RemoteSecurityGroup, err)
@@ -314,7 +314,7 @@ func (c *Controller) validateSgRule(sg *kubeovnv1.SecurityGroup) error {
 			}
 		}
 
-		if rule.Protocol == kubeovnv1.SgProtocolTCP || rule.Protocol == kubeovnv1.SgProtocolUDP {
+		if rule.Protocol == fabricv1.SgProtocolTCP || rule.Protocol == fabricv1.SgProtocolUDP {
 			if rule.PortRangeMin < 1 || rule.PortRangeMin > 65535 || rule.PortRangeMax < 1 || rule.PortRangeMax > 65535 {
 				return errors.New("portRange is out of range")
 			}
@@ -334,13 +334,13 @@ func (c *Controller) validateSgRule(sg *kubeovnv1.SecurityGroup) error {
 	return nil
 }
 
-func (c *Controller) patchSgStatus(sg *kubeovnv1.SecurityGroup) {
+func (c *Controller) patchSgStatus(sg *fabricv1.SecurityGroup) {
 	bytes, err := sg.Status.Bytes()
 	if err != nil {
 		klog.Error(err)
 		return
 	}
-	if _, err = c.config.KubeOvnClient.FabricV1().SecurityGroups().Patch(context.Background(), sg.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err = c.config.FabricClient.FabricV1().SecurityGroups().Patch(context.Background(), sg.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Error("patch security group status failed", err)
 	}
 }

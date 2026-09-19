@@ -17,20 +17,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddVirtualIP(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.Vip)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.Vip)).String()
 	klog.Infof("enqueue add vip %s", key)
 	c.addVirtualIPQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateVirtualIP(oldObj, newObj any) {
-	oldVip := oldObj.(*kubeovnv1.Vip)
-	newVip := newObj.(*kubeovnv1.Vip)
+	oldVip := oldObj.(*fabricv1.Vip)
+	newVip := newObj.(*fabricv1.Vip)
 	key := cache.MetaObjectToName(newVip).String()
 	if !newVip.DeletionTimestamp.IsZero() ||
 		oldVip.Spec.MacAddress != newVip.Spec.MacAddress ||
@@ -46,12 +46,12 @@ func (c *Controller) enqueueUpdateVirtualIP(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDelVirtualIP(obj any) {
-	var vip *kubeovnv1.Vip
+	var vip *fabricv1.Vip
 	switch t := obj.(type) {
-	case *kubeovnv1.Vip:
+	case *fabricv1.Vip:
 		vip = t
 	case cache.DeletedFinalStateUnknown:
-		v, ok := t.Obj.(*kubeovnv1.Vip)
+		v, ok := t.Obj.(*fabricv1.Vip)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -257,7 +257,7 @@ func (c *Controller) handleUpdateVirtualIP(key string) error {
 	return nil
 }
 
-func (c *Controller) handleDelVirtualIP(vip *kubeovnv1.Vip) error {
+func (c *Controller) handleDelVirtualIP(vip *fabricv1.Vip) error {
 	// Cleanup is now handled in handleUpdateVirtualIP before finalizer removal
 	// This function is kept for compatibility with the delete queue
 	klog.V(3).Infof("vip %s cleanup already done in update handler", vip.Name)
@@ -333,7 +333,7 @@ func (c *Controller) handleUpdateVirtualParents(key string) error {
 			continue
 		}
 		podName := c.getNameByPod(pod)
-		podNets, err := c.getPodKubeovnNets(pod)
+		podNets, err := c.getPodFabricNets(pod)
 		if err != nil {
 			klog.Errorf("failed to get pod nets %v", err)
 		}
@@ -368,24 +368,24 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Create CR with finalizer, labels and status all at once
-			if _, err := c.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), &kubeovnv1.Vip{
+			if _, err := c.config.FabricClient.FabricV1().Vips().Create(context.Background(), &fabricv1.Vip{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       key,
 					Namespace:  ns,
-					Finalizers: []string{util.KubeOVNControllerFinalizer},
+					Finalizers: []string{util.FabricControllerFinalizer},
 					Labels: map[string]string{
 						util.SubnetNameLabel: subnet,
 						util.IPReservedLabel: "",
 					},
 				},
-				Spec: kubeovnv1.VipSpec{
+				Spec: fabricv1.VipSpec{
 					Namespace:  ns,
 					Subnet:     subnet,
 					V4ip:       v4ip,
 					V6ip:       v6ip,
 					MacAddress: mac,
 				},
-				Status: kubeovnv1.VipStatus{
+				Status: fabricv1.VipStatus{
 					V4ip: v4ip,
 					V6ip: v6ip,
 					Mac:  mac,
@@ -430,10 +430,10 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 			// handleUpdateVirtualIP has a chance to add the finalizer.
 			controllerutil.RemoveFinalizer(vip, util.DeprecatedFinalizerName)
 			controllerutil.RemoveFinalizer(vip, util.LegacyControllerFinalizer)
-			controllerutil.AddFinalizer(vip, util.KubeOVNControllerFinalizer)
+			controllerutil.AddFinalizer(vip, util.FabricControllerFinalizer)
 
 			// Update with labels, spec, status, and finalizer in one call
-			if _, err := c.config.KubeOvnClient.FabricV1().Vips().Update(context.Background(), vip, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.config.FabricClient.FabricV1().Vips().Update(context.Background(), vip, metav1.UpdateOptions{}); err != nil {
 				err := fmt.Errorf("failed to update vip '%s', %w", key, err)
 				klog.Error(err)
 				return err
@@ -472,7 +472,7 @@ func (c *Controller) podReuseVip(vipName, portName string, keepVIP bool) error {
 	patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 	raw, _ := json.Marshal(vip.Labels)
 	patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-	if _, err = c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), vip.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
+	if _, err = c.config.FabricClient.FabricV1().Vips().Patch(context.Background(), vip.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 		klog.Errorf("failed to patch label for vip '%s', %v", vip.Name, err)
 		return err
 	}
@@ -504,7 +504,7 @@ func (c *Controller) releaseVip(key string) error {
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 		raw, _ := json.Marshal(vip.Labels)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), vip.Name,
+		if _, err := c.config.FabricClient.FabricV1().Vips().Patch(context.Background(), vip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for vip '%s', %v", vip.Name, err)
 			return err
@@ -535,13 +535,13 @@ func (c *Controller) handleAddOrUpdateVipFinalizer(key string) error {
 	newVip := cachedVip.DeepCopy()
 	controllerutil.RemoveFinalizer(newVip, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newVip, util.LegacyControllerFinalizer)
-	controllerutil.AddFinalizer(newVip, util.KubeOVNControllerFinalizer)
+	controllerutil.AddFinalizer(newVip, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedVip, newVip)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ovn eip '%s', %v", cachedVip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), cachedVip.Name,
+	if _, err := c.config.FabricClient.FabricV1().Vips().Patch(context.Background(), cachedVip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -572,13 +572,13 @@ func (c *Controller) handleDelVipFinalizer(key string) error {
 	newVip := cachedVip.DeepCopy()
 	controllerutil.RemoveFinalizer(newVip, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newVip, util.LegacyControllerFinalizer)
-	controllerutil.RemoveFinalizer(newVip, util.KubeOVNControllerFinalizer)
+	controllerutil.RemoveFinalizer(newVip, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedVip, newVip)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ovn eip '%s', %v", cachedVip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().Vips().Patch(context.Background(), cachedVip.Name,
+	if _, err := c.config.FabricClient.FabricV1().Vips().Patch(context.Background(), cachedVip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -596,7 +596,7 @@ func (c *Controller) handleDelVipFinalizer(key string) error {
 
 func (c *Controller) syncVipFinalizer(cl client.Client) error {
 	// migrate deprecated finalizer to new finalizer
-	vips := &kubeovnv1.VipList{}
+	vips := &fabricv1.VipList{}
 	return migrateFinalizers(cl, vips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(vips.Items) {
 			return nil, nil

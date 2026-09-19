@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 )
 
@@ -200,10 +200,10 @@ func CheckProtocol(address string) string {
 			return ""
 		}
 		if IP1.To4() != nil && IP2.To4() == nil && IP2.To16() != nil {
-			return kubeovnv1.ProtocolDual
+			return fabricv1.ProtocolDual
 		}
 		if IP2.To4() != nil && IP1.To4() == nil && IP1.To16() != nil {
-			return kubeovnv1.ProtocolDual
+			return fabricv1.ProtocolDual
 		}
 		err := fmt.Errorf("invalid address %q", address)
 		klog.Error(err)
@@ -217,9 +217,9 @@ func CheckProtocol(address string) string {
 		return ""
 	}
 	if ip.To4() != nil {
-		return kubeovnv1.ProtocolIPv4
+		return fabricv1.ProtocolIPv4
 	} else if ip.To16() != nil {
-		return kubeovnv1.ProtocolIPv6
+		return fabricv1.ProtocolIPv6
 	}
 
 	// cidr format error
@@ -309,7 +309,7 @@ func AppendGwByCidr(gateway, cidrStr string) (string, error) {
 			return "", err
 		}
 		var gwArray [2]string
-		if CheckProtocol(gateway) == kubeovnv1.ProtocolIPv4 {
+		if CheckProtocol(gateway) == fabricv1.ProtocolIPv4 {
 			gwArray[0] = gateway
 			gwArray[1] = gw
 		} else {
@@ -326,7 +326,7 @@ func SplitIpsByProtocol(excludeIps []string) ([]string, []string) {
 	var v4ExcludeIps, v6ExcludeIps []string
 	for _, ex := range excludeIps {
 		ips := strings.Split(ex, "..")
-		if CheckProtocol(ips[0]) == kubeovnv1.ProtocolIPv4 {
+		if CheckProtocol(ips[0]) == fabricv1.ProtocolIPv4 {
 			v4ExcludeIps = append(v4ExcludeIps, ex)
 		} else {
 			v6ExcludeIps = append(v6ExcludeIps, ex)
@@ -355,11 +355,11 @@ func GetStringIP(v4IP, v6IP string) string {
 func GetIPAddrWithMaskForCNI(ip, cidr string) (string, bool, error) {
 	if ip == "" {
 		// Network attachment definition using no-IPAM plugin (e.g., NAT gateway net1 macvlan with no default EIP)
-		// IP is not allocated by Kube-OVN, but cidr still comes from subnet configuration
+		// IP is not allocated by fabric, but cidr still comes from subnet configuration
 		klog.V(3).Infof("skipping IP allocation: ip is empty for cidr %s (no-IPAM mode)", cidr)
 		return "", true, nil
 	}
-	if CheckProtocol(cidr) == kubeovnv1.ProtocolDual {
+	if CheckProtocol(cidr) == fabricv1.ProtocolDual {
 		cidrBlocks := strings.Split(cidr, ",")
 		if len(cidrBlocks) != 2 {
 			return "", false, fmt.Errorf("invalid dualstack cidr %s", cidr)
@@ -369,9 +369,9 @@ func GetIPAddrWithMaskForCNI(ip, cidr string) (string, bool, error) {
 		for ip := range strings.SplitSeq(ip, ",") {
 			var cidrBlock string
 			switch CheckProtocol(ip) {
-			case kubeovnv1.ProtocolIPv4:
+			case fabricv1.ProtocolIPv4:
 				cidrBlock = cidrBlocks[0]
-			case kubeovnv1.ProtocolIPv6:
+			case fabricv1.ProtocolIPv6:
 				cidrBlock = cidrBlocks[1]
 			default:
 				return "", false, fmt.Errorf("invalid ip %s", ip)
@@ -391,7 +391,7 @@ func GetIPAddrWithMaskForCNI(ip, cidr string) (string, bool, error) {
 func GetIPAddrWithMask(ip, cidr string) (string, error) {
 	var ipAddr string
 	ips := strings.Split(ip, ",")
-	if CheckProtocol(cidr) == kubeovnv1.ProtocolDual {
+	if CheckProtocol(cidr) == fabricv1.ProtocolDual {
 		cidrBlocks := strings.Split(cidr, ",")
 		if len(cidrBlocks) == 2 {
 			if len(ips) == 2 {
@@ -427,17 +427,17 @@ func GetIPWithoutMask(ipStr string) string {
 func SplitStringIP(ipStr string) (string, string) {
 	var v4IP, v6IP string
 	switch CheckProtocol(ipStr) {
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		for ipTmp := range strings.SplitSeq(ipStr, ",") {
-			if CheckProtocol(ipTmp) == kubeovnv1.ProtocolIPv4 {
+			if CheckProtocol(ipTmp) == fabricv1.ProtocolIPv4 {
 				v4IP = ipTmp
 			} else {
 				v6IP = ipTmp
 			}
 		}
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		v4IP = ipStr
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		v6IP = ipStr
 	}
 

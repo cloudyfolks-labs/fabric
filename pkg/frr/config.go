@@ -27,8 +27,8 @@ type Configuration struct {
 	PprofPort        int32
 	LogPerm          string
 
-	KubeClient    kubernetes.Interface
-	KubeOvnClient clientset.Interface
+	KubeClient   kubernetes.Interface
+	FabricClient clientset.Interface
 }
 
 func ParseFlags() (*Configuration, error) {
@@ -99,12 +99,12 @@ func (config *Configuration) initKubeClient() error {
 	cfg.QPS = 1000
 	cfg.Burst = 2000
 
-	kubeOvnClient, err := clientset.NewForConfig(cfg)
+	fabricClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("init kubeovn client failed %v", err)
+		klog.Errorf("init fabric client failed %v", err)
 		return err
 	}
-	config.KubeOvnClient = kubeOvnClient
+	config.FabricClient = fabricClient
 
 	cfg.ContentType = util.ContentTypeProtobuf
 	cfg.AcceptContentTypes = util.AcceptContentTypes

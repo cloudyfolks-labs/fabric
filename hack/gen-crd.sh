@@ -10,7 +10,7 @@ go install sigs.k8s.io/controller-tools/cmd/controller-gen@"${CONTROLLER_TOOLS_V
 mkdir -p ./yamls/gen
 rm -f ./yamls/gen/*.yaml
 
-"${CONTROLLER_GEN_BIN}" crd:allowDangerousTypes=true paths=./pkg/apis/kubeovn/v1 output:crd:artifacts:config=./yamls/gen
+"${CONTROLLER_GEN_BIN}" crd:allowDangerousTypes=true paths=./pkg/apis/fabric/v1 output:crd:artifacts:config=./yamls/gen
 
 GEN_DIR="yamls/gen"
 BUNDLE_FILE="yamls/gen/fabric-crd.yaml"

@@ -67,7 +67,7 @@ func TestE2E(t *testing.T) {
 	// Run tests through the Ginkgo runner with output to console + JUnit for Jenkins
 	suiteConfig, reporterConfig := k8sframework.CreateGinkgoConfig()
 	klog.Infof("Starting e2e run %q on Ginkgo node %d", k8sframework.RunID, suiteConfig.ParallelProcess)
-	ginkgo.RunSpecs(t, "Kube-OVN e2e suite", suiteConfig, reporterConfig)
+	ginkgo.RunSpecs(t, "fabric e2e suite", suiteConfig, reporterConfig)
 }
 
 type suiteContext struct {
@@ -227,7 +227,7 @@ var _ = framework.OrderedDescribe("[group:disaster]", func() {
 
 	framework.DisruptiveIt("Recreating ovs-ovn pod", func() {
 		ginkgo.By("Getting DaemonSet ovs-ovn")
-		dsClient := framework.NewDaemonSetClient(cs, framework.KubeOvnNamespace)
+		dsClient := framework.NewDaemonSetClient(cs, framework.FabricNamespace)
 		ds := dsClient.Get("ovs-ovn")
 
 		ginkgo.By("Getting pods of DaemonSet ovs-ovn")
@@ -278,7 +278,7 @@ var _ = framework.OrderedDescribe("[group:disaster]", func() {
 
 	framework.DisruptiveIt("Recreating ovn-central pod", func() {
 		ginkgo.By("Getting deployment ovn-central")
-		deploymentClient := framework.NewDeploymentClient(cs, framework.KubeOvnNamespace)
+		deploymentClient := framework.NewDeploymentClient(cs, framework.FabricNamespace)
 		deploy := deploymentClient.Get("ovn-central")
 
 		ginkgo.By("Getting pods of deployment ovn-central")
@@ -307,7 +307,7 @@ var _ = framework.OrderedDescribe("[group:disaster]", func() {
 
 	framework.DisruptiveIt("Stop ovn sb process", func() {
 		ginkgo.By("Getting deployment ovn-central")
-		deploymentClient := framework.NewDeploymentClient(cs, framework.KubeOvnNamespace)
+		deploymentClient := framework.NewDeploymentClient(cs, framework.FabricNamespace)
 		deploy := deploymentClient.Get("ovn-central")
 
 		ginkgo.By("Getting pods of deployment ovn-central")
@@ -349,7 +349,7 @@ var _ = framework.OrderedDescribe("[group:disaster]", func() {
 
 	framework.DisruptiveIt("Stop ovn-controller process", func() {
 		ginkgo.By("Getting DaemonSet ovs-ovn")
-		dsClient := framework.NewDaemonSetClient(cs, framework.KubeOvnNamespace)
+		dsClient := framework.NewDaemonSetClient(cs, framework.FabricNamespace)
 		ds := dsClient.Get("ovs-ovn")
 
 		ginkgo.By("Getting pods of DaemonSet ovs-ovn")
@@ -391,7 +391,7 @@ var _ = framework.OrderedDescribe("[group:disaster]", func() {
 
 	framework.DisruptiveIt("Stop ovs-vswitchd process", func() {
 		ginkgo.By("Getting DaemonSet ovs-ovn")
-		dsClient := framework.NewDaemonSetClient(cs, framework.KubeOvnNamespace)
+		dsClient := framework.NewDaemonSetClient(cs, framework.FabricNamespace)
 		ds := dsClient.Get("ovs-ovn")
 
 		ginkgo.By("Getting pods of DaemonSet ovs-ovn")

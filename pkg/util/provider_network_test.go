@@ -6,7 +6,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestNodeMatchesSelector(t *testing.T) {
@@ -199,7 +199,7 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 	tests := []struct {
 		name    string
 		node    *v1.Node
-		pn      *kubeovnv1.ProviderNetwork
+		pn      *fabricv1.ProviderNetwork
 		want    bool
 		wantErr bool
 	}{
@@ -214,11 +214,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					},
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"env": "test",
@@ -240,11 +240,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					},
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"env": "test",
@@ -262,11 +262,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					Name: "worker-1",
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					ExcludeNodes: []string{"worker-1", "worker-2"},
 				},
 			},
@@ -280,11 +280,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					Name: "worker-3",
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					ExcludeNodes: []string{"worker-1", "worker-2"},
 				},
 			},
@@ -298,11 +298,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					Name: "worker-1",
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{},
+				Spec: fabricv1.ProviderNetworkSpec{},
 			},
 			want:    false,
 			wantErr: false,
@@ -314,11 +314,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					Name: "worker-1",
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchExpressions: []metav1.LabelSelectorRequirement{
 							{
@@ -344,11 +344,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					},
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchExpressions: []metav1.LabelSelectorRequirement{
 							{
@@ -377,11 +377,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					},
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchExpressions: []metav1.LabelSelectorRequirement{
 							{
@@ -408,11 +408,11 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 					},
 				},
 			},
-			pn: &kubeovnv1.ProviderNetwork{
+			pn: &fabricv1.ProviderNetwork{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-provider",
 				},
-				Spec: kubeovnv1.ProviderNetworkSpec{
+				Spec: fabricv1.ProviderNetworkSpec{
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"env": "test",

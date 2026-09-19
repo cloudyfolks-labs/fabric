@@ -20,7 +20,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -102,7 +102,7 @@ func (c *Controller) gcLogicalSwitch() error {
 	}
 
 	subnetNames := set.New[string]()
-	subnetMap := make(map[string]*kubeovnv1.Subnet, len(subnets))
+	subnetMap := make(map[string]*fabricv1.Subnet, len(subnets))
 	for _, s := range subnets {
 		subnetMap[s.Name] = s
 		subnetNames.Insert(s.Name)
@@ -262,7 +262,7 @@ func (c *Controller) gcVip() error {
 	return nil
 }
 
-func (c *Controller) checkIPOwnerExists(ip *kubeovnv1.IP) (bool, error) {
+func (c *Controller) checkIPOwnerExists(ip *fabricv1.IP) (bool, error) {
 	// Check if Subnet exists
 	if _, ok := c.ipam.Subnets[ip.Spec.Subnet]; !ok {
 		return false, nil
@@ -355,7 +355,7 @@ func (c *Controller) gcIP() error {
 		}
 		if !exist {
 			klog.Infof("gc ip %s", ip.Name)
-			if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ip.Name, metav1.DeleteOptions{}); err != nil {
+			if err := c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), ip.Name, metav1.DeleteOptions{}); err != nil {
 				klog.Errorf("failed to gc ip %s, %v", ip.Name, err)
 			}
 		}
@@ -477,7 +477,7 @@ func (c *Controller) markAndCleanLSP() error {
 			klog.Errorf("failed to delete lsp %s: %v", lsp.Name, err)
 			return err
 		}
-		ipCR, err := c.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), lsp.Name, metav1.GetOptions{})
+		ipCR, err := c.config.FabricClient.FabricV1().IPs().Get(context.Background(), lsp.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// ip cr not found, skip lsp gc
@@ -488,7 +488,7 @@ func (c *Controller) markAndCleanLSP() error {
 		}
 		if ipCR.Labels[util.IPReservedLabel] != "true" {
 			klog.Infof("gc ip %s", ipCR.Name)
-			if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+			if err := c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 				if k8serrors.IsNotFound(err) {
 					// ip cr not found, skip lsp gc
 					continue
@@ -574,7 +574,7 @@ func (c *Controller) gcLoadBalancer() error {
 				klog.Error(err)
 				return err
 			}
-			_, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+			_, err = c.config.FabricClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 			if err != nil {
 				klog.Error(err)
 				return err
@@ -770,7 +770,7 @@ func (c *Controller) gcAddressSet() error {
 func (c *Controller) gcSecurityGroup() error {
 	klog.Infof("start to gc security group residual port groups")
 	// get security group
-	sgs, err := c.config.KubeOvnClient.FabricV1().SecurityGroups().List(context.Background(), metav1.ListOptions{})
+	sgs, err := c.config.FabricClient.FabricV1().SecurityGroups().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("failed to list security group,%v", err)
 		return err
@@ -859,7 +859,7 @@ func (c *Controller) gcNetworkPolicy() error {
 		return err
 	}
 	for _, subnet := range subnets {
-		if subnet.Spec.Vpc != c.config.ClusterRouter || (subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) || subnet.Name == c.config.NodeSwitch || subnet.Spec.GatewayType != kubeovnv1.GWDistributedType {
+		if subnet.Spec.Vpc != c.config.ClusterRouter || (subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) || subnet.Name == c.config.NodeSwitch || subnet.Spec.GatewayType != fabricv1.GWDistributedType {
 			continue
 		}
 
@@ -1277,7 +1277,7 @@ func (c *Controller) gcOvnLbSvcEips() error {
 		}
 
 		klog.Infof("gc: releasing orphaned ovn loadbalancer service eip %s", eip.Name)
-		if err = c.config.KubeOvnClient.FabricV1().OvnEips().Delete(context.Background(), eip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+		if err = c.config.FabricClient.FabricV1().OvnEips().Delete(context.Background(), eip.Name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 			klog.Errorf("gc: failed to delete ovn eip %s: %v", eip.Name, err)
 			return err
 		}
@@ -1287,7 +1287,7 @@ func (c *Controller) gcOvnLbSvcEips() error {
 	return nil
 }
 
-func (c *Controller) ovnLbSvcEipHasOwner(eip *kubeovnv1.OvnEip) bool {
+func (c *Controller) ovnLbSvcEipHasOwner(eip *fabricv1.OvnEip) bool {
 	namespace, name, ok := parseOvnLbSvcLabelValue(eip.Labels[util.LoadBalancerServiceLabel])
 	if !ok {
 		return false

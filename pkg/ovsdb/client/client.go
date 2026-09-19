@@ -86,7 +86,7 @@ func NewOvsDbClient(
 		backOff = bo
 	}
 	if ssl {
-		tlsConfig, err := newKubeOVNTLSConfig()
+		tlsConfig, err := newFabricTLSConfig()
 		if err != nil {
 			klog.Error(err)
 			return nil, err
@@ -135,7 +135,7 @@ func NewOvsDbClient(
 	return c, nil
 }
 
-func newKubeOVNTLSConfig() (*tls.Config, error) {
+func newFabricTLSConfig() (*tls.Config, error) {
 	caCert, err := os.ReadFile(util.SslCACert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read ca cert: %w", err)

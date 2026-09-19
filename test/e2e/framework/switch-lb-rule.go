@@ -16,8 +16,8 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -35,7 +35,7 @@ func (f *Framework) SwitchLBRuleClient() *SwitchLBRuleClient {
 func (f *Framework) SwitchLBRuleClientNS(namespace string) *SwitchLBRuleClient {
 	return &SwitchLBRuleClient{
 		f:                     f,
-		SwitchLBRuleInterface: f.KubeOVNClientSet.FabricV1().SwitchLBRules(),
+		SwitchLBRuleInterface: f.FabricClientSet.FabricV1().SwitchLBRules(),
 		namespace:             namespace,
 	}
 }

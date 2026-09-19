@@ -47,11 +47,11 @@ func checkDeployment(f *framework.Framework, name, process string, ports ...stri
 	ginkgo.GinkgoHelper()
 
 	ginkgo.By("Getting deployment " + name)
-	deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), name, metav1.GetOptions{})
+	deploy, err := f.ClientSet.AppsV1().Deployments(framework.FabricNamespace).Get(context.TODO(), name, metav1.GetOptions{})
 	framework.ExpectNoError(err, "failed to get deployment")
 	err = deployment.WaitForDeploymentComplete(f.ClientSet, deploy)
 	framework.ExpectNoError(err, "deployment failed to complete")
-	deploy, err = f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), name, metav1.GetOptions{})
+	deploy, err = f.ClientSet.AppsV1().Deployments(framework.FabricNamespace).Get(context.TODO(), name, metav1.GetOptions{})
 	framework.ExpectNoError(err, "failed to get deployment")
 
 	ginkgo.By("Getting pods")
@@ -296,11 +296,11 @@ var _ = framework.Describe("[group:security]", func() {
 		f.SkipVersionPriorTo(1, 15, "OVN DB server TLS options were introduced in v1.15")
 
 		ginkgo.By("Getting deployment ovn-central")
-		deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), "ovn-central", metav1.GetOptions{})
+		deploy, err := f.ClientSet.AppsV1().Deployments(framework.FabricNamespace).Get(context.TODO(), "ovn-central", metav1.GetOptions{})
 		framework.ExpectNoError(err, "failed to get deployment")
 		err = deployment.WaitForDeploymentComplete(f.ClientSet, deploy)
 		framework.ExpectNoError(err, "deployment failed to complete")
-		deploy, err = f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), "ovn-central", metav1.GetOptions{})
+		deploy, err = f.ClientSet.AppsV1().Deployments(framework.FabricNamespace).Get(context.TODO(), "ovn-central", metav1.GetOptions{})
 		framework.ExpectNoError(err, "failed to get deployment")
 
 		ginkgo.By("Getting pods")
@@ -337,7 +337,7 @@ var _ = framework.Describe("[group:security]", func() {
 		framework.ExpectNotEmpty(nodeList.Items)
 
 		ginkgo.By("Getting daemonset fabric-cni")
-		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+		daemonSetClient := f.DaemonSetClientNS(framework.FabricNamespace)
 		ds := daemonSetClient.Get("fabric-cni")
 
 		ginkgo.By("Getting fabric-cni pods")

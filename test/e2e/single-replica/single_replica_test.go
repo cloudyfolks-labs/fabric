@@ -40,7 +40,7 @@ func TestE2E(t *testing.T) {
 func isSingleReplicaMode(f *framework.Framework) bool {
 	ginkgo.GinkgoHelper()
 
-	svc, err := f.ClientSet.CoreV1().Services(framework.KubeOvnNamespace).
+	svc, err := f.ClientSet.CoreV1().Services(framework.FabricNamespace).
 		Get(context.TODO(), "ovn-nb", metav1.GetOptions{})
 	framework.ExpectNoError(err, "getting Service kube-system/ovn-nb")
 	_, hasLeaderSelector := svc.Spec.Selector["ovn-nb-leader"]
@@ -59,7 +59,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 
 	ginkgo.It("should deploy ovn-central as a single-replica Deployment backed by a PVC", func() {
 		ginkgo.By("Getting Deployment kube-system/ovn-central")
-		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
+		deployClient := f.DeploymentClientNS(framework.FabricNamespace)
 		deploy := deployClient.Get("ovn-central")
 
 		ginkgo.By("Verifying replicas == 1")
@@ -82,7 +82,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 		gomega.Expect(found).To(gomega.BeTrue(), "host-config-ovn volume must be present on the Deployment")
 
 		ginkgo.By("Verifying PVC kube-system/ovn-central-data is Bound")
-		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(framework.KubeOvnNamespace).
+		pvc, err := f.ClientSet.CoreV1().PersistentVolumeClaims(framework.FabricNamespace).
 			Get(context.TODO(), "ovn-central-data", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		gomega.Expect(string(pvc.Status.Phase)).To(gomega.Equal("Bound"))
@@ -91,7 +91,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 	ginkgo.It("should expose ovn-nb / ovn-sb / ovn-northd via leader-less Services", func() {
 		for _, name := range []string{"ovn-nb", "ovn-sb", "ovn-northd"} {
 			ginkgo.By("Inspecting Service kube-system/" + name)
-			svc, err := f.ClientSet.CoreV1().Services(framework.KubeOvnNamespace).
+			svc, err := f.ClientSet.CoreV1().Services(framework.FabricNamespace).
 				Get(context.TODO(), name, metav1.GetOptions{})
 			framework.ExpectNoError(err)
 			gomega.Expect(svc.Spec.Selector).To(gomega.HaveKeyWithValue("app", "ovn-central"))
@@ -105,7 +105,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 
 	ginkgo.It("should keep the ovn-central pod labelled as leader for all three databases", func() {
 		ginkgo.By("Listing pods of ovn-central")
-		pods, err := f.ClientSet.CoreV1().Pods(framework.KubeOvnNamespace).
+		pods, err := f.ClientSet.CoreV1().Pods(framework.FabricNamespace).
 			List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ovn-central"})
 		framework.ExpectNoError(err)
 		gomega.Expect(pods.Items).To(gomega.HaveLen(1), "single-replica mode must have exactly one ovn-central pod")
@@ -113,7 +113,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 		ginkgo.By("Waiting for the leader-checker to apply ovn-*-leader=true labels")
 		pod := pods.Items[0]
 		framework.WaitUntil(2*time.Second, time.Minute, func(ctx context.Context) (bool, error) {
-			p, err := f.ClientSet.CoreV1().Pods(framework.KubeOvnNamespace).Get(ctx, pod.Name, metav1.GetOptions{})
+			p, err := f.ClientSet.CoreV1().Pods(framework.FabricNamespace).Get(ctx, pod.Name, metav1.GetOptions{})
 			if err != nil {
 				return false, nil
 			}
@@ -153,7 +153,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 
 	framework.DisruptiveIt("should recover after the ovn-central pod is deleted", func() {
 		ginkgo.By("Recording the current ovn-central pod")
-		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
+		deployClient := f.DeploymentClientNS(framework.FabricNamespace)
 		deploy := deployClient.Get("ovn-central")
 		oldPods, err := deployClient.GetAllPods(deploy)
 		framework.ExpectNoError(err)
@@ -161,7 +161,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 		oldPodName := oldPods.Items[0].Name
 
 		ginkgo.By("Deleting pod " + oldPodName)
-		err = f.ClientSet.CoreV1().Pods(framework.KubeOvnNamespace).
+		err = f.ClientSet.CoreV1().Pods(framework.FabricNamespace).
 			Delete(context.TODO(), oldPodName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err)
 

@@ -125,7 +125,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 
 		ginkgo.By("Creating test pod " + podName + " in namespace " + namespaceName)
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.FabricImage, cmd, nil)
 		_ = podClient.CreateSync(pod)
 
 		testNetworkConnectivity("https://www.baidu.com", true, "Testing connectivity to baidu.com before applying CNP (should succeed)")
@@ -180,7 +180,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 
 		ginkgo.By("Creating test pod " + podName + " in namespace " + namespaceName)
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.FabricImage, cmd, nil)
 		_ = podClient.CreateSync(pod)
 
 		testNetworkConnectivity("https://www.baidu.com", true, "Testing connectivity to baidu.com before applying cnps (should succeed)")
@@ -257,7 +257,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 
 		ginkgo.By("Creating test pod " + podName + " in namespace " + namespaceName)
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.FabricImage, cmd, nil)
 		_ = podClient.CreateSync(pod)
 
 		testNetworkConnectivity("https://www.baidu.com", true, "Testing connectivity to baidu.com before applying cnp (should succeed)")
@@ -331,7 +331,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 
 		ginkgo.By("Creating test pod " + podName + " in namespace " + namespaceName)
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.FabricImage, cmd, nil)
 		_ = podClient.CreateSync(pod)
 
 		testNetworkConnectivity("https://www.baidu.com", true, "Testing connectivity to baidu.com before applying cnp (should succeed)")
@@ -390,7 +390,7 @@ var _ = framework.SerialDescribe("[group:cluster-network-policy]", func() {
 
 		ginkgo.By("Creating test pod " + podName + " in namespace " + namespaceName)
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, nil, f.FabricImage, cmd, nil)
 		_ = podClient.CreateSync(pod)
 
 		testNetworkConnectivity("https://www.baidu.com", true, "Testing connectivity to www.baidu.com before applying cnp (should succeed)")

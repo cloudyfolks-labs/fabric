@@ -38,9 +38,9 @@ import (
 	anplister "sigs.k8s.io/network-policy-api/pkg/client/listers/apis/v1alpha1"
 	anplisterv1alpha2 "sigs.k8s.io/network-policy-api/pkg/client/listers/apis/v1alpha2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
-	kubeovnlister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricinformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	fabriclister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/informer"
 	ovnipam "github.com/cloudyfolks-labs/fabric/pkg/ipam"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
@@ -88,24 +88,24 @@ type Controller struct {
 	updatePodSecurityQueue workqueue.TypedRateLimitingInterface[string]
 	podKeyMutex            keymutex.KeyMutex
 
-	vpcsLister           kubeovnlister.VpcLister
+	vpcsLister           fabriclister.VpcLister
 	vpcSynced            cache.InformerSynced
 	vpcIndexer           cache.Indexer
 	addOrUpdateVpcQueue  workqueue.TypedRateLimitingInterface[string]
 	vpcLastPoliciesMap   *xsync.Map[string, string]
-	delVpcQueue          workqueue.TypedRateLimitingInterface[*kubeovnv1.Vpc]
+	delVpcQueue          workqueue.TypedRateLimitingInterface[*fabricv1.Vpc]
 	updateVpcStatusQueue workqueue.TypedRateLimitingInterface[string]
 	vpcKeyMutex          keymutex.KeyMutex
 
-	dnsZoneLister           kubeovnlister.DNSZoneLister
+	dnsZoneLister           fabriclister.DNSZoneLister
 	dnsZoneSynced           cache.InformerSynced
 	addOrUpdateDNSZoneQueue workqueue.TypedRateLimitingInterface[string]
 	delDNSZoneQueue         workqueue.TypedRateLimitingInterface[string]
 	dnsZoneKeyMutex         keymutex.KeyMutex
 
-	routerLBRuleLister      kubeovnlister.RouterLBRuleLister
+	routerLBRuleLister      fabriclister.RouterLBRuleLister
 	routerLBRuleSynced      cache.InformerSynced
-	loadBalancerLister      kubeovnlister.LoadBalancerLister
+	loadBalancerLister      fabriclister.LoadBalancerLister
 	loadBalancerSynced      cache.InformerSynced
 	addLoadBalancerQueue    workqueue.TypedRateLimitingInterface[string]
 	delLoadBalancerQueue    workqueue.TypedRateLimitingInterface[string]
@@ -113,75 +113,75 @@ type Controller struct {
 	updateRouterLBRuleQueue workqueue.TypedRateLimitingInterface[*RouterLBRuleInfo]
 	delRouterLBRuleQueue    workqueue.TypedRateLimitingInterface[*RouterLBRuleInfo]
 
-	loadBalancerPoolLister   kubeovnlister.LoadBalancerPoolLister
+	loadBalancerPoolLister   fabriclister.LoadBalancerPoolLister
 	loadBalancerPoolSynced   cache.InformerSynced
 	addOrUpdateOvnLbSvcQueue workqueue.TypedRateLimitingInterface[string]
 	delOvnLbSvcQueue         workqueue.TypedRateLimitingInterface[*ovnLbSvcRelease]
 
-	switchLBRuleLister      kubeovnlister.SwitchLBRuleLister
+	switchLBRuleLister      fabriclister.SwitchLBRuleLister
 	switchLBRuleSynced      cache.InformerSynced
 	addSwitchLBRuleQueue    workqueue.TypedRateLimitingInterface[string]
 	updateSwitchLBRuleQueue workqueue.TypedRateLimitingInterface[*SwitchLBRuleInfo]
 	delSwitchLBRuleQueue    workqueue.TypedRateLimitingInterface[*SwitchLBRuleInfo]
 
-	subnetsLister           kubeovnlister.SubnetLister
+	subnetsLister           fabriclister.SubnetLister
 	subnetSynced            cache.InformerSynced
 	addOrUpdateSubnetQueue  workqueue.TypedRateLimitingInterface[string]
-	deleteSubnetQueue       workqueue.TypedRateLimitingInterface[*kubeovnv1.Subnet]
+	deleteSubnetQueue       workqueue.TypedRateLimitingInterface[*fabricv1.Subnet]
 	updateSubnetStatusQueue workqueue.TypedRateLimitingInterface[string]
 	syncVirtualPortsQueue   workqueue.TypedRateLimitingInterface[string]
 	subnetKeyMutex          keymutex.KeyMutex
 
-	ippoolLister            kubeovnlister.IPPoolLister
+	ippoolLister            fabriclister.IPPoolLister
 	ippoolSynced            cache.InformerSynced
 	addOrUpdateIPPoolQueue  workqueue.TypedRateLimitingInterface[string]
 	updateIPPoolStatusQueue workqueue.TypedRateLimitingInterface[string]
-	deleteIPPoolQueue       workqueue.TypedRateLimitingInterface[*kubeovnv1.IPPool]
+	deleteIPPoolQueue       workqueue.TypedRateLimitingInterface[*fabricv1.IPPool]
 	ippoolKeyMutex          keymutex.KeyMutex
 
-	ipsLister     kubeovnlister.IPLister
+	ipsLister     fabriclister.IPLister
 	ipSynced      cache.InformerSynced
 	ipIndexer     cache.Indexer
 	addIPQueue    workqueue.TypedRateLimitingInterface[string]
 	updateIPQueue workqueue.TypedRateLimitingInterface[string]
-	delIPQueue    workqueue.TypedRateLimitingInterface[*kubeovnv1.IP]
+	delIPQueue    workqueue.TypedRateLimitingInterface[*fabricv1.IP]
 
-	virtualIpsLister          kubeovnlister.VipLister
+	virtualIpsLister          fabriclister.VipLister
 	virtualIpsSynced          cache.InformerSynced
 	addVirtualIPQueue         workqueue.TypedRateLimitingInterface[string]
 	updateVirtualIPQueue      workqueue.TypedRateLimitingInterface[string]
 	updateVirtualParentsQueue workqueue.TypedRateLimitingInterface[string]
-	delVirtualIPQueue         workqueue.TypedRateLimitingInterface[*kubeovnv1.Vip]
+	delVirtualIPQueue         workqueue.TypedRateLimitingInterface[*fabricv1.Vip]
 
-	ovnEipsLister     kubeovnlister.OvnEipLister
+	ovnEipsLister     fabriclister.OvnEipLister
 	ovnEipSynced      cache.InformerSynced
 	addOvnEipQueue    workqueue.TypedRateLimitingInterface[string]
 	updateOvnEipQueue workqueue.TypedRateLimitingInterface[string]
 	resetOvnEipQueue  workqueue.TypedRateLimitingInterface[string]
-	delOvnEipQueue    workqueue.TypedRateLimitingInterface[*kubeovnv1.OvnEip]
+	delOvnEipQueue    workqueue.TypedRateLimitingInterface[*fabricv1.OvnEip]
 
-	ovnFipsLister     kubeovnlister.OvnFipLister
+	ovnFipsLister     fabriclister.OvnFipLister
 	ovnFipSynced      cache.InformerSynced
 	addOvnFipQueue    workqueue.TypedRateLimitingInterface[string]
 	updateOvnFipQueue workqueue.TypedRateLimitingInterface[string]
 	delOvnFipQueue    workqueue.TypedRateLimitingInterface[string]
 
-	ovnSnatRulesLister     kubeovnlister.OvnSnatRuleLister
+	ovnSnatRulesLister     fabriclister.OvnSnatRuleLister
 	ovnSnatRuleSynced      cache.InformerSynced
 	addOvnSnatRuleQueue    workqueue.TypedRateLimitingInterface[string]
 	updateOvnSnatRuleQueue workqueue.TypedRateLimitingInterface[string]
 	delOvnSnatRuleQueue    workqueue.TypedRateLimitingInterface[string]
 
-	ovnDnatRulesLister     kubeovnlister.OvnDnatRuleLister
+	ovnDnatRulesLister     fabriclister.OvnDnatRuleLister
 	ovnDnatRuleSynced      cache.InformerSynced
 	addOvnDnatRuleQueue    workqueue.TypedRateLimitingInterface[string]
 	updateOvnDnatRuleQueue workqueue.TypedRateLimitingInterface[string]
 	delOvnDnatRuleQueue    workqueue.TypedRateLimitingInterface[string]
 
-	providerNetworksLister kubeovnlister.ProviderNetworkLister
+	providerNetworksLister fabriclister.ProviderNetworkLister
 	providerNetworkSynced  cache.InformerSynced
 
-	vlansLister     kubeovnlister.VlanLister
+	vlansLister     fabriclister.VlanLister
 	vlanSynced      cache.InformerSynced
 	addVlanQueue    workqueue.TypedRateLimitingInterface[string]
 	delVlanQueue    workqueue.TypedRateLimitingInterface[string]
@@ -226,7 +226,7 @@ type Controller struct {
 	deleteNpQueue workqueue.TypedRateLimitingInterface[string]
 	npKeyMutex    keymutex.KeyMutex
 
-	sgsLister          kubeovnlister.SecurityGroupLister
+	sgsLister          fabriclister.SecurityGroupLister
 	sgSynced           cache.InformerSynced
 	addOrUpdateSgQueue workqueue.TypedRateLimitingInterface[string]
 	delSgQueue         workqueue.TypedRateLimitingInterface[string]
@@ -276,12 +276,12 @@ type Controller struct {
 	serviceCIDRSynced          cache.InformerSynced
 	serviceCIDRInformerFactory kubeinformers.SharedInformerFactory
 
-	recorder               record.EventRecorder
-	informerFactory        kubeinformers.SharedInformerFactory
-	cmInformerFactory      kubeinformers.SharedInformerFactory
-	deployInformerFactory  kubeinformers.SharedInformerFactory
-	kubeovnInformerFactory kubeovninformer.SharedInformerFactory
-	anpInformerFactory     anpinformer.SharedInformerFactory
+	recorder              record.EventRecorder
+	informerFactory       kubeinformers.SharedInformerFactory
+	cmInformerFactory     kubeinformers.SharedInformerFactory
+	deployInformerFactory kubeinformers.SharedInformerFactory
+	fabricInformerFactory fabricinformer.SharedInformerFactory
+	anpInformerFactory    anpinformer.SharedInformerFactory
 
 	// Database health check
 	dbFailureCount int
@@ -341,9 +341,9 @@ func Run(ctx context.Context, config *Configuration) {
 		kubeinformers.WithTweakListOptions(func(listOption *metav1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
-	kubeovnInformerFactory := kubeovninformer.NewSharedInformerFactoryWithOptions(config.KubeOvnFactoryClient, 0,
-		kubeovninformer.WithTransform(util.TrimManagedFields),
-		kubeovninformer.WithTweakListOptions(func(listOption *metav1.ListOptions) {
+	fabricInformerFactory := fabricinformer.NewSharedInformerFactoryWithOptions(config.FabricFactoryClient, 0,
+		fabricinformer.WithTransform(util.TrimManagedFields),
+		fabricinformer.WithTweakListOptions(func(listOption *metav1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
 	anpInformerFactory := anpinformer.NewSharedInformerFactoryWithOptions(config.AnpClient, 0,
@@ -367,14 +367,14 @@ func Run(ctx context.Context, config *Configuration) {
 		}),
 	)
 
-	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
-	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
-	ippoolInformer := kubeovnInformerFactory.Fabric().V1().IPPools()
-	ipInformer := kubeovnInformerFactory.Fabric().V1().IPs()
-	virtualIPInformer := kubeovnInformerFactory.Fabric().V1().Vips()
-	vlanInformer := kubeovnInformerFactory.Fabric().V1().Vlans()
-	providerNetworkInformer := kubeovnInformerFactory.Fabric().V1().ProviderNetworks()
-	sgInformer := kubeovnInformerFactory.Fabric().V1().SecurityGroups()
+	vpcInformer := fabricInformerFactory.Fabric().V1().Vpcs()
+	subnetInformer := fabricInformerFactory.Fabric().V1().Subnets()
+	ippoolInformer := fabricInformerFactory.Fabric().V1().IPPools()
+	ipInformer := fabricInformerFactory.Fabric().V1().IPs()
+	virtualIPInformer := fabricInformerFactory.Fabric().V1().Vips()
+	vlanInformer := fabricInformerFactory.Fabric().V1().Vlans()
+	providerNetworkInformer := fabricInformerFactory.Fabric().V1().ProviderNetworks()
+	sgInformer := fabricInformerFactory.Fabric().V1().SecurityGroups()
 	podInformer := informerFactory.Core().V1().Pods()
 	namespaceInformer := informerFactory.Core().V1().Namespaces()
 	nodeInformer := informerFactory.Core().V1().Nodes()
@@ -383,15 +383,15 @@ func Run(ctx context.Context, config *Configuration) {
 	deploymentInformer := deployInformerFactory.Apps().V1().Deployments()
 	configMapInformer := cmInformerFactory.Core().V1().ConfigMaps()
 	npInformer := informerFactory.Networking().V1().NetworkPolicies()
-	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DNSZones()
-	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
-	loadBalancerInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancers()
-	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
-	switchLBRuleInformer := kubeovnInformerFactory.Fabric().V1().SwitchLBRules()
-	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
-	ovnFipInformer := kubeovnInformerFactory.Fabric().V1().OvnFips()
-	ovnSnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnSnatRules()
-	ovnDnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnDnatRules()
+	dnsZoneInformer := fabricInformerFactory.Fabric().V1().DNSZones()
+	routerLBRuleInformer := fabricInformerFactory.Fabric().V1().RouterLBRules()
+	loadBalancerInformer := fabricInformerFactory.Fabric().V1().LoadBalancers()
+	loadBalancerPoolInformer := fabricInformerFactory.Fabric().V1().LoadBalancerPools()
+	switchLBRuleInformer := fabricInformerFactory.Fabric().V1().SwitchLBRules()
+	ovnEipInformer := fabricInformerFactory.Fabric().V1().OvnEips()
+	ovnFipInformer := fabricInformerFactory.Fabric().V1().OvnFips()
+	ovnSnatRuleInformer := fabricInformerFactory.Fabric().V1().OvnSnatRules()
+	ovnDnatRuleInformer := fabricInformerFactory.Fabric().V1().OvnDnatRules()
 	anpInformer := anpInformerFactory.Policy().V1alpha1().AdminNetworkPolicies()
 	banpInformer := anpInformerFactory.Policy().V1alpha1().BaselineAdminNetworkPolicies()
 	cnpInformer := anpInformerFactory.Policy().V1alpha2().ClusterNetworkPolicies()
@@ -410,14 +410,14 @@ func Run(ctx context.Context, config *Configuration) {
 		vpcSynced:            vpcInformer.Informer().HasSynced,
 		addOrUpdateVpcQueue:  newTypedRateLimitingQueue[string]("AddOrUpdateVpc", nil),
 		vpcLastPoliciesMap:   xsync.NewMap[string, string](),
-		delVpcQueue:          newTypedRateLimitingQueue[*kubeovnv1.Vpc]("DeleteVpc", nil),
+		delVpcQueue:          newTypedRateLimitingQueue[*fabricv1.Vpc]("DeleteVpc", nil),
 		updateVpcStatusQueue: newTypedRateLimitingQueue[string]("UpdateVpcStatus", nil),
 		vpcKeyMutex:          keymutex.NewHashed(numKeyLocks),
 
 		subnetsLister:           subnetInformer.Lister(),
 		subnetSynced:            subnetInformer.Informer().HasSynced,
 		addOrUpdateSubnetQueue:  newTypedRateLimitingQueue[string]("AddSubnet", nil),
-		deleteSubnetQueue:       newTypedRateLimitingQueue[*kubeovnv1.Subnet]("DeleteSubnet", nil),
+		deleteSubnetQueue:       newTypedRateLimitingQueue[*fabricv1.Subnet]("DeleteSubnet", nil),
 		updateSubnetStatusQueue: newTypedRateLimitingQueue[string]("UpdateSubnetStatus", nil),
 		syncVirtualPortsQueue:   newTypedRateLimitingQueue[string]("SyncVirtualPort", nil),
 		subnetKeyMutex:          keymutex.NewHashed(numKeyLocks),
@@ -426,21 +426,21 @@ func Run(ctx context.Context, config *Configuration) {
 		ippoolSynced:            ippoolInformer.Informer().HasSynced,
 		addOrUpdateIPPoolQueue:  newTypedRateLimitingQueue[string]("AddIPPool", nil),
 		updateIPPoolStatusQueue: newTypedRateLimitingQueue[string]("UpdateIPPoolStatus", nil),
-		deleteIPPoolQueue:       newTypedRateLimitingQueue[*kubeovnv1.IPPool]("DeleteIPPool", nil),
+		deleteIPPoolQueue:       newTypedRateLimitingQueue[*fabricv1.IPPool]("DeleteIPPool", nil),
 		ippoolKeyMutex:          keymutex.NewHashed(numKeyLocks),
 
 		ipsLister:     ipInformer.Lister(),
 		ipSynced:      ipInformer.Informer().HasSynced,
 		addIPQueue:    newTypedRateLimitingQueue[string]("AddIP", nil),
 		updateIPQueue: newTypedRateLimitingQueue[string]("UpdateIP", nil),
-		delIPQueue:    newTypedRateLimitingQueue[*kubeovnv1.IP]("DeleteIP", nil),
+		delIPQueue:    newTypedRateLimitingQueue[*fabricv1.IP]("DeleteIP", nil),
 
 		virtualIpsLister:          virtualIPInformer.Lister(),
 		virtualIpsSynced:          virtualIPInformer.Informer().HasSynced,
 		addVirtualIPQueue:         newTypedRateLimitingQueue[string]("AddVirtualIP", nil),
 		updateVirtualIPQueue:      newTypedRateLimitingQueue[string]("UpdateVirtualIP", nil),
 		updateVirtualParentsQueue: newTypedRateLimitingQueue[string]("UpdateVirtualParents", nil),
-		delVirtualIPQueue:         newTypedRateLimitingQueue[*kubeovnv1.Vip]("DeleteVirtualIP", nil),
+		delVirtualIPQueue:         newTypedRateLimitingQueue[*fabricv1.Vip]("DeleteVirtualIP", nil),
 
 		vlansLister:     vlanInformer.Lister(),
 		vlanSynced:      vlanInformer.Informer().HasSynced,
@@ -506,7 +506,7 @@ func Run(ctx context.Context, config *Configuration) {
 		addOvnEipQueue:    newTypedRateLimitingQueue("AddOvnEip", custCrdRateLimiter),
 		updateOvnEipQueue: newTypedRateLimitingQueue("UpdateOvnEip", custCrdRateLimiter),
 		resetOvnEipQueue:  newTypedRateLimitingQueue("ResetOvnEip", custCrdRateLimiter),
-		delOvnEipQueue:    newTypedRateLimitingQueue[*kubeovnv1.OvnEip]("DeleteOvnEip", nil),
+		delOvnEipQueue:    newTypedRateLimitingQueue[*fabricv1.OvnEip]("DeleteOvnEip", nil),
 
 		ovnFipsLister:     ovnFipInformer.Lister(),
 		ovnFipSynced:      ovnFipInformer.Informer().HasSynced,
@@ -541,12 +541,12 @@ func Run(ctx context.Context, config *Configuration) {
 		serviceCIDRStore:           util.NewServiceCIDRStore(config.ServiceClusterIPRange),
 		serviceCIDRInformerFactory: serviceCIDRInformerFactory,
 
-		recorder:               recorder,
-		informerFactory:        informerFactory,
-		cmInformerFactory:      cmInformerFactory,
-		deployInformerFactory:  deployInformerFactory,
-		kubeovnInformerFactory: kubeovnInformerFactory,
-		anpInformerFactory:     anpInformerFactory,
+		recorder:              recorder,
+		informerFactory:       informerFactory,
+		cmInformerFactory:     cmInformerFactory,
+		deployInformerFactory: deployInformerFactory,
+		fabricInformerFactory: fabricInformerFactory,
+		anpInformerFactory:    anpInformerFactory,
 	}
 
 	if controller.OVNNbClient, err = ovs.NewOvnNbClient(
@@ -695,7 +695,7 @@ func Run(ctx context.Context, config *Configuration) {
 	controller.informerFactory.Start(ctx.Done())
 	controller.cmInformerFactory.Start(ctx.Done())
 	controller.deployInformerFactory.Start(ctx.Done())
-	controller.kubeovnInformerFactory.Start(ctx.Done())
+	controller.fabricInformerFactory.Start(ctx.Done())
 	controller.anpInformerFactory.Start(ctx.Done())
 	controller.StartKubevirtInformerFactory(ctx, kubevirtInformerFactory)
 
@@ -1030,7 +1030,7 @@ func (c *Controller) Run(ctx context.Context) {
 		}
 	}
 
-	c.startKubeOVNTLSManager(ctx)
+	c.startFabricTLSManager(ctx)
 
 	// start workers to do all the network operations
 	c.startWorkers(ctx)

@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	ovs "github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	ovnnb "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	ovnsb "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnsb"
@@ -6517,19 +6517,19 @@ func (mr *MockSbClientMockRecorder) GetEntityInfo(entity any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEntityInfo", reflect.TypeOf((*MockSbClient)(nil).GetEntityInfo), entity)
 }
 
-// GetKubeOvnChassises mocks base method.
-func (m *MockSbClient) GetKubeOvnChassises() (*[]ovnsb.Chassis, error) {
+// GetFabricChassises mocks base method.
+func (m *MockSbClient) GetFabricChassises() (*[]ovnsb.Chassis, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetKubeOvnChassises")
+	ret := m.ctrl.Call(m, "GetFabricChassises")
 	ret0, _ := ret[0].(*[]ovnsb.Chassis)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetKubeOvnChassises indicates an expected call of GetKubeOvnChassises.
-func (mr *MockSbClientMockRecorder) GetKubeOvnChassises() *gomock.Call {
+// GetFabricChassises indicates an expected call of GetFabricChassises.
+func (mr *MockSbClientMockRecorder) GetFabricChassises() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKubeOvnChassises", reflect.TypeOf((*MockSbClient)(nil).GetKubeOvnChassises))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFabricChassises", reflect.TypeOf((*MockSbClient)(nil).GetFabricChassises))
 }
 
 // ListChassis mocks base method.
@@ -6754,19 +6754,19 @@ func (mr *MockChassisMockRecorder) GetChassisByHost(nodeName any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChassisByHost", reflect.TypeOf((*MockChassis)(nil).GetChassisByHost), nodeName)
 }
 
-// GetKubeOvnChassises mocks base method.
-func (m *MockChassis) GetKubeOvnChassises() (*[]ovnsb.Chassis, error) {
+// GetFabricChassises mocks base method.
+func (m *MockChassis) GetFabricChassises() (*[]ovnsb.Chassis, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetKubeOvnChassises")
+	ret := m.ctrl.Call(m, "GetFabricChassises")
 	ret0, _ := ret[0].(*[]ovnsb.Chassis)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetKubeOvnChassises indicates an expected call of GetKubeOvnChassises.
-func (mr *MockChassisMockRecorder) GetKubeOvnChassises() *gomock.Call {
+// GetFabricChassises indicates an expected call of GetFabricChassises.
+func (mr *MockChassisMockRecorder) GetFabricChassises() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKubeOvnChassises", reflect.TypeOf((*MockChassis)(nil).GetKubeOvnChassises))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFabricChassises", reflect.TypeOf((*MockChassis)(nil).GetFabricChassises))
 }
 
 // ListChassis mocks base method.

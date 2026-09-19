@@ -173,7 +173,7 @@ class E2ESelectorTest(unittest.TestCase):
         self.assertIn("unclassified production path", plan["fullReason"])
 
     def testCommonPathPromotesToFull(self):
-        plan = self.select(["pkg/apis/kubeovn/v1/types.go"])
+        plan = self.select(["pkg/apis/fabric/v1/types.go"])
 
         self.assertTrue(plan["full"])
         self.assertIn("shared path", plan["fullReason"])
@@ -560,7 +560,7 @@ class E2ESelectorTest(unittest.TestCase):
 
     def testEveryPathMappingHasARegressionCase(self):
         cases = [
-            ("test/e2e/kube-ovn/subnet/subnet.go", "core"),
+            ("test/e2e/fabric/subnet/subnet.go", "core"),
             ("test/e2e/k8s-network/e2e_test.go", "policy"),
             ("test/e2e/connectivity/e2e_test.go", "core"),
             ("test/e2e/cnp-domain/e2e_test.go", "policy"),

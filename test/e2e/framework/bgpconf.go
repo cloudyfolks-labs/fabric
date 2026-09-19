@@ -12,9 +12,9 @@ import (
 
 	"github.com/onsi/gomega"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 )
 
 // BgpConfClient is a struct for BgpConf client.
@@ -32,7 +32,7 @@ func NewBgpConfClient(cs clientset.Interface) *BgpConfClient {
 func (f *Framework) BgpConfClient() *BgpConfClient {
 	return &BgpConfClient{
 		f:                f,
-		BgpConfInterface: f.KubeOVNClientSet.FabricV1().BgpConves(),
+		BgpConfInterface: f.FabricClientSet.FabricV1().BgpConves(),
 	}
 }
 

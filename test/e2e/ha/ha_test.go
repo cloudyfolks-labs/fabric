@@ -345,7 +345,7 @@ var _ = framework.SerialDescribe("[group:ha]", func() {
 		f.SkipVersionPriorTo(1, 11, "This feature was introduced in v1.11")
 
 		ginkgo.By("Getting deployment ovn-central")
-		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
+		deployClient := f.DeploymentClientNS(framework.FabricNamespace)
 		deploy := deployClient.Get("ovn-central")
 		replicas := *deploy.Spec.Replicas
 		framework.ExpectNotZero(replicas)
@@ -414,7 +414,7 @@ var _ = framework.SerialDescribe("[group:ha]", func() {
 		f.SkipVersionPriorTo(1, 15, "This feature was introduced in v1.15")
 
 		ginkgo.By("Getting deployment ovn-central")
-		deployClient := f.DeploymentClientNS(framework.KubeOvnNamespace)
+		deployClient := f.DeploymentClientNS(framework.FabricNamespace)
 		deploy := deployClient.Get("ovn-central")
 		replicas := *deploy.Spec.Replicas
 		framework.ExpectNotZero(replicas)

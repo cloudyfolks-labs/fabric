@@ -16,12 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddOvnEip(obj any) {
-	eip := obj.(*kubeovnv1.OvnEip)
+	eip := obj.(*fabricv1.OvnEip)
 	key := cache.MetaObjectToName(eip).String()
 	c.requeueRouterLBRulesForEip(eip.Name, false)
 	c.requeueOvnLbSvcForEip(eip)
@@ -34,12 +34,12 @@ func (c *Controller) enqueueAddOvnEip(obj any) {
 }
 
 func (c *Controller) enqueueUpdateOvnEip(oldObj, newObj any) {
-	newEip := newObj.(*kubeovnv1.OvnEip)
+	newEip := newObj.(*fabricv1.OvnEip)
 	key := cache.MetaObjectToName(newEip).String()
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnEipQueue, key, "ovn eip", newEip.DeletionTimestamp, newEip.GetFinalizers()) {
 		return
 	}
-	oldEip := oldObj.(*kubeovnv1.OvnEip)
+	oldEip := oldObj.(*fabricv1.OvnEip)
 	if oldEip.Spec.V4Ip != "" && oldEip.Spec.V4Ip != newEip.Spec.V4Ip ||
 		oldEip.Spec.MacAddress != "" && oldEip.Spec.MacAddress != newEip.Spec.MacAddress {
 		klog.Infof("not support change ip or mac for eip %s", key)
@@ -59,12 +59,12 @@ func (c *Controller) enqueueUpdateOvnEip(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDelOvnEip(obj any) {
-	var eip *kubeovnv1.OvnEip
+	var eip *fabricv1.OvnEip
 	switch t := obj.(type) {
-	case *kubeovnv1.OvnEip:
+	case *fabricv1.OvnEip:
 		eip = t
 	case cache.DeletedFinalStateUnknown:
-		e, ok := t.Obj.(*kubeovnv1.OvnEip)
+		e, ok := t.Obj.(*fabricv1.OvnEip)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -272,7 +272,7 @@ func (c *Controller) handleResetOvnEip(key string) error {
 	return nil
 }
 
-func (c *Controller) handleDelOvnEip(eip *kubeovnv1.OvnEip) error {
+func (c *Controller) handleDelOvnEip(eip *fabricv1.OvnEip) error {
 	// This handles deletion of EIPs without finalizers (race condition or direct deletion)
 	// EIPs with finalizers are handled in handleUpdateOvnEip
 	klog.Infof("handle del ovn eip %s (without finalizer)", eip.Name)
@@ -307,10 +307,10 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Create CR with finalizer, labels and status all at once
-			_, err := c.config.KubeOvnClient.FabricV1().OvnEips().Create(context.Background(), &kubeovnv1.OvnEip{
+			_, err := c.config.FabricClient.FabricV1().OvnEips().Create(context.Background(), &fabricv1.OvnEip{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       key,
-					Finalizers: []string{util.KubeOVNControllerFinalizer},
+					Finalizers: []string{util.FabricControllerFinalizer},
 					Labels: map[string]string{
 						util.SubnetNameLabel: subnet,
 						util.OvnEipTypeLabel: usageType,
@@ -318,14 +318,14 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 						util.EipV6IpLabel:    util.IPv6ToLabelValue(v6ip),
 					},
 				},
-				Spec: kubeovnv1.OvnEipSpec{
+				Spec: fabricv1.OvnEipSpec{
 					ExternalSubnet: subnet,
 					V4Ip:           v4ip,
 					V6Ip:           v6ip,
 					MacAddress:     mac,
 					Type:           usageType,
 				},
-				Status: kubeovnv1.OvnEipStatus{
+				Status: fabricv1.OvnEipStatus{
 					V4Ip:       v4ip,
 					V6Ip:       v6ip,
 					MacAddress: mac,
@@ -376,7 +376,7 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 		}
 		if needUpdate {
 			// Update with labels and spec in one call
-			if _, err := c.config.KubeOvnClient.FabricV1().OvnEips().Update(context.Background(), ovnEip, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.config.FabricClient.FabricV1().OvnEips().Update(context.Background(), ovnEip, metav1.UpdateOptions{}); err != nil {
 				errMsg := fmt.Errorf("failed to update ovn eip '%s', %w", key, err)
 				klog.Error(errMsg)
 				return errMsg
@@ -405,7 +405,7 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 				klog.Errorf("failed to marshal ovn eip %s, %v", key, err)
 				return err
 			}
-			if _, err = c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), key, types.MergePatchType,
+			if _, err = c.config.FabricClient.FabricV1().OvnEips().Patch(context.Background(), key, types.MergePatchType,
 				bytes, metav1.PatchOptions{}, "status"); err != nil {
 				if k8serrors.IsNotFound(err) {
 					return nil
@@ -421,7 +421,7 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 }
 
 func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
-	cachedOvnEip, err := c.config.KubeOvnClient.FabricV1().OvnEips().Get(context.Background(), key, metav1.GetOptions{})
+	cachedOvnEip, err := c.config.FabricClient.FabricV1().OvnEips().Get(context.Background(), key, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -466,7 +466,7 @@ func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
 			klog.Errorf("failed to marshal ovn eip status '%s', %v", key, err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), ovnEip.Name,
+		if _, err = c.config.FabricClient.FabricV1().OvnEips().Patch(context.Background(), ovnEip.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch status for ovn eip '%s', %v", key, err)
 			return err
@@ -542,7 +542,7 @@ func (c *Controller) natLabelAndAnnoOvnEip(eipName, natName, vpcName string) err
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 		raw, _ := json.Marshal(eip.Labels)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), eip.Name,
+		if _, err := c.config.FabricClient.FabricV1().OvnEips().Patch(context.Background(), eip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for ovn eip %s, %v", eip.Name, err)
 			return err
@@ -564,7 +564,7 @@ func (c *Controller) natLabelAndAnnoOvnEip(eipName, natName, vpcName string) err
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/annotations", "value": %s }]`
 		raw, _ := json.Marshal(eip.Annotations)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), eip.Name,
+		if _, err := c.config.FabricClient.FabricV1().OvnEips().Patch(context.Background(), eip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch annotation for ovn eip %s, %v", eip.Name, err)
 			return err
@@ -576,7 +576,7 @@ func (c *Controller) natLabelAndAnnoOvnEip(eipName, natName, vpcName string) err
 
 func (c *Controller) syncOvnEipFinalizer(cl client.Client) error {
 	// migrate deprecated finalizer to new finalizer
-	eips := &kubeovnv1.OvnEipList{}
+	eips := &fabricv1.OvnEipList{}
 	return migrateFinalizers(cl, eips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(eips.Items) {
 			return nil, nil
@@ -585,20 +585,20 @@ func (c *Controller) syncOvnEipFinalizer(cl client.Client) error {
 	})
 }
 
-func (c *Controller) handleAddOrUpdateOvnEipFinalizer(cachedEip *kubeovnv1.OvnEip) error {
+func (c *Controller) handleAddOrUpdateOvnEipFinalizer(cachedEip *fabricv1.OvnEip) error {
 	if !cachedEip.DeletionTimestamp.IsZero() {
 		return nil
 	}
 	newEip := cachedEip.DeepCopy()
 	controllerutil.RemoveFinalizer(newEip, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newEip, util.LegacyControllerFinalizer)
-	controllerutil.AddFinalizer(newEip, util.KubeOVNControllerFinalizer)
+	controllerutil.AddFinalizer(newEip, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedEip, newEip)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ovn eip '%s', %v", cachedEip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), cachedEip.Name,
+	if _, err := c.config.FabricClient.FabricV1().OvnEips().Patch(context.Background(), cachedEip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -614,7 +614,7 @@ func (c *Controller) handleAddOrUpdateOvnEipFinalizer(cachedEip *kubeovnv1.OvnEi
 	return nil
 }
 
-func (c *Controller) handleDelOvnEipFinalizer(cachedEip *kubeovnv1.OvnEip) error {
+func (c *Controller) handleDelOvnEipFinalizer(cachedEip *fabricv1.OvnEip) error {
 	if len(cachedEip.GetFinalizers()) == 0 {
 		return nil
 	}
@@ -633,13 +633,13 @@ func (c *Controller) handleDelOvnEipFinalizer(cachedEip *kubeovnv1.OvnEip) error
 	newEip := cachedEip.DeepCopy()
 	controllerutil.RemoveFinalizer(newEip, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newEip, util.LegacyControllerFinalizer)
-	controllerutil.RemoveFinalizer(newEip, util.KubeOVNControllerFinalizer)
+	controllerutil.RemoveFinalizer(newEip, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedEip, newEip)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ovn eip '%s', %v", cachedEip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), cachedEip.Name,
+	if _, err := c.config.FabricClient.FabricV1().OvnEips().Patch(context.Background(), cachedEip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil

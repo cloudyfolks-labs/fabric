@@ -10,19 +10,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovnfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
-	kubeovninformerfactory "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
+	fabricinformerfactory "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 type errSubnetLister struct{}
 
-func (errSubnetLister) List(labels.Selector) ([]*kubeovnv1.Subnet, error) {
+func (errSubnetLister) List(labels.Selector) ([]*fabricv1.Subnet, error) {
 	return nil, errors.New("list failed")
 }
 
-func (errSubnetLister) Get(string) (*kubeovnv1.Subnet, error) {
+func (errSubnetLister) Get(string) (*fabricv1.Subnet, error) {
 	return nil, errors.New("get failed")
 }
 
@@ -36,35 +36,35 @@ func TestGetCidrByProtocol(t *testing.T) {
 	}{{
 		name:     "ipv4 only",
 		cidr:     "1.1.1.0/24",
-		protocol: kubeovnv1.ProtocolIPv4,
+		protocol: fabricv1.ProtocolIPv4,
 		expected: "1.1.1.0/24",
 	}, {
 		name:     "ipv6 only",
 		cidr:     "2001:db8::/120",
-		protocol: kubeovnv1.ProtocolIPv6,
+		protocol: fabricv1.ProtocolIPv6,
 		expected: "2001:db8::/120",
 	}, {
 		name:     "get ipv4 from ipv6",
 		cidr:     "2001:db8::/120",
-		protocol: kubeovnv1.ProtocolIPv4,
+		protocol: fabricv1.ProtocolIPv4,
 	}, {
 		name:     "get ipv4 from dual stack",
 		cidr:     "1.1.1.0/24,2001:db8::/120",
-		protocol: kubeovnv1.ProtocolIPv4,
+		protocol: fabricv1.ProtocolIPv4,
 		expected: "1.1.1.0/24",
 	}, {
 		name:     "get ipv6 from ipv4",
 		cidr:     "1.1.1.0/24",
-		protocol: kubeovnv1.ProtocolIPv6,
+		protocol: fabricv1.ProtocolIPv6,
 	}, {
 		name:     "get ipv6 from dual stack",
 		cidr:     "1.1.1.0/24,2001:db8::/120",
-		protocol: kubeovnv1.ProtocolIPv6,
+		protocol: fabricv1.ProtocolIPv6,
 		expected: "2001:db8::/120",
 	}, {
 		name:     "invalid cidr",
 		cidr:     "foo bar",
-		protocol: kubeovnv1.ProtocolIPv4,
+		protocol: fabricv1.ProtocolIPv4,
 		wantErr:  true,
 	}}
 	for _, c := range cases {
@@ -164,19 +164,19 @@ func TestGetPodPrimaryNetworkProvider(t *testing.T) {
 
 func TestGetTProxyConditionPod(t *testing.T) {
 	attachProvider := "macvlan.default.fabric"
-	subnets := []*kubeovnv1.Subnet{{
+	subnets := []*fabricv1.Subnet{{
 		ObjectMeta: metav1.ObjectMeta{Name: "custom-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{Vpc: "custom-vpc"},
+		Spec:       fabricv1.SubnetSpec{Vpc: "custom-vpc"},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{Name: "default-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{Vpc: util.DefaultVpc},
+		Spec:       fabricv1.SubnetSpec{Vpc: util.DefaultVpc},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{Name: "attach-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{Vpc: "custom-vpc"},
+		Spec:       fabricv1.SubnetSpec{Vpc: "custom-vpc"},
 	}}
 
-	kubeovnClient := kubeovnfake.NewSimpleClientset()
-	informerFactory := kubeovninformerfactory.NewSharedInformerFactory(kubeovnClient, 0)
+	fabricClient := fabricfake.NewSimpleClientset()
+	informerFactory := fabricinformerfactory.NewSharedInformerFactory(fabricClient, 0)
 	subnetInformer := informerFactory.Fabric().V1().Subnets()
 	for _, subnet := range subnets {
 		require.NoError(t, subnetInformer.Informer().GetStore().Add(subnet))
@@ -219,16 +219,16 @@ func TestGetTProxyConditionPod(t *testing.T) {
 }
 
 func TestProviderExistsRequiresSubnetForNamedOvnProvider(t *testing.T) {
-	subnets := []*kubeovnv1.Subnet{{
+	subnets := []*fabricv1.Subnet{{
 		ObjectMeta: metav1.ObjectMeta{Name: util.DefaultSubnet},
-		Spec:       kubeovnv1.SubnetSpec{Provider: util.OvnProvider},
+		Spec:       fabricv1.SubnetSpec{Provider: util.OvnProvider},
 	}, {
 		ObjectMeta: metav1.ObjectMeta{Name: "attach-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{Provider: "attachnet-a.default.fabric"},
+		Spec:       fabricv1.SubnetSpec{Provider: "attachnet-a.default.fabric"},
 	}}
 
-	kubeovnClient := kubeovnfake.NewSimpleClientset()
-	informerFactory := kubeovninformerfactory.NewSharedInformerFactory(kubeovnClient, 0)
+	fabricClient := fabricfake.NewSimpleClientset()
+	informerFactory := fabricinformerfactory.NewSharedInformerFactory(fabricClient, 0)
 	subnetInformer := informerFactory.Fabric().V1().Subnets()
 	for _, subnet := range subnets {
 		require.NoError(t, subnetInformer.Informer().GetStore().Add(subnet))

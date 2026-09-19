@@ -427,7 +427,7 @@ func (suite *OvnClientTestSuite) testUpdateChassisTag() {
 	})
 }
 
-func (suite *OvnClientTestSuite) testGetKubeOvnChassises() {
+func (suite *OvnClientTestSuite) testGetFabricChassises() {
 	t := suite.T()
 	t.Parallel()
 
@@ -444,22 +444,22 @@ func (suite *OvnClientTestSuite) testGetKubeOvnChassises() {
 		require.NoError(t, err)
 	})
 
-	kubeOvnChassis1 := newChassis(0, "host-1", "fabric-chassis-1", nil, nil, nil, map[string]string{"vendor": util.VendorTag}, nil)
-	kubeOvnChassis2 := newChassis(0, "host-2", "fabric-chassis-2", nil, nil, nil, map[string]string{"vendor": util.VendorTag}, nil)
-	nonKubeOvnChassis := newChassis(0, "host-none", "non-fabric-chassis", nil, nil, nil, map[string]string{"vendor": "other"}, nil)
+	fabricChassis1 := newChassis(0, "host-1", "fabric-chassis-1", nil, nil, nil, map[string]string{"vendor": util.VendorTag}, nil)
+	fabricChassis2 := newChassis(0, "host-2", "fabric-chassis-2", nil, nil, nil, map[string]string{"vendor": util.VendorTag}, nil)
+	nonFabricChassis := newChassis(0, "host-none", "non-fabric-chassis", nil, nil, nil, map[string]string{"vendor": "other"}, nil)
 	mixedChassis := newChassis(0, "host-4", "mixed-chassis", nil, nil, nil, map[string]string{"vendor": util.VendorTag, "other": "value"}, nil)
 
-	ops1, err := sbClient.Create(kubeOvnChassis1)
+	ops1, err := sbClient.Create(fabricChassis1)
 	require.NoError(t, err)
 	err = sbClient.Transact("chassis-add", ops1)
 	require.NoError(t, err)
 
-	ops2, err := sbClient.Create(kubeOvnChassis2)
+	ops2, err := sbClient.Create(fabricChassis2)
 	require.NoError(t, err)
 	err = sbClient.Transact("chassis-add", ops2)
 	require.NoError(t, err)
 
-	ops3, err := sbClient.Create(nonKubeOvnChassis)
+	ops3, err := sbClient.Create(nonFabricChassis)
 	require.NoError(t, err)
 	err = sbClient.Transact("chassis-add", ops3)
 	require.NoError(t, err)
@@ -471,7 +471,7 @@ func (suite *OvnClientTestSuite) testGetKubeOvnChassises() {
 
 	// wait for ovsdb cache to be updated after transact
 	require.Eventually(t, func() bool {
-		chassisList, err := sbClient.GetKubeOvnChassises()
+		chassisList, err := sbClient.GetFabricChassises()
 		if err != nil {
 			return false
 		}

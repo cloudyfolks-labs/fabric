@@ -24,7 +24,7 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/docker"
@@ -73,11 +73,11 @@ func runBashCommand(command string) (string, error) {
 	return string(output), err
 }
 
-func isKubeOVNPrimaryCNI() bool {
+func isFabricPrimaryCNI() bool {
 	return os.Getenv(EnvKubeOVNPrimaryCNI) == "true"
 }
 
-// removeFinalizers removes finalizers from Kube-OVN resources to ensure cleanup
+// removeFinalizers removes finalizers from fabric resources to ensure cleanup
 func removeFinalizers(configStage string) {
 	ginkgo.GinkgoHelper()
 
@@ -131,7 +131,7 @@ func detectKindBridgeNetwork() *KindBridgeNetwork {
 	framework.ExpectNoError(err, "Failed to inspect KIND network %s", kind.NetworkName)
 
 	for _, config := range network.IPAM.Config {
-		if config.Subnet.IsValid() && util.CheckProtocol(config.Subnet.String()) == kubeovnv1.ProtocolIPv4 {
+		if config.Subnet.IsValid() && util.CheckProtocol(config.Subnet.String()) == fabricv1.ProtocolIPv4 {
 			ginkgo.By(fmt.Sprintf("Detected KIND bridge network: CIDR=%s, Gateway=%s", config.Subnet, config.Gateway))
 			return &KindBridgeNetwork{CIDR: config.Subnet.String(), Gateway: config.Gateway.String()}
 		}
@@ -204,7 +204,7 @@ func processConfigWithKindBridge(yamlPath string, kindNetwork *KindBridgeNetwork
 func getPodIPs(pod *corev1.Pod) []string {
 	ginkgo.GinkgoHelper()
 
-	if isKubeOVNPrimaryCNI() {
+	if isFabricPrimaryCNI() {
 		return util.PodIPs(*pod)
 	}
 	return getPodNonPrimaryIP(pod)
@@ -383,7 +383,7 @@ func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 		return ips
 	}
 
-	// For Kube-OVN non-primary CNI, the IP is stored in a specific annotation format:
+	// For fabric non-primary CNI, the IP is stored in a specific annotation format:
 	// {network-attachment-name}.{namespace}.fabric.cloudyfolks.io/ip_address
 	// Example: vpc-simple-nad.vpc-simple-ns.fabric.cloudyfolks.io/ip_address: 10.100.0.2
 	// Extract the network attachment definition name from the networks annotation
@@ -396,7 +396,7 @@ func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 	namespace := parts[0]
 	name := parts[1]
 
-	// Construct the Kube-OVN IP annotation key
+	// Construct the fabric IP annotation key
 	ipAnnotationKey := fmt.Sprintf(util.IPAddressAnnotationTemplate, fmt.Sprintf("%s.%s", name, namespace))
 	// Get the IP from the annotation
 	ip := pod.Annotations[ipAnnotationKey]
@@ -417,7 +417,7 @@ func testPodConnectivityWithInterface(sourcePod *corev1.Pod, targetIP, descripti
 	ginkgo.By(fmt.Sprintf("Testing connectivity: %s", description))
 
 	var cmd string
-	if isKubeOVNPrimaryCNI() {
+	if isFabricPrimaryCNI() {
 		cmd = fmt.Sprintf("ping -c 3 %s", targetIP)
 		_, _, err := framework.KubectlExec(sourcePod.Namespace, sourcePod.Name, cmd)
 		return err
@@ -451,13 +451,13 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 
 			ginkgo.By("Get ovs-ovn pod on first node")
 			node := nodeObjs.Items[0]
-			daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+			daemonSetClient := f.DaemonSetClientNS(framework.FabricNamespace)
 			ds := daemonSetClient.Get("ovs-ovn")
 			ovsPod, err := daemonSetClient.GetPodOnNode(ds, node.Name)
 			framework.ExpectNoError(err)
 
-			// Kube-OVN custom chains that should not exist in non-primary CNI mode
-			kubeOvnChains := []struct {
+			// fabric custom chains that should not exist in non-primary CNI mode
+			fabricChains := []struct {
 				table string
 				chain string
 			}{
@@ -470,7 +470,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 				{"mangle", "OVN-OUTPUT"},
 			}
 
-			for _, tc := range kubeOvnChains {
+			for _, tc := range fabricChains {
 				ginkgo.By(fmt.Sprintf("Verify chain %s/%s does not exist", tc.table, tc.chain))
 				// Use iptables -S to list all rules in the table and verify the chain
 				// name is absent. This is more robust across iptables variants

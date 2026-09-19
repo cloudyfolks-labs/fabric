@@ -17,7 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	fabricinformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
 	"github.com/cloudyfolks-labs/fabric/pkg/daemon"
 	"github.com/cloudyfolks-labs/fabric/pkg/fileutil"
 	"github.com/cloudyfolks-labs/fabric/pkg/metrics"
@@ -88,9 +88,9 @@ func main() {
 		kubeinformers.WithTweakListOptions(func(listOption *v1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
-	kubeovnInformerFactory := kubeovninformer.NewSharedInformerFactoryWithOptions(config.KubeOvnClient, 0,
-		kubeovninformer.WithTransform(util.TrimManagedFields),
-		kubeovninformer.WithTweakListOptions(func(listOption *v1.ListOptions) {
+	fabricInformerFactory := fabricinformer.NewSharedInformerFactoryWithOptions(config.FabricClient, 0,
+		fabricinformer.WithTransform(util.TrimManagedFields),
+		fabricinformer.WithTweakListOptions(func(listOption *v1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
 
@@ -103,7 +103,7 @@ func main() {
 		kubeinformers.WithNamespace(os.Getenv(util.EnvPodNamespace)),
 	)
 
-	ctl, err := daemon.NewController(config, stopCh, podInformerFactory, nodeInformerFactory, caSecretInformerFactory, kubeovnInformerFactory)
+	ctl, err := daemon.NewController(config, stopCh, podInformerFactory, nodeInformerFactory, caSecretInformerFactory, fabricInformerFactory)
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to create controller")
 	}

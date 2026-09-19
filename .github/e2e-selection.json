@@ -51,7 +51,7 @@
   ],
   "pathRules": [
     {
-      "patterns": ["test/e2e/kube-ovn/**"],
+      "patterns": ["test/e2e/fabric/**"],
       "groups": ["core", "service-lb-underlay"],
       "owner": "networking-e2e",
       "reason": "fabric conformance and router load balancer suites"
@@ -93,7 +93,7 @@
       "reason": "multiple and chained CNI suites"
     },
     {
-      "patterns": ["test/e2e/kube-ovn/switch_lb_rule/**", "test/e2e/metallb/**"],
+      "patterns": ["test/e2e/fabric/switch_lb_rule/**", "test/e2e/metallb/**"],
       "groups": ["service-lb-underlay"],
       "owner": "networking-e2e",
       "reason": "service, load balancer, and underlay suites"

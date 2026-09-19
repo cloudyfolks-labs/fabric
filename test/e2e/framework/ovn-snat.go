@@ -16,8 +16,8 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -30,7 +30,7 @@ type OvnSnatRuleClient struct {
 func (f *Framework) OvnSnatRuleClient() *OvnSnatRuleClient {
 	return &OvnSnatRuleClient{
 		f:                    f,
-		OvnSnatRuleInterface: f.KubeOVNClientSet.FabricV1().OvnSnatRules(),
+		OvnSnatRuleInterface: f.FabricClientSet.FabricV1().OvnSnatRules(),
 	}
 }
 

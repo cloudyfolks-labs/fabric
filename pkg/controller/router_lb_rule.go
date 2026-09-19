@@ -20,7 +20,7 @@ import (
 
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -39,7 +39,7 @@ func generateRlrSvcName(name string) string {
 	return "rlr-" + name
 }
 
-func newRouterLBRuleInfo(rlr *kubeovnv1.RouterLBRule) *RouterLBRuleInfo {
+func newRouterLBRuleInfo(rlr *fabricv1.RouterLBRule) *RouterLBRuleInfo {
 	namespace := rlr.Spec.Namespace
 	if namespace == "" {
 		namespace = metav1.NamespaceDefault
@@ -84,15 +84,15 @@ func (c *Controller) requeueRouterLBRulesForEip(eipName string, isRecreate bool)
 }
 
 func (c *Controller) enqueueAddRouterLBRule(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.RouterLBRule)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.RouterLBRule)).String()
 	klog.Infof("enqueue add RouterLBRule %s", key)
 	c.addRouterLBRuleQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateRouterLBRule(oldObj, newObj any) {
 	var (
-		oldRlr = oldObj.(*kubeovnv1.RouterLBRule)
-		newRlr = newObj.(*kubeovnv1.RouterLBRule)
+		oldRlr = oldObj.(*fabricv1.RouterLBRule)
+		newRlr = newObj.(*fabricv1.RouterLBRule)
 		info   = newRouterLBRuleInfo(oldRlr)
 	)
 
@@ -110,12 +110,12 @@ func (c *Controller) enqueueUpdateRouterLBRule(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDeleteRouterLBRule(obj any) {
-	var rlr *kubeovnv1.RouterLBRule
+	var rlr *fabricv1.RouterLBRule
 	switch t := obj.(type) {
-	case *kubeovnv1.RouterLBRule:
+	case *fabricv1.RouterLBRule:
 		rlr = t
 	case cache.DeletedFinalStateUnknown:
-		r, ok := t.Obj.(*kubeovnv1.RouterLBRule)
+		r, ok := t.Obj.(*fabricv1.RouterLBRule)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -163,7 +163,7 @@ func (c *Controller) checkEipPortConflict(eipName, portStr, excludeRlr, excludeD
 	return nil
 }
 
-func backendSubnetGateway(subnets []*kubeovnv1.Subnet, backendIPs []string) string {
+func backendSubnetGateway(subnets []*fabricv1.Subnet, backendIPs []string) string {
 	if len(backendIPs) == 0 {
 		return ""
 	}
@@ -185,8 +185,8 @@ func backendSubnetGateway(subnets []*kubeovnv1.Subnet, backendIPs []string) stri
 	return ""
 }
 
-func (c *Controller) vpcSubnets(vpc *kubeovnv1.Vpc) []*kubeovnv1.Subnet {
-	subnets := make([]*kubeovnv1.Subnet, 0, len(vpc.Status.Subnets))
+func (c *Controller) vpcSubnets(vpc *fabricv1.Vpc) []*fabricv1.Subnet {
+	subnets := make([]*fabricv1.Subnet, 0, len(vpc.Status.Subnets))
 	for _, name := range vpc.Status.Subnets {
 		subnet, err := c.subnetsLister.Get(name)
 		if err != nil {
@@ -198,7 +198,7 @@ func (c *Controller) vpcSubnets(vpc *kubeovnv1.Vpc) []*kubeovnv1.Subnet {
 	return subnets
 }
 
-func vpcLoadBalancerNames(vpc *kubeovnv1.Vpc) []string {
+func vpcLoadBalancerNames(vpc *fabricv1.Vpc) []string {
 	names := make([]string, 0, 6)
 	for _, lb := range []string{
 		vpc.Status.TCPLoadBalancer, vpc.Status.TCPSessionLoadBalancer,
@@ -212,7 +212,7 @@ func vpcLoadBalancerNames(vpc *kubeovnv1.Vpc) []string {
 	return names
 }
 
-func (c *Controller) setVpcLBHairpinSNATIP(vpc *kubeovnv1.Vpc, lbNames []string) error {
+func (c *Controller) setVpcLBHairpinSNATIP(vpc *fabricv1.Vpc, lbNames []string) error {
 	subnets := c.vpcSubnets(vpc)
 	for _, lbName := range lbNames {
 		lb, err := c.OVNNbClient.GetLoadBalancer(lbName, true)
@@ -371,7 +371,7 @@ func (c *Controller) cleanupRouterLBVips(vpcLBNames set.Set[string], vips []stri
 			continue
 		}
 		if len(remaining) == 0 {
-			if e = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{}); e != nil && !k8serrors.IsNotFound(e) {
+			if e = c.config.FabricClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{}); e != nil && !k8serrors.IsNotFound(e) {
 				klog.Errorf("failed to delete health-check vip %s: %v", vip, e)
 			}
 		}
@@ -533,7 +533,7 @@ func (c *Controller) handleAddOrUpdateRouterLBRule(key string) error {
 	}
 	newRlr.Status.Ports = strings.TrimPrefix(formatPorts, ",")
 
-	if _, err = c.config.KubeOvnClient.FabricV1().RouterLBRules().UpdateStatus(context.Background(), newRlr, metav1.UpdateOptions{}); err != nil {
+	if _, err = c.config.FabricClient.FabricV1().RouterLBRules().UpdateStatus(context.Background(), newRlr, metav1.UpdateOptions{}); err != nil {
 		err = fmt.Errorf("failed to update RouterLBRule status: %w", err)
 		klog.Error(err)
 		return err
@@ -594,7 +594,7 @@ func (c *Controller) handleDelRouterLBRule(info *RouterLBRuleInfo) error {
 			klog.Errorf("failed to list RouterLBRules: %v", err)
 			return err
 		}
-		if !slices.ContainsFunc(remaining, func(r *kubeovnv1.RouterLBRule) bool {
+		if !slices.ContainsFunc(remaining, func(r *fabricv1.RouterLBRule) bool {
 			return r.Spec.Vpc == vpcForRlr && r.Name != info.Name
 		}) && !c.hasOvnLbSvcInVpc(vpcForRlr, "") {
 			lbs := vpcLBNames.UnsortedList()
@@ -642,7 +642,7 @@ func (c *Controller) handleUpdateRouterLBRule(info *RouterLBRuleInfo) error {
 	return nil
 }
 
-func generateRlrHeadlessService(rlr *kubeovnv1.RouterLBRule, oldSvc *corev1.Service, svcName, namespace, vip string) *corev1.Service {
+func generateRlrHeadlessService(rlr *fabricv1.RouterLBRule, oldSvc *corev1.Service, svcName, namespace, vip string) *corev1.Service {
 	selectors := make(map[string]string)
 	for _, s := range rlr.Spec.Selector {
 		kv := strings.Split(strings.TrimSpace(s), ":")
@@ -710,7 +710,7 @@ func generateRlrHeadlessService(rlr *kubeovnv1.RouterLBRule, oldSvc *corev1.Serv
 	return svc
 }
 
-func generateRlrEndpoints(rlr *kubeovnv1.RouterLBRule, oldEps *corev1.Endpoints, svcName, namespace string) *corev1.Endpoints {
+func generateRlrEndpoints(rlr *fabricv1.RouterLBRule, oldEps *corev1.Endpoints, svcName, namespace string) *corev1.Endpoints {
 	var ports []corev1.EndpointPort
 	for _, port := range rlr.Spec.Ports {
 		ports = append(ports, corev1.EndpointPort{

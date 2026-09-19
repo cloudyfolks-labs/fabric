@@ -16,12 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddOvnDnatRule(obj any) {
-	dnat := obj.(*kubeovnv1.OvnDnatRule)
+	dnat := obj.(*fabricv1.OvnDnatRule)
 	key := cache.MetaObjectToName(dnat).String()
 	// A terminating object reconciles via the update queue for cleanup (handleAdd skips it; resync=0).
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnDnatRuleQueue, key, "ovn dnat", dnat.DeletionTimestamp, dnat.GetFinalizers()) {
@@ -32,12 +32,12 @@ func (c *Controller) enqueueAddOvnDnatRule(obj any) {
 }
 
 func (c *Controller) enqueueUpdateOvnDnatRule(oldObj, newObj any) {
-	newDnat := newObj.(*kubeovnv1.OvnDnatRule)
+	newDnat := newObj.(*fabricv1.OvnDnatRule)
 	key := cache.MetaObjectToName(newDnat).String()
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnDnatRuleQueue, key, "ovn dnat", newDnat.DeletionTimestamp, newDnat.GetFinalizers()) {
 		return
 	}
-	oldDnat := oldObj.(*kubeovnv1.OvnDnatRule)
+	oldDnat := oldObj.(*fabricv1.OvnDnatRule)
 	if oldDnat.Spec.OvnEip != newDnat.Spec.OvnEip {
 		c.resetOvnEipQueue.Add(oldDnat.Spec.OvnEip)
 	}
@@ -53,12 +53,12 @@ func (c *Controller) enqueueUpdateOvnDnatRule(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDelOvnDnatRule(obj any) {
-	var dnat *kubeovnv1.OvnDnatRule
+	var dnat *fabricv1.OvnDnatRule
 	switch t := obj.(type) {
-	case *kubeovnv1.OvnDnatRule:
+	case *fabricv1.OvnDnatRule:
 		dnat = t
 	case cache.DeletedFinalStateUnknown:
-		d, ok := t.Obj.(*kubeovnv1.OvnDnatRule)
+		d, ok := t.Obj.(*fabricv1.OvnDnatRule)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -434,7 +434,7 @@ func (c *Controller) handleUpdateOvnDnatRule(key string) error {
 
 func (c *Controller) patchOvnDnatAnnotations(key, eipName string) error {
 	var (
-		oriDnat, dnat *kubeovnv1.OvnDnatRule
+		oriDnat, dnat *fabricv1.OvnDnatRule
 		err           error
 	)
 
@@ -468,7 +468,7 @@ func (c *Controller) patchOvnDnatAnnotations(key, eipName string) error {
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/annotations", "value": %s }]`
 		raw, _ := json.Marshal(dnat.Annotations)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		_, err := c.config.KubeOvnClient.FabricV1().OvnDnatRules().Patch(context.Background(), dnat.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{})
+		_, err := c.config.FabricClient.FabricV1().OvnDnatRules().Patch(context.Background(), dnat.Name, types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{})
 		if err != nil {
 			klog.Errorf("failed to patch annotation for ovn dnat %s, %v", dnat.Name, err)
 			return err
@@ -479,7 +479,7 @@ func (c *Controller) patchOvnDnatAnnotations(key, eipName string) error {
 
 func (c *Controller) patchOvnDnatStatus(key, vpcName, v4Eip, v6Eip, internalV4Ip, internalV6Ip string, ready bool) error {
 	var (
-		oriDnat, dnat *kubeovnv1.OvnDnatRule
+		oriDnat, dnat *fabricv1.OvnDnatRule
 		err           error
 	)
 	if oriDnat, err = c.ovnDnatRulesLister.Get(key); err != nil {
@@ -513,7 +513,7 @@ func (c *Controller) patchOvnDnatStatus(key, vpcName, v4Eip, v6Eip, internalV4Ip
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 		raw, _ := json.Marshal(dnat.Labels)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.FabricV1().OvnDnatRules().Patch(context.Background(), dnat.Name,
+		if _, err := c.config.FabricClient.FabricV1().OvnDnatRules().Patch(context.Background(), dnat.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for ovn dnat %s, %v", dnat.Name, err)
 			return err
@@ -567,7 +567,7 @@ func (c *Controller) patchOvnDnatStatus(key, vpcName, v4Eip, v6Eip, internalV4Ip
 			klog.Error(err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().OvnDnatRules().Patch(context.Background(), dnat.Name,
+		if _, err = c.config.FabricClient.FabricV1().OvnDnatRules().Patch(context.Background(), dnat.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch dnat %s, %v", dnat.Name, err)
 			return err
@@ -629,7 +629,7 @@ func (c *Controller) DelDnatRule(vpcName, dnatName, externalIP, externalPort str
 
 func (c *Controller) syncOvnDnatFinalizer(cl client.Client) error {
 	// migrate deprecated finalizer to new finalizer
-	rules := &kubeovnv1.OvnDnatRuleList{}
+	rules := &fabricv1.OvnDnatRuleList{}
 	return migrateFinalizers(cl, rules, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(rules.Items) {
 			return nil, nil
@@ -638,7 +638,7 @@ func (c *Controller) syncOvnDnatFinalizer(cl client.Client) error {
 	})
 }
 
-func (c *Controller) handleAddOvnDnatFinalizer(cachedDnat *kubeovnv1.OvnDnatRule) error {
+func (c *Controller) handleAddOvnDnatFinalizer(cachedDnat *fabricv1.OvnDnatRule) error {
 	if !cachedDnat.DeletionTimestamp.IsZero() || len(cachedDnat.GetFinalizers()) != 0 {
 		return nil
 	}
@@ -651,13 +651,13 @@ func (c *Controller) handleAddOvnDnatFinalizer(cachedDnat *kubeovnv1.OvnDnatRule
 
 	controllerutil.RemoveFinalizer(newDnat, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newDnat, util.LegacyControllerFinalizer)
-	controllerutil.AddFinalizer(newDnat, util.KubeOVNControllerFinalizer)
+	controllerutil.AddFinalizer(newDnat, util.FabricControllerFinalizer)
 	if patch, err = util.GenerateMergePatchPayload(cachedDnat, newDnat); err != nil {
 		klog.Errorf("failed to generate patch payload for ovn dnat '%s', %v", cachedDnat.Name, err)
 		return err
 	}
 
-	if _, err = c.config.KubeOvnClient.FabricV1().OvnDnatRules().Patch(context.Background(), cachedDnat.Name,
+	if _, err = c.config.FabricClient.FabricV1().OvnDnatRules().Patch(context.Background(), cachedDnat.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -668,21 +668,21 @@ func (c *Controller) handleAddOvnDnatFinalizer(cachedDnat *kubeovnv1.OvnDnatRule
 	return nil
 }
 
-func (c *Controller) handleDelOvnDnatFinalizer(cachedDnat *kubeovnv1.OvnDnatRule) error {
+func (c *Controller) handleDelOvnDnatFinalizer(cachedDnat *fabricv1.OvnDnatRule) error {
 	if len(cachedDnat.GetFinalizers()) == 0 {
 		return nil
 	}
 	newDnat := cachedDnat.DeepCopy()
 	controllerutil.RemoveFinalizer(newDnat, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newDnat, util.LegacyControllerFinalizer)
-	controllerutil.RemoveFinalizer(newDnat, util.KubeOVNControllerFinalizer)
+	controllerutil.RemoveFinalizer(newDnat, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedDnat, newDnat)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ovn dnat '%s', %v", cachedDnat.Name, err)
 		return err
 	}
 
-	if _, err = c.config.KubeOvnClient.FabricV1().OvnDnatRules().Patch(context.Background(), cachedDnat.Name,
+	if _, err = c.config.FabricClient.FabricV1().OvnDnatRules().Patch(context.Background(), cachedDnat.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil

@@ -15,7 +15,7 @@ import (
 	k8sframework "k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/config"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
@@ -140,7 +140,7 @@ var _ = framework.Describe("[group:vip]", func() {
 		namespaceName = f.Namespace.Name
 		cidr = framework.RandomCIDR(f.ClusterIPFamily)
 
-		f.SkipVersionPriorTo(1, 15, "Skip e2e tests for Kube-OVN versions prior to 1.15 temporarily")
+		f.SkipVersionPriorTo(1, 15, "Skip e2e tests for fabric versions prior to 1.15 temporarily")
 
 		// should create lower case static ipv6 address vip in ovn-default
 		lowerCaseStaticIpv6VipName = "lower-case-static-ipv6-vip-" + framework.RandomSuffix()
@@ -228,7 +228,7 @@ var _ = framework.Describe("[group:vip]", func() {
 		})
 
 		// Verify VIP has finalizer (CreateSync now waits for both IP and finalizer)
-		framework.ExpectContainElement(testVip.Finalizers, util.KubeOVNControllerFinalizer)
+		framework.ExpectContainElement(testVip.Finalizers, util.FabricControllerFinalizer)
 
 		ginkgo.By("3. Wait for subnet status to be updated after VIP creation")
 		time.Sleep(5 * time.Second)
@@ -395,7 +395,7 @@ var _ = framework.Describe("[group:vip]", func() {
 			}
 			time.Sleep(1 * time.Second)
 		}
-		framework.ExpectContainElement(countingVip.Finalizers, util.KubeOVNControllerFinalizer)
+		framework.ExpectContainElement(countingVip.Finalizers, util.FabricControllerFinalizer)
 
 		// Wait for subnet status to be updated
 		ginkgo.By("Waiting for subnet status to be updated after VIP creation")
@@ -459,10 +459,10 @@ var _ = framework.Describe("[group:vip]", func() {
 		annotations := map[string]string{util.AAPsAnnotation: vip1Name}
 		cmd := []string{"sleep", "infinity"}
 		ginkgo.By("Creating pod1 support allowed address pair using " + vip1Name)
-		aapPod1 := framework.MakePrivilegedPod(namespaceName, aapPodName1, nil, annotations, f.KubeOVNImage, cmd, nil)
+		aapPod1 := framework.MakePrivilegedPod(namespaceName, aapPodName1, nil, annotations, f.FabricImage, cmd, nil)
 		aapPod1 = podClient.CreateSync(aapPod1)
 		ginkgo.By("Creating pod2 support allowed address pair using " + vip1Name)
-		aapPod2 := framework.MakePrivilegedPod(namespaceName, aapPodName2, nil, annotations, f.KubeOVNImage, cmd, nil)
+		aapPod2 := framework.MakePrivilegedPod(namespaceName, aapPodName2, nil, annotations, f.FabricImage, cmd, nil)
 		_ = podClient.CreateSync(aapPod2)
 		// logical switch port with type virtual should be created
 		conditions := fmt.Sprintf("type=virtual name=%s options:virtual-ip=%q", vip1Name, virtualIP1)
@@ -546,7 +546,7 @@ var _ = framework.Describe("[group:vip]", func() {
 		ginkgo.By("Creating pod3 support allowed address pair with security group")
 		annotations[util.PortSecurityAnnotation] = "true"
 		annotations[fmt.Sprintf(util.SecurityGroupAnnotationTemplate, util.OvnProvider)] = securityGroupName
-		aapPod3 := framework.MakePod(namespaceName, aapPodName3, nil, annotations, f.KubeOVNImage, cmd, nil)
+		aapPod3 := framework.MakePod(namespaceName, aapPodName3, nil, annotations, f.FabricImage, cmd, nil)
 		aapPod3 = podClient.CreateSync(aapPod3)
 		v4ip, v6ip := util.SplitStringIP(aapPod3.Annotations[util.IPAddressAnnotation])
 		if f.HasIPv4() {

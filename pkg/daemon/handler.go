@@ -19,7 +19,7 @@ import (
 	"k8s.io/klog/v2"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/request"
@@ -35,14 +35,14 @@ const (
 )
 
 type cniServerHandler struct {
-	Config        *Configuration
-	KubeClient    kubernetes.Interface
-	KubeOvnClient clientset.Interface
-	Controller    *Controller
+	Config       *Configuration
+	KubeClient   kubernetes.Interface
+	FabricClient clientset.Interface
+	Controller   *Controller
 }
 
 func createCniServerHandler(config *Configuration, controller *Controller) *cniServerHandler {
-	csh := &cniServerHandler{KubeClient: config.KubeClient, KubeOvnClient: config.KubeOvnClient, Config: config, Controller: controller}
+	csh := &cniServerHandler{KubeClient: config.KubeClient, FabricClient: config.FabricClient, Config: config, Controller: controller}
 	return csh
 }
 
@@ -106,7 +106,7 @@ func (csh cniServerHandler) recordCNIPodEvent(pod *v1.Pod, podRequest *request.C
 // carry a dual-stack subnet gateway annotation, but CNI route and gateway checks
 // must use only gateways that the interface can actually reach.
 func gatewayForCNIIPFamily(ipAddr, gateway string) string {
-	if ipAddr == "" || gateway == "" || util.CheckProtocol(gateway) != kubeovnv1.ProtocolDual {
+	if ipAddr == "" || gateway == "" || util.CheckProtocol(gateway) != fabricv1.ProtocolDual {
 		return gateway
 	}
 
@@ -128,7 +128,7 @@ func gatewayForCNIIPFamily(ipAddr, gateway string) string {
 	return strings.Join(filtered, ",")
 }
 
-func (csh cniServerHandler) providerExists(provider, ifName string) (*kubeovnv1.Subnet, bool) {
+func (csh cniServerHandler) providerExists(provider, ifName string) (*fabricv1.Subnet, bool) {
 	if provider == "" || provider == util.OvnProvider {
 		return nil, true
 	}
@@ -455,7 +455,7 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 		// to emit packets that the underlay cannot carry, breaking IPv4 too.
 		if mtu > 0 && mtu < util.IPv6MinMTU {
 			subnetProtocol := util.CheckProtocol(podSubnet.Spec.CIDRBlock)
-			if subnetProtocol == kubeovnv1.ProtocolIPv6 || subnetProtocol == kubeovnv1.ProtocolDual {
+			if subnetProtocol == fabricv1.ProtocolIPv6 || subnetProtocol == fabricv1.ProtocolDual {
 				klog.Warningf("subnet %s mtu %d is below the IPv6 minimum %d; IPv6 traffic on pod %s/%s will be dropped", podSubnet.Name, mtu, util.IPv6MinMTU, pod.Namespace, pod.Name)
 			}
 		}
@@ -531,7 +531,7 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 		}
 		if len(hasDefaultRoute) != 0 {
 			// remove existing default route so other CNI plugins, such as macvlan, can add the new default route correctly
-			if err = csh.removeDefaultRoute(podRequest.NetNs, hasDefaultRoute[kubeovnv1.ProtocolIPv4], hasDefaultRoute[kubeovnv1.ProtocolIPv6]); err != nil {
+			if err = csh.removeDefaultRoute(podRequest.NetNs, hasDefaultRoute[fabricv1.ProtocolIPv4], hasDefaultRoute[fabricv1.ProtocolIPv6]); err != nil {
 				errMsg := fmt.Errorf("failed to remove existing default route for interface %s of pod %s/%s: %w", podRequest.IfName, podRequest.PodNamespace, podRequest.PodName, err)
 				klog.Error(errMsg)
 				recordFailure("remove-default-route", errMsg)
@@ -549,14 +549,14 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 
 	var ips []request.IPConfig
 	if v4IP != "" {
-		cfg := request.IPConfig{Protocol: kubeovnv1.ProtocolIPv4, IP: v4IP, CIDR: v4CIDR}
+		cfg := request.IPConfig{Protocol: fabricv1.ProtocolIPv4, IP: v4IP, CIDR: v4CIDR}
 		if isDefaultRoute {
 			cfg.Gateway = v4GW
 		}
 		ips = append(ips, cfg)
 	}
 	if v6IP != "" {
-		cfg := request.IPConfig{Protocol: kubeovnv1.ProtocolIPv6, IP: v6IP, CIDR: v6CIDR}
+		cfg := request.IPConfig{Protocol: fabricv1.ProtocolIPv6, IP: v6IP, CIDR: v6CIDR}
 		if isDefaultRoute {
 			cfg.Gateway = v6GW
 		}
@@ -589,7 +589,7 @@ func (csh cniServerHandler) UpdateIPCR(podRequest request.CniRequest, subnet, ip
 		ipCRName = fmt.Sprintf("%s.%s", ipCRName, podRequest.IfName)
 	}
 	for range 20 {
-		ipCR, err := csh.KubeOvnClient.FabricV1().IPs().Get(context.Background(), ipCRName, metav1.GetOptions{})
+		ipCR, err := csh.FabricClient.FabricV1().IPs().Get(context.Background(), ipCRName, metav1.GetOptions{})
 		if err != nil {
 			err = fmt.Errorf("failed to get ip crd for %s, %w", ip, err)
 			// maybe create a backup pod with previous annotations
@@ -605,7 +605,7 @@ func (csh cniServerHandler) UpdateIPCR(podRequest request.CniRequest, subnet, ip
 			ipCR.Labels[util.NodeNameLabel] = csh.Config.NodeName
 			ipCR.Spec.AttachSubnets = []string{}
 			ipCR.Spec.AttachMacs = []string{}
-			if _, err := csh.KubeOvnClient.FabricV1().IPs().Update(context.Background(), ipCR, metav1.UpdateOptions{}); err != nil {
+			if _, err := csh.FabricClient.FabricV1().IPs().Update(context.Background(), ipCR, metav1.UpdateOptions{}); err != nil {
 				err = fmt.Errorf("failed to update ip crd for %s, %w", ip, err)
 				klog.Error(err)
 			} else {

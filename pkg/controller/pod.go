@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ipam"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
@@ -334,10 +334,10 @@ func (c *Controller) enqueueUpdatePod(oldObj, newObj any) {
 		return
 	}
 
-	podNets, err := c.getPodKubeovnNets(newPod)
+	podNets, err := c.getPodFabricNets(newPod)
 	if err != nil {
 		klog.Errorf("failed to get newPod nets %v", err)
-		c.recorder.Eventf(newPod, v1.EventTypeWarning, "PodNetworkUpdateFailed", "stage=getPodKubeovnNets error=%v", err)
+		c.recorder.Eventf(newPod, v1.EventTypeWarning, "PodNetworkUpdateFailed", "stage=getPodFabricNets error=%v", err)
 		return
 	}
 
@@ -444,7 +444,7 @@ func (c *Controller) enqueueUpdatePod(oldObj, newObj any) {
 	}
 }
 
-func (c *Controller) getPodKubeovnNets(pod *v1.Pod) ([]*kubeovnNet, error) {
+func (c *Controller) getPodFabricNets(pod *v1.Pod) ([]*fabricNet, error) {
 	attachmentNets, err := c.getPodAttachmentNet(pod)
 	if err != nil {
 		klog.Error(err)
@@ -452,7 +452,7 @@ func (c *Controller) getPodKubeovnNets(pod *v1.Pod) ([]*kubeovnNet, error) {
 	}
 
 	podNets := attachmentNets
-	// When Kube-OVN is run as non-primary CNI, we do not add default network configuration to pod.
+	// When fabric is run as non-primary CNI, we do not add default network configuration to pod.
 	// We only add network attachment defined by the user to pod.
 	if c.config.EnableNonPrimaryCNI {
 		return podNets, nil
@@ -471,7 +471,7 @@ func (c *Controller) getPodKubeovnNets(pod *v1.Pod) ([]*kubeovnNet, error) {
 	}
 
 	if _, hasOtherDefaultNet := pod.Annotations[util.DefaultNetworkAnnotation]; !hasOtherDefaultNet {
-		podNets = append(attachmentNets, &kubeovnNet{
+		podNets = append(attachmentNets, &fabricNet{
 			Type:         providerTypeOriginal,
 			ProviderName: util.OvnProvider,
 			Subnet:       defaultSubnet,
@@ -513,18 +513,18 @@ func (c *Controller) handleAddOrUpdatePod(key string) (err error) {
 		return err
 	}
 
-	podNets, err := c.getPodKubeovnNets(pod)
+	podNets, err := c.getPodFabricNets(pod)
 	if err != nil {
 		klog.Errorf("failed to get pod nets %v", err)
-		c.recorder.Eventf(pod, v1.EventTypeWarning, "PodNetworkUpdateFailed", "stage=getPodKubeovnNets error=%v", err)
+		c.recorder.Eventf(pod, v1.EventTypeWarning, "PodNetworkUpdateFailed", "stage=getPodFabricNets error=%v", err)
 		return err
 	}
 
 	// check and do hotnoplug nic
-	updatedPod, hotplugDetails, err := c.syncKubeOvnNet(pod, podNets)
+	updatedPod, hotplugDetails, err := c.syncFabricNet(pod, podNets)
 	if err != nil {
 		klog.Errorf("failed to sync pod nets %v", err)
-		c.recorder.Eventf(pod, v1.EventTypeWarning, "PodNetworkUpdateFailed", "stage=syncKubeOvnNet error=%v", err)
+		c.recorder.Eventf(pod, v1.EventTypeWarning, "PodNetworkUpdateFailed", "stage=syncFabricNet error=%v", err)
 		return err
 	}
 	pod = updatedPod
@@ -575,7 +575,7 @@ func (c *Controller) handleAddOrUpdatePod(key string) (err error) {
 }
 
 // subnetDHCPOptionsUUIDs returns the subnet-level DHCP option UUIDs from the subnet status.
-func subnetDHCPOptionsUUIDs(subnet *kubeovnv1.Subnet) *ovs.DHCPOptionsUUIDs {
+func subnetDHCPOptionsUUIDs(subnet *fabricv1.Subnet) *ovs.DHCPOptionsUUIDs {
 	return &ovs.DHCPOptionsUUIDs{
 		DHCPv4OptionsUUID: subnet.Status.DHCPv4OptionsUUID,
 		DHCPv6OptionsUUID: subnet.Status.DHCPv6OptionsUUID,
@@ -592,10 +592,10 @@ func dhcpOptionsForPodIPFamily(subnetDHCP *ovs.DHCPOptionsUUIDs, podIP, dhcpV4, 
 		*filtered = *subnetDHCP
 	}
 	switch util.CheckProtocol(podIP) {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		filtered.DHCPv6OptionsUUID = ""
 		return filtered, dhcpV4, ""
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		filtered.DHCPv4OptionsUUID = ""
 		return filtered, "", dhcpV6
 	}
@@ -605,7 +605,7 @@ func dhcpOptionsForPodIPFamily(subnetDHCP *ovs.DHCPOptionsUUIDs, podIP, dhcpV4, 
 // reconcilePodDHCPOptions reconciles per-port DHCP_Options for already-allocated pods.
 // It delegates all DHCP logic (stale detection, create/update/cleanup, LSP pointer update)
 // to ReconcilePortDHCPOptions in the OVS layer.
-func (c *Controller) reconcilePodDHCPOptions(pod *v1.Pod, podNets []*kubeovnNet) error {
+func (c *Controller) reconcilePodDHCPOptions(pod *v1.Pod, podNets []*fabricNet) error {
 	podName := c.getNameByPod(pod)
 	for _, podNet := range podNets {
 		if podNet.Type == providerTypeIPAM {
@@ -648,7 +648,7 @@ func (c *Controller) reconcilePodDHCPOptions(pod *v1.Pod, podNets []*kubeovnNet)
 }
 
 // do the same thing as add pod
-func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets []*kubeovnNet) (*v1.Pod, error) {
+func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets []*fabricNet) (*v1.Pod, error) {
 	namespace := pod.Namespace
 	name := pod.Name
 	klog.Infof("sync pod %s/%s allocated", namespace, name)
@@ -727,7 +727,7 @@ func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets [
 				portSecurity = true
 			}
 
-			vips := c.getVirtualIPs(pod, []*kubeovnNet{podNet})[fmt.Sprintf("%s.%s", podNet.Subnet.Name, podNet.ProviderName)]
+			vips := c.getVirtualIPs(pod, []*fabricNet{podNet})[fmt.Sprintf("%s.%s", podNet.Subnet.Name, podNet.ProviderName)]
 			for ip := range strings.SplitSeq(vips, ",") {
 				if ip != "" && net.ParseIP(ip) == nil {
 					klog.Errorf("invalid vip address '%s' for pod %s", ip, name)
@@ -852,7 +852,7 @@ func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets [
 	// Clean stale attachment IPs/LSPs from previous NAD references when a new
 	// VM pod starts. This handles the stop→patch NAD→start workflow where the
 	// old pod deletion was processed before the NAD change.
-	// Called after pod re-fetch so getPodKubeovnNets sees current annotations.
+	// Called after pod re-fetch so getPodFabricNets sees current annotations.
 	if isVMPod && c.config.EnableKeepVMIP {
 		c.cleanStaleVMAttachmentIPs(pod, podName)
 	}
@@ -861,7 +861,7 @@ func (c *Controller) reconcileAllocateSubnets(pod *v1.Pod, needAllocatePodNets [
 }
 
 // do the same thing as update pod
-func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kubeovnNet) error {
+func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*fabricNet) error {
 	if len(needRoutePodNets) == 0 {
 		return nil
 	}
@@ -893,7 +893,7 @@ func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kube
 	}
 
 	var podIP string
-	var subnet *kubeovnv1.Subnet
+	var subnet *fabricv1.Subnet
 	patch := util.KVPatch{}
 	for _, podNet := range needRoutePodNets {
 		// in case update handler overlap the annotation when cache is not in sync
@@ -954,7 +954,7 @@ func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kube
 				return err
 			}
 
-			if subnet.Spec.GatewayType == kubeovnv1.GWDistributedType && pod.Annotations[util.NorthGatewayAnnotation] == "" {
+			if subnet.Spec.GatewayType == fabricv1.GWDistributedType && pod.Annotations[util.NorthGatewayAnnotation] == "" {
 				nodeTunlIPAddr, err := getNodeTunlIP(node)
 				if err != nil {
 					klog.Error(err)
@@ -994,16 +994,16 @@ func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kube
 						continue
 					}
 					ipSuffix := "ip4"
-					if util.CheckProtocol(podAddr) == kubeovnv1.ProtocolIPv6 {
+					if util.CheckProtocol(podAddr) == fabricv1.ProtocolIPv6 {
 						ipSuffix = "ip6"
 					}
 
 					if err := c.addPolicyRouteToVpc(
 						subnet.Spec.Vpc,
-						&kubeovnv1.PolicyRoute{
+						&fabricv1.PolicyRoute{
 							Priority:  util.NorthGatewayRoutePolicyPriority,
 							Match:     fmt.Sprintf("%s.src == %s", ipSuffix, podAddr),
-							Action:    kubeovnv1.PolicyRouteActionReroute,
+							Action:    fabricv1.PolicyRouteActionReroute,
 							NextHopIP: pod.Annotations[util.NorthGatewayAnnotation],
 						},
 						map[string]string{
@@ -1021,7 +1021,7 @@ func (c *Controller) reconcileRouteSubnets(pod *v1.Pod, needRoutePodNets []*kube
 					subnet.Spec.RouteTable,
 					podIP,
 					"",
-					kubeovnv1.PolicyDst,
+					fabricv1.PolicyDst,
 				); err != nil {
 					klog.Error(err)
 					return err
@@ -1064,7 +1064,7 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 	changed := false
 	stage := "prepare"
 	released := []string{}
-	var podNets []*kubeovnNet
+	var podNets []*fabricNet
 	var keepIPCR, isOwnerRefToDel, isOwnerRefDeleted bool
 	var ipcrToDelete []string
 	var vmOrphanedPorts map[string]bool
@@ -1193,8 +1193,8 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 		}
 	}
 
-	stage = "getPodKubeovnNets"
-	podNets, err = c.getPodKubeovnNets(pod)
+	stage = "getPodFabricNets"
+	podNets, err = c.getPodFabricNets(pod)
 	if err != nil {
 		klog.Errorf("failed to get fabric nets of pod %s: %v", podKey, err)
 		return err
@@ -1224,7 +1224,7 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 				if ipCR.Labels[util.IPReservedLabel] != "true" {
 					klog.Infof("delete orphaned vm attachment ip CR %s", ipCR.Name)
 					stage = "deleteIPCR"
-					if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+					if err := c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 						if !k8serrors.IsNotFound(err) {
 							klog.Errorf("failed to delete ip %s: %v", ipCR.Name, err)
 							return err
@@ -1277,7 +1277,7 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 				}
 
 				ipSuffix := "ip4"
-				if util.CheckProtocol(address.IP) == kubeovnv1.ProtocolIPv6 {
+				if util.CheckProtocol(address.IP) == fabricv1.ProtocolIPv6 {
 					ipSuffix = "ip6"
 				}
 				if err = c.deletePolicyRouteFromVpc(
@@ -1321,7 +1321,7 @@ func (c *Controller) handleDeletePod(key string) (err error) {
 			if ipCR.Labels[util.IPReservedLabel] != "true" {
 				klog.Infof("delete ip CR %s", ipCR.Name)
 				stage = "deleteIPCR"
-				if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+				if err := c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 					if !k8serrors.IsNotFound(err) {
 						klog.Errorf("failed to delete ip %s, %v", ipCR.Name, err)
 						return err
@@ -1403,15 +1403,15 @@ func (c *Controller) handleUpdatePodSecurity(key string) error {
 	}
 	podName := c.getNameByPod(pod)
 
-	podNets, err := c.getPodKubeovnNets(pod)
+	podNets, err := c.getPodFabricNets(pod)
 	if err != nil {
 		klog.Errorf("failed to pod nets %v", err)
-		c.recorder.Eventf(pod, v1.EventTypeWarning, "PodSecurityUpdateFailed", "stage=getPodKubeovnNets error=%v", err)
+		c.recorder.Eventf(pod, v1.EventTypeWarning, "PodSecurityUpdateFailed", "stage=getPodFabricNets error=%v", err)
 		return err
 	}
 
 	vipsMap := c.getVirtualIPs(pod, podNets)
-	updatedPodNets := make([]*kubeovnNet, 0, len(podNets))
+	updatedPodNets := make([]*fabricNet, 0, len(podNets))
 
 	// associated with security group
 	for _, podNet := range podNets {
@@ -1483,7 +1483,7 @@ func stalePortNetworkDetails(pod *v1.Pod, podName string, port ovnnb.LogicalSwit
 	return providerName, details, nil
 }
 
-func (c *Controller) syncKubeOvnNet(pod *v1.Pod, podNets []*kubeovnNet) (*v1.Pod, string, error) {
+func (c *Controller) syncFabricNet(pod *v1.Pod, podNets []*fabricNet) (*v1.Pod, string, error) {
 	podName := c.getNameByPod(pod)
 	key := cache.NewObjectName(pod.Namespace, podName).String()
 	targetPortNameList := strset.NewWithSize(len(podNets))
@@ -1491,7 +1491,7 @@ func (c *Controller) syncKubeOvnNet(pod *v1.Pod, podNets []*kubeovnNet) (*v1.Pod
 	annotationsNeedToDel := []string{}
 	annotationsNeedToAdd := make(map[string]string)
 	subnetUsedByPort := make(map[string]string)
-	changedPodNets := []*kubeovnNet{}
+	changedPodNets := []*fabricNet{}
 	hotplugDetails := []string{}
 
 	for _, podNet := range podNets {
@@ -1549,7 +1549,7 @@ func (c *Controller) syncKubeOvnNet(pod *v1.Pod, podNets []*kubeovnNet) (*v1.Pod
 			klog.Errorf("failed to delete lsp %s, %v", portNeedDel, err)
 			return nil, "", err
 		}
-		if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), portNeedDel, metav1.DeleteOptions{}); err != nil {
+		if err := c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), portNeedDel, metav1.DeleteOptions{}); err != nil {
 			if !k8serrors.IsNotFound(err) {
 				klog.Errorf("failed to delete ip %s, %v", portNeedDel, err)
 				return nil, "", err
@@ -1596,7 +1596,7 @@ func (c *Controller) syncKubeOvnNet(pod *v1.Pod, podNets []*kubeovnNet) (*v1.Pod
 	return pod, strings.Join(hotplugDetails, "; "), nil
 }
 
-func (c *Controller) podNetworkEventDetails(pod *v1.Pod, podNets []*kubeovnNet) string {
+func (c *Controller) podNetworkEventDetails(pod *v1.Pod, podNets []*fabricNet) string {
 	podName := c.getNameByPod(pod)
 	details := make([]string, 0, len(podNets))
 	for _, podNet := range podNets {
@@ -1749,7 +1749,7 @@ func getNextHopByTunnelIP(gw []net.IP) string {
 	return nextHop
 }
 
-func needAllocateSubnets(pod *v1.Pod, nets []*kubeovnNet) []*kubeovnNet {
+func needAllocateSubnets(pod *v1.Pod, nets []*fabricNet) []*fabricNet {
 	// check if allocate from subnet is need.
 	// allocate subnet when change subnet to hotplug nic
 	// allocate subnet when migrate vm
@@ -1767,7 +1767,7 @@ func needAllocateSubnets(pod *v1.Pod, nets []*kubeovnNet) []*kubeovnNet {
 		migrate = true
 	}
 
-	result := make([]*kubeovnNet, 0, len(nets))
+	result := make([]*fabricNet, 0, len(nets))
 	for _, n := range nets {
 		if migrate || pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, n.ProviderName)] != "true" {
 			result = append(result, n)
@@ -1812,7 +1812,7 @@ func (c *Controller) podNeedSync(pod *v1.Pod) (bool, error) {
 	return false, nil
 }
 
-func needRouteSubnets(pod *v1.Pod, nets []*kubeovnNet) []*kubeovnNet {
+func needRouteSubnets(pod *v1.Pod, nets []*fabricNet) []*fabricNet {
 	if !isPodAlive(pod) {
 		return nil
 	}
@@ -1821,7 +1821,7 @@ func needRouteSubnets(pod *v1.Pod, nets []*kubeovnNet) []*kubeovnNet {
 		return nets
 	}
 
-	result := make([]*kubeovnNet, 0, len(nets))
+	result := make([]*fabricNet, 0, len(nets))
 	for _, n := range nets {
 		if !isOvnSubnet(n.Subnet) {
 			continue
@@ -1836,7 +1836,7 @@ func needRouteSubnets(pod *v1.Pod, nets []*kubeovnNet) []*kubeovnNet {
 	return result
 }
 
-func (c *Controller) getPodDefaultSubnet(pod *v1.Pod) (*kubeovnv1.Subnet, error) {
+func (c *Controller) getPodDefaultSubnet(pod *v1.Pod) (*fabricv1.Subnet, error) {
 	// ignore to clean its ip crd in existing subnets
 	ignoreSubnetNotExist := !pod.DeletionTimestamp.IsZero()
 
@@ -1902,18 +1902,18 @@ func (c *Controller) getPodDefaultSubnet(pod *v1.Pod) (*kubeovnv1.Subnet, error)
 		}
 
 		switch subnet.Spec.Protocol {
-		case kubeovnv1.ProtocolDual:
+		case fabricv1.ProtocolDual:
 			if subnet.Status.V6AvailableIPs.EqualInt64(0) && !c.podCanUseExcludeIPs(pod, subnet) {
 				klog.Infof("there's no available ipv6 address in subnet %s, try next one", subnet.Name)
 				continue
 			}
 			fallthrough
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			if subnet.Status.V4AvailableIPs.EqualInt64(0) && !c.podCanUseExcludeIPs(pod, subnet) {
 				klog.Infof("there's no available ipv4 address in subnet %s, try next one", subnet.Name)
 				continue
 			}
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			if subnet.Status.V6AvailableIPs.EqualInt64(0) && !c.podCanUseExcludeIPs(pod, subnet) {
 				klog.Infof("there's no available ipv6 address in subnet %s, try next one", subnet.Name)
 				continue
@@ -1924,7 +1924,7 @@ func (c *Controller) getPodDefaultSubnet(pod *v1.Pod) (*kubeovnv1.Subnet, error)
 	return nil, ipam.ErrNoAvailable
 }
 
-func (c *Controller) podCanUseExcludeIPs(pod *v1.Pod, subnet *kubeovnv1.Subnet) bool {
+func (c *Controller) podCanUseExcludeIPs(pod *v1.Pod, subnet *fabricv1.Subnet) bool {
 	if ipAddr := pod.Annotations[util.IPAddressAnnotation]; ipAddr != "" {
 		return c.checkIPsInExcludeList(ipAddr, subnet.Spec.ExcludeIps, subnet.Spec.CIDRBlock)
 	}
@@ -1961,10 +1961,10 @@ const (
 	providerTypeOriginal
 )
 
-type kubeovnNet struct {
+type fabricNet struct {
 	Type               providerType
 	ProviderName       string
-	Subnet             *kubeovnv1.Subnet
+	Subnet             *fabricv1.Subnet
 	IsDefault          bool
 	AllowLiveMigration bool
 	IPRequest          string
@@ -1974,7 +1974,7 @@ type kubeovnNet struct {
 	InterfaceName      string
 }
 
-func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
+func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*fabricNet, error) {
 	var multusNets []*nadv1.NetworkSelectionElement
 	defaultAttachNetworks := pod.Annotations[util.DefaultNetworkAnnotation]
 	if defaultAttachNetworks != "" {
@@ -1998,7 +1998,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 	// only pods with attachment networks need the full subnet list; skip the
 	// listing for the common case (no attachment network) to avoid allocating
 	// the whole subnet set on every pod reconcile
-	var subnets []*kubeovnv1.Subnet
+	var subnets []*fabricv1.Subnet
 	if len(multusNets) != 0 {
 		var err error
 		subnets, err = c.subnetsLister.List(labels.Everything())
@@ -2016,7 +2016,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 		nadCounts[fmt.Sprintf("%s/%s", attach.Namespace, attach.Name)]++
 	}
 
-	result := make([]*kubeovnNet, 0, len(multusNets))
+	result := make([]*fabricNet, 0, len(multusNets))
 	for _, attach := range multusNets {
 		nadKey := fmt.Sprintf("%s/%s", attach.Namespace, attach.Name)
 		network, err := c.netAttachLister.NetworkAttachmentDefinitions(attach.Namespace).Get(attach.Name)
@@ -2071,7 +2071,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 				}
 
 				klog.Infof("pod %s/%s net-attach-def %s not found, using subnet %s for cleanup", pod.Namespace, pod.Name, attach.Name, subnetName)
-				result = append(result, &kubeovnNet{
+				result = append(result, &fabricNet{
 					Type:          providerTypeIPAM,
 					ProviderName:  providerName,
 					Subnet:        subnet,
@@ -2095,7 +2095,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 			return nil, err
 		}
 
-		// allocate kubeovn network
+		// allocate fabric network
 		var providerName string
 		if util.IsOvnNetwork(netCfg) {
 			allowLiveMigration := false
@@ -2119,7 +2119,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 			subnetName := pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, providerName)]
 
 			// helper function to try and identify correct subnet when interface name is provided in request, this is for the case when multiple attach with same NAD but different interface name and the providerName contains interface name but subnet spec does not contain it
-			subnetMatches := func(subnet *kubeovnv1.Subnet, providerName, ifName string) bool {
+			subnetMatches := func(subnet *fabricv1.Subnet, providerName, ifName string) bool {
 				var subnetProviderName string
 				// if providerName contains ifName, then we trim it from the providerName to match with subnet spec
 				subnetProviderName, _ = strings.CutSuffix(providerName, "."+ifName)
@@ -2143,7 +2143,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 				}
 			}
 			klog.V(5).Infof("found subnet %s for provider %s", subnetName, providerName)
-			var subnet *kubeovnv1.Subnet
+			var subnet *fabricv1.Subnet
 			if subnetName == "" {
 				err = fmt.Errorf("provider %s is not bound to any subnet", providerName)
 				if ignoreSubnetNotExist {
@@ -2168,7 +2168,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 			}
 
 			// we send no macrequest or ip request so these should be empty in the response here
-			ret := &kubeovnNet{
+			ret := &fabricNet{
 				Type:               providerTypeOriginal,
 				ProviderName:       providerName,
 				Subnet:             subnet,
@@ -2182,14 +2182,14 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 			}
 			result = append(result, ret)
 		} else {
-			if !isKubeOVNIPAMNetwork(netCfg) {
+			if !isFabricIPAMNetwork(netCfg) {
 				continue
 			}
 			providerName = fmt.Sprintf("%s.%s", attach.Name, attach.Namespace)
 			foundSubnet := false
 			for _, subnet := range subnets {
 				if subnet.Spec.Provider == providerName {
-					result = append(result, &kubeovnNet{
+					result = append(result, &fabricNet{
 						Type:          providerTypeIPAM,
 						ProviderName:  providerName,
 						Subnet:        subnet,
@@ -2216,7 +2216,7 @@ func (c *Controller) getPodAttachmentNet(pod *v1.Pod) ([]*kubeovnNet, error) {
 	return result, nil
 }
 
-func isKubeOVNIPAMNetwork(netCfg *multustypes.DelegateNetConf) bool {
+func isFabricIPAMNetwork(netCfg *multustypes.DelegateNetConf) bool {
 	if netCfg.Conf.IPAM.Type == util.CniTypeName {
 		return true
 	}
@@ -2263,7 +2263,7 @@ func (c *Controller) validatePodIP(podName, subnetName, ipv4, ipv6 string) (bool
 // IP from an external DHCP server. MAC allocation goes through IPAM so it is
 // idempotent per NIC (no churn on retries) and the subnet/MAC are tracked, which
 // prevents the GC from cleaning the pod's mac-only IP/LSP resources.
-func (c *Controller) acquireMacOnlyAddress(pod *v1.Pod, podNet *kubeovnNet, key, portName string) (string, string, string, *kubeovnv1.Subnet, error) {
+func (c *Controller) acquireMacOnlyAddress(pod *v1.Pod, podNet *fabricNet, key, portName string) (string, string, string, *fabricv1.Subnet, error) {
 	klog.Infof("allocating MAC-only address for pod %s in mac-only subnet %s", key, podNet.Subnet.Name)
 
 	// Prefer a per-interface MAC annotation, then fall back to the provider-level one.
@@ -2295,7 +2295,7 @@ func (c *Controller) acquireMacOnlyAddress(pod *v1.Pod, podNet *kubeovnNet, key,
 
 // podNetRequestedIPFamily reads the family request from the annotation scoped to
 // this provider. The default provider naturally maps to fabric.cloudyfolks.io/ip_family.
-func podNetRequestedIPFamily(pod *v1.Pod, podNet *kubeovnNet) string {
+func podNetRequestedIPFamily(pod *v1.Pod, podNet *fabricNet) string {
 	if pod == nil || pod.Annotations == nil {
 		return ""
 	}
@@ -2304,8 +2304,8 @@ func podNetRequestedIPFamily(pod *v1.Pod, podNet *kubeovnNet) string {
 
 // validateRequestedIPFamilyForSubnet rejects requests that cannot be satisfied
 // by a single-stack subnet. Dual-stack subnets are handled by family-aware IPAM.
-func validateRequestedIPFamilyForSubnet(ipFamily string, subnet *kubeovnv1.Subnet) error {
-	if ipFamily == "" || subnet == nil || subnet.Spec.Protocol == kubeovnv1.ProtocolDual || subnet.Spec.Protocol == kubeovnv1.ProtocolMac {
+func validateRequestedIPFamilyForSubnet(ipFamily string, subnet *fabricv1.Subnet) error {
+	if ipFamily == "" || subnet == nil || subnet.Spec.Protocol == fabricv1.ProtocolDual || subnet.Spec.Protocol == fabricv1.ProtocolMac {
 		return nil
 	}
 	if ipFamily != subnet.Spec.Protocol {
@@ -2316,27 +2316,27 @@ func validateRequestedIPFamilyForSubnet(ipFamily string, subnet *kubeovnv1.Subne
 
 // ippoolHasAvailableIPFamily checks availability for the requested family.
 // Without a requested family, it keeps the existing subnet protocol behavior.
-func ippoolHasAvailableIPFamily(ippool *kubeovnv1.IPPool, subnetProtocol, ipFamily string) bool {
+func ippoolHasAvailableIPFamily(ippool *fabricv1.IPPool, subnetProtocol, ipFamily string) bool {
 	if ipFamily != "" {
 		switch ipFamily {
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			return ippool.Status.V4AvailableIPs.Int64() != 0
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			return ippool.Status.V6AvailableIPs.Int64() != 0
 		}
 	}
 
 	switch subnetProtocol {
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		return ippool.Status.V4AvailableIPs.Int64() != 0 && ippool.Status.V6AvailableIPs.Int64() != 0
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		return ippool.Status.V4AvailableIPs.Int64() != 0
 	default:
 		return ippool.Status.V6AvailableIPs.Int64() != 0
 	}
 }
 
-func (c *Controller) acquireAddress(pod *v1.Pod, podNet *kubeovnNet) (string, string, string, *kubeovnv1.Subnet, error) {
+func (c *Controller) acquireAddress(pod *v1.Pod, podNet *fabricNet) (string, string, string, *fabricv1.Subnet, error) {
 	// becomes vmNAme when pod is owned by a kubevirt VM
 	podName := c.getNameByPod(pod)
 	key := cache.NewObjectName(pod.Namespace, podName).String()
@@ -2395,14 +2395,14 @@ func (c *Controller) acquireAddress(pod *v1.Pod, podNet *kubeovnNet) (string, st
 		macPointer = new("")
 	}
 
-	var nsNets []*kubeovnNet
+	var nsNets []*fabricNet
 	ippoolStr := pod.Annotations[fmt.Sprintf(util.IPPoolAnnotationTemplate, podNet.ProviderName)]
 	subnetStr := pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, podNet.ProviderName)]
 
 	// Prepare nsNets based on subnet annotation
 	var err error
 	if subnetStr != "" {
-		nsNets = []*kubeovnNet{podNet}
+		nsNets = []*fabricNet{podNet}
 	} else if nsNets, err = c.getNsAvailableSubnets(pod, podNet); err != nil {
 		klog.Errorf("failed to get available subnets for pod %s/%s, %v", pod.Namespace, pod.Name, err)
 		return "", "", "", podNet.Subnet, err
@@ -2500,7 +2500,7 @@ func (c *Controller) acquireAddress(pod *v1.Pod, podNet *kubeovnNet) (string, st
 	return c.acquireStaticAddressHelper(pod, podNet, portName, macPointer, ippoolStr, nsNets, isStsPod, key, requestedIPFamily)
 }
 
-func (c *Controller) acquireStaticAddressHelper(pod *v1.Pod, podNet *kubeovnNet, portName string, macPointer *string, ippoolStr string, nsNets []*kubeovnNet, isStsPod bool, key, requestedIPFamily string) (string, string, string, *kubeovnv1.Subnet, error) {
+func (c *Controller) acquireStaticAddressHelper(pod *v1.Pod, podNet *fabricNet, portName string, macPointer *string, ippoolStr string, nsNets []*fabricNet, isStsPod bool, key, requestedIPFamily string) (string, string, string, *fabricv1.Subnet, error) {
 	var v4IP, v6IP, mac string
 	var err error
 
@@ -2579,7 +2579,7 @@ func (c *Controller) acquireStaticAddressHelper(pod *v1.Pod, podNet *kubeovnNet,
 				for _, staticIP := range ipPool {
 					var checkIP string
 					ipProtocol := util.CheckProtocol(staticIP)
-					if ipProtocol == kubeovnv1.ProtocolDual {
+					if ipProtocol == fabricv1.ProtocolDual {
 						checkIP = strings.Split(staticIP, ",")[0]
 					} else {
 						checkIP = staticIP
@@ -2849,7 +2849,7 @@ func (c *Controller) cleanStaleVMAttachmentIPs(pod *v1.Pod, podName string) {
 	}
 
 	// Build current port names from the pod's full network list
-	podNets, err := c.getPodKubeovnNets(pod)
+	podNets, err := c.getPodFabricNets(pod)
 	if err != nil {
 		klog.Errorf("failed to get fabric nets of pod %s for stale cleanup: %v", podKey, err)
 		return
@@ -2879,7 +2879,7 @@ func (c *Controller) cleanStaleVMAttachmentIPs(pod *v1.Pod, podName string) {
 		}
 		if ipCR.Labels[util.IPReservedLabel] != "true" {
 			klog.Infof("deleting stale vm attachment ip CR %s", ipCR.Name)
-			if err := c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
+			if err := c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 				if !k8serrors.IsNotFound(err) {
 					klog.Errorf("failed to delete ip %s: %v", ipCR.Name, err)
 				}
@@ -2993,9 +2993,9 @@ func (c *Controller) getNameByPod(pod *v1.Pod) string {
 }
 
 // When subnet's v4availableIPs is 0 but still there's available ip in exclude-ips, the static ip in exclude-ips can be allocated normal.
-func (c *Controller) getNsAvailableSubnets(pod *v1.Pod, podNet *kubeovnNet) ([]*kubeovnNet, error) {
+func (c *Controller) getNsAvailableSubnets(pod *v1.Pod, podNet *fabricNet) ([]*fabricNet, error) {
 	// keep the annotation subnet of the pod in first position
-	result := []*kubeovnNet{podNet}
+	result := []*fabricNet{podNet}
 
 	ns, err := c.namespacesLister.Get(pod.Namespace)
 	if err != nil {
@@ -3003,7 +3003,7 @@ func (c *Controller) getNsAvailableSubnets(pod *v1.Pod, podNet *kubeovnNet) ([]*
 		return nil, err
 	}
 	if ns.Annotations == nil {
-		return []*kubeovnNet{}, nil
+		return []*fabricNet{}, nil
 	}
 
 	subnetNames := ns.Annotations[util.LogicalSwitchAnnotation]
@@ -3017,7 +3017,7 @@ func (c *Controller) getNsAvailableSubnets(pod *v1.Pod, podNet *kubeovnNet) ([]*
 			return nil, err
 		}
 
-		result = append(result, &kubeovnNet{
+		result = append(result, &fabricNet{
 			Type:         providerTypeOriginal,
 			ProviderName: subnet.Spec.Provider,
 			Subnet:       subnet,
@@ -3038,7 +3038,7 @@ func getPodType(pod *v1.Pod) string {
 	return ""
 }
 
-func (c *Controller) getVirtualIPs(pod *v1.Pod, podNets []*kubeovnNet) map[string]string {
+func (c *Controller) getVirtualIPs(pod *v1.Pod, podNets []*fabricNet) map[string]string {
 	vipsListMap := make(map[string][]string)
 	var vipNamesList []string
 	for vipName := range strings.SplitSeq(strings.TrimSpace(pod.Annotations[util.AAPsAnnotation]), ",") {

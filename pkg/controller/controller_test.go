@@ -9,7 +9,7 @@ package controller
 // The fake controller properly initializes:
 // - Kubernetes fake client with pods and namespaces
 // - NAD fake client with network attachment definitions (populated via API)
-// - KubeOVN fake client with subnets (populated via API)
+// - Fabric fake client with subnets (populated via API)
 // - All necessary informers with proper synchronization
 // - Mock OVN client for OVN operations
 
@@ -34,10 +34,10 @@ import (
 	"k8s.io/utils/keymutex"
 
 	mockovs "github.com/cloudyfolks-labs/fabric/mocks/pkg/ovs"
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovnfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
-	kubeovninformerfactory "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
-	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
+	fabricinformerfactory "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	fabricinformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions/fabric/v1"
 	ovnipam "github.com/cloudyfolks-labs/fabric/pkg/ipam"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -54,10 +54,10 @@ func TestMain(m *testing.M) {
 }
 
 type fakeControllerInformers struct {
-	vpcInformer       kubeovninformer.VpcInformer
-	subnetInformer    kubeovninformer.SubnetInformer
-	ipInformer        kubeovninformer.IPInformer
-	vlanInformer      kubeovninformer.VlanInformer
+	vpcInformer       fabricinformer.VpcInformer
+	subnetInformer    fabricinformer.SubnetInformer
+	ipInformer        fabricinformer.IPInformer
+	vlanInformer      fabricinformer.VlanInformer
 	serviceInformer   coreinformers.ServiceInformer
 	namespaceInformer coreinformers.NamespaceInformer
 	nodeInformer      coreinformers.NodeInformer
@@ -75,25 +75,25 @@ func alwaysReady() bool { return true }
 
 // FakeControllerOptions holds optional parameters for creating a fake controller
 type FakeControllerOptions struct {
-	Subnets            []*kubeovnv1.Subnet
-	IPPools            []*kubeovnv1.IPPool
-	IPs                []*kubeovnv1.IP
-	Vlans              []*kubeovnv1.Vlan
-	ProviderNetworks   []*kubeovnv1.ProviderNetwork
+	Subnets            []*fabricv1.Subnet
+	IPPools            []*fabricv1.IPPool
+	IPs                []*fabricv1.IP
+	Vlans              []*fabricv1.Vlan
+	ProviderNetworks   []*fabricv1.ProviderNetwork
 	NetworkAttachments []*nadv1.NetworkAttachmentDefinition
 	Pods               []*corev1.Pod
 	Nodes              []*corev1.Node
 	Namespaces         []*corev1.Namespace
 	Services           []*corev1.Service
-	Vpcs               []*kubeovnv1.Vpc
-	RouterLBRules      []*kubeovnv1.RouterLBRule
-	LoadBalancers      []*kubeovnv1.LoadBalancer
-	LoadBalancerPools  []*kubeovnv1.LoadBalancerPool
-	OvnEips            []*kubeovnv1.OvnEip
-	OvnDnatRules       []*kubeovnv1.OvnDnatRule
-	OvnFipRules        []*kubeovnv1.OvnFip
-	OvnSnatRules       []*kubeovnv1.OvnSnatRule
-	DNSZones           []*kubeovnv1.DNSZone
+	Vpcs               []*fabricv1.Vpc
+	RouterLBRules      []*fabricv1.RouterLBRule
+	LoadBalancers      []*fabricv1.LoadBalancer
+	LoadBalancerPools  []*fabricv1.LoadBalancerPool
+	OvnEips            []*fabricv1.OvnEip
+	OvnDnatRules       []*fabricv1.OvnDnatRule
+	OvnFipRules        []*fabricv1.OvnFip
+	OvnSnatRules       []*fabricv1.OvnSnatRule
+	DNSZones           []*fabricv1.DNSZone
 }
 
 // newFakeControllerWithOptions creates a fake controller with optional pre-populated objects
@@ -141,101 +141,101 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		}
 	}
 
-	// Create fake KubeOVN client
-	kubeovnClient := kubeovnfake.NewSimpleClientset()
+	// Create fake Fabric client
+	fabricClient := fabricfake.NewSimpleClientset()
 	for _, subnet := range opts.Subnets {
-		_, err := kubeovnClient.FabricV1().Subnets().Create(
+		_, err := fabricClient.FabricV1().Subnets().Create(
 			context.Background(), subnet, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, ippool := range opts.IPPools {
-		_, err := kubeovnClient.FabricV1().IPPools().Create(
+		_, err := fabricClient.FabricV1().IPPools().Create(
 			context.Background(), ippool, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, ip := range opts.IPs {
-		_, err := kubeovnClient.FabricV1().IPs().Create(
+		_, err := fabricClient.FabricV1().IPs().Create(
 			context.Background(), ip, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, vlan := range opts.Vlans {
-		_, err := kubeovnClient.FabricV1().Vlans().Create(
+		_, err := fabricClient.FabricV1().Vlans().Create(
 			context.Background(), vlan, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, pn := range opts.ProviderNetworks {
-		_, err := kubeovnClient.FabricV1().ProviderNetworks().Create(
+		_, err := fabricClient.FabricV1().ProviderNetworks().Create(
 			context.Background(), pn, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, vpc := range opts.Vpcs {
-		_, err := kubeovnClient.FabricV1().Vpcs().Create(
+		_, err := fabricClient.FabricV1().Vpcs().Create(
 			context.Background(), vpc, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, rlr := range opts.RouterLBRules {
-		_, err := kubeovnClient.FabricV1().RouterLBRules().Create(
+		_, err := fabricClient.FabricV1().RouterLBRules().Create(
 			context.Background(), rlr, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, lb := range opts.LoadBalancers {
-		_, err := kubeovnClient.FabricV1().LoadBalancers().Create(
+		_, err := fabricClient.FabricV1().LoadBalancers().Create(
 			context.Background(), lb, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, zone := range opts.DNSZones {
-		_, err := kubeovnClient.FabricV1().DNSZones().Create(
+		_, err := fabricClient.FabricV1().DNSZones().Create(
 			context.Background(), zone, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, pool := range opts.LoadBalancerPools {
-		_, err := kubeovnClient.FabricV1().LoadBalancerPools().Create(
+		_, err := fabricClient.FabricV1().LoadBalancerPools().Create(
 			context.Background(), pool, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, eip := range opts.OvnEips {
-		_, err := kubeovnClient.FabricV1().OvnEips().Create(
+		_, err := fabricClient.FabricV1().OvnEips().Create(
 			context.Background(), eip, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, dnat := range opts.OvnDnatRules {
-		_, err := kubeovnClient.FabricV1().OvnDnatRules().Create(
+		_, err := fabricClient.FabricV1().OvnDnatRules().Create(
 			context.Background(), dnat, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, fip := range opts.OvnFipRules {
-		_, err := kubeovnClient.FabricV1().OvnFips().Create(
+		_, err := fabricClient.FabricV1().OvnFips().Create(
 			context.Background(), fip, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, snat := range opts.OvnSnatRules {
-		_, err := kubeovnClient.FabricV1().OvnSnatRules().Create(
+		_, err := fabricClient.FabricV1().OvnSnatRules().Create(
 			context.Background(), snat, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
@@ -264,28 +264,28 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	)
 	nadInformer := nadInformerFactory.K8sCniCncfIo().V1().NetworkAttachmentDefinitions()
 
-	kubeovnInformerFactory := kubeovninformerfactory.NewSharedInformerFactoryWithOptions(kubeovnClient, 0,
-		kubeovninformerfactory.WithTransform(util.TrimManagedFields),
-		kubeovninformerfactory.WithTweakListOptions(func(options *metav1.ListOptions) {
+	fabricInformerFactory := fabricinformerfactory.NewSharedInformerFactoryWithOptions(fabricClient, 0,
+		fabricinformerfactory.WithTransform(util.TrimManagedFields),
+		fabricinformerfactory.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.Watch = true
 			options.AllowWatchBookmarks = true
 		}),
 	)
-	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
-	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
-	ipInformer := kubeovnInformerFactory.Fabric().V1().IPs()
-	vlanInformer := kubeovnInformerFactory.Fabric().V1().Vlans()
-	providerNetworkInformer := kubeovnInformerFactory.Fabric().V1().ProviderNetworks()
-	ippoolInformer := kubeovnInformerFactory.Fabric().V1().IPPools()
-	routerLBRuleInformer := kubeovnInformerFactory.Fabric().V1().RouterLBRules()
-	loadBalancerInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancers()
-	switchLBRuleInformer := kubeovnInformerFactory.Fabric().V1().SwitchLBRules()
-	loadBalancerPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
-	dnsZoneInformer := kubeovnInformerFactory.Fabric().V1().DNSZones()
-	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
-	ovnDnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnDnatRules()
-	ovnFipInformer := kubeovnInformerFactory.Fabric().V1().OvnFips()
-	ovnSnatRuleInformer := kubeovnInformerFactory.Fabric().V1().OvnSnatRules()
+	vpcInformer := fabricInformerFactory.Fabric().V1().Vpcs()
+	subnetInformer := fabricInformerFactory.Fabric().V1().Subnets()
+	ipInformer := fabricInformerFactory.Fabric().V1().IPs()
+	vlanInformer := fabricInformerFactory.Fabric().V1().Vlans()
+	providerNetworkInformer := fabricInformerFactory.Fabric().V1().ProviderNetworks()
+	ippoolInformer := fabricInformerFactory.Fabric().V1().IPPools()
+	routerLBRuleInformer := fabricInformerFactory.Fabric().V1().RouterLBRules()
+	loadBalancerInformer := fabricInformerFactory.Fabric().V1().LoadBalancers()
+	switchLBRuleInformer := fabricInformerFactory.Fabric().V1().SwitchLBRules()
+	loadBalancerPoolInformer := fabricInformerFactory.Fabric().V1().LoadBalancerPools()
+	dnsZoneInformer := fabricInformerFactory.Fabric().V1().DNSZones()
+	ovnEipInformer := fabricInformerFactory.Fabric().V1().OvnEips()
+	ovnDnatRuleInformer := fabricInformerFactory.Fabric().V1().OvnDnatRules()
+	ovnFipInformer := fabricInformerFactory.Fabric().V1().OvnFips()
+	ovnSnatRuleInformer := fabricInformerFactory.Fabric().V1().OvnSnatRules()
 
 	fakeInformers := &fakeControllerInformers{
 		vpcInformer:       vpcInformer,
@@ -359,7 +359,7 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		ClusterRouter:        util.DefaultVpc,
 		DefaultLogicalSwitch: util.DefaultSubnet,
 		NodeSwitch:           "join",
-		KubeOvnClient:        kubeovnClient,
+		FabricClient:         fabricClient,
 		KubeClient:           kubeClient,
 		PodNamespace:         metav1.NamespaceSystem,
 		AttachNetClient:      nadClient,
@@ -375,11 +375,11 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 
 	kubeInformerFactory.Start(stopCh)
 	nadInformerFactory.Start(stopCh)
-	kubeovnInformerFactory.Start(stopCh)
+	fabricInformerFactory.Start(stopCh)
 
 	kubeInformerFactory.WaitForCacheSync(stopCh)
 	nadInformerFactory.WaitForCacheSync(stopCh)
-	kubeovnInformerFactory.WaitForCacheSync(stopCh)
+	fabricInformerFactory.WaitForCacheSync(stopCh)
 
 	return &fakeController{
 		fakeController:  ctrl,
@@ -398,7 +398,7 @@ func newFakeController(t *testing.T) *fakeController {
 
 func Test_allSubnetReady(t *testing.T) {
 	fakeController, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		Subnets: []*kubeovnv1.Subnet{{
+		Subnets: []*fabricv1.Subnet{{
 			ObjectMeta: metav1.ObjectMeta{Name: util.DefaultSubnet},
 		}, {
 			ObjectMeta: metav1.ObjectMeta{Name: "join"},
@@ -432,9 +432,9 @@ func Test_allSubnetReady(t *testing.T) {
 func TestFakeControllerWithOptions(t *testing.T) {
 	// Example: creating a fake controller with NADs, subnets, and pods
 	opts := &FakeControllerOptions{
-		Subnets: []*kubeovnv1.Subnet{{
+		Subnets: []*fabricv1.Subnet{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1-subnet"},
-			Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "192.168.1.0/24"},
+			Spec:       fabricv1.SubnetSpec{CIDRBlock: "192.168.1.0/24"},
 		}},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{
@@ -464,7 +464,7 @@ func TestFakeControllerWithOptions(t *testing.T) {
 	require.NotNil(t, ctrl)
 	require.NotNil(t, ctrl.config)
 	require.NotNil(t, ctrl.config.AttachNetClient)
-	require.NotNil(t, ctrl.config.KubeOvnClient)
+	require.NotNil(t, ctrl.config.FabricClient)
 
 	// Verify that NADs can be retrieved
 	nadClient := ctrl.config.AttachNetClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions(metav1.NamespaceDefault)
@@ -473,7 +473,7 @@ func TestFakeControllerWithOptions(t *testing.T) {
 	require.Equal(t, "net1", retrievedNAD.Name)
 
 	// Verify that subnets can be retrieved
-	subnetClient := ctrl.config.KubeOvnClient.FabricV1().Subnets()
+	subnetClient := ctrl.config.FabricClient.FabricV1().Subnets()
 	retrievedSubnet, err := subnetClient.Get(context.Background(), "net1-subnet", metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Equal(t, "net1-subnet", retrievedSubnet.Name)

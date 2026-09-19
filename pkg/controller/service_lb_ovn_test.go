@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -96,11 +96,11 @@ func Test_ovnLbSvcNames(t *testing.T) {
 }
 
 func Test_poolAnnounceMode(t *testing.T) {
-	pool := &kubeovnv1.LoadBalancerPool{}
-	assert.Equal(t, kubeovnv1.LoadBalancerPoolAnnounceL2, poolAnnounceMode(pool))
+	pool := &fabricv1.LoadBalancerPool{}
+	assert.Equal(t, fabricv1.LoadBalancerPoolAnnounceL2, poolAnnounceMode(pool))
 
-	pool.Spec.Announce = kubeovnv1.LoadBalancerPoolAnnounceBGP
-	assert.Equal(t, kubeovnv1.LoadBalancerPoolAnnounceBGP, poolAnnounceMode(pool))
+	pool.Spec.Announce = fabricv1.LoadBalancerPoolAnnounceBGP
+	assert.Equal(t, fabricv1.LoadBalancerPoolAnnounceBGP, poolAnnounceMode(pool))
 }
 
 func Test_servicePortsOverlap(t *testing.T) {
@@ -161,10 +161,10 @@ func Test_splitRequestedLbIPs(t *testing.T) {
 }
 
 func Test_selectDefaultPool(t *testing.T) {
-	makePool := func(name string, isDefault bool, selector *metav1.LabelSelector) *kubeovnv1.LoadBalancerPool {
-		return &kubeovnv1.LoadBalancerPool{
+	makePool := func(name string, isDefault bool, selector *metav1.LabelSelector) *fabricv1.LoadBalancerPool {
+		return &fabricv1.LoadBalancerPool{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: kubeovnv1.LoadBalancerPoolSpec{
+			Spec: fabricv1.LoadBalancerPoolSpec{
 				Subnet:          "ext",
 				Default:         isDefault,
 				ServiceSelector: selector,
@@ -175,7 +175,7 @@ func Test_selectDefaultPool(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		pools     []*kubeovnv1.LoadBalancerPool
+		pools     []*fabricv1.LoadBalancerPool
 		svcLabels map[string]string
 		want      string
 	}{
@@ -186,29 +186,29 @@ func Test_selectDefaultPool(t *testing.T) {
 		},
 		{
 			name:  "non default ignored",
-			pools: []*kubeovnv1.LoadBalancerPool{makePool("p1", false, nil)},
+			pools: []*fabricv1.LoadBalancerPool{makePool("p1", false, nil)},
 			want:  "",
 		},
 		{
 			name:  "default without selector matches",
-			pools: []*kubeovnv1.LoadBalancerPool{makePool("p1", true, nil)},
+			pools: []*fabricv1.LoadBalancerPool{makePool("p1", true, nil)},
 			want:  "p1",
 		},
 		{
 			name:      "selector match",
-			pools:     []*kubeovnv1.LoadBalancerPool{makePool("p1", true, teamSelector)},
+			pools:     []*fabricv1.LoadBalancerPool{makePool("p1", true, teamSelector)},
 			svcLabels: map[string]string{"team": "a"},
 			want:      "p1",
 		},
 		{
 			name:      "selector mismatch",
-			pools:     []*kubeovnv1.LoadBalancerPool{makePool("p1", true, teamSelector)},
+			pools:     []*fabricv1.LoadBalancerPool{makePool("p1", true, teamSelector)},
 			svcLabels: map[string]string{"team": "b"},
 			want:      "",
 		},
 		{
 			name: "lowest name wins",
-			pools: []*kubeovnv1.LoadBalancerPool{
+			pools: []*fabricv1.LoadBalancerPool{
 				makePool("pb", true, nil),
 				makePool("pa", true, nil),
 			},
@@ -216,7 +216,7 @@ func Test_selectDefaultPool(t *testing.T) {
 		},
 		{
 			name: "matching selector preferred over mismatch",
-			pools: []*kubeovnv1.LoadBalancerPool{
+			pools: []*fabricv1.LoadBalancerPool{
 				makePool("pa", true, teamSelector),
 				makePool("pb", true, nil),
 			},
@@ -244,7 +244,7 @@ func Test_splitAnnotationIPs(t *testing.T) {
 }
 
 func Test_ovnEipIPs(t *testing.T) {
-	eip := &kubeovnv1.OvnEip{}
+	eip := &fabricv1.OvnEip{}
 	assert.Nil(t, ovnEipIPs(eip))
 
 	eip.Status.V4Ip = "10.0.0.1"
@@ -295,8 +295,8 @@ func Test_newOvnLbSvcRelease(t *testing.T) {
 }
 
 func Test_poolSubnetExhausted(t *testing.T) {
-	subnet := &kubeovnv1.Subnet{
-		Spec: kubeovnv1.SubnetSpec{CIDRBlock: "10.10.0.0/24"},
+	subnet := &fabricv1.Subnet{
+		Spec: fabricv1.SubnetSpec{CIDRBlock: "10.10.0.0/24"},
 	}
 	subnet.Status.V4AvailableIPs = internal.NewBigInt(0)
 	assert.True(t, poolSubnetExhausted(subnet))
@@ -304,8 +304,8 @@ func Test_poolSubnetExhausted(t *testing.T) {
 	subnet.Status.V4AvailableIPs = internal.NewBigInt(3)
 	assert.False(t, poolSubnetExhausted(subnet))
 
-	v6Subnet := &kubeovnv1.Subnet{
-		Spec: kubeovnv1.SubnetSpec{CIDRBlock: "fd00::/64"},
+	v6Subnet := &fabricv1.Subnet{
+		Spec: fabricv1.SubnetSpec{CIDRBlock: "fd00::/64"},
 	}
 	v6Subnet.Status.V6AvailableIPs = internal.NewBigInt(0)
 	assert.True(t, poolSubnetExhausted(v6Subnet))
@@ -317,62 +317,62 @@ func Test_poolSubnetExhausted(t *testing.T) {
 func TestVpcAdvertisesLoadBalancerVips(t *testing.T) {
 	t.Parallel()
 
-	assert.False(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{}))
-	assert.False(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{
-		Spec: kubeovnv1.VpcSpec{DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+	assert.False(t, vpcAdvertisesLoadBalancerVips(&fabricv1.Vpc{}))
+	assert.False(t, vpcAdvertisesLoadBalancerVips(&fabricv1.Vpc{
+		Spec: fabricv1.VpcSpec{DynamicRouting: &fabricv1.VpcDynamicRouting{
 			Enabled:      true,
-			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+			Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeNAT},
 		}},
 	}))
-	assert.False(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{
-		Spec: kubeovnv1.VpcSpec{DynamicRouting: &kubeovnv1.VpcDynamicRouting{
-			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+	assert.False(t, vpcAdvertisesLoadBalancerVips(&fabricv1.Vpc{
+		Spec: fabricv1.VpcSpec{DynamicRouting: &fabricv1.VpcDynamicRouting{
+			Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeLB},
 		}},
 	}))
-	assert.True(t, vpcAdvertisesLoadBalancerVips(&kubeovnv1.Vpc{
-		Spec: kubeovnv1.VpcSpec{DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+	assert.True(t, vpcAdvertisesLoadBalancerVips(&fabricv1.Vpc{
+		Spec: fabricv1.VpcSpec{DynamicRouting: &fabricv1.VpcDynamicRouting{
 			Enabled:      true,
-			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB},
+			Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeNAT, fabricv1.RedistributeLB},
 		}},
 	}))
 }
 
 func TestCheckPoolAnnouncePath(t *testing.T) {
-	bgpVpc := &kubeovnv1.Vpc{
+	bgpVpc := &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: "vpc-bgp"},
-		Spec: kubeovnv1.VpcSpec{
+		Spec: fabricv1.VpcSpec{
 			EnableExternal: true,
-			DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+			DynamicRouting: &fabricv1.VpcDynamicRouting{
 				Enabled:      true,
 				VrfID:        1001,
-				Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+				Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeLB},
 			},
 		},
 	}
-	l2Vpc := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc-l2"}}
-	lrpEip := &kubeovnv1.OvnEip{
+	l2Vpc := &fabricv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc-l2"}}
+	lrpEip := &fabricv1.OvnEip{
 		ObjectMeta: metav1.ObjectMeta{Name: "vpc-l2-external"},
-		Spec:       kubeovnv1.OvnEipSpec{Type: util.OvnEipTypeLRP, ExternalSubnet: "external"},
-		Status:     kubeovnv1.OvnEipStatus{Ready: true},
+		Spec:       fabricv1.OvnEipSpec{Type: util.OvnEipTypeLRP, ExternalSubnet: "external"},
+		Status:     fabricv1.OvnEipStatus{Ready: true},
 	}
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		Vpcs:    []*kubeovnv1.Vpc{bgpVpc, l2Vpc},
-		OvnEips: []*kubeovnv1.OvnEip{lrpEip},
+		Vpcs:    []*fabricv1.Vpc{bgpVpc, l2Vpc},
+		OvnEips: []*fabricv1.OvnEip{lrpEip},
 	})
 	require.NoError(t, err)
 	ctrl := fakeCtrl.fakeController
 
-	bgpPool := &kubeovnv1.LoadBalancerPool{
+	bgpPool := &fabricv1.LoadBalancerPool{
 		ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"},
-		Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: kubeovnv1.LoadBalancerPoolAnnounceBGP},
+		Spec:       fabricv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: fabricv1.LoadBalancerPoolAnnounceBGP},
 	}
 	assert.Empty(t, ctrl.checkPoolAnnouncePath(bgpPool, "vpc-bgp"))
 	assert.Contains(t, ctrl.checkPoolAnnouncePath(bgpPool, "vpc-l2"), "does not advertise loadbalancer vips")
 
-	l2Pool := &kubeovnv1.LoadBalancerPool{
+	l2Pool := &fabricv1.LoadBalancerPool{
 		ObjectMeta: metav1.ObjectMeta{Name: "pool-l2"},
-		Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "external", Announce: kubeovnv1.LoadBalancerPoolAnnounceL2},
+		Spec:       fabricv1.LoadBalancerPoolSpec{Subnet: "external", Announce: fabricv1.LoadBalancerPoolAnnounceL2},
 	}
 	assert.Empty(t, ctrl.checkPoolAnnouncePath(l2Pool, "vpc-l2"))
 	assert.Contains(t, ctrl.checkPoolAnnouncePath(l2Pool, "vpc-bgp"), "has no ready LRP")
@@ -383,24 +383,24 @@ func TestGcOvnLbSvcEipsReleasesOrphans(t *testing.T) {
 	live := makeLbSvc("default", "live", &class, corev1.ServiceTypeLoadBalancer)
 	live.Annotations = map[string]string{util.RouterLBRuleVipsAnnotation: "192.168.1.10"}
 
-	liveEip := &kubeovnv1.OvnEip{
+	liveEip := &fabricv1.OvnEip{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   ovnLbSvcEipName(live.UID),
 			Labels: map[string]string{util.LoadBalancerServiceLabel: ovnLbSvcLabelValue("default", "live")},
 		},
-		Status: kubeovnv1.OvnEipStatus{V4Ip: "192.168.1.10"},
+		Status: fabricv1.OvnEipStatus{V4Ip: "192.168.1.10"},
 	}
-	orphanEip := &kubeovnv1.OvnEip{
+	orphanEip := &fabricv1.OvnEip{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "lb-uid-gone",
 			Labels: map[string]string{util.LoadBalancerServiceLabel: ovnLbSvcLabelValue("default", "gone")},
 		},
-		Status: kubeovnv1.OvnEipStatus{V4Ip: "192.168.1.11"},
+		Status: fabricv1.OvnEipStatus{V4Ip: "192.168.1.11"},
 	}
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Services: []*corev1.Service{live},
-		OvnEips:  []*kubeovnv1.OvnEip{liveEip, orphanEip},
+		OvnEips:  []*fabricv1.OvnEip{liveEip, orphanEip},
 	})
 	require.NoError(t, err)
 
@@ -410,10 +410,10 @@ func TestGcOvnLbSvcEipsReleasesOrphans(t *testing.T) {
 
 	require.NoError(t, ctrl.gcOvnLbSvcEips())
 
-	_, err = ctrl.config.KubeOvnClient.FabricV1().OvnEips().Get(context.Background(), liveEip.Name, metav1.GetOptions{})
+	_, err = ctrl.config.FabricClient.FabricV1().OvnEips().Get(context.Background(), liveEip.Name, metav1.GetOptions{})
 	require.NoError(t, err)
 
-	_, err = ctrl.config.KubeOvnClient.FabricV1().OvnEips().Get(context.Background(), orphanEip.Name, metav1.GetOptions{})
+	_, err = ctrl.config.FabricClient.FabricV1().OvnEips().Get(context.Background(), orphanEip.Name, metav1.GetOptions{})
 	require.True(t, k8serrors.IsNotFound(err), "expected the orphaned eip to be released, got %v", err)
 }
 
@@ -434,32 +434,32 @@ func TestLoadBalancerPoolReadiness(t *testing.T) {
 }
 
 func TestUpdateLoadBalancerPoolUsageSetsReady(t *testing.T) {
-	pool := &kubeovnv1.LoadBalancerPool{
+	pool := &fabricv1.LoadBalancerPool{
 		ObjectMeta: metav1.ObjectMeta{Name: "pool-a"},
-		Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "lb-subnet"},
-		Status: kubeovnv1.LoadBalancerPoolStatus{
-			Conditions: []kubeovnv1.Condition{{Type: kubeovnv1.Ready, Status: corev1.ConditionFalse, Reason: reasonOvnLbSvcExternalSubnetNotReady}},
+		Spec:       fabricv1.LoadBalancerPoolSpec{Subnet: "lb-subnet"},
+		Status: fabricv1.LoadBalancerPoolStatus{
+			Conditions: []fabricv1.Condition{{Type: fabricv1.Ready, Status: corev1.ConditionFalse, Reason: reasonOvnLbSvcExternalSubnetNotReady}},
 		},
 	}
-	subnet := &kubeovnv1.Subnet{
+	subnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "lb-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "192.168.1.0/24"},
-		Status:     kubeovnv1.SubnetStatus{V4AvailableIPs: internal.BigInt{Int: *big.NewInt(200)}},
+		Spec:       fabricv1.SubnetSpec{CIDRBlock: "192.168.1.0/24"},
+		Status:     fabricv1.SubnetStatus{V4AvailableIPs: internal.BigInt{Int: *big.NewInt(200)}},
 	}
 
-	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Subnets: []*kubeovnv1.Subnet{subnet}})
+	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	ctrl := fakeCtrl.fakeController
 
-	_, err = ctrl.config.KubeOvnClient.FabricV1().LoadBalancerPools().Create(context.Background(), pool, metav1.CreateOptions{})
+	_, err = ctrl.config.FabricClient.FabricV1().LoadBalancerPools().Create(context.Background(), pool, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	require.NoError(t, ctrl.updateLoadBalancerPoolUsage(pool))
 
-	updated, err := ctrl.config.KubeOvnClient.FabricV1().LoadBalancerPools().Get(context.Background(), pool.Name, metav1.GetOptions{})
+	updated, err := ctrl.config.FabricClient.FabricV1().LoadBalancerPools().Get(context.Background(), pool.Name, metav1.GetOptions{})
 	require.NoError(t, err)
-	conditions := kubeovnv1.Conditions(updated.Status.Conditions)
-	ready := conditions.GetCondition(kubeovnv1.Ready)
+	conditions := fabricv1.Conditions(updated.Status.Conditions)
+	ready := conditions.GetCondition(fabricv1.Ready)
 	require.NotNil(t, ready)
 	assert.Equal(t, corev1.ConditionTrue, ready.Status)
 	assert.Equal(t, int64(200), updated.Status.Available)

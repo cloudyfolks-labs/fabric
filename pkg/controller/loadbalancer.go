@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -25,14 +25,14 @@ func lbChildName(name string) string {
 }
 
 func (c *Controller) enqueueAddLoadBalancer(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.LoadBalancer)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.LoadBalancer)).String()
 	klog.Infof("enqueue add LoadBalancer %s", key)
 	c.addLoadBalancerQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateLoadBalancer(oldObj, newObj any) {
-	oldLb := oldObj.(*kubeovnv1.LoadBalancer)
-	newLb := newObj.(*kubeovnv1.LoadBalancer)
+	oldLb := oldObj.(*fabricv1.LoadBalancer)
+	newLb := newObj.(*fabricv1.LoadBalancer)
 	if oldLb.ResourceVersion == newLb.ResourceVersion {
 		return
 	}
@@ -40,12 +40,12 @@ func (c *Controller) enqueueUpdateLoadBalancer(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDeleteLoadBalancer(obj any) {
-	var lb *kubeovnv1.LoadBalancer
+	var lb *fabricv1.LoadBalancer
 	switch t := obj.(type) {
-	case *kubeovnv1.LoadBalancer:
+	case *fabricv1.LoadBalancer:
 		lb = t
 	case cache.DeletedFinalStateUnknown:
-		l, ok := t.Obj.(*kubeovnv1.LoadBalancer)
+		l, ok := t.Obj.(*fabricv1.LoadBalancer)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -104,12 +104,12 @@ func (c *Controller) handleAddOrUpdateLoadBalancer(name string) error {
 		// and the backends' subnet from the endpoint targets, which is
 		// exactly the placement the old annotation contract asked the
 		// caller to know.
-		desired := &kubeovnv1.SwitchLBRule{
+		desired := &fabricv1.SwitchLBRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   child,
 				Labels: childLabels,
 			},
-			Spec: kubeovnv1.SwitchLBRuleSpec{
+			Spec: fabricv1.SwitchLBRuleSpec{
 				Vip:             vip,
 				Namespace:       lb.Spec.Namespace,
 				Selector:        lb.Spec.Selector,
@@ -127,12 +127,12 @@ func (c *Controller) handleAddOrUpdateLoadBalancer(name string) error {
 	if err := c.deleteLoadBalancerChildSwitchRule(child); err != nil {
 		return err
 	}
-	desired := &kubeovnv1.RouterLBRule{
+	desired := &fabricv1.RouterLBRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   child,
 			Labels: childLabels,
 		},
-		Spec: kubeovnv1.RouterLBRuleSpec{
+		Spec: fabricv1.RouterLBRuleSpec{
 			OvnEip:          lb.Spec.Frontend.OvnEip,
 			Vpc:             lb.Spec.Vpc,
 			Namespace:       lb.Spec.Namespace,
@@ -148,7 +148,7 @@ func (c *Controller) handleAddOrUpdateLoadBalancer(name string) error {
 	return c.syncLoadBalancerStatusFromRouterRule(lb, child)
 }
 
-func (c *Controller) syncLoadBalancerStatusFromRouterRule(lb *kubeovnv1.LoadBalancer, child string) error {
+func (c *Controller) syncLoadBalancerStatusFromRouterRule(lb *fabricv1.LoadBalancer, child string) error {
 	vip := ""
 	if eip, err := c.ovnEipsLister.Get(lb.Spec.Frontend.OvnEip); err == nil {
 		vip = eip.Status.V4Ip
@@ -164,7 +164,7 @@ func (c *Controller) syncLoadBalancerStatusFromRouterRule(lb *kubeovnv1.LoadBala
 	updated.Status.Vip = vip
 	updated.Status.Ports = rule.Status.Ports
 	updated.Status.Service = rule.Status.Service
-	_, err = c.config.KubeOvnClient.FabricV1().LoadBalancers().UpdateStatus(context.Background(), updated, metav1.UpdateOptions{})
+	_, err = c.config.FabricClient.FabricV1().LoadBalancers().UpdateStatus(context.Background(), updated, metav1.UpdateOptions{})
 	return err
 }
 
@@ -177,10 +177,10 @@ func (c *Controller) handleDelLoadBalancer(name string) error {
 	return c.deleteLoadBalancerChildRouterRule(child)
 }
 
-func (c *Controller) upsertLoadBalancerChildSwitchRule(desired *kubeovnv1.SwitchLBRule) error {
+func (c *Controller) upsertLoadBalancerChildSwitchRule(desired *fabricv1.SwitchLBRule) error {
 	existing, err := c.switchLBRuleLister.Get(desired.Name)
 	if k8serrors.IsNotFound(err) {
-		_, err = c.config.KubeOvnClient.FabricV1().SwitchLBRules().Create(context.Background(), desired, metav1.CreateOptions{})
+		_, err = c.config.FabricClient.FabricV1().SwitchLBRules().Create(context.Background(), desired, metav1.CreateOptions{})
 		return err
 	}
 	if err != nil {
@@ -190,14 +190,14 @@ func (c *Controller) upsertLoadBalancerChildSwitchRule(desired *kubeovnv1.Switch
 	updated.Labels = desired.Labels
 	updated.Annotations = desired.Annotations
 	updated.Spec = desired.Spec
-	_, err = c.config.KubeOvnClient.FabricV1().SwitchLBRules().Update(context.Background(), updated, metav1.UpdateOptions{})
+	_, err = c.config.FabricClient.FabricV1().SwitchLBRules().Update(context.Background(), updated, metav1.UpdateOptions{})
 	return err
 }
 
-func (c *Controller) upsertLoadBalancerChildRouterRule(desired *kubeovnv1.RouterLBRule) error {
+func (c *Controller) upsertLoadBalancerChildRouterRule(desired *fabricv1.RouterLBRule) error {
 	existing, err := c.routerLBRuleLister.Get(desired.Name)
 	if k8serrors.IsNotFound(err) {
-		_, err = c.config.KubeOvnClient.FabricV1().RouterLBRules().Create(context.Background(), desired, metav1.CreateOptions{})
+		_, err = c.config.FabricClient.FabricV1().RouterLBRules().Create(context.Background(), desired, metav1.CreateOptions{})
 		return err
 	}
 	if err != nil {
@@ -206,25 +206,25 @@ func (c *Controller) upsertLoadBalancerChildRouterRule(desired *kubeovnv1.Router
 	updated := existing.DeepCopy()
 	updated.Labels = desired.Labels
 	updated.Spec = desired.Spec
-	_, err = c.config.KubeOvnClient.FabricV1().RouterLBRules().Update(context.Background(), updated, metav1.UpdateOptions{})
+	_, err = c.config.FabricClient.FabricV1().RouterLBRules().Update(context.Background(), updated, metav1.UpdateOptions{})
 	return err
 }
 
 func (c *Controller) deleteLoadBalancerChildSwitchRule(name string) error {
-	if err := c.config.KubeOvnClient.FabricV1().SwitchLBRules().Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+	if err := c.config.FabricClient.FabricV1().SwitchLBRules().Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 	return nil
 }
 
 func (c *Controller) deleteLoadBalancerChildRouterRule(name string) error {
-	if err := c.config.KubeOvnClient.FabricV1().RouterLBRules().Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+	if err := c.config.FabricClient.FabricV1().RouterLBRules().Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 	return nil
 }
 
-func (c *Controller) syncLoadBalancerStatusFromSwitchRule(lb *kubeovnv1.LoadBalancer, child, vip string) error {
+func (c *Controller) syncLoadBalancerStatusFromSwitchRule(lb *fabricv1.LoadBalancer, child, vip string) error {
 	rule, err := c.switchLBRuleLister.Get(child)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -236,14 +236,14 @@ func (c *Controller) syncLoadBalancerStatusFromSwitchRule(lb *kubeovnv1.LoadBala
 	updated.Status.Vip = vip
 	updated.Status.Ports = rule.Status.Ports
 	updated.Status.Service = rule.Status.Service
-	_, err = c.config.KubeOvnClient.FabricV1().LoadBalancers().UpdateStatus(context.Background(), updated, metav1.UpdateOptions{})
+	_, err = c.config.FabricClient.FabricV1().LoadBalancers().UpdateStatus(context.Background(), updated, metav1.UpdateOptions{})
 	return err
 }
 
-func (c *Controller) patchLoadBalancerStatus(lb *kubeovnv1.LoadBalancer, vip, reason, message string) error {
+func (c *Controller) patchLoadBalancerStatus(lb *fabricv1.LoadBalancer, vip, reason, message string) error {
 	updated := lb.DeepCopy()
 	updated.Status.Vip = vip
-	if _, err := c.config.KubeOvnClient.FabricV1().LoadBalancers().UpdateStatus(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.config.FabricClient.FabricV1().LoadBalancers().UpdateStatus(context.Background(), updated, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("update LoadBalancer %s status: %v", lb.Name, err)
 		return err
 	}
@@ -253,18 +253,18 @@ func (c *Controller) patchLoadBalancerStatus(lb *kubeovnv1.LoadBalancer, vip, re
 	return nil
 }
 
-func toSwitchLBRulePorts(ports []kubeovnv1.LoadBalancerPort) []kubeovnv1.SwitchLBRulePort {
-	out := make([]kubeovnv1.SwitchLBRulePort, 0, len(ports))
+func toSwitchLBRulePorts(ports []fabricv1.LoadBalancerPort) []fabricv1.SwitchLBRulePort {
+	out := make([]fabricv1.SwitchLBRulePort, 0, len(ports))
 	for _, p := range ports {
-		out = append(out, kubeovnv1.SwitchLBRulePort(p))
+		out = append(out, fabricv1.SwitchLBRulePort(p))
 	}
 	return out
 }
 
-func toRouterLBRulePorts(ports []kubeovnv1.LoadBalancerPort) []kubeovnv1.RouterLBRulePort {
-	out := make([]kubeovnv1.RouterLBRulePort, 0, len(ports))
+func toRouterLBRulePorts(ports []fabricv1.LoadBalancerPort) []fabricv1.RouterLBRulePort {
+	out := make([]fabricv1.RouterLBRulePort, 0, len(ports))
 	for _, p := range ports {
-		out = append(out, kubeovnv1.RouterLBRulePort(p))
+		out = append(out, fabricv1.RouterLBRulePort(p))
 	}
 	return out
 }

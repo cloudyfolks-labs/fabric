@@ -21,8 +21,8 @@ package fake
 import (
 	applyconfiguration "github.com/cloudyfolks-labs/fabric/pkg/client/applyconfiguration"
 	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
-	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
-	fakefabricv1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1/fake"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
+	fakefabricv1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"

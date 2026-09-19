@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -26,7 +26,7 @@ func (c *Controller) AddOrUpdateUnderlaySubnetSvcLocalFlowCache(serviceIP string
 		return fmt.Errorf("patch-localnet port %s not ready on bridge %s for underlay service flow %s:%d: %w", patchPortName, bridgeName, serviceIP, port, err)
 	}
 
-	isIPv6 := util.CheckProtocol(serviceIP) == kubeovnv1.ProtocolIPv6
+	isIPv6 := util.CheckProtocol(serviceIP) == fabricv1.ProtocolIPv6
 	protoStr := ""
 	switch strings.ToUpper(protocol) {
 	case "TCP":

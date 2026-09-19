@@ -6,7 +6,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestRenderEmpty(t *testing.T) {
@@ -180,12 +180,12 @@ func TestRenderNoFilterPermitsAll(t *testing.T) {
 }
 
 func TestBuildRenderInput(t *testing.T) {
-	conf := &kubeovnv1.BgpConf{
-		Spec: kubeovnv1.BgpConfSpec{
+	conf := &fabricv1.BgpConf{
+		Spec: fabricv1.BgpConfSpec{
 			LocalASN:   65002,
 			PeerASN:    65001,
 			Neighbours: []string{"10.0.0.9"},
-			Peers: []kubeovnv1.BgpPeer{
+			Peers: []fabricv1.BgpPeer{
 				{Address: "10.0.0.10", BFD: true},
 				{Address: "10.0.0.11", ASN: 65500},
 			},
@@ -260,16 +260,16 @@ func TestValidateRenderInput(t *testing.T) {
 
 func TestNodeApplyState(t *testing.T) {
 	state, message := nodeApplyState("abc", ApplyStatus{AppliedSerial: "abc"})
-	if state != kubeovnv1.BgpNodeStateApplied || message != "" {
+	if state != fabricv1.BgpNodeStateApplied || message != "" {
 		t.Errorf("expected an applied state, got %q %q", state, message)
 	}
 
 	state, message = nodeApplyState("abc", ApplyStatus{ResultSerial: "abc", ResultState: "error", Detail: "error abc reload"})
-	if state != kubeovnv1.BgpNodeStateFailed || message != "error abc reload" {
+	if state != fabricv1.BgpNodeStateFailed || message != "error abc reload" {
 		t.Errorf("expected a failed state, got %q %q", state, message)
 	}
 
-	if state, _ = nodeApplyState("abc", ApplyStatus{AppliedSerial: "old"}); state != kubeovnv1.BgpNodeStatePending {
+	if state, _ = nodeApplyState("abc", ApplyStatus{AppliedSerial: "old"}); state != fabricv1.BgpNodeStatePending {
 		t.Errorf("expected a pending state, got %q", state)
 	}
 }
@@ -292,8 +292,8 @@ func TestRenderHostTables(t *testing.T) {
 }
 
 func TestBuildRenderInputHostTables(t *testing.T) {
-	conf := &kubeovnv1.BgpConf{
-		Spec: kubeovnv1.BgpConfSpec{
+	conf := &fabricv1.BgpConf{
+		Spec: fabricv1.BgpConfSpec{
 			LocalASN:           65002,
 			PeerASN:            65001,
 			RedistributeTables: []uint32{201, 198, 198},

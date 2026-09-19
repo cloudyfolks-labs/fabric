@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -26,17 +26,17 @@ func Test_handleAddNamespace_orphanedSubnet(t *testing.T) {
 	}
 	// A broken subnet whose referenced VPC does not exist - it must not stop the
 	// loop from reaching the valid subnet below.
-	orphanSubnet := &kubeovnv1.Subnet{
+	orphanSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "orphan-subnet"},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			Vpc:       "ghost-vpc",
 			CIDRBlock: "10.16.0.0/16",
 		},
 	}
 	// A valid subnet that binds the namespace via Spec.Namespaces.
-	validSubnet := &kubeovnv1.Subnet{
+	validSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "valid-subnet"},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			Namespaces: []string{nsName},
 			CIDRBlock:  "10.17.0.0/16",
 		},
@@ -44,7 +44,7 @@ func Test_handleAddNamespace_orphanedSubnet(t *testing.T) {
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Namespaces: []*corev1.Namespace{ns},
-		Subnets:    []*kubeovnv1.Subnet{orphanSubnet, validSubnet},
+		Subnets:    []*fabricv1.Subnet{orphanSubnet, validSubnet},
 	})
 	require.NoError(t, err)
 	ctrl := fakeCtrl.fakeController

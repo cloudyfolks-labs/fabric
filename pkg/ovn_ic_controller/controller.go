@@ -15,9 +15,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
-	kubeovnlister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricinformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	fabriclister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -27,18 +27,18 @@ const controllerAgentName = "ovn-ic-controller"
 type Controller struct {
 	config *Configuration
 
-	subnetsLister    kubeovnlister.SubnetLister
+	subnetsLister    fabriclister.SubnetLister
 	subnetSynced     cache.InformerSynced
 	nodesLister      listerv1.NodeLister
 	nodesSynced      cache.InformerSynced
 	configMapsLister listerv1.ConfigMapLister
 	configMapsSynced cache.InformerSynced
-	vpcsLister       kubeovnlister.VpcLister
+	vpcsLister       fabriclister.VpcLister
 	vpcSynced        cache.InformerSynced
 
-	informerFactory        kubeinformers.SharedInformerFactory
-	kubeovnInformerFactory kubeovninformer.SharedInformerFactory
-	recorder               record.EventRecorder
+	informerFactory       kubeinformers.SharedInformerFactory
+	fabricInformerFactory fabricinformer.SharedInformerFactory
+	recorder              record.EventRecorder
 
 	ovnLegacyClient *ovs.LegacyClient
 	OVNNbClient     ovs.NbClient
@@ -46,7 +46,7 @@ type Controller struct {
 }
 
 func NewController(config *Configuration) *Controller {
-	utilruntime.Must(kubeovnv1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(fabricv1.AddToScheme(scheme.Scheme))
 	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
@@ -58,15 +58,15 @@ func NewController(config *Configuration) *Controller {
 		kubeinformers.WithTweakListOptions(func(listOption *metav1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
-	kubeovnInformerFactory := kubeovninformer.NewSharedInformerFactoryWithOptions(config.KubeOvnClient, 0,
-		kubeovninformer.WithTransform(util.TrimManagedFields),
-		kubeovninformer.WithTweakListOptions(func(listOption *metav1.ListOptions) {
+	fabricInformerFactory := fabricinformer.NewSharedInformerFactoryWithOptions(config.FabricClient, 0,
+		fabricinformer.WithTransform(util.TrimManagedFields),
+		fabricinformer.WithTweakListOptions(func(listOption *metav1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
 
-	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
+	vpcInformer := fabricInformerFactory.Fabric().V1().Vpcs()
 	nodeInformer := informerFactory.Core().V1().Nodes()
-	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
+	subnetInformer := fabricInformerFactory.Fabric().V1().Subnets()
 	configMapInformer := informerFactory.Core().V1().ConfigMaps()
 
 	controller := &Controller{
@@ -81,9 +81,9 @@ func NewController(config *Configuration) *Controller {
 		configMapsLister: configMapInformer.Lister(),
 		configMapsSynced: configMapInformer.Informer().HasSynced,
 
-		informerFactory:        informerFactory,
-		kubeovnInformerFactory: kubeovnInformerFactory,
-		recorder:               recorder,
+		informerFactory:       informerFactory,
+		fabricInformerFactory: fabricInformerFactory,
+		recorder:              recorder,
 
 		ovnLegacyClient: ovs.NewLegacyClient(config.OvnTimeout),
 	}
@@ -114,7 +114,7 @@ func NewController(config *Configuration) *Controller {
 func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	c.informerFactory.Start(stopCh)
-	c.kubeovnInformerFactory.Start(stopCh)
+	c.fabricInformerFactory.Start(stopCh)
 
 	if !cache.WaitForCacheSync(stopCh, c.subnetSynced, c.nodesSynced) {
 		util.LogFatalAndExit(nil, "failed to wait for caches to sync")

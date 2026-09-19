@@ -7,41 +7,41 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-func dynamicRoutingVpc(name string, vrfID uint32, extraExternalSubnets ...string) *kubeovnv1.Vpc {
-	return &kubeovnv1.Vpc{
+func dynamicRoutingVpc(name string, vrfID uint32, extraExternalSubnets ...string) *fabricv1.Vpc {
+	return &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: kubeovnv1.VpcSpec{
+		Spec: fabricv1.VpcSpec{
 			EnableExternal:       true,
 			ExtraExternalSubnets: extraExternalSubnets,
-			DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+			DynamicRouting: &fabricv1.VpcDynamicRouting{
 				Enabled:      true,
 				VrfID:        vrfID,
-				Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+				Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeNAT},
 			},
 		},
 	}
 }
 
-func lrpEip(vpc, subnet, v4ip string) *kubeovnv1.OvnEip {
-	return &kubeovnv1.OvnEip{
+func lrpEip(vpc, subnet, v4ip string) *fabricv1.OvnEip {
+	return &fabricv1.OvnEip{
 		ObjectMeta: metav1.ObjectMeta{Name: vpc + "-" + subnet},
-		Spec:       kubeovnv1.OvnEipSpec{Type: util.OvnEipTypeLRP, ExternalSubnet: subnet},
-		Status:     kubeovnv1.OvnEipStatus{V4Ip: v4ip, Ready: true},
+		Spec:       fabricv1.OvnEipSpec{Type: util.OvnEipTypeLRP, ExternalSubnet: subnet},
+		Status:     fabricv1.OvnEipStatus{V4Ip: v4ip, Ready: true},
 	}
 }
 
 func TestVpcAdvertisementsNeedNoVrfDevice(t *testing.T) {
-	vpcs := []*kubeovnv1.Vpc{
+	vpcs := []*fabricv1.Vpc{
 		dynamicRoutingVpc("vpc-a", 1001),
 		dynamicRoutingVpc("vpc-no-id", 0),
 		dynamicRoutingVpc("vpc-no-lrp", 1003),
-		{ObjectMeta: metav1.ObjectMeta{Name: "vpc-static"}, Spec: kubeovnv1.VpcSpec{EnableExternal: true}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "vpc-static"}, Spec: fabricv1.VpcSpec{EnableExternal: true}},
 	}
-	eips := []*kubeovnv1.OvnEip{
+	eips := []*fabricv1.OvnEip{
 		lrpEip("vpc-a", "external", "10.0.0.21"),
 		lrpEip("vpc-no-id", "external", "10.0.0.22"),
 		lrpEip("vpc-static", "external", "10.0.0.24"),
@@ -59,8 +59,8 @@ func TestVpcAdvertisementsNeedNoVrfDevice(t *testing.T) {
 func TestVpcAdvertisementsSkipTablesOwnedByAVrfDevice(t *testing.T) {
 	named := dynamicRoutingVpc("vpc-named", 1001)
 	named.Spec.DynamicRouting.VrfName = "tenant-a"
-	vpcs := []*kubeovnv1.Vpc{named, dynamicRoutingVpc("vpc-default-name", 1002), dynamicRoutingVpc("vpc-plain", 1003)}
-	eips := []*kubeovnv1.OvnEip{
+	vpcs := []*fabricv1.Vpc{named, dynamicRoutingVpc("vpc-default-name", 1002), dynamicRoutingVpc("vpc-plain", 1003)}
+	eips := []*fabricv1.OvnEip{
 		lrpEip("vpc-named", "external", "10.0.0.21"),
 		lrpEip("vpc-default-name", "external", "10.0.0.22"),
 		lrpEip("vpc-plain", "external", "10.0.0.23"),
@@ -76,14 +76,14 @@ func TestVpcAdvertisementsSkipTablesOwnedByAVrfDevice(t *testing.T) {
 }
 
 func TestAdvertisedSubnetNamesIncludeNatEipSubnets(t *testing.T) {
-	pools := []*kubeovnv1.LoadBalancerPool{
-		{ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"}, Spec: kubeovnv1.LoadBalancerPoolSpec{Subnet: "lb-pool", Announce: kubeovnv1.LoadBalancerPoolAnnounceBGP}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "pool-l2"}, Spec: kubeovnv1.LoadBalancerPoolSpec{Subnet: "external", Announce: kubeovnv1.LoadBalancerPoolAnnounceL2}},
+	pools := []*fabricv1.LoadBalancerPool{
+		{ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"}, Spec: fabricv1.LoadBalancerPoolSpec{Subnet: "lb-pool", Announce: fabricv1.LoadBalancerPoolAnnounceBGP}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "pool-l2"}, Spec: fabricv1.LoadBalancerPoolSpec{Subnet: "external", Announce: fabricv1.LoadBalancerPoolAnnounceL2}},
 	}
-	eips := []*kubeovnv1.OvnEip{
-		{ObjectMeta: metav1.ObjectMeta{Name: "eip-a"}, Spec: kubeovnv1.OvnEipSpec{Type: util.OvnEipTypeNAT, ExternalSubnet: "eip-pool"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "eip-b"}, Spec: kubeovnv1.OvnEipSpec{Type: util.OvnEipTypeNAT, ExternalSubnet: "eip-pool"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "eip-c"}, Spec: kubeovnv1.OvnEipSpec{Type: util.OvnEipTypeNAT, ExternalSubnet: "lb-pool"}},
+	eips := []*fabricv1.OvnEip{
+		{ObjectMeta: metav1.ObjectMeta{Name: "eip-a"}, Spec: fabricv1.OvnEipSpec{Type: util.OvnEipTypeNAT, ExternalSubnet: "eip-pool"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "eip-b"}, Spec: fabricv1.OvnEipSpec{Type: util.OvnEipTypeNAT, ExternalSubnet: "eip-pool"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "eip-c"}, Spec: fabricv1.OvnEipSpec{Type: util.OvnEipTypeNAT, ExternalSubnet: "lb-pool"}},
 		lrpEip("vpc-a", "external", "10.0.0.21"),
 	}
 
@@ -96,9 +96,9 @@ func TestAdvertisedSubnetNamesIncludeNatEipSubnets(t *testing.T) {
 }
 
 func TestHostRouteEntriesAreIPv4HostPrefixes(t *testing.T) {
-	subnets := []*kubeovnv1.Subnet{
-		{ObjectMeta: metav1.ObjectMeta{Name: "eip-pool"}, Spec: kubeovnv1.SubnetSpec{CIDRBlock: "203.0.113.0/24,fd00::/64"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "lb-pool"}, Spec: kubeovnv1.SubnetSpec{CIDRBlock: "198.51.100.0/24"}},
+	subnets := []*fabricv1.Subnet{
+		{ObjectMeta: metav1.ObjectMeta{Name: "eip-pool"}, Spec: fabricv1.SubnetSpec{CIDRBlock: "203.0.113.0/24,fd00::/64"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "lb-pool"}, Spec: fabricv1.SubnetSpec{CIDRBlock: "198.51.100.0/24"}},
 	}
 
 	got := hostRouteEntries(subnets)
@@ -110,7 +110,7 @@ func TestHostRouteEntriesAreIPv4HostPrefixes(t *testing.T) {
 }
 
 func TestLrpAddressFollowsTheSingleExternalSubnet(t *testing.T) {
-	eips := []*kubeovnv1.OvnEip{
+	eips := []*fabricv1.OvnEip{
 		lrpEip("vpc-a", "external", "10.0.0.21"),
 		lrpEip("vpc-a", "transit", "10.1.0.21"),
 		lrpEip("vpc-b", "external", "10.0.0.22"),
@@ -136,12 +136,12 @@ func TestLrpAddressFollowsTheSingleExternalSubnet(t *testing.T) {
 }
 
 func TestLrpAddressFollowsTheNamedExternalSubnet(t *testing.T) {
-	eips := []*kubeovnv1.OvnEip{
+	eips := []*fabricv1.OvnEip{
 		lrpEip("vpc-a", "transit", "10.1.0.21"),
 		lrpEip("vpc-a", "services", "10.2.0.21"),
 		lrpEip("vpc-b", "external", "10.0.0.22"),
 	}
-	named := func(name, subnet string, extra ...string) *kubeovnv1.Vpc {
+	named := func(name, subnet string, extra ...string) *fabricv1.Vpc {
 		vpc := dynamicRoutingVpc(name, 1001, extra...)
 		vpc.Spec.DynamicRouting.ExternalSubnet = subnet
 		return vpc

@@ -179,7 +179,7 @@ func Get(table, record, column, key string, ifExists bool) (string, error) {
 	return Exec(args...)
 }
 
-// Bridges returns bridges created by Kube-OVN
+// Bridges returns bridges created by fabric
 func Bridges() ([]string, error) {
 	return ovsFind("bridge", "name", "external-ids:vendor="+util.VendorTag)
 }

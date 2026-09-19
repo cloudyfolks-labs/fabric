@@ -24,7 +24,7 @@ ifeq ($(strip $(GO_MOD_VERSION)),)
 $(error failed to determine Go version from go.mod)
 endif
 GOTOOLCHAIN_VERSION := go$(GO_MOD_VERSION)
-MODERNIZE_EXCLUDE := github.com/cloudyfolks-labs/fabric/mocks|github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn|github.com/cloudyfolks-labs/fabric/pkg/client
+MODERNIZE_EXCLUDE := github.com/cloudyfolks-labs/fabric/mocks|github.com/cloudyfolks-labs/fabric/pkg/apis/fabric|github.com/cloudyfolks-labs/fabric/pkg/client
 
 .PHONY: gen-crd
 gen-crd:

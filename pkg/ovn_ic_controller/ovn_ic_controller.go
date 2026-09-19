@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -447,9 +447,9 @@ func (c *Controller) delLearnedRoute() error {
 	return nil
 }
 
-func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string, policy kubeovnv1.RoutePolicy) error {
+func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string, policy fabricv1.RoutePolicy) error {
 	var (
-		vpc, cachedVpc *kubeovnv1.Vpc
+		vpc, cachedVpc *fabricv1.Vpc
 		policyStr      string
 		err            error
 	)
@@ -470,7 +470,7 @@ func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string,
 	}
 	vpc = cachedVpc.DeepCopy()
 	// make sure custom policies not be deleted
-	_, err = c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
+	_, err = c.config.FabricClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -613,7 +613,7 @@ func (c *Controller) syncOneRouteToPolicy(key, value string) {
 			return true
 		}
 		match := util.MatchV4Dst + " == " + prefix
-		if util.CheckProtocol(prefix) == kubeovnv1.ProtocolIPv6 {
+		if util.CheckProtocol(prefix) == fabricv1.ProtocolIPv6 {
 			match = util.MatchV6Dst + " == " + prefix
 		}
 
@@ -664,16 +664,16 @@ func generateNewOrderGwNodes(arr []string, order int) []string {
 	return append(arr[order:], arr[:order]...)
 }
 
-func convertPolicy(origin kubeovnv1.RoutePolicy) string {
-	if origin == kubeovnv1.PolicyDst {
+func convertPolicy(origin fabricv1.RoutePolicy) string {
+	if origin == fabricv1.PolicyDst {
 		return ovnnb.LogicalRouterStaticRoutePolicyDstIP
 	}
 	return ovnnb.LogicalRouterStaticRoutePolicySrcIP
 }
 
-func reversePolicy(origin ovnnb.LogicalRouterStaticRoutePolicy) kubeovnv1.RoutePolicy {
+func reversePolicy(origin ovnnb.LogicalRouterStaticRoutePolicy) fabricv1.RoutePolicy {
 	if origin == ovnnb.LogicalRouterStaticRoutePolicyDstIP {
-		return kubeovnv1.PolicyDst
+		return fabricv1.PolicyDst
 	}
-	return kubeovnv1.PolicySrc
+	return fabricv1.PolicySrc
 }

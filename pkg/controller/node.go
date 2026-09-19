@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -56,8 +56,8 @@ func nodeReady(node *v1.Node) bool {
 	return ready && !networkUnavailable
 }
 
-func kubeOvnAnnotationsChanged(oldAnnotations, newAnnotations map[string]string) bool {
-	filterKubeOvnAnnotations := func(annotations map[string]string) map[string]string {
+func fabricAnnotationsChanged(oldAnnotations, newAnnotations map[string]string) bool {
+	filterFabricAnnotations := func(annotations map[string]string) map[string]string {
 		filtered := make(map[string]string)
 		for key, value := range annotations {
 			if strings.Contains(key, ".cloudyfolks.io/") {
@@ -67,10 +67,10 @@ func kubeOvnAnnotationsChanged(oldAnnotations, newAnnotations map[string]string)
 		return filtered
 	}
 
-	return !maps.Equal(filterKubeOvnAnnotations(oldAnnotations), filterKubeOvnAnnotations(newAnnotations))
+	return !maps.Equal(filterFabricAnnotations(oldAnnotations), filterFabricAnnotations(newAnnotations))
 }
 
-func (c *Controller) listVpcBFDPorts() ([]*kubeovnv1.Vpc, error) {
+func (c *Controller) listVpcBFDPorts() ([]*fabricv1.Vpc, error) {
 	if c.vpcIndexer == nil {
 		return c.vpcsLister.List(labels.Everything())
 	}
@@ -79,9 +79,9 @@ func (c *Controller) listVpcBFDPorts() ([]*kubeovnv1.Vpc, error) {
 	if err != nil {
 		return nil, err
 	}
-	vpcs := make([]*kubeovnv1.Vpc, 0, len(objs))
+	vpcs := make([]*fabricv1.Vpc, 0, len(objs))
 	for _, obj := range objs {
-		vpc, ok := obj.(*kubeovnv1.Vpc)
+		vpc, ok := obj.(*fabricv1.Vpc)
 		if !ok {
 			klog.Warningf("unexpected object type in VPC BFDPort indexer: %T", obj)
 			continue
@@ -152,7 +152,7 @@ func (c *Controller) enqueueUpdateNode(oldObj, newObj any) {
 	nodeLabelsChanged := !maps.Equal(oldNode.Labels, newNode.Labels)
 
 	key := cache.MetaObjectToName(newNode).String()
-	if nodeReadyChanged || kubeOvnAnnotationsChanged(oldNode.Annotations, newNode.Annotations) {
+	if nodeReadyChanged || fabricAnnotationsChanged(oldNode.Annotations, newNode.Annotations) {
 		if len(newNode.Annotations) == 0 || newNode.Annotations[util.AllocatedAnnotation] != "true" {
 			klog.V(3).Infof("enqueue add node %s", key)
 			c.addNodeQueue.Add(key)
@@ -167,7 +167,7 @@ func (c *Controller) enqueueUpdateNode(oldObj, newObj any) {
 	if nodeReadyChanged || nodeLabelsChanged {
 		c.enqueueVpcBFDPortByNodeChange(oldNode, newNode)
 	}
-	if nodeLabelsChanged || kubeOvnAnnotationsChanged(oldNode.Annotations, newNode.Annotations) {
+	if nodeLabelsChanged || fabricAnnotationsChanged(oldNode.Annotations, newNode.Annotations) {
 		c.enqueueVpcExternalGatewayByNodeChange(oldNode, newNode)
 	}
 }
@@ -287,13 +287,13 @@ func (c *Controller) handleAddNode(key string) error {
 
 		nodeIP, af := nodeIPv4, 4
 		protocol := util.CheckProtocol(ip)
-		if protocol == kubeovnv1.ProtocolIPv6 {
+		if protocol == fabricv1.ProtocolIPv6 {
 			nodeIP, af = nodeIPv6, 6
 		}
 		if nodeIP != "" {
 			var (
 				match       = fmt.Sprintf("ip%d.dst == %s", af, nodeIP)
-				action      = kubeovnv1.PolicyRouteActionReroute
+				action      = fabricv1.PolicyRouteActionReroute
 				externalIDs = map[string]string{
 					"vendor":         util.VendorTag,
 					"node":           node.Name,
@@ -303,7 +303,7 @@ func (c *Controller) handleAddNode(key string) error {
 			klog.Infof("add policy route for router: %s, match %s, action %s, nexthop %s, externalID %v", c.config.ClusterRouter, match, action, ip, externalIDs)
 			if err = c.addPolicyRouteToVpc(
 				c.config.ClusterRouter,
-				&kubeovnv1.PolicyRoute{
+				&fabricv1.PolicyRoute{
 					Priority:  util.NodeRouterPolicyPriority,
 					Match:     match,
 					Action:    action,
@@ -349,7 +349,7 @@ func (c *Controller) handleAddNode(key string) error {
 	}
 
 	for _, subnet := range subnets {
-		if (subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) || subnet.Spec.Vpc != c.config.ClusterRouter || subnet.Name == c.config.NodeSwitch || subnet.Spec.GatewayType != kubeovnv1.GWDistributedType {
+		if (subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) || subnet.Spec.Vpc != c.config.ClusterRouter || subnet.Name == c.config.NodeSwitch || subnet.Spec.GatewayType != fabricv1.GWDistributedType {
 			continue
 		}
 		if err = c.createPortGroupForDistributedSubnet(node, subnet); err != nil {
@@ -394,7 +394,7 @@ func (c *Controller) handleNodeAnnotationsForProviderNetworks(node *v1.Node) err
 		excludeAnno := fmt.Sprintf(util.ProviderNetworkExcludeTemplate, pn.Name)
 		interfaceAnno := fmt.Sprintf(util.ProviderNetworkInterfaceTemplate, pn.Name)
 
-		var newPn *kubeovnv1.ProviderNetwork
+		var newPn *fabricv1.ProviderNetwork
 		excluded, err := util.IsNodeExcludedFromProviderNetwork(node, pn)
 		if err != nil {
 			klog.Error(err)
@@ -430,14 +430,14 @@ func (c *Controller) handleNodeAnnotationsForProviderNetworks(node *v1.Node) err
 				if index != nil {
 					newPn.Spec.CustomInterfaces[*index].Nodes = append(newPn.Spec.CustomInterfaces[*index].Nodes, node.Name)
 				} else {
-					ci := kubeovnv1.CustomInterface{Interface: customInterface, Nodes: []string{node.Name}}
+					ci := fabricv1.CustomInterface{Interface: customInterface, Nodes: []string{node.Name}}
 					newPn.Spec.CustomInterfaces = append(newPn.Spec.CustomInterfaces, ci)
 				}
 			}
 		}
 
 		if newPn != nil {
-			if newPn, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
+			if newPn, err = c.config.FabricClient.FabricV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("failed to update provider network %s: %v", pn.Name, err)
 				return err
 			}
@@ -459,7 +459,7 @@ func (c *Controller) handleNodeAnnotationsForProviderNetworks(node *v1.Node) err
 			}
 
 			if newPn.Status.EnsureNodeStandardConditions(node.Name) {
-				_, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
+				_, err = c.config.FabricClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
 				if err != nil {
 					klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 					return err
@@ -555,14 +555,14 @@ func (c *Controller) deleteNode(key string) error {
 		}
 	}
 	klog.Infof("delete node ip %s", portName)
-	if err = c.config.KubeOvnClient.FabricV1().IPs().Delete(context.Background(), portName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+	if err = c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), portName, metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Controller) updateProviderNetworkForNodeDeletion(pn *kubeovnv1.ProviderNetwork, node string) error {
+func (c *Controller) updateProviderNetworkForNodeDeletion(pn *fabricv1.ProviderNetwork, node string) error {
 	// update provider network status
 	var needUpdate bool
 	newPn := pn.DeepCopy()
@@ -575,7 +575,7 @@ func (c *Controller) updateProviderNetworkForNodeDeletion(pn *kubeovnv1.Provider
 	}
 	if needUpdate {
 		var err error
-		newPn, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
+		newPn, err = c.config.FabricClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 			return err
@@ -590,14 +590,14 @@ func (c *Controller) updateProviderNetworkForNodeDeletion(pn *kubeovnv1.Provider
 	}
 
 	var changed bool
-	customInterfaces := make([]kubeovnv1.CustomInterface, 0, len(pn.Spec.CustomInterfaces))
+	customInterfaces := make([]fabricv1.CustomInterface, 0, len(pn.Spec.CustomInterfaces))
 	for _, ci := range pn.Spec.CustomInterfaces {
 		nodes := util.RemoveString(ci.Nodes, node)
 		if !changed {
 			changed = len(nodes) == 0 || len(nodes) != len(ci.Nodes)
 		}
 		if len(nodes) != 0 {
-			customInterfaces = append(customInterfaces, kubeovnv1.CustomInterface{Interface: ci.Interface, Nodes: nodes})
+			customInterfaces = append(customInterfaces, fabricv1.CustomInterface{Interface: ci.Interface, Nodes: nodes})
 		}
 	}
 	if changed {
@@ -605,7 +605,7 @@ func (c *Controller) updateProviderNetworkForNodeDeletion(pn *kubeovnv1.Provider
 		newPn.Spec.CustomInterfaces = customInterfaces
 	}
 	if newPn != nil {
-		if _, err := c.config.KubeOvnClient.FabricV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.config.FabricClient.FabricV1().ProviderNetworks().Update(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update provider network %s: %v", pn.Name, err)
 			return err
 		}
@@ -651,7 +651,7 @@ func (c *Controller) handleUpdateNode(key string) error {
 	c.distributedSubnetNeedSync.Store(true)
 
 	for _, cachedSubnet := range subnets {
-		if cachedSubnet.Spec.GatewayType != kubeovnv1.GWCentralizedType {
+		if cachedSubnet.Spec.GatewayType != fabricv1.GWCentralizedType {
 			continue
 		}
 
@@ -695,7 +695,7 @@ func (c *Controller) syncDistributedSubnetRoutes() {
 	for _, subnet := range subnets {
 		if subnet.Spec.Vpc != c.config.ClusterRouter ||
 			subnet.Name == c.config.NodeSwitch ||
-			subnet.Spec.GatewayType != kubeovnv1.GWDistributedType ||
+			subnet.Spec.GatewayType != fabricv1.GWDistributedType ||
 			(subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) {
 			continue
 		}
@@ -730,7 +730,7 @@ func (c *Controller) checkSubnetGatewayNode() error {
 			subnet.Spec.Vpc != c.config.ClusterRouter ||
 			subnet.Name == c.config.NodeSwitch ||
 			subnet.Spec.GatewayNode == "" ||
-			subnet.Spec.GatewayType != kubeovnv1.GWCentralizedType ||
+			subnet.Spec.GatewayType != fabricv1.GWCentralizedType ||
 			!subnet.Spec.EnableEcmp {
 			continue
 		}
@@ -917,7 +917,7 @@ func (c *Controller) fetchPodsOnNode(nodeName string) ([]string, error) {
 
 		podName := c.getNameByPod(pod)
 
-		podNets, err := c.getPodKubeovnNets(pod)
+		podNets, err := c.getPodFabricNets(pod)
 		if err != nil {
 			klog.Errorf("failed to get pod nets %v", err)
 			return nil, err
@@ -1037,7 +1037,7 @@ func (c *Controller) UpdateChassisTag(node *v1.Node) error {
 
 func (c *Controller) getPolicyRouteParams(cidr string, priority int) (*strset.Set, map[string]string, error) {
 	ipSuffix := "ip4"
-	if util.CheckProtocol(cidr) == kubeovnv1.ProtocolIPv6 {
+	if util.CheckProtocol(cidr) == fabricv1.ProtocolIPv6 {
 		ipSuffix = "ip6"
 	}
 	match := fmt.Sprintf("%s.src == %s", ipSuffix, cidr)
@@ -1076,7 +1076,7 @@ func (c *Controller) deletePolicyRouteForNode(nodeName, portName string) error {
 			continue
 		}
 
-		if subnet.Spec.GatewayType == kubeovnv1.GWDistributedType {
+		if subnet.Spec.GatewayType == fabricv1.GWDistributedType {
 			pgName := getOverlaySubnetsPortGroupName(subnet.Name, nodeName)
 			if err = c.OVNNbClient.DeletePortGroup(pgName); err != nil {
 				klog.Errorf("delete port group for subnet %s and node %s: %v", subnet.Name, nodeName, err)
@@ -1090,7 +1090,7 @@ func (c *Controller) deletePolicyRouteForNode(nodeName, portName string) error {
 			}
 		}
 
-		if subnet.Spec.GatewayType == kubeovnv1.GWCentralizedType {
+		if subnet.Spec.GatewayType == fabricv1.GWCentralizedType {
 			c.subnetKeyMutex.LockKey(subnet.Name)
 			err = func() error {
 				defer func() { _ = c.subnetKeyMutex.UnlockKey(subnet.Name) }()
@@ -1151,7 +1151,7 @@ func (c *Controller) addPolicyRouteForCentralizedSubnetOnNode(node *v1.Node, nod
 	}
 
 	for _, subnet := range subnets {
-		if (subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) || subnet.Spec.Vpc != c.config.ClusterRouter || subnet.Name == c.config.NodeSwitch || subnet.Spec.GatewayType != kubeovnv1.GWCentralizedType {
+		if (subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) || subnet.Spec.Vpc != c.config.ClusterRouter || subnet.Name == c.config.NodeSwitch || subnet.Spec.GatewayType != fabricv1.GWCentralizedType {
 			continue
 		}
 		c.subnetKeyMutex.LockKey(subnet.Name)
@@ -1223,7 +1223,7 @@ func (c *Controller) addPolicyRouteForLocalDNSCacheOnNode(dnsIPs []string, nodeP
 			"isLocalDNSCache": "true",
 		}
 		pgAs     = strings.ReplaceAll(fmt.Sprintf("%s_ip%d", nodePortName, af), "-", ".")
-		action   = kubeovnv1.PolicyRouteActionReroute
+		action   = fabricv1.PolicyRouteActionReroute
 		nextHops = []string{nodeIP}
 	)
 	matches := strset.NewWithSize(len(dnsIPs))
@@ -1254,7 +1254,7 @@ func (c *Controller) addPolicyRouteForLocalDNSCacheOnNode(dnsIPs []string, nodeP
 		klog.Infof("add node local dns cache policy route for router %s: match %q, action %q, nexthop %q, externalID %v", c.config.ClusterRouter, match, action, nodeIP, externalIDs)
 		if err := c.addPolicyRouteToVpc(
 			c.config.ClusterRouter,
-			&kubeovnv1.PolicyRoute{
+			&fabricv1.PolicyRoute{
 				Priority:  util.NodeRouterPolicyPriority,
 				Match:     match,
 				Action:    action,

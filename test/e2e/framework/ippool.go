@@ -16,8 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/kubernetes/test/e2e/framework"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -30,7 +30,7 @@ type IPPoolClient struct {
 func (f *Framework) IPPoolClient() *IPPoolClient {
 	return &IPPoolClient{
 		f:               f,
-		IPPoolInterface: f.KubeOVNClientSet.FabricV1().IPPools(),
+		IPPoolInterface: f.FabricClientSet.FabricV1().IPPools(),
 	}
 }
 

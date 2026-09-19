@@ -168,8 +168,8 @@ func (c *OVNSbClient) UpdateChassisTag(chassisName, nodeName string) error {
 	return nil
 }
 
-// GetKubeOvnChassises return all chassis which vendor is fabric
-func (c *OVNSbClient) GetKubeOvnChassises() (*[]ovnsb.Chassis, error) {
+// GetFabricChassises return all chassis which vendor is fabric
+func (c *OVNSbClient) GetFabricChassises() (*[]ovnsb.Chassis, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 

@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestObjectMatchesLabelSelector(t *testing.T) {
@@ -423,7 +423,7 @@ func TestSetOwnerReference(t *testing.T) {
 	}{
 		{
 			name: "base",
-			owner: &kubeovnv1.Vpc{
+			owner: &fabricv1.Vpc{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: fmt.Sprintf("veg-%05d", rand.IntN(10000)),
 					UID:  uuid.NewUUID(),
@@ -880,7 +880,7 @@ func TestObjectKind(t *testing.T) {
 		},
 		{
 			name:     "Custom Resource object",
-			result:   ObjectKind[*kubeovnv1.Subnet](),
+			result:   ObjectKind[*fabricv1.Subnet](),
 			expected: "Subnet",
 		},
 	}
@@ -912,7 +912,7 @@ func TestTrimManagedFields(t *testing.T) {
 		},
 	}, {
 		name: "object without managed fields",
-		arg: &kubeovnv1.Subnet{
+		arg: &fabricv1.Subnet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-subnet-no-managed-fields",
 			},
@@ -1198,7 +1198,7 @@ func reportRetainedBytesPerPod(b *testing.B, transform func(any) (any, error)) {
 }
 
 func TestTrimPodForControllerNonPod(t *testing.T) {
-	subnet := &kubeovnv1.Subnet{
+	subnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:          "s1",
 			ManagedFields: []metav1.ManagedFieldsEntry{{Manager: "ctrl"}},

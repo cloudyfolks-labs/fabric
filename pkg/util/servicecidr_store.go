@@ -12,7 +12,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 // ReadyServiceCIDRs returns Spec.CIDRs when the ServiceCIDR object's Ready
@@ -121,10 +121,10 @@ func (s *ServiceCIDRStore) AllCIDRs() []string {
 }
 
 // V4CIDRs returns the IPv4 subset of the merged set.
-func (s *ServiceCIDRStore) V4CIDRs() []string { return s.byProtocol(kubeovnv1.ProtocolIPv4) }
+func (s *ServiceCIDRStore) V4CIDRs() []string { return s.byProtocol(fabricv1.ProtocolIPv4) }
 
 // V6CIDRs returns the IPv6 subset of the merged set.
-func (s *ServiceCIDRStore) V6CIDRs() []string { return s.byProtocol(kubeovnv1.ProtocolIPv6) }
+func (s *ServiceCIDRStore) V6CIDRs() []string { return s.byProtocol(fabricv1.ProtocolIPv6) }
 
 func (s *ServiceCIDRStore) byProtocol(proto string) []string {
 	s.mu.RLock()

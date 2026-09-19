@@ -84,15 +84,15 @@ type Configuration struct {
 	KubeRestConfig         *rest.Config
 
 	KubeClient      kubernetes.Interface
-	KubeOvnClient   clientset.Interface
+	FabricClient    clientset.Interface
 	AnpClient       anpclientset.Interface
 	AttachNetClient attachnetclientset.Interface
 	KubevirtClient  kubecli.KubevirtClient
 	ExtClient       extClientSet.Interface
 	DynamicClient   dynamic.Interface
 
-	KubeFactoryClient    kubernetes.Interface
-	KubeOvnFactoryClient clientset.Interface
+	KubeFactoryClient   kubernetes.Interface
+	FabricFactoryClient clientset.Interface
 
 	DefaultLogicalSwitch      string
 	DefaultCIDR               string
@@ -262,7 +262,7 @@ func ParseFlags() (*Configuration, error) {
 		argTLSMaxVersion   = pflag.String("tls-max-version", "", "The maximum TLS version to use for secure serving. Supported values: TLS10, TLS11, TLS12, TLS13. If not set, the default is used based on the Go version.")
 		argTLSCipherSuites = pflag.StringSlice("tls-cipher-suites", nil, "Comma-separated list of TLS cipher suite names to use for secure serving (e.g., 'TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384'). Names must match Go's crypto/tls package. See Go documentation for available suites. If not set, defaults are used. Users are responsible for selecting secure cipher suites.")
 
-		argNonPrimaryCNI = pflag.Bool("non-primary-cni-mode", false, "Use Kube-OVN in non primary cni mode. When true, Kube-OVN will only manage the network for network attachment definitions")
+		argNonPrimaryCNI = pflag.Bool("non-primary-cni-mode", false, "Use fabric in non primary cni mode. When true, fabric will only manage the network for network attachment definitions")
 
 		argSkipConntrackDstCidrs = pflag.String("skip-conntrack-dst-cidrs", "", "Comma-separated list of destination IP CIDRs that should skip conntrack processing")
 	)
@@ -467,12 +467,12 @@ func (config *Configuration) initKubeClient() error {
 	}
 	config.AnpClient = AnpClient
 
-	kubeOvnClient, err := clientset.NewForConfig(cfg)
+	fabricClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("init kubeovn client failed %v", err)
+		klog.Errorf("init fabric client failed %v", err)
 		return err
 	}
-	config.KubeOvnClient = kubeOvnClient
+	config.FabricClient = fabricClient
 
 	ExtClient, err := extClientSet.NewForConfig(cfg)
 	if err != nil {
@@ -517,12 +517,12 @@ func (config *Configuration) initKubeFactoryClient() error {
 
 	config.KubeRestConfig = cfg
 
-	kubeOvnClient, err := clientset.NewForConfig(cfg)
+	fabricClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("init kubeovn client failed %v", err)
+		klog.Errorf("init fabric client failed %v", err)
 		return err
 	}
-	config.KubeOvnFactoryClient = kubeOvnClient
+	config.FabricFactoryClient = fabricClient
 
 	cfg.ContentType = util.ContentTypeProtobuf
 	cfg.AcceptContentTypes = util.AcceptContentTypes

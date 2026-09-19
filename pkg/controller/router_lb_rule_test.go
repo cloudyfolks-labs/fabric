@@ -13,7 +13,7 @@ import (
 
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -23,10 +23,10 @@ import (
 // ---------------------------------------------------------------------------
 
 func Test_generateRlrHeadlessService(t *testing.T) {
-	makeRlr := func(name, vpc, eip, ns string, selectors []string, ports []kubeovnv1.RouterLBRulePort) *kubeovnv1.RouterLBRule {
-		return &kubeovnv1.RouterLBRule{
+	makeRlr := func(name, vpc, eip, ns string, selectors []string, ports []fabricv1.RouterLBRulePort) *fabricv1.RouterLBRule {
+		return &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: kubeovnv1.RouterLBRuleSpec{
+			Spec: fabricv1.RouterLBRuleSpec{
 				Vpc:       vpc,
 				OvnEip:    eip,
 				Namespace: ns,
@@ -35,11 +35,11 @@ func Test_generateRlrHeadlessService(t *testing.T) {
 			},
 		}
 	}
-	port80 := kubeovnv1.RouterLBRulePort{Name: "http", Port: 80, TargetPort: 8080, Protocol: "TCP"}
+	port80 := fabricv1.RouterLBRulePort{Name: "http", Port: 80, TargetPort: 8080, Protocol: "TCP"}
 
 	tests := []struct {
 		name          string
-		rlr           *kubeovnv1.RouterLBRule
+		rlr           *fabricv1.RouterLBRule
 		oldSvc        *corev1.Service
 		svcName       string
 		namespace     string
@@ -52,7 +52,7 @@ func Test_generateRlrHeadlessService(t *testing.T) {
 	}{
 		{
 			name:          "IPv4 only",
-			rlr:           makeRlr("rlr1", "vpc1", "eip1", "", nil, []kubeovnv1.RouterLBRulePort{port80}),
+			rlr:           makeRlr("rlr1", "vpc1", "eip1", "", nil, []fabricv1.RouterLBRulePort{port80}),
 			svcName:       "rlr-rlr1",
 			namespace:     "default",
 			vip:           "10.0.0.1",
@@ -64,7 +64,7 @@ func Test_generateRlrHeadlessService(t *testing.T) {
 		},
 		{
 			name:          "IPv6 only",
-			rlr:           makeRlr("rlr2", "vpc1", "eip1", "", nil, []kubeovnv1.RouterLBRulePort{port80}),
+			rlr:           makeRlr("rlr2", "vpc1", "eip1", "", nil, []fabricv1.RouterLBRulePort{port80}),
 			svcName:       "rlr-rlr2",
 			namespace:     "default",
 			vip:           "fd00::1",
@@ -76,7 +76,7 @@ func Test_generateRlrHeadlessService(t *testing.T) {
 		},
 		{
 			name:          "dual-stack",
-			rlr:           makeRlr("rlr3", "vpc1", "eip1", "", nil, []kubeovnv1.RouterLBRulePort{port80}),
+			rlr:           makeRlr("rlr3", "vpc1", "eip1", "", nil, []fabricv1.RouterLBRulePort{port80}),
 			svcName:       "rlr-rlr3",
 			namespace:     "default",
 			vip:           "10.0.0.1,fd00::1",
@@ -88,14 +88,14 @@ func Test_generateRlrHeadlessService(t *testing.T) {
 		},
 		{
 			name:      "selector parsed from colon-separated strings",
-			rlr:       makeRlr("rlr4", "vpc1", "eip1", "", []string{"app: foo", "env: prod"}, []kubeovnv1.RouterLBRulePort{port80}),
+			rlr:       makeRlr("rlr4", "vpc1", "eip1", "", []string{"app: foo", "env: prod"}, []fabricv1.RouterLBRulePort{port80}),
 			svcName:   "rlr-rlr4",
 			namespace: "default",
 			vip:       "10.0.0.2",
 		},
 		{
 			name: "update existing service preserves extra annotations",
-			rlr:  makeRlr("rlr5", "vpc1", "eip1", "", nil, []kubeovnv1.RouterLBRulePort{port80}),
+			rlr:  makeRlr("rlr5", "vpc1", "eip1", "", nil, []fabricv1.RouterLBRulePort{port80}),
 			oldSvc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "rlr-rlr5",
@@ -113,8 +113,8 @@ func Test_generateRlrHeadlessService(t *testing.T) {
 		},
 		{
 			name: "health-check annotation propagated",
-			rlr: func() *kubeovnv1.RouterLBRule {
-				r := makeRlr("rlr6", "vpc1", "eip1", "", nil, []kubeovnv1.RouterLBRulePort{port80})
+			rlr: func() *fabricv1.RouterLBRule {
+				r := makeRlr("rlr6", "vpc1", "eip1", "", nil, []fabricv1.RouterLBRulePort{port80})
 				r.Annotations = map[string]string{
 					util.ServiceHealthCheck: "true",
 				}
@@ -162,15 +162,15 @@ func Test_generateRlrHeadlessService(t *testing.T) {
 }
 
 func Test_generateRlrEndpoints(t *testing.T) {
-	ports := []kubeovnv1.RouterLBRulePort{
+	ports := []fabricv1.RouterLBRulePort{
 		{Name: "http", Port: 80, TargetPort: 8080, Protocol: "TCP"},
 	}
 
 	t.Run("TargetRef.Namespace uses passed namespace not rlr.Namespace", func(t *testing.T) {
-		rlr := &kubeovnv1.RouterLBRule{
+		rlr := &fabricv1.RouterLBRule{
 			// Namespace is empty because RouterLBRule is cluster-scoped
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec: kubeovnv1.RouterLBRuleSpec{
+			Spec: fabricv1.RouterLBRuleSpec{
 				Endpoints: []string{"192.168.1.10", "192.168.1.11"},
 				Ports:     ports,
 			},
@@ -187,9 +187,9 @@ func Test_generateRlrEndpoints(t *testing.T) {
 	})
 
 	t.Run("endpoint port uses TargetPort not Port", func(t *testing.T) {
-		rlr := &kubeovnv1.RouterLBRule{
+		rlr := &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec: kubeovnv1.RouterLBRuleSpec{
+			Spec: fabricv1.RouterLBRuleSpec{
 				Endpoints: []string{"10.0.0.1"},
 				Ports:     ports,
 			},
@@ -202,9 +202,9 @@ func Test_generateRlrEndpoints(t *testing.T) {
 	})
 
 	t.Run("update reuses existing endpoint metadata", func(t *testing.T) {
-		rlr := &kubeovnv1.RouterLBRule{
+		rlr := &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec: kubeovnv1.RouterLBRuleSpec{
+			Spec: fabricv1.RouterLBRuleSpec{
 				Endpoints: []string{"10.0.0.2"},
 				Ports:     ports,
 			},
@@ -225,9 +225,9 @@ func Test_generateRlrEndpoints(t *testing.T) {
 	})
 
 	t.Run("no static endpoints produces empty addresses", func(t *testing.T) {
-		rlr := &kubeovnv1.RouterLBRule{
+		rlr := &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec:       kubeovnv1.RouterLBRuleSpec{Ports: ports},
+			Spec:       fabricv1.RouterLBRuleSpec{Ports: ports},
 		}
 		eps := generateRlrEndpoints(rlr, nil, "rlr-rlr1", "default")
 
@@ -238,13 +238,13 @@ func Test_generateRlrEndpoints(t *testing.T) {
 
 func Test_newRouterLBRuleInfo(t *testing.T) {
 	t.Run("empty namespace defaults to 'default'", func(t *testing.T) {
-		rlr := &kubeovnv1.RouterLBRule{
+		rlr := &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec: kubeovnv1.RouterLBRuleSpec{
+			Spec: fabricv1.RouterLBRuleSpec{
 				Namespace: "",
 				OvnEip:    "eip1",
 				Vpc:       "vpc1",
-				Ports:     []kubeovnv1.RouterLBRulePort{{Port: 80}},
+				Ports:     []fabricv1.RouterLBRulePort{{Port: 80}},
 			},
 		}
 		info := newRouterLBRuleInfo(rlr)
@@ -252,19 +252,19 @@ func Test_newRouterLBRuleInfo(t *testing.T) {
 	})
 
 	t.Run("explicit namespace is preserved", func(t *testing.T) {
-		rlr := &kubeovnv1.RouterLBRule{
+		rlr := &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec:       kubeovnv1.RouterLBRuleSpec{Namespace: "custom-ns"},
+			Spec:       fabricv1.RouterLBRuleSpec{Namespace: "custom-ns"},
 		}
 		info := newRouterLBRuleInfo(rlr)
 		assert.Equal(t, "custom-ns", info.Namespace)
 	})
 
 	t.Run("ports extracted from spec", func(t *testing.T) {
-		rlr := &kubeovnv1.RouterLBRule{
+		rlr := &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec: kubeovnv1.RouterLBRuleSpec{
-				Ports: []kubeovnv1.RouterLBRulePort{{Port: 80}, {Port: 443}},
+			Spec: fabricv1.RouterLBRuleSpec{
+				Ports: []fabricv1.RouterLBRulePort{{Port: 80}, {Port: 443}},
 			},
 		}
 		info := newRouterLBRuleInfo(rlr)
@@ -273,56 +273,56 @@ func Test_newRouterLBRuleInfo(t *testing.T) {
 }
 
 func Test_backendSubnetGateway(t *testing.T) {
-	nodeSubnet := &kubeovnv1.Subnet{
+	nodeSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "node-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.3.0.0/16", Gateway: "10.3.1.1"},
+		Spec:       fabricv1.SubnetSpec{CIDRBlock: "10.3.0.0/16", Gateway: "10.3.1.1"},
 	}
-	podSubnet := &kubeovnv1.Subnet{
+	podSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "pod-subnet"},
-		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.4.0.0/16", Gateway: "10.4.1.1"},
+		Spec:       fabricv1.SubnetSpec{CIDRBlock: "10.4.0.0/16", Gateway: "10.4.1.1"},
 	}
-	noGateway := &kubeovnv1.Subnet{
+	noGateway := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "no-gateway"},
-		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.3.0.0/16"},
+		Spec:       fabricv1.SubnetSpec{CIDRBlock: "10.3.0.0/16"},
 	}
-	dualStack := &kubeovnv1.Subnet{
+	dualStack := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "dual"},
-		Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "10.5.0.0/16,fd00:5::/64", Gateway: "10.5.1.1,fd00:5::1"},
+		Spec:       fabricv1.SubnetSpec{CIDRBlock: "10.5.0.0/16,fd00:5::/64", Gateway: "10.5.1.1,fd00:5::1"},
 	}
 
 	tests := []struct {
 		name       string
-		subnets    []*kubeovnv1.Subnet
+		subnets    []*fabricv1.Subnet
 		backendIPs []string
 		expected   string
 	}{
 		{
 			name:       "backends in one subnet",
-			subnets:    []*kubeovnv1.Subnet{podSubnet, nodeSubnet},
+			subnets:    []*fabricv1.Subnet{podSubnet, nodeSubnet},
 			backendIPs: []string{"10.3.1.11", "10.3.1.12", "10.3.1.13"},
 			expected:   "10.3.1.1",
 		},
 		{
 			name:       "no backends",
-			subnets:    []*kubeovnv1.Subnet{nodeSubnet},
+			subnets:    []*fabricv1.Subnet{nodeSubnet},
 			backendIPs: nil,
 			expected:   "",
 		},
 		{
 			name:       "backends span two subnets",
-			subnets:    []*kubeovnv1.Subnet{nodeSubnet, podSubnet},
+			subnets:    []*fabricv1.Subnet{nodeSubnet, podSubnet},
 			backendIPs: []string{"10.3.1.11", "10.4.1.11"},
 			expected:   "",
 		},
 		{
 			name:       "no subnet holds the backends",
-			subnets:    []*kubeovnv1.Subnet{nodeSubnet},
+			subnets:    []*fabricv1.Subnet{nodeSubnet},
 			backendIPs: []string{"10.9.1.11"},
 			expected:   "",
 		},
 		{
 			name:       "subnet without gateway is skipped",
-			subnets:    []*kubeovnv1.Subnet{noGateway, nodeSubnet},
+			subnets:    []*fabricv1.Subnet{noGateway, nodeSubnet},
 			backendIPs: []string{"10.3.1.11"},
 			expected:   "10.3.1.1",
 		},
@@ -334,7 +334,7 @@ func Test_backendSubnetGateway(t *testing.T) {
 		},
 		{
 			name:       "dual stack subnet",
-			subnets:    []*kubeovnv1.Subnet{dualStack},
+			subnets:    []*fabricv1.Subnet{dualStack},
 			backendIPs: []string{"10.5.1.11"},
 			expected:   "10.5.1.1,fd00:5::1",
 		},
@@ -348,16 +348,16 @@ func Test_backendSubnetGateway(t *testing.T) {
 }
 
 func Test_setVpcLBHairpinSNATIP(t *testing.T) {
-	makeSubnets := func() []*kubeovnv1.Subnet {
-		return []*kubeovnv1.Subnet{{
+	makeSubnets := func() []*fabricv1.Subnet {
+		return []*fabricv1.Subnet{{
 			ObjectMeta: metav1.ObjectMeta{Name: "node-subnet"},
-			Spec:       kubeovnv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.3.0.0/16", Gateway: "10.3.1.1"},
+			Spec:       fabricv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.3.0.0/16", Gateway: "10.3.1.1"},
 		}}
 	}
-	makeVpcWithSubnet := func() *kubeovnv1.Vpc {
-		return &kubeovnv1.Vpc{
+	makeVpcWithSubnet := func() *fabricv1.Vpc {
+		return &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: "vpc1"},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				TCPLoadBalancer: "vpc1-tcp-lb",
 				Subnets:         []string{"node-subnet"},
 			},
@@ -367,7 +367,7 @@ func Test_setVpcLBHairpinSNATIP(t *testing.T) {
 	t.Run("programs the backend subnet router port address", func(t *testing.T) {
 		vpc := makeVpcWithSubnet()
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Vpcs:    []*kubeovnv1.Vpc{vpc},
+			Vpcs:    []*fabricv1.Vpc{vpc},
 			Subnets: makeSubnets(),
 		})
 		require.NoError(t, err)
@@ -390,7 +390,7 @@ func Test_setVpcLBHairpinSNATIP(t *testing.T) {
 	t.Run("clears the option when no subnet holds the backends", func(t *testing.T) {
 		vpc := makeVpcWithSubnet()
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Vpcs:    []*kubeovnv1.Vpc{vpc},
+			Vpcs:    []*fabricv1.Vpc{vpc},
 			Subnets: makeSubnets(),
 		})
 		require.NoError(t, err)
@@ -411,7 +411,7 @@ func Test_setVpcLBHairpinSNATIP(t *testing.T) {
 	t.Run("skips a load balancer that does not exist", func(t *testing.T) {
 		vpc := makeVpcWithSubnet()
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Vpcs:    []*kubeovnv1.Vpc{vpc},
+			Vpcs:    []*fabricv1.Vpc{vpc},
 			Subnets: makeSubnets(),
 		})
 		require.NoError(t, err)
@@ -426,9 +426,9 @@ func Test_setVpcLBHairpinSNATIP(t *testing.T) {
 
 func Test_vpcLoadBalancerNames(t *testing.T) {
 	t.Run("empty names are dropped", func(t *testing.T) {
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: "vpc1"},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				TCPLoadBalancer:  "vpc1-tcp-load",
 				UDPLoadBalancer:  "",
 				SctpLoadBalancer: "vpc1-sctp-load",
@@ -438,7 +438,7 @@ func Test_vpcLoadBalancerNames(t *testing.T) {
 	})
 
 	t.Run("no load balancers", func(t *testing.T) {
-		assert.Empty(t, vpcLoadBalancerNames(&kubeovnv1.Vpc{}))
+		assert.Empty(t, vpcLoadBalancerNames(&fabricv1.Vpc{}))
 	})
 }
 
@@ -501,24 +501,24 @@ func Test_getVipIps_routerLBRule(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func Test_checkEipPortConflict(t *testing.T) {
-	existingRlr := &kubeovnv1.RouterLBRule{
+	existingRlr := &fabricv1.RouterLBRule{
 		ObjectMeta: metav1.ObjectMeta{Name: "existing-rlr"},
-		Spec: kubeovnv1.RouterLBRuleSpec{
+		Spec: fabricv1.RouterLBRuleSpec{
 			OvnEip: "eip1",
-			Ports:  []kubeovnv1.RouterLBRulePort{{Port: 80}},
+			Ports:  []fabricv1.RouterLBRulePort{{Port: 80}},
 		},
 	}
-	existingDnat := &kubeovnv1.OvnDnatRule{
+	existingDnat := &fabricv1.OvnDnatRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "existing-dnat",
 			Labels: map[string]string{util.VpcDnatEPortLabel: "443"},
 		},
-		Spec: kubeovnv1.OvnDnatRuleSpec{OvnEip: "eip1"},
+		Spec: fabricv1.OvnDnatRuleSpec{OvnEip: "eip1"},
 	}
 
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		RouterLBRules: []*kubeovnv1.RouterLBRule{existingRlr},
-		OvnDnatRules:  []*kubeovnv1.OvnDnatRule{existingDnat},
+		RouterLBRules: []*fabricv1.RouterLBRule{existingRlr},
+		OvnDnatRules:  []*fabricv1.OvnDnatRule{existingDnat},
 	})
 	require.NoError(t, err)
 	ctrl := fc.fakeController
@@ -594,30 +594,30 @@ func Test_checkEipPortConflict(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
-	makeEip := func(name, v4ip, specType, externalSubnet string) *kubeovnv1.OvnEip {
-		return &kubeovnv1.OvnEip{
+	makeEip := func(name, v4ip, specType, externalSubnet string) *fabricv1.OvnEip {
+		return &fabricv1.OvnEip{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec:       kubeovnv1.OvnEipSpec{Type: specType, ExternalSubnet: externalSubnet},
-			Status:     kubeovnv1.OvnEipStatus{V4Ip: v4ip},
+			Spec:       fabricv1.OvnEipSpec{Type: specType, ExternalSubnet: externalSubnet},
+			Status:     fabricv1.OvnEipStatus{V4Ip: v4ip},
 		}
 	}
-	makeLrpEip := func(vpc, subnet string) *kubeovnv1.OvnEip {
-		return &kubeovnv1.OvnEip{
+	makeLrpEip := func(vpc, subnet string) *fabricv1.OvnEip {
+		return &fabricv1.OvnEip{
 			ObjectMeta: metav1.ObjectMeta{Name: vpc + "-" + subnet},
-			Spec:       kubeovnv1.OvnEipSpec{Type: util.OvnEipTypeLRP, ExternalSubnet: subnet},
-			Status:     kubeovnv1.OvnEipStatus{Ready: true},
+			Spec:       fabricv1.OvnEipSpec{Type: util.OvnEipTypeLRP, ExternalSubnet: subnet},
+			Status:     fabricv1.OvnEipStatus{Ready: true},
 		}
 	}
-	makeVpc := func(name, tcpLB string) *kubeovnv1.Vpc {
-		return &kubeovnv1.Vpc{
+	makeVpc := func(name, tcpLB string) *fabricv1.Vpc {
+		return &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Status:     kubeovnv1.VpcStatus{TCPLoadBalancer: tcpLB},
+			Status:     fabricv1.VpcStatus{TCPLoadBalancer: tcpLB},
 		}
 	}
-	makeRlr := func(name, eip, vpc string, ports []kubeovnv1.RouterLBRulePort) *kubeovnv1.RouterLBRule {
-		return &kubeovnv1.RouterLBRule{
+	makeRlr := func(name, eip, vpc string, ports []fabricv1.RouterLBRulePort) *fabricv1.RouterLBRule {
+		return &fabricv1.RouterLBRule{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: kubeovnv1.RouterLBRuleSpec{
+			Spec: fabricv1.RouterLBRuleSpec{
 				OvnEip: eip,
 				Vpc:    vpc,
 				Ports:  ports,
@@ -634,17 +634,17 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	t.Run("empty OvnEip is skipped without error", func(t *testing.T) {
 		rlr := makeRlr("rlr1", "", "vpc1", nil)
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
 		})
 		require.NoError(t, err)
 		assert.NoError(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
 	t.Run("empty Vpc returns error", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "eip1", "", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "eip1", "", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "")},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "")},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
@@ -653,49 +653,49 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	t.Run("no ports returns error", func(t *testing.T) {
 		rlr := makeRlr("rlr1", "eip1", "vpc1", nil)
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "")},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "")},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
 	t.Run("LSP-type EIP returns error", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "lsp-eip", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "lsp-eip", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
 			// V4Ip must be non-empty to pass GetOvnEip readiness check, but Spec.Type is LSP
-			OvnEips: []*kubeovnv1.OvnEip{makeEip("lsp-eip", "10.0.0.1", util.OvnEipTypeLSP, "")},
+			OvnEips: []*fabricv1.OvnEip{makeEip("lsp-eip", "10.0.0.1", util.OvnEipTypeLSP, "")},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
 	t.Run("EIP with no IP returns error", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "empty-eip", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "empty-eip", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("empty-eip", "", util.OvnEipTypeNAT, "")},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("empty-eip", "", util.OvnEipTypeNAT, "")},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
 	t.Run("EIP with no external subnet returns error", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "")},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "")},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
 	t.Run("VPC has no LRP OvnEip for external subnet returns error", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet")},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet")},
 			// No vpc1-pubnet LRP EIP present.
 		})
 		require.NoError(t, err)
@@ -705,10 +705,10 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	t.Run("VPC LRP not ready returns error", func(t *testing.T) {
 		lrpEip := makeLrpEip("vpc1", "pubnet")
 		lrpEip.Status.Ready = false
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet"), lrpEip},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet"), lrpEip},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
@@ -717,28 +717,28 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	t.Run("VPC LRP wrong type returns error", func(t *testing.T) {
 		lrpEip := makeLrpEip("vpc1", "pubnet")
 		lrpEip.Spec.Type = util.OvnEipTypeNAT // not LRP
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet"), lrpEip},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet"), lrpEip},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
 	t.Run("EIP needs no LRP and no pool when the VPC advertises lb", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
 		vpc := makeVpc("vpc1", "vpc1-tcp-lb")
 		vpc.Spec.EnableExternal = true
-		vpc.Spec.DynamicRouting = &kubeovnv1.VpcDynamicRouting{
+		vpc.Spec.DynamicRouting = &fabricv1.VpcDynamicRouting{
 			Enabled:      true,
 			VrfID:        1001,
-			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+			Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeLB},
 		}
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
-			Vpcs:          []*kubeovnv1.Vpc{vpc},
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
+			Vpcs:          []*fabricv1.Vpc{vpc},
 		})
 		require.NoError(t, err)
 		fc.mockOvnClient.EXPECT().
@@ -753,21 +753,21 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	})
 
 	t.Run("EIP from a bgp pool subnet needs no LRP when the VPC advertises lb", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
 		vpc := makeVpc("vpc1", "vpc1-tcp-lb")
 		vpc.Spec.EnableExternal = true
-		vpc.Spec.DynamicRouting = &kubeovnv1.VpcDynamicRouting{
+		vpc.Spec.DynamicRouting = &fabricv1.VpcDynamicRouting{
 			Enabled:      true,
 			VrfID:        1001,
-			Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB},
+			Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeLB},
 		}
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
-			Vpcs:          []*kubeovnv1.Vpc{vpc},
-			LoadBalancerPools: []*kubeovnv1.LoadBalancerPool{{
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
+			Vpcs:          []*fabricv1.Vpc{vpc},
+			LoadBalancerPools: []*fabricv1.LoadBalancerPool{{
 				ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"},
-				Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: kubeovnv1.LoadBalancerPoolAnnounceBGP},
+				Spec:       fabricv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: fabricv1.LoadBalancerPoolAnnounceBGP},
 			}},
 		})
 		require.NoError(t, err)
@@ -785,14 +785,14 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	})
 
 	t.Run("EIP from a bgp pool subnet returns error when the VPC does not advertise lb", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80, Protocol: "TCP"}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips:       []*kubeovnv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
-			Vpcs:          []*kubeovnv1.Vpc{makeVpc("vpc1", "vpc1-tcp-lb")},
-			LoadBalancerPools: []*kubeovnv1.LoadBalancerPool{{
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "ipam-only")},
+			Vpcs:          []*fabricv1.Vpc{makeVpc("vpc1", "vpc1-tcp-lb")},
+			LoadBalancerPools: []*fabricv1.LoadBalancerPool{{
 				ObjectMeta: metav1.ObjectMeta{Name: "pool-bgp"},
-				Spec:       kubeovnv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: kubeovnv1.LoadBalancerPoolAnnounceBGP},
+				Spec:       fabricv1.LoadBalancerPoolSpec{Subnet: "ipam-only", Announce: fabricv1.LoadBalancerPoolAnnounceBGP},
 			}},
 		})
 		require.NoError(t, err)
@@ -806,15 +806,15 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 
 	t.Run("port conflict with another RouterLBRule returns error", func(t *testing.T) {
 		// "rlr1" claims eip1:80; "existing-rlr" already owns eip1:80.
-		existing := makeRlr("existing-rlr", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 80}})
+		existing := makeRlr("existing-rlr", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{existing, rlr},
-			OvnEips: []*kubeovnv1.OvnEip{
+			RouterLBRules: []*fabricv1.RouterLBRule{existing, rlr},
+			OvnEips: []*fabricv1.OvnEip{
 				makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet"),
 				makeLrpEip("vpc1", "pubnet"),
 			},
-			Vpcs: []*kubeovnv1.Vpc{makeVpc("vpc1", "")},
+			Vpcs: []*fabricv1.Vpc{makeVpc("vpc1", "")},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
@@ -822,38 +822,38 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 
 	t.Run("port conflict with OvnDnatRule returns error", func(t *testing.T) {
 		// "rlr1" claims eip1:443; an OvnDnatRule already uses eip1:443.
-		dnat := &kubeovnv1.OvnDnatRule{
+		dnat := &fabricv1.OvnDnatRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   "existing-dnat",
 				Labels: map[string]string{util.VpcDnatEPortLabel: "443"},
 			},
-			Spec: kubeovnv1.OvnDnatRuleSpec{OvnEip: "eip1"},
+			Spec: fabricv1.OvnDnatRuleSpec{OvnEip: "eip1"},
 		}
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{{Port: 443}})
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 443}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips: []*kubeovnv1.OvnEip{
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips: []*fabricv1.OvnEip{
 				makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet"),
 				makeLrpEip("vpc1", "pubnet"),
 			},
-			Vpcs:         []*kubeovnv1.Vpc{makeVpc("vpc1", "")},
-			OvnDnatRules: []*kubeovnv1.OvnDnatRule{dnat},
+			Vpcs:         []*fabricv1.Vpc{makeVpc("vpc1", "")},
+			OvnDnatRules: []*fabricv1.OvnDnatRule{dnat},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 	})
 
 	t.Run("happy path creates service and attaches LBs", func(t *testing.T) {
-		rlr := makeRlr("rlr1", "eip1", "vpc1", []kubeovnv1.RouterLBRulePort{
+		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{
 			{Name: "http", Port: 80, TargetPort: 8080, Protocol: "TCP"},
 		})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			RouterLBRules: []*kubeovnv1.RouterLBRule{rlr},
-			OvnEips: []*kubeovnv1.OvnEip{
+			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
+			OvnEips: []*fabricv1.OvnEip{
 				makeEip("eip1", "192.168.1.100", util.OvnEipTypeNAT, "pubnet"),
 				makeLrpEip("vpc1", "pubnet"),
 			},
-			Vpcs: []*kubeovnv1.Vpc{makeVpc("vpc1", "vpc1-tcp-lb")},
+			Vpcs: []*fabricv1.Vpc{makeVpc("vpc1", "vpc1-tcp-lb")},
 		})
 		require.NoError(t, err)
 
@@ -877,7 +877,7 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		assert.Equal(t, corev1.ClusterIPNone, svc.Spec.ClusterIP)
 
 		// Status must be updated with service reference.
-		updated, err := fc.fakeController.config.KubeOvnClient.FabricV1().
+		updated, err := fc.fakeController.config.FabricClient.FabricV1().
 			RouterLBRules().
 			Get(context.Background(), "rlr1", metav1.GetOptions{})
 		require.NoError(t, err)
@@ -943,9 +943,9 @@ func Test_handleDelRouterLBRule(t *testing.T) {
 	t.Run("happy path deletes VIP from LB and cleans up LBHCs", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			Services: []*corev1.Service{makeSvc(true)},
-			Vpcs: []*kubeovnv1.Vpc{{
+			Vpcs: []*fabricv1.Vpc{{
 				ObjectMeta: metav1.ObjectMeta{Name: testVpc},
-				Status:     kubeovnv1.VpcStatus{TCPLoadBalancer: testTCPLB},
+				Status:     fabricv1.VpcStatus{TCPLoadBalancer: testTCPLB},
 			}},
 		})
 		require.NoError(t, err)
@@ -1001,9 +1001,9 @@ func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 	ctrl := fc.fakeController
 	ctrl.updateRouterLBRuleQueue = newTypedRateLimitingQueue[*RouterLBRuleInfo]("UpdateRouterLBRuleTest", nil)
 
-	base := &kubeovnv1.RouterLBRule{
+	base := &fabricv1.RouterLBRule{
 		ObjectMeta: metav1.ObjectMeta{Name: "rlr1", ResourceVersion: "1"},
-		Spec: kubeovnv1.RouterLBRuleSpec{
+		Spec: fabricv1.RouterLBRuleSpec{
 			OvnEip:    "eip1",
 			Vpc:       "vpc1",
 			Namespace: "default",
@@ -1019,18 +1019,18 @@ func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		mutate         func(*kubeovnv1.RouterLBRule) *kubeovnv1.RouterLBRule
+		mutate         func(*fabricv1.RouterLBRule) *fabricv1.RouterLBRule
 		wantIsRecreate bool
 	}{
 		{
 			name: "same ResourceVersion is a no-op",
-			mutate: func(r *kubeovnv1.RouterLBRule) *kubeovnv1.RouterLBRule {
+			mutate: func(r *fabricv1.RouterLBRule) *fabricv1.RouterLBRule {
 				return r.DeepCopy() // ResourceVersion unchanged
 			},
 		},
 		{
 			name: "OvnEip change triggers recreate",
-			mutate: func(r *kubeovnv1.RouterLBRule) *kubeovnv1.RouterLBRule {
+			mutate: func(r *fabricv1.RouterLBRule) *fabricv1.RouterLBRule {
 				n := r.DeepCopy()
 				n.ResourceVersion = "2"
 				n.Spec.OvnEip = "eip2"
@@ -1040,7 +1040,7 @@ func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 		},
 		{
 			name: "Vpc change triggers recreate",
-			mutate: func(r *kubeovnv1.RouterLBRule) *kubeovnv1.RouterLBRule {
+			mutate: func(r *fabricv1.RouterLBRule) *fabricv1.RouterLBRule {
 				n := r.DeepCopy()
 				n.ResourceVersion = "2"
 				n.Spec.Vpc = "vpc2"
@@ -1050,7 +1050,7 @@ func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 		},
 		{
 			name: "Namespace change triggers recreate",
-			mutate: func(r *kubeovnv1.RouterLBRule) *kubeovnv1.RouterLBRule {
+			mutate: func(r *fabricv1.RouterLBRule) *fabricv1.RouterLBRule {
 				n := r.DeepCopy()
 				n.ResourceVersion = "2"
 				n.Spec.Namespace = "other-ns"
@@ -1060,7 +1060,7 @@ func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 		},
 		{
 			name: "selector-only change does not trigger recreate",
-			mutate: func(r *kubeovnv1.RouterLBRule) *kubeovnv1.RouterLBRule {
+			mutate: func(r *fabricv1.RouterLBRule) *fabricv1.RouterLBRule {
 				n := r.DeepCopy()
 				n.ResourceVersion = "2"
 				n.Spec.Selector = []string{"app: bar"}

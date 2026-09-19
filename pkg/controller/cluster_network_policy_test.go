@@ -3,7 +3,7 @@ package controller
 import (
 	"testing"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -1736,7 +1736,7 @@ func TestGetCnpAclName(t *testing.T) {
 		{
 			name:      "ingress ipv4 10",
 			cnpName:   "test1",
-			protocol:  kubeovnv1.ProtocolIPv4,
+			protocol:  fabricv1.ProtocolIPv4,
 			direction: "ingress",
 			index:     10,
 			result:    "cnp/test1/ingress/IPv4/10",
@@ -1744,7 +1744,7 @@ func TestGetCnpAclName(t *testing.T) {
 		{
 			name:      "egress ipv6 10",
 			cnpName:   "test1",
-			protocol:  kubeovnv1.ProtocolIPv6,
+			protocol:  fabricv1.ProtocolIPv6,
 			direction: "egress",
 			index:     10,
 			result:    "cnp/test1/egress/IPv6/10",

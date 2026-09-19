@@ -16,8 +16,8 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -30,11 +30,11 @@ type VpcClient struct {
 func (f *Framework) VpcClient() *VpcClient {
 	return &VpcClient{
 		f:            f,
-		VpcInterface: f.KubeOVNClientSet.FabricV1().Vpcs(),
+		VpcInterface: f.FabricClientSet.FabricV1().Vpcs(),
 	}
 }
 
-func (c *VpcClient) Get(name string) *kubeovnv1.Vpc {
+func (c *VpcClient) Get(name string) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 	vpc, err := c.VpcInterface.Get(context.TODO(), name, metav1.GetOptions{})
 	ExpectNoError(err)
@@ -42,7 +42,7 @@ func (c *VpcClient) Get(name string) *kubeovnv1.Vpc {
 }
 
 // Create creates a new vpc according to the framework specifications
-func (c *VpcClient) Create(vpc *kubeovnv1.Vpc) *kubeovnv1.Vpc {
+func (c *VpcClient) Create(vpc *fabricv1.Vpc) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 	vpc, err := c.VpcInterface.Create(context.TODO(), vpc, metav1.CreateOptions{})
 	ExpectNoError(err, "Error creating vpc")
@@ -50,7 +50,7 @@ func (c *VpcClient) Create(vpc *kubeovnv1.Vpc) *kubeovnv1.Vpc {
 }
 
 // CreateSync creates a new vpc according to the framework specifications, and waits for it to be ready.
-func (c *VpcClient) CreateSync(vpc *kubeovnv1.Vpc) *kubeovnv1.Vpc {
+func (c *VpcClient) CreateSync(vpc *fabricv1.Vpc) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 
 	vpc = c.Create(vpc)
@@ -60,13 +60,13 @@ func (c *VpcClient) CreateSync(vpc *kubeovnv1.Vpc) *kubeovnv1.Vpc {
 }
 
 // Patch patches the vpc
-func (c *VpcClient) Patch(original, modified *kubeovnv1.Vpc) *kubeovnv1.Vpc {
+func (c *VpcClient) Patch(original, modified *fabricv1.Vpc) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 
 	patch, err := util.GenerateMergePatchPayload(original, modified)
 	ExpectNoError(err)
 
-	var patchedVpc *kubeovnv1.Vpc
+	var patchedVpc *fabricv1.Vpc
 	err = wait.PollUntilContextTimeout(context.Background(), poll, timeout, true, func(ctx context.Context) (bool, error) {
 		vpc, err := c.VpcInterface.Patch(ctx, original.Name, types.MergePatchType, patch, metav1.PatchOptions{}, "")
 		if err != nil {
@@ -89,7 +89,7 @@ func (c *VpcClient) Patch(original, modified *kubeovnv1.Vpc) *kubeovnv1.Vpc {
 
 // PatchSync patches the vpc and waits for the vpc to be ready for `timeout`.
 // If the vpc doesn't become ready before the timeout, it will fail the test.
-func (c *VpcClient) PatchSync(original, modified *kubeovnv1.Vpc, timeout time.Duration) *kubeovnv1.Vpc {
+func (c *VpcClient) PatchSync(original, modified *fabricv1.Vpc, timeout time.Duration) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 
 	vpc := c.Patch(original, modified)
@@ -128,7 +128,7 @@ func (c *VpcClient) WaitToBeReady(name string, timeout time.Duration) bool {
 }
 
 // WaitToBeUpdated returns whether the vpc is updated within timeout.
-func (c *VpcClient) WaitToBeUpdated(vpc *kubeovnv1.Vpc, timeout time.Duration) bool {
+func (c *VpcClient) WaitToBeUpdated(vpc *fabricv1.Vpc, timeout time.Duration) bool {
 	Logf("Waiting up to %v for vpc %s to be updated", timeout, vpc.Name)
 	rv, _ := big.NewInt(0).SetString(vpc.ResourceVersion, 10)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
@@ -143,7 +143,7 @@ func (c *VpcClient) WaitToBeUpdated(vpc *kubeovnv1.Vpc, timeout time.Duration) b
 
 // WaitToDisappear waits the given timeout duration for the specified VPC to disappear.
 func (c *VpcClient) WaitToDisappear(name string, _, timeout time.Duration) error {
-	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*kubeovnv1.Vpc, error) {
+	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*fabricv1.Vpc, error) {
 		vpc, err := c.VpcInterface.Get(ctx, name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return nil, nil
@@ -156,20 +156,20 @@ func (c *VpcClient) WaitToDisappear(name string, _, timeout time.Duration) error
 	return nil
 }
 
-func MakeVpc(name, gatewayV4 string, enableExternal, enableBfd bool, namespaces []string) *kubeovnv1.Vpc {
-	routes := make([]*kubeovnv1.StaticRoute, 0, 1)
+func MakeVpc(name, gatewayV4 string, enableExternal, enableBfd bool, namespaces []string) *fabricv1.Vpc {
+	routes := make([]*fabricv1.StaticRoute, 0, 1)
 	if gatewayV4 != "" {
-		routes = append(routes, &kubeovnv1.StaticRoute{
-			Policy:    kubeovnv1.PolicyDst,
+		routes = append(routes, &fabricv1.StaticRoute{
+			Policy:    fabricv1.PolicyDst,
 			CIDR:      "0.0.0.0/0",
 			NextHopIP: gatewayV4,
 		})
 	}
-	vpc := &kubeovnv1.Vpc{
+	vpc := &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: kubeovnv1.VpcSpec{
+		Spec: fabricv1.VpcSpec{
 			StaticRoutes:   routes,
 			EnableExternal: enableExternal,
 			EnableBfd:      enableBfd,

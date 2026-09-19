@@ -81,7 +81,7 @@ func ExtractVlanIDFromInterface(interfaceName string) (int, error) {
 	return vlanID, nil
 }
 
-func FindKubeOVNAutoCreatedInterfaces(providerName string) ([]string, error) {
+func FindFabricAutoCreatedInterfaces(providerName string) ([]string, error) {
 	var createdInterfaces []string
 
 	links, err := netlink.LinkList()
@@ -97,7 +97,7 @@ func FindKubeOVNAutoCreatedInterfaces(providerName string) ([]string, error) {
 		}
 	}
 
-	klog.V(3).Infof("Found %d Kube-OVN auto-created interfaces for provider %s: %v", len(createdInterfaces), providerName, createdInterfaces)
+	klog.V(3).Infof("Found %d fabric auto-created interfaces for provider %s: %v", len(createdInterfaces), providerName, createdInterfaces)
 	return createdInterfaces, nil
 }
 

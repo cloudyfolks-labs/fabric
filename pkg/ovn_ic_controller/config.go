@@ -19,7 +19,7 @@ import (
 type Configuration struct {
 	KubeConfigFile string
 	KubeClient     kubernetes.Interface
-	KubeOvnClient  clientset.Interface
+	FabricClient   clientset.Interface
 
 	PodNamespace           string
 	OvnNbAddr              string
@@ -120,12 +120,12 @@ func (config *Configuration) initKubeClient() error {
 	cfg.QPS = 1000
 	cfg.Burst = 2000
 
-	kubeOvnClient, err := clientset.NewForConfig(cfg)
+	fabricClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("init kubeovn client failed %v", err)
+		klog.Errorf("init fabric client failed %v", err)
 		return err
 	}
-	config.KubeOvnClient = kubeOvnClient
+	config.FabricClient = fabricClient
 
 	cfg.ContentType = util.ContentTypeProtobuf
 	cfg.AcceptContentTypes = util.AcceptContentTypes

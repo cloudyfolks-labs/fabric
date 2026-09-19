@@ -32,9 +32,9 @@ import (
 	k8sexec "k8s.io/utils/exec"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
-	kubeovnlister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricinformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	fabriclister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -43,19 +43,19 @@ import (
 type Controller struct {
 	config *Configuration
 
-	providerNetworksLister          kubeovnlister.ProviderNetworkLister
+	providerNetworksLister          fabriclister.ProviderNetworkLister
 	providerNetworksSynced          cache.InformerSynced
 	addOrUpdateProviderNetworkQueue workqueue.TypedRateLimitingInterface[string]
-	deleteProviderNetworkQueue      workqueue.TypedRateLimitingInterface[*kubeovnv1.ProviderNetwork]
+	deleteProviderNetworkQueue      workqueue.TypedRateLimitingInterface[*fabricv1.ProviderNetwork]
 
-	vlansLister kubeovnlister.VlanLister
+	vlansLister fabriclister.VlanLister
 	vlansSynced cache.InformerSynced
 
-	subnetsLister kubeovnlister.SubnetLister
+	subnetsLister fabriclister.SubnetLister
 	subnetsSynced cache.InformerSynced
 	subnetQueue   workqueue.TypedRateLimitingInterface[*subnetEvent]
 
-	ovnEipsLister kubeovnlister.OvnEipLister
+	ovnEipsLister fabriclister.OvnEipLister
 	ovnEipsSynced cache.InformerSynced
 
 	podsLister     listerv1.PodLister
@@ -106,19 +106,19 @@ func newTypedRateLimitingQueue[T comparable](name string, rateLimiter workqueue.
 func NewController(config *Configuration,
 	stopCh <-chan struct{},
 	podInformerFactory, nodeInformerFactory, caSecretInformerFactory informers.SharedInformerFactory,
-	kubeovnInformerFactory kubeovninformer.SharedInformerFactory,
+	fabricInformerFactory fabricinformer.SharedInformerFactory,
 ) (*Controller, error) {
-	if err := kubeovnv1.AddToScheme(scheme.Scheme); err != nil {
-		return nil, fmt.Errorf("failed to register Kube-OVN API types for event recording: %w", err)
+	if err := fabricv1.AddToScheme(scheme.Scheme); err != nil {
+		return nil, fmt.Errorf("failed to register fabric API types for event recording: %w", err)
 	}
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: config.KubeClient.CoreV1().Events(v1.NamespaceAll)})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: config.NodeName})
-	providerNetworkInformer := kubeovnInformerFactory.Fabric().V1().ProviderNetworks()
-	vlanInformer := kubeovnInformerFactory.Fabric().V1().Vlans()
-	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
-	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
+	providerNetworkInformer := fabricInformerFactory.Fabric().V1().ProviderNetworks()
+	vlanInformer := fabricInformerFactory.Fabric().V1().Vlans()
+	subnetInformer := fabricInformerFactory.Fabric().V1().Subnets()
+	ovnEipInformer := fabricInformerFactory.Fabric().V1().OvnEips()
 	podInformer := podInformerFactory.Core().V1().Pods()
 	nodeInformer := nodeInformerFactory.Core().V1().Nodes()
 	servicesInformer := nodeInformerFactory.Core().V1().Services()
@@ -130,7 +130,7 @@ func NewController(config *Configuration,
 		providerNetworksLister:          providerNetworkInformer.Lister(),
 		providerNetworksSynced:          providerNetworkInformer.Informer().HasSynced,
 		addOrUpdateProviderNetworkQueue: newTypedRateLimitingQueue[string]("AddOrUpdateProviderNetwork", nil),
-		deleteProviderNetworkQueue:      newTypedRateLimitingQueue[*kubeovnv1.ProviderNetwork]("DeleteProviderNetwork", nil),
+		deleteProviderNetworkQueue:      newTypedRateLimitingQueue[*fabricv1.ProviderNetwork]("DeleteProviderNetwork", nil),
 
 		vlansLister: vlanInformer.Lister(),
 		vlansSynced: vlanInformer.Informer().HasSynced,
@@ -183,7 +183,7 @@ func NewController(config *Configuration,
 
 	podInformerFactory.Start(stopCh)
 	nodeInformerFactory.Start(stopCh)
-	kubeovnInformerFactory.Start(stopCh)
+	fabricInformerFactory.Start(stopCh)
 	caSecretInformerFactory.Start(stopCh)
 	controller.StartServiceCIDRInformerFactory(stopCh)
 
@@ -305,24 +305,24 @@ func (c *Controller) recordProviderNetworkInitSuccessEvents(oldNode, newNode *v1
 }
 
 func (c *Controller) enqueueAddProviderNetwork(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.ProviderNetwork)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.ProviderNetwork)).String()
 	klog.V(3).Infof("enqueue add provider network %s", key)
 	c.addOrUpdateProviderNetworkQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateProviderNetwork(_, newObj any) {
-	key := cache.MetaObjectToName(newObj.(*kubeovnv1.ProviderNetwork)).String()
+	key := cache.MetaObjectToName(newObj.(*fabricv1.ProviderNetwork)).String()
 	klog.V(3).Infof("enqueue update provider network %s", key)
 	c.addOrUpdateProviderNetworkQueue.Add(key)
 }
 
 func (c *Controller) enqueueDeleteProviderNetwork(obj any) {
-	var pn *kubeovnv1.ProviderNetwork
+	var pn *fabricv1.ProviderNetwork
 	switch t := obj.(type) {
-	case *kubeovnv1.ProviderNetwork:
+	case *fabricv1.ProviderNetwork:
 		pn = t
 	case cache.DeletedFinalStateUnknown:
-		p, ok := t.Obj.(*kubeovnv1.ProviderNetwork)
+		p, ok := t.Obj.(*fabricv1.ProviderNetwork)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -376,7 +376,7 @@ func (c *Controller) processNextDeleteProviderNetworkWorkItem() bool {
 		return false
 	}
 
-	err := func(obj *kubeovnv1.ProviderNetwork) error {
+	err := func(obj *fabricv1.ProviderNetwork) error {
 		defer c.deleteProviderNetworkQueue.Done(obj)
 		if err := c.handleDeleteProviderNetwork(obj); err != nil {
 			return fmt.Errorf("error syncing %q: %w, requeuing", obj.Name, err)
@@ -434,13 +434,13 @@ func (c *Controller) handleAddOrUpdateProviderNetwork(key string) error {
 	return nil
 }
 
-func (c *Controller) recordProviderNetworkInitError(pn *kubeovnv1.ProviderNetwork, nic string, err error) error {
+func (c *Controller) recordProviderNetworkInitError(pn *fabricv1.ProviderNetwork, nic string, err error) error {
 	c.recorder.Eventf(pn, v1.EventTypeWarning, "InitOVSBridgeFailed",
 		"Failed to initialize provider network: node=%s interface=%s error=%v", c.config.NodeName, nic, err)
 	return err
 }
 
-func providerNetworkNic(pn *kubeovnv1.ProviderNetwork, nodeName string) string {
+func providerNetworkNic(pn *fabricv1.ProviderNetwork, nodeName string) string {
 	for _, item := range pn.Spec.CustomInterfaces {
 		if slices.Contains(item.Nodes, nodeName) {
 			return item.Interface
@@ -451,7 +451,7 @@ func providerNetworkNic(pn *kubeovnv1.ProviderNetwork, nodeName string) string {
 
 // initProviderNetwork configures the provider network on the local node.
 // node must not be mutated; it is backed by the shared informer cache.
-func (c *Controller) initProviderNetwork(pn *kubeovnv1.ProviderNetwork, node *v1.Node) error {
+func (c *Controller) initProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.Node) error {
 	nic := providerNetworkNic(pn, node.Name)
 
 	patch := util.KVPatch{
@@ -589,7 +589,7 @@ func (c *Controller) recordProviderNetworkErr(providerNetwork, errMsg string) {
 
 // cleanProviderNetwork tears down the provider network from the local node.
 // node must not be mutated; it is backed by the shared informer cache.
-func (c *Controller) cleanProviderNetwork(pn *kubeovnv1.ProviderNetwork, node *v1.Node) error {
+func (c *Controller) cleanProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.Node) error {
 	patch := util.KVPatch{
 		fmt.Sprintf(util.ProviderNetworkReadyTemplate, pn.Name):     nil,
 		fmt.Sprintf(util.ProviderNetworkInterfaceTemplate, pn.Name): nil,
@@ -609,7 +609,7 @@ func (c *Controller) cleanProviderNetwork(pn *kubeovnv1.ProviderNetwork, node *v
 	return c.cleanupAutoCreatedVlanInterfaces(pn.Name, "", nil)
 }
 
-func (c *Controller) handleDeleteProviderNetwork(pn *kubeovnv1.ProviderNetwork) error {
+func (c *Controller) handleDeleteProviderNetwork(pn *fabricv1.ProviderNetwork) error {
 	if err := c.ovsCleanProviderNetwork(pn.Name, providerNetworkNic(pn, c.config.NodeName), pn.Spec.VlanInterfaces); err != nil {
 		klog.Error(err)
 		return err
@@ -645,8 +645,8 @@ func (c *Controller) handleDeleteProviderNetwork(pn *kubeovnv1.ProviderNetwork) 
 }
 
 func (c *Controller) enqueueUpdateVlan(oldObj, newObj any) {
-	oldVlan := oldObj.(*kubeovnv1.Vlan)
-	newVlan := newObj.(*kubeovnv1.Vlan)
+	oldVlan := oldObj.(*fabricv1.Vlan)
+	newVlan := newObj.(*fabricv1.Vlan)
 	if oldVlan.Spec.ID != newVlan.Spec.ID {
 		klog.V(3).Infof("enqueue update provider network %q", newVlan.Spec.Provider)
 		c.addOrUpdateProviderNetworkQueue.Add(newVlan.Spec.Provider)
@@ -671,10 +671,10 @@ func (c *Controller) enqueueUpdateSubnet(oldObj, newObj any) {
 
 func (c *Controller) enqueueDeleteSubnet(obj any) {
 	switch t := obj.(type) {
-	case *kubeovnv1.Subnet:
+	case *fabricv1.Subnet:
 		c.subnetQueue.Add(&subnetEvent{oldObj: t})
 	case cache.DeletedFinalStateUnknown:
-		subnet, ok := t.Obj.(*kubeovnv1.Subnet)
+		subnet, ok := t.Obj.(*fabricv1.Subnet)
 		if !ok {
 			klog.Warningf("unexpected object type in tombstone: %T", t.Obj)
 			return

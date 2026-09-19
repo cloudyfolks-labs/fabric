@@ -30,7 +30,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/docker"
@@ -73,7 +73,7 @@ func TestE2E(t *testing.T) {
 
 	suiteConfig, reporterConfig := k8sframework.CreateGinkgoConfig()
 	klog.Infof("Starting e2e run %q on Ginkgo node %d", k8sframework.RunID, suiteConfig.ParallelProcess)
-	ginkgo.RunSpecs(t, "Kube-OVN e2e suite", suiteConfig, reporterConfig)
+	ginkgo.RunSpecs(t, "fabric e2e suite", suiteConfig, reporterConfig)
 }
 
 var clusterName string
@@ -382,11 +382,11 @@ ip protocol bgp route-map OVN-NO-FIB
 				Default:  true,
 			},
 		}
-		_, err := f.KubeOVNClientSet.FabricV1().LoadBalancerPools().Create(context.TODO(), pool, metav1.CreateOptions{})
+		_, err := f.FabricClientSet.FabricV1().LoadBalancerPools().Create(context.TODO(), pool, metav1.CreateOptions{})
 		framework.ExpectNoError(err, "creating loadbalancer pool "+poolName)
 		ginkgo.DeferCleanup(func() {
 			ginkgo.By("Deleting loadbalancer pool " + poolName)
-			err := f.KubeOVNClientSet.FabricV1().LoadBalancerPools().Delete(context.TODO(), poolName, metav1.DeleteOptions{})
+			err := f.FabricClientSet.FabricV1().LoadBalancerPools().Delete(context.TODO(), poolName, metav1.DeleteOptions{})
 			framework.ExpectNoError(err)
 		})
 
@@ -526,10 +526,10 @@ ip protocol bgp route-map OVN-NO-FIB
 		}
 
 		ginkgo.By("Deleting the FRR agent pod on " + bindings[wa.vpcName] + " and verifying recovery")
-		agentPod, err := f.DaemonSetClientNS(framework.KubeOvnNamespace).GetPodOnNode(
-			f.DaemonSetClientNS(framework.KubeOvnNamespace).Get("fabric-frr-e2e"), bindings[wa.vpcName])
+		agentPod, err := f.DaemonSetClientNS(framework.FabricNamespace).GetPodOnNode(
+			f.DaemonSetClientNS(framework.FabricNamespace).Get("fabric-frr-e2e"), bindings[wa.vpcName])
 		framework.ExpectNoError(err, "finding agent pod on binding chassis")
-		f.PodClientNS(framework.KubeOvnNamespace).DeleteSync(agentPod.Name)
+		f.PodClientNS(framework.FabricNamespace).DeleteSync(agentPod.Name)
 		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
 			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
 			if err != nil {
@@ -537,7 +537,7 @@ ip protocol bgp route-map OVN-NO-FIB
 			}
 			return !strings.Contains(string(stdout), wa.eipV4+"/32"), nil
 		}, "EIP of "+wa.vpcName+" withdrawn while its chassis agent pod is down")
-		f.DaemonSetClientNS(framework.KubeOvnNamespace).RolloutStatus("fabric-frr-e2e")
+		f.DaemonSetClientNS(framework.FabricNamespace).RolloutStatus("fabric-frr-e2e")
 		for _, w := range []*drWorkload{wa, wb, wc} {
 			waitTorLearnsEip(topo, w)
 		}
@@ -647,12 +647,12 @@ ip protocol bgp route-map OVN-NO-FIB
 		framework.ExpectEqual(boundA, restartNode, layout)
 		framework.ExpectEqual(boundB, peerNode, layout)
 
-		dsClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+		dsClient := f.DaemonSetClientNS(framework.FabricNamespace)
 		ovsPod, err := dsClient.GetPodOnNode(dsClient.Get(framework.DaemonSetOvsOvn), restartNode)
 		framework.ExpectNoError(err, "finding the ovs-ovn pod on "+restartNode)
 
 		ginkgo.By("Deleting ovs-ovn pod " + ovsPod.Name + " on " + restartNode)
-		f.PodClientNS(framework.KubeOvnNamespace).DeleteSync(ovsPod.Name)
+		f.PodClientNS(framework.FabricNamespace).DeleteSync(ovsPod.Name)
 		framework.WaitUntil(2*time.Second, 3*time.Minute, func(_ context.Context) (bool, error) {
 			stdout, _, err := docker.Exec(topo.torID, nil, "vtysh", "-c", "show ip route bgp")
 			if err != nil {
@@ -879,7 +879,7 @@ func setupVpcWorkload(f *framework.Framework, topo *drTopology, vpcName, vrf str
 	if podIP != "" {
 		annotations[util.IPAddressAnnotation] = podIP
 	}
-	workloadPod := framework.MakePrivilegedPod(namespaceName, w.workloadPodName, nil, annotations, f.KubeOVNImage, []string{"sleep", "infinity"}, nil)
+	workloadPod := framework.MakePrivilegedPod(namespaceName, w.workloadPodName, nil, annotations, f.FabricImage, []string{"sleep", "infinity"}, nil)
 	workloadPod = podClient.CreateSync(workloadPod)
 	ginkgo.DeferCleanup(func() {
 		ginkgo.By("Deleting workload pod " + w.workloadPodName)
@@ -960,7 +960,7 @@ func deleteNatAndVerifyWithdrawal(f *framework.Framework, topo *drTopology, w *d
 	}, "EIP route withdrawn on ToR")
 }
 
-func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
+func makeAgentDaemonSet(name, fabricImage string) *appsv1.DaemonSet {
 	nodeNameEnv := corev1.EnvVar{
 		Name: "NODE_NAME",
 		ValueFrom: &corev1.EnvVarSource{
@@ -971,7 +971,7 @@ func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
 	labels := map[string]string{"app": name}
 
 	return &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: framework.KubeOvnNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: framework.FabricNamespace},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
 			Template: corev1.PodTemplateSpec{
@@ -987,7 +987,7 @@ func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
 					},
 					InitContainers: []corev1.Container{{
 						Name:         "init-frr",
-						Image:        kubeOvnImage,
+						Image:        fabricImage,
 						Command:      []string{"/fabric/fabric-frr", "init"},
 						Env:          []corev1.EnvVar{nodeNameEnv},
 						VolumeMounts: []corev1.VolumeMount{frrVolumeMount},
@@ -1004,7 +1004,7 @@ func makeAgentDaemonSet(name, kubeOvnImage string) *appsv1.DaemonSet {
 						VolumeMounts: []corev1.VolumeMount{frrVolumeMount},
 					}, {
 						Name:    "fabric-frr",
-						Image:   kubeOvnImage,
+						Image:   fabricImage,
 						Command: []string{"/fabric/fabric-frr"},
 						Env:     []corev1.EnvVar{nodeNameEnv},
 						VolumeMounts: []corev1.VolumeMount{frrVolumeMount, {
@@ -1077,11 +1077,11 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 
 	agentName := "fabric-frr-e2e"
 	ginkgo.By("Creating RBAC for agent " + agentName)
-	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: agentName, Namespace: framework.KubeOvnNamespace}}
-	_, err := f.ClientSet.CoreV1().ServiceAccounts(framework.KubeOvnNamespace).Create(context.TODO(), sa, metav1.CreateOptions{})
+	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: agentName, Namespace: framework.FabricNamespace}}
+	_, err := f.ClientSet.CoreV1().ServiceAccounts(framework.FabricNamespace).Create(context.TODO(), sa, metav1.CreateOptions{})
 	framework.ExpectNoError(err, "creating agent service account")
 	ginkgo.DeferCleanup(func() {
-		framework.ExpectNoError(f.ClientSet.CoreV1().ServiceAccounts(framework.KubeOvnNamespace).Delete(context.TODO(), agentName, metav1.DeleteOptions{}))
+		framework.ExpectNoError(f.ClientSet.CoreV1().ServiceAccounts(framework.FabricNamespace).Delete(context.TODO(), agentName, metav1.DeleteOptions{}))
 	})
 	role := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: agentName},
@@ -1107,7 +1107,7 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 	binding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: agentName},
 		RoleRef:    rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: agentName},
-		Subjects:   []rbacv1.Subject{{Kind: rbacv1.ServiceAccountKind, Name: agentName, Namespace: framework.KubeOvnNamespace}},
+		Subjects:   []rbacv1.Subject{{Kind: rbacv1.ServiceAccountKind, Name: agentName, Namespace: framework.FabricNamespace}},
 	}
 	_, err = f.ClientSet.RbacV1().ClusterRoleBindings().Create(context.TODO(), binding, metav1.CreateOptions{})
 	framework.ExpectNoError(err, "creating agent cluster role binding")
@@ -1116,15 +1116,15 @@ func deployAgent(f *framework.Framework, topo *drTopology) {
 	})
 
 	ginkgo.By("Deploying agent DaemonSet " + agentName)
-	agentDS := makeAgentDaemonSet(agentName, f.KubeOVNImage)
-	_, err = f.ClientSet.AppsV1().DaemonSets(framework.KubeOvnNamespace).Create(context.TODO(), agentDS, metav1.CreateOptions{})
+	agentDS := makeAgentDaemonSet(agentName, f.FabricImage)
+	_, err = f.ClientSet.AppsV1().DaemonSets(framework.FabricNamespace).Create(context.TODO(), agentDS, metav1.CreateOptions{})
 	framework.ExpectNoError(err, "creating agent daemonset")
 	ginkgo.DeferCleanup(func() {
 		ginkgo.By("Deleting agent DaemonSet " + agentName)
-		err := f.ClientSet.AppsV1().DaemonSets(framework.KubeOvnNamespace).Delete(context.TODO(), agentName, metav1.DeleteOptions{})
+		err := f.ClientSet.AppsV1().DaemonSets(framework.FabricNamespace).Delete(context.TODO(), agentName, metav1.DeleteOptions{})
 		framework.ExpectNoError(err, "deleting agent daemonset")
 	})
-	f.DaemonSetClientNS(framework.KubeOvnNamespace).RolloutStatus(agentName)
+	f.DaemonSetClientNS(framework.FabricNamespace).RolloutStatus(agentName)
 	ginkgo.DeferCleanup(dumpAgentFrrState, f, topo)
 	ginkgo.DeferCleanup(dumpOvnDynamicRoutingState, f)
 }
@@ -1134,7 +1134,7 @@ func setVpcStaticRoutes(f *framework.Framework, vpcName string, routes []*apiv1.
 
 	vpc := f.VpcClient().Get(vpcName).DeepCopy()
 	vpc.Spec.StaticRoutes = routes
-	_, err := f.KubeOVNClientSet.FabricV1().Vpcs().Update(context.TODO(), vpc, metav1.UpdateOptions{})
+	_, err := f.FabricClientSet.FabricV1().Vpcs().Update(context.TODO(), vpc, metav1.UpdateOptions{})
 	framework.ExpectNoError(err, "updating static routes of vpc "+vpcName)
 }
 
@@ -1223,7 +1223,7 @@ func dumpOvnDynamicRoutingState(f *framework.Framework) {
 		"ovn-nbctl --no-leader-only --format=csv --no-heading --columns=name,vips,options list Load_Balancer",
 		"ovn-sbctl --no-leader-only --format=csv --no-heading --columns=ip_prefix,logical_port,tracked_port list Advertised_Route",
 	} {
-		out, errOut, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, pod, "ovn-central", "sh", "-c", cmd)
+		out, errOut, err := framework.ExecCommandInContainer(f, framework.FabricNamespace, pod, "ovn-central", "sh", "-c", cmd)
 		framework.Logf("ovn dump [%s]:\n%s%s (err=%v)", cmd, out, errOut, err)
 	}
 }
@@ -1236,8 +1236,8 @@ func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
 		return
 	}
 	for _, gwName := range topo.gwNodeNames {
-		ds := f.DaemonSetClientNS(framework.KubeOvnNamespace).Get("fabric-frr-e2e")
-		pod, err := f.DaemonSetClientNS(framework.KubeOvnNamespace).GetPodOnNode(ds, gwName)
+		ds := f.DaemonSetClientNS(framework.FabricNamespace).Get("fabric-frr-e2e")
+		pod, err := f.DaemonSetClientNS(framework.FabricNamespace).GetPodOnNode(ds, gwName)
 		if err != nil {
 			framework.Logf("no agent pod on %s: %v", gwName, err)
 			continue
@@ -1251,7 +1251,7 @@ func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
 			{"vtysh", "-c", "show ip route vrf all"},
 			{"ip", "-o", "link", "show", "type", "vrf"},
 		} {
-			out, errOut, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, pod.Name, "frr", cmd...)
+			out, errOut, err := framework.ExecCommandInContainer(f, framework.FabricNamespace, pod.Name, "frr", cmd...)
 			framework.Logf("agent %s %v:\n%s%s (err=%v)", gwName, cmd, out, errOut, err)
 		}
 	}
@@ -1260,7 +1260,7 @@ func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
 func ovnLbSvcEnabled(f *framework.Framework) bool {
 	ginkgo.GinkgoHelper()
 
-	deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
+	deploy, err := f.ClientSet.AppsV1().Deployments(framework.FabricNamespace).Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
 	framework.ExpectNoError(err, "getting the fabric-controller deployment")
 	for _, container := range deploy.Spec.Template.Spec.Containers {
 		if slices.Contains(container.Args, "--enable-ovn-lb-svc=true") {
@@ -1273,7 +1273,7 @@ func ovnLbSvcEnabled(f *framework.Framework) bool {
 func chassisOfNode(f *framework.Framework, nodeName string) string {
 	ginkgo.GinkgoHelper()
 
-	chassisName, _, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, getOvnCentralPod(f), "ovn-central",
+	chassisName, _, err := framework.ExecCommandInContainer(f, framework.FabricNamespace, getOvnCentralPod(f), "ovn-central",
 		"ovn-sbctl", "--data=bare", "--no-heading", "--columns=name", "find", "chassis", "hostname="+nodeName)
 	framework.ExpectNoError(err, "resolving chassis name")
 	chassisName = strings.TrimSpace(chassisName)
@@ -1284,7 +1284,7 @@ func chassisOfNode(f *framework.Framework, nodeName string) string {
 func lrpGatewayChassis(f *framework.Framework, lrpName string) string {
 	ginkgo.GinkgoHelper()
 
-	stdout, _, err := framework.ExecCommandInContainer(f, framework.KubeOvnNamespace, getOvnCentralPod(f), "ovn-central",
+	stdout, _, err := framework.ExecCommandInContainer(f, framework.FabricNamespace, getOvnCentralPod(f), "ovn-central",
 		"ovn-nbctl", "lrp-get-gateway-chassis", lrpName)
 	framework.ExpectNoError(err, "reading gateway chassis of "+lrpName)
 	return stdout
@@ -1326,7 +1326,7 @@ func bgpPathFromPeer(showOutput, peerIP string) bool {
 func getOvnCentralPod(f *framework.Framework) string {
 	ginkgo.GinkgoHelper()
 
-	pods, err := f.ClientSet.CoreV1().Pods(framework.KubeOvnNamespace).List(context.TODO(), metav1.ListOptions{
+	pods, err := f.ClientSet.CoreV1().Pods(framework.FabricNamespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "app=ovn-central",
 	})
 	framework.ExpectNoError(err, "listing ovn-central pods")

@@ -20,8 +20,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	"github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn"
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	"github.com/cloudyfolks-labs/fabric/pkg/apis/fabric"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/controller"
 	"github.com/cloudyfolks-labs/fabric/pkg/metrics"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -52,7 +52,7 @@ func CmdMain() {
 	if err := checkPermission(config); err != nil {
 		util.LogFatalAndExit(err, "failed to check permission")
 	}
-	utilruntime.Must(kubeovnv1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(fabricv1.AddToScheme(scheme.Scheme))
 
 	ctrl.SetLogger(klog.NewKlogr())
 	ctx := signals.SetupSignalHandler()
@@ -115,7 +115,7 @@ func checkPermission(config *controller.Configuration) error {
 			Spec: v1.SelfSubjectAccessReviewSpec{
 				ResourceAttributes: &v1.ResourceAttributes{
 					Verb:     "watch",
-					Group:    kubeovn.GroupName,
+					Group:    fabric.GroupName,
 					Resource: res,
 				},
 			},

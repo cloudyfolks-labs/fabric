@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -308,7 +308,7 @@ func checkAccessTargetIPPorts(config *Configuration) error {
 		if !slices.Contains(config.PodProtocols, util.CheckProtocol(addr)) {
 			continue
 		}
-		if util.CheckProtocol(addr) == kubeovnv1.ProtocolIPv6 {
+		if util.CheckProtocol(addr) == fabricv1.ProtocolIPv6 {
 			addr = fmt.Sprintf("[%s]", addr)
 		}
 

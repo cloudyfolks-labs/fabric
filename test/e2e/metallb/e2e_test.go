@@ -26,7 +26,7 @@ import (
 	e2enode "k8s.io/kubernetes/test/e2e/framework/node"
 	"k8s.io/utils/ptr"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ipam"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -217,7 +217,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 
 		ginkgo.By("Creating a new kind node as Client and connecting it to the docker network")
 		cmd := []string{"sh", "-c", "sleep 600"}
-		containerInfo, err := docker.ContainerCreate(containerName, f.KubeOVNImage, dockerNetworkName, cmd)
+		containerInfo, err := docker.ContainerCreate(containerName, f.FabricImage, dockerNetworkName, cmd)
 		framework.ExpectNoError(err)
 		containerID = containerInfo.ID
 		ContainerInspect, err := docker.ContainerInspect(containerID)
@@ -762,7 +762,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		waitServiceVIPNodeMarkers(tcpLoadBalancer, service2, vipNodes, 30*time.Second)
 
 		ginkgo.By("Restarting ds fabric-cni")
-		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+		daemonSetClient := f.DaemonSetClientNS(framework.FabricNamespace)
 		ds := daemonSetClient.Get("fabric-cni")
 		daemonSetClient.RestartSync(ds)
 

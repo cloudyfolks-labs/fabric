@@ -14,7 +14,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -32,7 +32,7 @@ func generateSvcName(name string) string {
 	return "slr-" + name
 }
 
-func NewSwitchLBRuleInfo(slr *kubeovnv1.SwitchLBRule) *SwitchLBRuleInfo {
+func NewSwitchLBRuleInfo(slr *fabricv1.SwitchLBRule) *SwitchLBRuleInfo {
 	namespace := slr.Spec.Namespace
 	if namespace == "" {
 		namespace = metav1.NamespaceDefault
@@ -53,15 +53,15 @@ func NewSwitchLBRuleInfo(slr *kubeovnv1.SwitchLBRule) *SwitchLBRuleInfo {
 }
 
 func (c *Controller) enqueueAddSwitchLBRule(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.SwitchLBRule)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.SwitchLBRule)).String()
 	klog.Infof("enqueue add SwitchLBRule %s", key)
 	c.addSwitchLBRuleQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateSwitchLBRule(oldObj, newObj any) {
 	var (
-		oldSlr = oldObj.(*kubeovnv1.SwitchLBRule)
-		newSlr = newObj.(*kubeovnv1.SwitchLBRule)
+		oldSlr = oldObj.(*fabricv1.SwitchLBRule)
+		newSlr = newObj.(*fabricv1.SwitchLBRule)
 		info   = NewSwitchLBRuleInfo(oldSlr)
 	)
 
@@ -78,12 +78,12 @@ func (c *Controller) enqueueUpdateSwitchLBRule(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDeleteSwitchLBRule(obj any) {
-	var slr *kubeovnv1.SwitchLBRule
+	var slr *fabricv1.SwitchLBRule
 	switch t := obj.(type) {
-	case *kubeovnv1.SwitchLBRule:
+	case *fabricv1.SwitchLBRule:
 		slr = t
 	case cache.DeletedFinalStateUnknown:
-		s, ok := t.Obj.(*kubeovnv1.SwitchLBRule)
+		s, ok := t.Obj.(*fabricv1.SwitchLBRule)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -103,7 +103,7 @@ func (c *Controller) handleAddOrUpdateSwitchLBRule(key string) error {
 	klog.V(3).Infof("handleAddOrUpdateSwitchLBRule %s", key)
 
 	var (
-		slr                              *kubeovnv1.SwitchLBRule
+		slr                              *fabricv1.SwitchLBRule
 		oldSvc                           *corev1.Service
 		oldEps                           *corev1.Endpoints
 		svcName                          string
@@ -199,7 +199,7 @@ func (c *Controller) handleAddOrUpdateSwitchLBRule(key string) error {
 	}
 	newSlr.Status.Ports = strings.TrimPrefix(formatPorts, ",")
 
-	if _, err = c.config.KubeOvnClient.FabricV1().SwitchLBRules().UpdateStatus(context.Background(), newSlr, metav1.UpdateOptions{}); err != nil {
+	if _, err = c.config.FabricClient.FabricV1().SwitchLBRules().UpdateStatus(context.Background(), newSlr, metav1.UpdateOptions{}); err != nil {
 		err = fmt.Errorf("failed to update switch lb rule status, %w", err)
 		klog.Error(err)
 		return err
@@ -370,7 +370,7 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 		}
 
 		if len(lbhcs) == 0 {
-			err = c.config.KubeOvnClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{})
+			err = c.config.FabricClient.FabricV1().Vips().Delete(context.Background(), vip, metav1.DeleteOptions{})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				klog.Errorf("failed to delete vip %s for load balancer health check, err: %v", vip, err)
 				return err
@@ -397,7 +397,7 @@ func (c *Controller) handleUpdateSwitchLBRule(info *SwitchLBRuleInfo) error {
 	return nil
 }
 
-func generateHeadlessService(slr *kubeovnv1.SwitchLBRule, oldSvc *corev1.Service) *corev1.Service {
+func generateHeadlessService(slr *fabricv1.SwitchLBRule, oldSvc *corev1.Service) *corev1.Service {
 	var (
 		name      string
 		newSvc    *corev1.Service
@@ -475,7 +475,7 @@ func generateHeadlessService(slr *kubeovnv1.SwitchLBRule, oldSvc *corev1.Service
 }
 
 // setUserDefinedNetwork propagates user-defined VPC/subnet from the SLR to the Service
-func setUserDefinedNetwork(service *corev1.Service, slr *kubeovnv1.SwitchLBRule) {
+func setUserDefinedNetwork(service *corev1.Service, slr *fabricv1.SwitchLBRule) {
 	if service == nil || slr == nil || slr.Annotations == nil {
 		return
 	}
@@ -495,7 +495,7 @@ func setUserDefinedNetwork(service *corev1.Service, slr *kubeovnv1.SwitchLBRule)
 
 // setHealthCheckAnnotation propagates the healthcheck toggle from the SLR to the Service
 // Users can choose to disable health checks on their services using this annotation
-func setHealthCheckAnnotation(service *corev1.Service, slr *kubeovnv1.SwitchLBRule) {
+func setHealthCheckAnnotation(service *corev1.Service, slr *fabricv1.SwitchLBRule) {
 	if service == nil || slr == nil || slr.Annotations == nil {
 		return
 	}
@@ -509,7 +509,7 @@ func setHealthCheckAnnotation(service *corev1.Service, slr *kubeovnv1.SwitchLBRu
 	}
 }
 
-func generateEndpoints(slr *kubeovnv1.SwitchLBRule, oldEps *corev1.Endpoints) *corev1.Endpoints {
+func generateEndpoints(slr *fabricv1.SwitchLBRule, oldEps *corev1.Endpoints) *corev1.Endpoints {
 	var (
 		name    string
 		newEps  *corev1.Endpoints
@@ -574,9 +574,9 @@ func getIPFamilies(vip string) (families []corev1.IPFamily, policy corev1.IPFami
 	ipFamilies := set.New[corev1.IPFamily]()
 	for ip := range strings.SplitSeq(vip, ",") {
 		switch util.CheckProtocol(ip) {
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			ipFamilies.Insert(corev1.IPv6Protocol)
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			ipFamilies.Insert(corev1.IPv4Protocol)
 		}
 	}

@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -166,9 +166,9 @@ func TestCleanProviderNetworkPatchIncludesVlanIntLabel(t *testing.T) {
 	c := &Controller{
 		config: &Configuration{KubeClient: fakeClient},
 	}
-	pn := &kubeovnv1.ProviderNetwork{
+	pn := &fabricv1.ProviderNetwork{
 		ObjectMeta: metav1.ObjectMeta{Name: pnName},
-		Spec:       kubeovnv1.ProviderNetworkSpec{DefaultInterface: "eth0"},
+		Spec:       fabricv1.ProviderNetworkSpec{DefaultInterface: "eth0"},
 	}
 
 	// PatchLabels is called before ovsCleanProviderNetwork, so the patch is
@@ -215,9 +215,9 @@ func TestCleanProviderNetworkLabelConsistency(t *testing.T) {
 	fakeClient := fake.NewSimpleClientset(node)
 
 	c := &Controller{config: &Configuration{KubeClient: fakeClient}}
-	pn := &kubeovnv1.ProviderNetwork{
+	pn := &fabricv1.ProviderNetwork{
 		ObjectMeta: metav1.ObjectMeta{Name: pnName},
-		Spec:       kubeovnv1.ProviderNetworkSpec{DefaultInterface: "eth0"},
+		Spec:       fabricv1.ProviderNetworkSpec{DefaultInterface: "eth0"},
 	}
 
 	_ = c.cleanProviderNetwork(pn, node)

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -14,13 +14,13 @@ func Test_handleUpdateIP_deletedSubnet(t *testing.T) {
 	t.Parallel()
 
 	now := metav1.Now()
-	ip := &kubeovnv1.IP{
+	ip := &fabricv1.IP{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test-ip",
 			DeletionTimestamp: &now,
-			Finalizers:        []string{util.KubeOVNControllerFinalizer},
+			Finalizers:        []string{util.FabricControllerFinalizer},
 		},
-		Spec: kubeovnv1.IPSpec{
+		Spec: fabricv1.IPSpec{
 			Subnet:    "deleted-subnet",
 			Namespace: "default",
 			PodName:   "test-pod",
@@ -28,7 +28,7 @@ func Test_handleUpdateIP_deletedSubnet(t *testing.T) {
 	}
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		IPs: []*kubeovnv1.IP{ip},
+		IPs: []*fabricv1.IP{ip},
 	})
 	require.NoError(t, err)
 

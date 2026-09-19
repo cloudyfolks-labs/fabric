@@ -20,7 +20,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
@@ -33,7 +33,7 @@ const dockerNetworkName = "fabric-vlan"
 
 const dockerExtraNetworkName = "fabric-extra-vlan"
 
-func makeProviderNetwork(providerNetworkName string, exchangeLinkName bool, linkMap map[string]*iproute.Link) *kubeovnv1.ProviderNetwork {
+func makeProviderNetwork(providerNetworkName string, exchangeLinkName bool, linkMap map[string]*iproute.Link) *fabricv1.ProviderNetwork {
 	var defaultInterface string
 	customInterfaces := make(map[string][]string, 0)
 	for node, link := range linkMap {
@@ -51,23 +51,23 @@ func makeProviderNetwork(providerNetworkName string, exchangeLinkName bool, link
 	return framework.MakeProviderNetwork(providerNetworkName, exchangeLinkName, defaultInterface, customInterfaces, nil)
 }
 
-func makeOvnEip(name, subnet, v4ip, v6ip, mac, usage string) *kubeovnv1.OvnEip {
+func makeOvnEip(name, subnet, v4ip, v6ip, mac, usage string) *fabricv1.OvnEip {
 	return framework.MakeOvnEip(name, subnet, v4ip, v6ip, mac, usage)
 }
 
-func makeOvnVip(namespaceName, name, subnet, v4ip, v6ip, vipType string) *kubeovnv1.Vip {
+func makeOvnVip(namespaceName, name, subnet, v4ip, v6ip, vipType string) *fabricv1.Vip {
 	return framework.MakeVip(namespaceName, name, subnet, v4ip, v6ip, vipType)
 }
 
-func makeOvnFip(name, ovnEip, ipType, ipName, vpc, v4Ip string) *kubeovnv1.OvnFip {
+func makeOvnFip(name, ovnEip, ipType, ipName, vpc, v4Ip string) *fabricv1.OvnFip {
 	return framework.MakeOvnFip(name, ovnEip, ipType, ipName, vpc, v4Ip)
 }
 
-func makeOvnSnat(name, ovnEip, vpcSubnet, ipName, vpc, v4IpCidr string) *kubeovnv1.OvnSnatRule {
+func makeOvnSnat(name, ovnEip, vpcSubnet, ipName, vpc, v4IpCidr string) *fabricv1.OvnSnatRule {
 	return framework.MakeOvnSnatRule(name, ovnEip, vpcSubnet, ipName, vpc, v4IpCidr)
 }
 
-func makeOvnDnat(name, ovnEip, ipType, ipName, vpc, v4Ip, internalPort, externalPort, protocol string) *kubeovnv1.OvnDnatRule {
+func makeOvnDnat(name, ovnEip, ipType, ipName, vpc, v4Ip, internalPort, externalPort, protocol string) *fabricv1.OvnDnatRule {
 	return framework.MakeOvnDnatRule(name, ovnEip, ipType, ipName, vpc, v4Ip, internalPort, externalPort, protocol)
 }
 
@@ -210,7 +210,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		if skip {
 			ginkgo.Skip("underlay spec only runs on kind clusters")
 		}
-		f.SkipVersionPriorTo(1, 15, "Skip e2e tests for Kube-OVN versions prior to 1.15 temporarily")
+		f.SkipVersionPriorTo(1, 15, "Skip e2e tests for fabric versions prior to 1.15 temporarily")
 
 		if clusterName == "" {
 			ginkgo.By("Getting k8s nodes")
@@ -365,7 +365,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 				}, fmt.Sprintf("waiting for bridge %s addresses on node %s", bridgeName, node.Name()))
 
 				for _, addr := range bridge.NonLinkLocalAddresses() {
-					if util.CheckProtocol(addr) == kubeovnv1.ProtocolIPv4 {
+					if util.CheckProtocol(addr) == fabricv1.ProtocolIPv4 {
 						ginkgo.By("get provider bridge v4 ip " + addr)
 						*bridgeIps = append(*bridgeIps, addr)
 					}
@@ -561,12 +561,12 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		var cidrV4, cidrV6, gatewayV4, gatewayV6 string
 		for _, config := range dockerNetwork.IPAM.Config {
 			switch util.CheckProtocol(config.Subnet.String()) {
-			case kubeovnv1.ProtocolIPv4:
+			case fabricv1.ProtocolIPv4:
 				if f.HasIPv4() {
 					cidrV4 = config.Subnet.String()
 					gatewayV4 = config.Gateway.String()
 				}
-			case kubeovnv1.ProtocolIPv6:
+			case fabricv1.ProtocolIPv6:
 				if f.HasIPv6() {
 					cidrV6 = config.Subnet.String()
 					gatewayV6 = config.Gateway.String()
@@ -604,7 +604,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		time.Sleep(3 * time.Second)
 		newUnerlayExternalSubnet := subnetClient.Get(underlaySubnetName)
 		ginkgo.By("Check status using ovn eip for subnet " + underlaySubnetName)
-		if newUnerlayExternalSubnet.Spec.Protocol == kubeovnv1.ProtocolIPv4 {
+		if newUnerlayExternalSubnet.Spec.Protocol == fabricv1.ProtocolIPv4 {
 			framework.ExpectTrue(oldUnderlayExternalSubnet.Status.V4AvailableIPs.SubInt(1).Equal(newUnerlayExternalSubnet.Status.V4AvailableIPs))
 			framework.ExpectTrue(oldUnderlayExternalSubnet.Status.V4UsingIPs.AddInt(1).Equal(newUnerlayExternalSubnet.Status.V4UsingIPs))
 			framework.ExpectNotEqual(oldUnderlayExternalSubnet.Status.V4AvailableIPRange, newUnerlayExternalSubnet.Status.V4AvailableIPRange)
@@ -620,7 +620,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		ovnEipClient.DeleteSync(countingEipName)
 		time.Sleep(3 * time.Second)
 		newUnerlayExternalSubnet = subnetClient.Get(underlaySubnetName)
-		if newUnerlayExternalSubnet.Spec.Protocol == kubeovnv1.ProtocolIPv4 {
+		if newUnerlayExternalSubnet.Spec.Protocol == fabricv1.ProtocolIPv4 {
 			framework.ExpectTrue(oldUnderlayExternalSubnet.Status.V4AvailableIPs.AddInt(1).Equal(newUnerlayExternalSubnet.Status.V4AvailableIPs))
 			framework.ExpectTrue(oldUnderlayExternalSubnet.Status.V4UsingIPs.SubInt(1).Equal(newUnerlayExternalSubnet.Status.V4UsingIPs))
 			framework.ExpectNotEqual(oldUnderlayExternalSubnet.Status.V4AvailableIPRange, newUnerlayExternalSubnet.Status.V4AvailableIPRange)
@@ -654,7 +654,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 			ginkgo.By("Creating no bfd pod " + podOnNodeName + " with subnet " + noBfdSubnetName)
 			annotations := map[string]string{util.LogicalSwitchAnnotation: noBfdSubnetName}
 			cmd := []string{"sleep", "infinity"}
-			pod := framework.MakePod(namespaceName, podOnNodeName, nil, annotations, f.KubeOVNImage, cmd, nil)
+			pod := framework.MakePod(namespaceName, podOnNodeName, nil, annotations, f.FabricImage, cmd, nil)
 			pod.Spec.NodeName = node
 			_ = podClient.CreateSync(pod)
 		}
@@ -662,7 +662,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		ginkgo.By("Creating pod with fip")
 		annotations := map[string]string{util.LogicalSwitchAnnotation: noBfdSubnetName}
 		cmd := []string{"sleep", "infinity"}
-		fipPod := framework.MakePod(namespaceName, fipPodName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		fipPod := framework.MakePod(namespaceName, fipPodName, nil, annotations, f.FabricImage, cmd, nil)
 		fipPod = podClient.CreateSync(fipPod)
 		podEip := framework.MakeOvnEip(podEipName, underlaySubnetName, "", "", "", "")
 		_ = ovnEipClient.CreateSync(podEip)
@@ -719,7 +719,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		noBfdVpc = vpcClient.Get(noBfdVpcName)
 		for _, route := range noBfdVpc.Spec.StaticRoutes {
 			framework.ExpectEqual(route.RouteTable, util.MainRouteTable)
-			framework.ExpectEqual(route.Policy, kubeovnv1.PolicyDst)
+			framework.ExpectEqual(route.Policy, fabricv1.PolicyDst)
 			framework.ExpectContainSubstring(vlanSubnetGw, route.NextHopIP)
 		}
 
@@ -771,12 +771,12 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		cidrV4, cidrV6, gatewayV4, gatewayV6 = "", "", "", ""
 		for _, config := range dockerExtraNetwork.IPAM.Config {
 			switch util.CheckProtocol(config.Subnet.String()) {
-			case kubeovnv1.ProtocolIPv4:
+			case fabricv1.ProtocolIPv4:
 				if f.HasIPv4() {
 					cidrV4 = config.Subnet.String()
 					gatewayV4 = config.Gateway.String()
 				}
-			case kubeovnv1.ProtocolIPv6:
+			case fabricv1.ProtocolIPv6:
 				if f.HasIPv6() {
 					cidrV6 = config.Subnet.String()
 					gatewayV6 = config.Gateway.String()
@@ -819,8 +819,8 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		cachedVpc := vpcClient.Get(noBfdVpcName)
 		noBfdVpc = cachedVpc.DeepCopy()
 		noBfdVpc.Spec.ExtraExternalSubnets = append(noBfdVpc.Spec.ExtraExternalSubnets, underlayExtraSubnetName)
-		noBfdVpc.Spec.StaticRoutes = append(noBfdVpc.Spec.StaticRoutes, &kubeovnv1.StaticRoute{
-			Policy:    kubeovnv1.PolicySrc,
+		noBfdVpc.Spec.StaticRoutes = append(noBfdVpc.Spec.StaticRoutes, &fabricv1.StaticRoute{
+			Policy:    fabricv1.PolicySrc,
 			CIDR:      noBfdExtraSubnetV4Cidr,
 			NextHopIP: gatewayV4,
 		})
@@ -838,14 +838,14 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 			ginkgo.By("Creating no bfd extra pod " + podOnNodeName + " with subnet " + noBfdExtraSubnetName)
 			annotations := map[string]string{util.LogicalSwitchAnnotation: noBfdExtraSubnetName}
 			cmd := []string{"sleep", "infinity"}
-			pod := framework.MakePod(namespaceName, podOnNodeName, nil, annotations, f.KubeOVNImage, cmd, nil)
+			pod := framework.MakePod(namespaceName, podOnNodeName, nil, annotations, f.FabricImage, cmd, nil)
 			pod.Spec.NodeName = node
 			_ = podClient.CreateSync(pod)
 		}
 
 		ginkgo.By("Creating pod with fip")
 		annotations = map[string]string{util.LogicalSwitchAnnotation: noBfdExtraSubnetName}
-		fipPod = framework.MakePod(namespaceName, fipExtraPodName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		fipPod = framework.MakePod(namespaceName, fipExtraPodName, nil, annotations, f.FabricImage, cmd, nil)
 		fipPod = podClient.CreateSync(fipPod)
 		podEip = framework.MakeOvnEip(podExtraEipName, underlayExtraSubnetName, "", "", "", "")
 		_ = ovnEipClient.CreateSync(podEip)
@@ -1197,7 +1197,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 		for _, route := range bfdVpc.Spec.StaticRoutes {
 			framework.ExpectEqual(route.RouteTable, util.MainRouteTable)
 			framework.ExpectEqual(route.ECMPMode, util.StaticRouteBfdEcmp)
-			framework.ExpectEqual(route.Policy, kubeovnv1.PolicySrc)
+			framework.ExpectEqual(route.Policy, fabricv1.PolicySrc)
 			framework.ExpectNotEmpty(route.CIDR)
 		}
 
@@ -1206,7 +1206,7 @@ var _ = framework.Describe("[group:ovn-vpc-nat-gw]", func() {
 			ginkgo.By("Creating bfd pod " + podOnNodeName + " with subnet " + bfdSubnetName)
 			annotations := map[string]string{util.LogicalSwitchAnnotation: bfdSubnetName}
 			cmd := []string{"sleep", "infinity"}
-			pod := framework.MakePod(namespaceName, podOnNodeName, nil, annotations, f.KubeOVNImage, cmd, nil)
+			pod := framework.MakePod(namespaceName, podOnNodeName, nil, annotations, f.FabricImage, cmd, nil)
 			pod.Spec.NodeName = node
 			_ = podClient.CreateSync(pod)
 		}

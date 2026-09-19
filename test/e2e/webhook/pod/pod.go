@@ -62,7 +62,7 @@ var _ = framework.Describe("[group:webhook-pod]", func() {
 		annotations := map[string]string{
 			util.IPAddressAnnotation: "10.10.10.10.10",
 		}
-		pod := framework.MakePod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		_, err := podClient.PodInterface.Create(context.TODO(), pod, metav1.CreateOptions{})
 		framework.ExpectError(err, "ip %s is not a valid %s", annotations[util.IPAddressAnnotation], util.IPAddressAnnotation)
 
@@ -110,7 +110,7 @@ var _ = framework.Describe("[group:webhook-pod]", func() {
 
 		ginkgo.By("validate pod ip conflict")
 		framework.Logf("validate ip conflict, pod %s, ip cr %s, conflict pod %s", podName, ipCR, conflictName)
-		conflictPod := framework.MakePod(namespaceName, conflictName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		conflictPod := framework.MakePod(namespaceName, conflictName, nil, annotations, f.FabricImage, cmd, nil)
 		_, err = podClient.PodInterface.Create(context.TODO(), conflictPod, metav1.CreateOptions{})
 		framework.ExpectError(err, "annotation static-ip %s is conflict with ip crd %s, ip %s", staticIP, ipCR, staticIP)
 	})

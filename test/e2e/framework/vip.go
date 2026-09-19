@@ -15,8 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/kubernetes/test/e2e/framework"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -29,7 +29,7 @@ type VipClient struct {
 func (f *Framework) VipClient() *VipClient {
 	return &VipClient{
 		f:            f,
-		VipInterface: f.KubeOVNClientSet.FabricV1().Vips(),
+		VipInterface: f.FabricClientSet.FabricV1().Vips(),
 	}
 }
 
@@ -66,7 +66,7 @@ func (c *VipClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
 		vip := c.Get(name)
 		if (vip.Status.V4ip != "" || vip.Status.V6ip != "") &&
-			slices.Contains(vip.GetFinalizers(), util.KubeOVNControllerFinalizer) {
+			slices.Contains(vip.GetFinalizers(), util.FabricControllerFinalizer) {
 			Logf("ovn vip %s is ready", name)
 			return true
 		}

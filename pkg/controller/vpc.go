@@ -25,7 +25,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -33,13 +33,13 @@ import (
 var externalGatewayNodeSelector = labels.Set{util.ExGatewayLabel: "true"}.AsSelector()
 
 func (c *Controller) enqueueAddVpc(obj any) {
-	vpc := obj.(*kubeovnv1.Vpc)
+	vpc := obj.(*fabricv1.Vpc)
 	key := cache.MetaObjectToName(vpc).String()
 	klog.V(3).Infof("enqueue add vpc %s", key)
 	c.addOrUpdateVpcQueue.Add(key)
 }
 
-func vpcBFDPortChanged(oldObj, newObj *kubeovnv1.BFDPort) bool {
+func vpcBFDPortChanged(oldObj, newObj *fabricv1.BFDPort) bool {
 	if oldObj == nil && newObj == nil {
 		return false
 	}
@@ -50,15 +50,15 @@ func vpcBFDPortChanged(oldObj, newObj *kubeovnv1.BFDPort) bool {
 }
 
 func (c *Controller) enqueueUpdateVpc(oldObj, newObj any) {
-	oldVpc := oldObj.(*kubeovnv1.Vpc)
-	newVpc := newObj.(*kubeovnv1.Vpc)
+	oldVpc := oldObj.(*fabricv1.Vpc)
+	newVpc := newObj.(*fabricv1.Vpc)
 
 	if !newVpc.DeletionTimestamp.IsZero() ||
 		!slices.Equal(oldVpc.Spec.Namespaces, newVpc.Spec.Namespaces) ||
 		!reflect.DeepEqual(oldVpc.Spec.StaticRoutes, newVpc.Spec.StaticRoutes) ||
 		!reflect.DeepEqual(oldVpc.Spec.PolicyRoutes, newVpc.Spec.PolicyRoutes) ||
 		!reflect.DeepEqual(oldVpc.Spec.VpcPeerings, newVpc.Spec.VpcPeerings) ||
-		kubeOvnAnnotationsChanged(oldVpc.Annotations, newVpc.Annotations) ||
+		fabricAnnotationsChanged(oldVpc.Annotations, newVpc.Annotations) ||
 		!slices.Equal(oldVpc.Spec.ExtraExternalSubnets, newVpc.Spec.ExtraExternalSubnets) ||
 		oldVpc.Spec.EnableExternal != newVpc.Spec.EnableExternal ||
 		oldVpc.Spec.EnableBfd != newVpc.Spec.EnableBfd ||
@@ -75,12 +75,12 @@ func (c *Controller) enqueueUpdateVpc(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDelVpc(obj any) {
-	var vpc *kubeovnv1.Vpc
+	var vpc *fabricv1.Vpc
 	switch t := obj.(type) {
-	case *kubeovnv1.Vpc:
+	case *fabricv1.Vpc:
 		vpc = t
 	case cache.DeletedFinalStateUnknown:
-		v, ok := t.Obj.(*kubeovnv1.Vpc)
+		v, ok := t.Obj.(*fabricv1.Vpc)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -95,7 +95,7 @@ func (c *Controller) enqueueDelVpc(obj any) {
 	c.delVpcQueue.Add(vpc)
 }
 
-func (c *Controller) handleDelVpc(vpc *kubeovnv1.Vpc) error {
+func (c *Controller) handleDelVpc(vpc *fabricv1.Vpc) error {
 	c.vpcKeyMutex.LockKey(vpc.Name)
 	defer func() { _ = c.vpcKeyMutex.UnlockKey(vpc.Name) }()
 	klog.Infof("handle delete vpc %s", vpc.Name)
@@ -174,7 +174,7 @@ func (c *Controller) handleUpdateVpcStatus(key string) error {
 		return err
 	}
 
-	vpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+	vpc, err = c.config.FabricClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -316,8 +316,8 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 	// handle static route
 	var (
 		staticExistedRoutes []*ovnnb.LogicalRouterStaticRoute
-		staticTargetRoutes  []*kubeovnv1.StaticRoute
-		staticRouteMapping  map[string][]*kubeovnv1.StaticRoute
+		staticTargetRoutes  []*fabricv1.StaticRoute
+		staticRouteMapping  map[string][]*fabricv1.StaticRoute
 		externalIDs         = map[string]string{"vendor": util.VendorTag}
 	)
 
@@ -375,8 +375,8 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			for table := range staticRouteMapping {
 				staticTargetRoutes = append(
 					staticTargetRoutes,
-					&kubeovnv1.StaticRoute{
-						Policy:     kubeovnv1.PolicyDst,
+					&fabricv1.StaticRoute{
+						Policy:     fabricv1.PolicyDst,
 						CIDR:       "0.0.0.0/0",
 						NextHopIP:  gatewayV4,
 						RouteTable: table,
@@ -388,8 +388,8 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			for table := range staticRouteMapping {
 				staticTargetRoutes = append(
 					staticTargetRoutes,
-					&kubeovnv1.StaticRoute{
-						Policy:     kubeovnv1.PolicyDst,
+					&fabricv1.StaticRoute{
+						Policy:     fabricv1.PolicyDst,
 						CIDR:       "::/0",
 						NextHopIP:  gatewayV6,
 						RouteTable: table,
@@ -409,16 +409,16 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 				v4Gw, v6Gw := util.SplitStringIP(subnet.Spec.Gateway)
 				v4Cidr, v6Cidr := util.SplitStringIP(subnet.Spec.CIDRBlock)
 				if v4Gw != "" && v4Cidr != "" {
-					staticTargetRoutes = append(staticTargetRoutes, &kubeovnv1.StaticRoute{
-						Policy:     kubeovnv1.PolicySrc,
+					staticTargetRoutes = append(staticTargetRoutes, &fabricv1.StaticRoute{
+						Policy:     fabricv1.PolicySrc,
 						CIDR:       v4Cidr,
 						NextHopIP:  v4Gw,
 						RouteTable: subnet.Spec.RouteTable,
 					})
 				}
 				if v6Gw != "" && v6Cidr != "" {
-					staticTargetRoutes = append(staticTargetRoutes, &kubeovnv1.StaticRoute{
-						Policy:     kubeovnv1.PolicySrc,
+					staticTargetRoutes = append(staticTargetRoutes, &fabricv1.StaticRoute{
+						Policy:     fabricv1.PolicySrc,
 						CIDR:       v6Cidr,
 						NextHopIP:  v6Gw,
 						RouteTable: subnet.Spec.RouteTable,
@@ -461,7 +461,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 
 	// handle policy route
 	var (
-		policyRouteExisted, policyRouteNeedDel, policyRouteNeedAdd []*kubeovnv1.PolicyRoute
+		policyRouteExisted, policyRouteNeedDel, policyRouteNeedAdd []*fabricv1.PolicyRoute
 		policyRouteLogical                                         []*ovnnb.LogicalRouterPolicy
 	)
 
@@ -524,7 +524,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		klog.Error(err)
 		return err
 	}
-	vpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+	vpc, err = c.config.FabricClient.FabricV1().Vpcs().Patch(context.Background(), vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 	if err != nil {
 		klog.Error(err)
 		return err
@@ -562,9 +562,9 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		return err
 	}
 	if vpc.Spec.BFDPort == nil || !vpc.Spec.BFDPort.Enabled {
-		vpc.Status.BFDPort = kubeovnv1.BFDPortStatus{}
+		vpc.Status.BFDPort = fabricv1.BFDPortStatus{}
 	} else {
-		vpc.Status.BFDPort = kubeovnv1.BFDPortStatus{
+		vpc.Status.BFDPort = fabricv1.BFDPortStatus{
 			Name:  bfdPortName,
 			IP:    strings.Join(util.SplitTrimmed(vpc.Spec.BFDPort.IP, ","), ","),
 			Nodes: bfdPortNodes,
@@ -572,7 +572,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 	}
 	desiredStatus := vpc.Status
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current, err := c.config.KubeOvnClient.FabricV1().Vpcs().Get(context.Background(), key, metav1.GetOptions{})
+		current, err := c.config.FabricClient.FabricV1().Vpcs().Get(context.Background(), key, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -582,7 +582,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		merged.EnableBfd = newVpc.Status.EnableBfd
 		merged.ExtraExternalSubnets = newVpc.Status.ExtraExternalSubnets
 		newVpc.Status = merged
-		_, err = c.config.KubeOvnClient.FabricV1().Vpcs().UpdateStatus(context.Background(), newVpc, metav1.UpdateOptions{})
+		_, err = c.config.FabricClient.FabricV1().Vpcs().UpdateStatus(context.Background(), newVpc, metav1.UpdateOptions{})
 		return err
 	})
 	if err != nil {
@@ -593,7 +593,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 	return nil
 }
 
-func (c *Controller) handleUpdateVpcExternal(vpc *kubeovnv1.Vpc, custVpcEnableExternalEcmp, defaultExternalSubnetExist bool, externalSubnetGW string) error {
+func (c *Controller) handleUpdateVpcExternal(vpc *fabricv1.Vpc, custVpcEnableExternalEcmp, defaultExternalSubnetExist bool, externalSubnetGW string) error {
 	if !vpc.Spec.EnableExternal && !vpc.Status.EnableExternal {
 		return nil
 	}
@@ -660,7 +660,7 @@ func (c *Controller) handleUpdateVpcExternal(vpc *kubeovnv1.Vpc, custVpcEnableEx
 	return nil
 }
 
-func (c *Controller) reconcileVpcBfdLRP(vpc *kubeovnv1.Vpc) (string, []string, error) {
+func (c *Controller) reconcileVpcBfdLRP(vpc *fabricv1.Vpc) (string, []string, error) {
 	portName := "bfd@" + vpc.Name
 	if vpc.Spec.BFDPort == nil || !vpc.Spec.BFDPort.Enabled {
 		if err := c.OVNNbClient.DeleteLogicalRouterPort(portName); err != nil {
@@ -737,7 +737,7 @@ func (c *Controller) reconcileVpcBfdLRP(vpc *kubeovnv1.Vpc) (string, []string, e
 	return portName, nodeNames, nil
 }
 
-func (c *Controller) addPolicyRouteToVpc(vpcName string, policy *kubeovnv1.PolicyRoute, externalIDs map[string]string) error {
+func (c *Controller) addPolicyRouteToVpc(vpcName string, policy *fabricv1.PolicyRoute, externalIDs map[string]string) error {
 	var (
 		nextHops []string
 		err      error
@@ -758,7 +758,7 @@ func buildExternalIDsMapKey(match, action string, priority int) string {
 	return fmt.Sprintf("%s-%s-%d", match, action, priority)
 }
 
-func (c *Controller) batchAddPolicyRouteToVpc(name string, policies []*kubeovnv1.PolicyRoute, externalIDs map[string]map[string]string) error {
+func (c *Controller) batchAddPolicyRouteToVpc(name string, policies []*fabricv1.PolicyRoute, externalIDs map[string]map[string]string) error {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -794,7 +794,7 @@ func (c *Controller) deletePolicyRouteFromVpc(vpcName string, priority int, matc
 	return nil
 }
 
-func (c *Controller) batchDeletePolicyRouteFromVpc(name string, policies []*kubeovnv1.PolicyRoute) error {
+func (c *Controller) batchDeletePolicyRouteFromVpc(name string, policies []*fabricv1.PolicyRoute) error {
 	start := time.Now()
 	routerPolicies := make([]*ovnnb.LogicalRouterPolicy, 0, len(policies))
 	for _, policy := range policies {
@@ -811,7 +811,7 @@ func (c *Controller) batchDeletePolicyRouteFromVpc(name string, policies []*kube
 	return nil
 }
 
-func (c *Controller) addStaticRouteToVpc(name string, route *kubeovnv1.StaticRoute) error {
+func (c *Controller) addStaticRouteToVpc(name string, route *fabricv1.StaticRoute) error {
 	externalIDs := map[string]string{"vendor": util.VendorTag}
 	if route.BfdID != "" {
 		klog.Infof("vpc %s add static ecmp route: %+v", name, route)
@@ -833,7 +833,7 @@ func (c *Controller) addStaticRouteToVpc(name string, route *kubeovnv1.StaticRou
 	return nil
 }
 
-func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string, policy kubeovnv1.RoutePolicy) error {
+func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string, policy fabricv1.RoutePolicy) error {
 	var (
 		policyStr string
 		err       error
@@ -848,7 +848,7 @@ func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string,
 	return nil
 }
 
-func (c *Controller) batchDeleteStaticRouteFromVpc(name string, staticRoutes []*kubeovnv1.StaticRoute) error {
+func (c *Controller) batchDeleteStaticRouteFromVpc(name string, staticRoutes []*fabricv1.StaticRoute) error {
 	start := time.Now()
 	routeCount := len(staticRoutes)
 	delRoutes := make([]*ovnnb.LogicalRouterStaticRoute, 0, routeCount)
@@ -870,15 +870,15 @@ func (c *Controller) batchDeleteStaticRouteFromVpc(name string, staticRoutes []*
 	return nil
 }
 
-func diffPolicyRouteWithExisted(exists, target []*kubeovnv1.PolicyRoute) ([]*kubeovnv1.PolicyRoute, []*kubeovnv1.PolicyRoute) {
+func diffPolicyRouteWithExisted(exists, target []*fabricv1.PolicyRoute) ([]*fabricv1.PolicyRoute, []*fabricv1.PolicyRoute) {
 	var (
-		dels, adds []*kubeovnv1.PolicyRoute
-		existsMap  map[string]*kubeovnv1.PolicyRoute
+		dels, adds []*fabricv1.PolicyRoute
+		existsMap  map[string]*fabricv1.PolicyRoute
 		key        string
 		ok         bool
 	)
 
-	existsMap = make(map[string]*kubeovnv1.PolicyRoute, len(exists))
+	existsMap = make(map[string]*fabricv1.PolicyRoute, len(exists))
 	for _, item := range exists {
 		existsMap[getPolicyRouteItemKey(item)] = item
 	}
@@ -899,24 +899,24 @@ func diffPolicyRouteWithExisted(exists, target []*kubeovnv1.PolicyRoute) ([]*kub
 	return dels, adds
 }
 
-func diffPolicyRouteWithLogical(exists []*ovnnb.LogicalRouterPolicy, target []*kubeovnv1.PolicyRoute) ([]*kubeovnv1.PolicyRoute, []*kubeovnv1.PolicyRoute) {
+func diffPolicyRouteWithLogical(exists []*ovnnb.LogicalRouterPolicy, target []*fabricv1.PolicyRoute) ([]*fabricv1.PolicyRoute, []*fabricv1.PolicyRoute) {
 	var (
-		dels, adds []*kubeovnv1.PolicyRoute
-		existsMap  map[string]*kubeovnv1.PolicyRoute
+		dels, adds []*fabricv1.PolicyRoute
+		existsMap  map[string]*fabricv1.PolicyRoute
 		key        string
 		ok         bool
 	)
-	existsMap = make(map[string]*kubeovnv1.PolicyRoute, len(exists))
+	existsMap = make(map[string]*fabricv1.PolicyRoute, len(exists))
 
 	for _, item := range exists {
 		if item.ExternalIDs["subnet"] != "" ||
 			item.ExternalIDs["isU2ORoutePolicy"] == "true" {
 			continue
 		}
-		policy := &kubeovnv1.PolicyRoute{
+		policy := &fabricv1.PolicyRoute{
 			Priority:  item.Priority,
 			Match:     item.Match,
-			Action:    kubeovnv1.PolicyRouteAction(item.Action),
+			Action:    fabricv1.PolicyRouteAction(item.Action),
 			NextHopIP: getLogicalPolicyNextHopKey(item),
 		}
 		existsMap[getPolicyRouteItemKey(policy)] = policy
@@ -938,7 +938,7 @@ func diffPolicyRouteWithLogical(exists []*ovnnb.LogicalRouterPolicy, target []*k
 	return dels, adds
 }
 
-func getPolicyRouteItemKey(item *kubeovnv1.PolicyRoute) (key string) {
+func getPolicyRouteItemKey(item *fabricv1.PolicyRoute) (key string) {
 	return fmt.Sprintf("%d:%s:%s:%s", item.Priority, item.Match, item.Action, normalizePolicyRouteNextHops(item.NextHopIP))
 }
 
@@ -972,14 +972,14 @@ func normalizePolicyRouteNextHops(nextHopIP string) string {
 	return strings.Join(nextHops, ",")
 }
 
-func diffStaticRoute(exist []*ovnnb.LogicalRouterStaticRoute, target []*kubeovnv1.StaticRoute) (routeNeedDel, routeNeedAdd []*kubeovnv1.StaticRoute) {
-	existRouteMap := make(map[string]*kubeovnv1.StaticRoute, len(exist))
+func diffStaticRoute(exist []*ovnnb.LogicalRouterStaticRoute, target []*fabricv1.StaticRoute) (routeNeedDel, routeNeedAdd []*fabricv1.StaticRoute) {
+	existRouteMap := make(map[string]*fabricv1.StaticRoute, len(exist))
 	for _, item := range exist {
-		policy := kubeovnv1.PolicyDst
+		policy := fabricv1.PolicyDst
 		if item.Policy != nil && *item.Policy == ovnnb.LogicalRouterStaticRoutePolicySrcIP {
-			policy = kubeovnv1.PolicySrc
+			policy = fabricv1.PolicySrc
 		}
-		route := &kubeovnv1.StaticRoute{
+		route := &fabricv1.StaticRoute{
 			Policy:     policy,
 			CIDR:       item.IPPrefix,
 			NextHopIP:  item.Nexthop,
@@ -1006,9 +1006,9 @@ func diffStaticRoute(exist []*ovnnb.LogicalRouterStaticRoute, target []*kubeovnv
 	return routeNeedDel, routeNeedAdd
 }
 
-func getStaticRouteItemKey(item *kubeovnv1.StaticRoute) string {
+func getStaticRouteItemKey(item *fabricv1.StaticRoute) string {
 	var key string
-	if item.Policy == kubeovnv1.PolicyDst {
+	if item.Policy == fabricv1.PolicyDst {
 		key = fmt.Sprintf("%s:dst:%s=>%s", item.RouteTable, item.CIDR, item.NextHopIP)
 	} else {
 		key = fmt.Sprintf("%s:src:%s=>%s", item.RouteTable, item.CIDR, item.NextHopIP)
@@ -1016,15 +1016,15 @@ func getStaticRouteItemKey(item *kubeovnv1.StaticRoute) string {
 	return key
 }
 
-func (c *Controller) formatVpc(vpc *kubeovnv1.Vpc) (*kubeovnv1.Vpc, error) {
+func (c *Controller) formatVpc(vpc *fabricv1.Vpc) (*fabricv1.Vpc, error) {
 	var changed bool
 	for _, item := range vpc.Spec.StaticRoutes {
 		// check policy
 		if item.Policy == "" {
-			item.Policy = kubeovnv1.PolicyDst
+			item.Policy = fabricv1.PolicyDst
 			changed = true
 		}
-		if item.Policy != kubeovnv1.PolicyDst && item.Policy != kubeovnv1.PolicySrc {
+		if item.Policy != fabricv1.PolicyDst && item.Policy != fabricv1.PolicySrc {
 			return nil, fmt.Errorf("unknown policy type: %q", item.Policy)
 		}
 		// check cidr
@@ -1042,7 +1042,7 @@ func (c *Controller) formatVpc(vpc *kubeovnv1.Vpc) (*kubeovnv1.Vpc, error) {
 	}
 
 	for _, route := range vpc.Spec.PolicyRoutes {
-		if route.Action != kubeovnv1.PolicyRouteActionReroute {
+		if route.Action != fabricv1.PolicyRouteActionReroute {
 			if route.NextHopIP != "" {
 				route.NextHopIP = ""
 				changed = true
@@ -1059,19 +1059,19 @@ func (c *Controller) formatVpc(vpc *kubeovnv1.Vpc) (*kubeovnv1.Vpc, error) {
 		}
 	}
 
-	if vpc.DeletionTimestamp.IsZero() && !slices.Contains(vpc.GetFinalizers(), util.KubeOVNControllerFinalizer) {
-		controllerutil.AddFinalizer(vpc, util.KubeOVNControllerFinalizer)
+	if vpc.DeletionTimestamp.IsZero() && !slices.Contains(vpc.GetFinalizers(), util.FabricControllerFinalizer) {
+		controllerutil.AddFinalizer(vpc, util.FabricControllerFinalizer)
 		changed = true
 	}
 
 	if !vpc.DeletionTimestamp.IsZero() && len(vpc.Status.Subnets) == 0 {
 		controllerutil.RemoveFinalizer(vpc, util.LegacyControllerFinalizer)
-		controllerutil.RemoveFinalizer(vpc, util.KubeOVNControllerFinalizer)
+		controllerutil.RemoveFinalizer(vpc, util.FabricControllerFinalizer)
 		changed = true
 	}
 
 	if changed {
-		newVpc, err := c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
+		newVpc, err := c.config.FabricClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update vpc %s: %v", vpc.Name, err)
 			return nil, err
@@ -1082,7 +1082,7 @@ func (c *Controller) formatVpc(vpc *kubeovnv1.Vpc) (*kubeovnv1.Vpc, error) {
 	return vpc, nil
 }
 
-func convertPolicies(list []*kubeovnv1.PolicyRoute) string {
+func convertPolicies(list []*fabricv1.PolicyRoute) string {
 	if list == nil {
 		return ""
 	}
@@ -1099,13 +1099,13 @@ func convertPolicies(list []*kubeovnv1.PolicyRoute) string {
 	return string(res)
 }
 
-func reversePolicies(origin string) []*kubeovnv1.PolicyRoute {
+func reversePolicies(origin string) []*fabricv1.PolicyRoute {
 	if origin == "" {
 		return nil
 	}
 
 	var (
-		list []*kubeovnv1.PolicyRoute
+		list []*fabricv1.PolicyRoute
 		err  error
 	)
 
@@ -1116,21 +1116,21 @@ func reversePolicies(origin string) []*kubeovnv1.PolicyRoute {
 	return list
 }
 
-func convertPolicy(origin kubeovnv1.RoutePolicy) string {
-	if origin == kubeovnv1.PolicyDst {
+func convertPolicy(origin fabricv1.RoutePolicy) string {
+	if origin == fabricv1.PolicyDst {
 		return ovnnb.LogicalRouterStaticRoutePolicyDstIP
 	}
 	return ovnnb.LogicalRouterStaticRoutePolicySrcIP
 }
 
-func reversePolicy(origin ovnnb.LogicalRouterStaticRoutePolicy) kubeovnv1.RoutePolicy {
+func reversePolicy(origin ovnnb.LogicalRouterStaticRoutePolicy) fabricv1.RoutePolicy {
 	if origin == ovnnb.LogicalRouterStaticRoutePolicyDstIP {
-		return kubeovnv1.PolicyDst
+		return fabricv1.PolicyDst
 	}
-	return kubeovnv1.PolicySrc
+	return fabricv1.PolicySrc
 }
 
-func (c *Controller) getVpcSubnets(vpc *kubeovnv1.Vpc) (subnets []string, defaultSubnet string, err error) {
+func (c *Controller) getVpcSubnets(vpc *fabricv1.Vpc) (subnets []string, defaultSubnet string, err error) {
 	subnets = []string{}
 	allSubnets, err := c.subnetsLister.List(labels.Everything())
 	if err != nil {
@@ -1157,7 +1157,7 @@ func (c *Controller) getVpcSubnets(vpc *kubeovnv1.Vpc) (subnets []string, defaul
 }
 
 // createVpcRouter create router to connect logical switches in vpc
-func (c *Controller) createVpcRouter(vpc *kubeovnv1.Vpc, learnFromARPRequest bool) error {
+func (c *Controller) createVpcRouter(vpc *fabricv1.Vpc, learnFromARPRequest bool) error {
 	lr := vpc.Name
 	if err := c.OVNNbClient.CreateLogicalRouter(lr); err != nil {
 		klog.Errorf("create logical router %s failed: %v", lr, err)
@@ -1205,7 +1205,7 @@ func (c *Controller) deleteVpcRouter(lr string) error {
 	return c.OVNNbClient.DeleteLogicalRouter(lr)
 }
 
-func vpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc, externalGatewaySwitch, lrpName string) map[string]string {
+func vpcDynamicRoutingLrpOptions(vpc *fabricv1.Vpc, externalGatewaySwitch, lrpName string) map[string]string {
 	options := map[string]string{
 		"dynamic-routing-maintain-vrf": "",
 		"dynamic-routing-redistribute": "",
@@ -1224,7 +1224,7 @@ func vpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc, externalGatewaySwitch, lrpN
 	onVpcSubnet := ownedByVpc && slices.Contains(vpc.Status.Subnets, subnet)
 	redistribute := make([]string, 0, len(dr.Redistribute))
 	for _, t := range dr.Redistribute {
-		if onVpcSubnet || (t != kubeovnv1.RedistributeNAT && t != kubeovnv1.RedistributeLB) {
+		if onVpcSubnet || (t != fabricv1.RedistributeNAT && t != fabricv1.RedistributeLB) {
 			redistribute = append(redistribute, string(t))
 		}
 	}
@@ -1233,7 +1233,7 @@ func vpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc, externalGatewaySwitch, lrpN
 	return options
 }
 
-func (c *Controller) reconcileVpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc) error {
+func (c *Controller) reconcileVpcDynamicRoutingLrpOptions(vpc *fabricv1.Vpc) error {
 	lrps, err := c.OVNNbClient.ListLogicalRouterPorts(map[string]string{logicalRouterKey: vpc.Name}, nil)
 	if err != nil {
 		klog.Errorf("failed to list logical router ports of vpc %s: %v", vpc.Name, err)
@@ -1251,7 +1251,7 @@ func (c *Controller) reconcileVpcDynamicRoutingLrpOptions(vpc *kubeovnv1.Vpc) er
 	return nil
 }
 
-func vpcExternalSubnets(vpc *kubeovnv1.Vpc, defaultSubnet string) []string {
+func vpcExternalSubnets(vpc *fabricv1.Vpc, defaultSubnet string) []string {
 	subnets := make([]string, 0, len(vpc.Spec.ExtraExternalSubnets)+1)
 	if defaultSubnet != "" {
 		subnets = append(subnets, defaultSubnet)
@@ -1285,7 +1285,7 @@ func (c *Controller) externalGatewayChassises(vpcName string) ([]string, error) 
 	return chassises, nil
 }
 
-func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *kubeovnv1.Vpc) error {
+func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *fabricv1.Vpc) error {
 	if !vpc.Spec.EnableExternal {
 		return nil
 	}
@@ -1332,7 +1332,7 @@ func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *kubeovnv1.Vpc) erro
 	return nil
 }
 
-func (c *Controller) reconcileVpcExternalSubnetConnections(vpc *kubeovnv1.Vpc, defaultExternalSubnetExist bool) error {
+func (c *Controller) reconcileVpcExternalSubnetConnections(vpc *fabricv1.Vpc, defaultExternalSubnetExist bool) error {
 	defaultSubnet := c.config.ExternalGatewaySwitch
 	defaultConnected, err := c.OVNNbClient.LogicalRouterPortExists(fmt.Sprintf("%s-%s", vpc.Name, defaultSubnet))
 	if err != nil {
@@ -1357,7 +1357,7 @@ func (c *Controller) reconcileVpcExternalSubnetConnections(vpc *kubeovnv1.Vpc, d
 	return nil
 }
 
-func planVpcExternalSubnetChanges(vpc *kubeovnv1.Vpc, defaultSubnet string, defaultExists, defaultConnected bool) (connect, disconnect []string) {
+func planVpcExternalSubnetChanges(vpc *fabricv1.Vpc, defaultSubnet string, defaultExists, defaultConnected bool) (connect, disconnect []string) {
 	wantDefault := vpc.Spec.EnableExternal && defaultExists && len(vpc.Spec.ExtraExternalSubnets) == 0
 	hadDefault := vpc.Status.EnableExternal && len(vpc.Status.ExtraExternalSubnets) == 0
 	if wantDefault && !hadDefault {
@@ -1461,7 +1461,7 @@ func (c *Controller) handleDeleteVpcStaticRoute(key string) error {
 		return err
 	}
 	needUpdate := false
-	newStaticRoutes := make([]*kubeovnv1.StaticRoute, 0, len(vpc.Spec.StaticRoutes))
+	newStaticRoutes := make([]*fabricv1.StaticRoute, 0, len(vpc.Spec.StaticRoutes))
 	for _, route := range vpc.Spec.StaticRoutes {
 		if route.ECMPMode == util.StaticRouteBfdEcmp {
 			needUpdate = true
@@ -1472,7 +1472,7 @@ func (c *Controller) handleDeleteVpcStaticRoute(key string) error {
 	// keep routes except bfd ecmp routes
 	if needUpdate {
 		vpc.Spec.StaticRoutes = newStaticRoutes
-		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.FabricClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update vpc spec static route %s, %v", vpc.Name, err)
 			return err
 		}
@@ -1492,7 +1492,7 @@ func (c *Controller) handleDelVpcExternalSubnet(key, subnet string) error {
 		klog.Errorf("failed to disconnect router '%s' to external, %v", key, err)
 		return err
 	}
-	if err := c.config.KubeOvnClient.FabricV1().OvnEips().Delete(context.Background(), lrpName, metav1.DeleteOptions{}); err != nil {
+	if err := c.config.FabricClient.FabricV1().OvnEips().Delete(context.Background(), lrpName, metav1.DeleteOptions{}); err != nil {
 		if !k8serrors.IsNotFound(err) {
 			klog.Errorf("failed to delete ovn eip %s, %v", lrpName, err)
 			return err
@@ -1524,7 +1524,7 @@ func (c *Controller) patchVpcBfdStatus(key string) error {
 			klog.Errorf("failed to marshal vpc status: %v", err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(),
+		if _, err = c.config.FabricClient.FabricV1().Vpcs().Patch(context.Background(),
 			cachedVpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Error(err)
 			return err
@@ -1533,8 +1533,8 @@ func (c *Controller) patchVpcBfdStatus(key string) error {
 	return nil
 }
 
-func (c *Controller) getRouteTablesByVpc(vpc *kubeovnv1.Vpc) map[string][]*kubeovnv1.StaticRoute {
-	rtbs := make(map[string][]*kubeovnv1.StaticRoute)
+func (c *Controller) getRouteTablesByVpc(vpc *fabricv1.Vpc) map[string][]*fabricv1.StaticRoute {
+	rtbs := make(map[string][]*fabricv1.StaticRoute)
 	for _, route := range vpc.Spec.StaticRoutes {
 		rtbs[route.RouteTable] = append(rtbs[route.RouteTable], route)
 	}
@@ -1563,7 +1563,7 @@ func (c *Controller) updateVpcExternalStatus(key string) error {
 		klog.Errorf("failed to get vpc bytes, %v", err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(),
+	if _, err = c.config.FabricClient.FabricV1().Vpcs().Patch(context.Background(),
 		vpc.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch vpc %s, %v", key, err)
 		return err

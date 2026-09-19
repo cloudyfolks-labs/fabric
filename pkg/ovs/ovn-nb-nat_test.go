@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
@@ -168,7 +168,7 @@ func (suite *OvnClientTestSuite) testUpdateDnatAndSnat() {
 
 	t.Run("create dnat_and_snat", func(t *testing.T) {
 		t.Run("distributed gw", func(t *testing.T) {
-			err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, kubeovnv1.GWDistributedType)
+			err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, fabricv1.GWDistributedType)
 			require.NoError(t, err)
 
 			lr, err := nbClient.GetLogicalRouter(lrName, false)
@@ -186,7 +186,7 @@ func (suite *OvnClientTestSuite) testUpdateDnatAndSnat() {
 		t.Run("centralized gw", func(t *testing.T) {
 			externalIP := "192.168.30.250"
 
-			err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, kubeovnv1.GWCentralizedType)
+			err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, fabricv1.GWCentralizedType)
 			require.NoError(t, err)
 
 			lr, err := nbClient.GetLogicalRouter(lrName, false)
@@ -202,7 +202,7 @@ func (suite *OvnClientTestSuite) testUpdateDnatAndSnat() {
 		t.Run("update existing dnat and snat with centralized gw", func(t *testing.T) {
 			externalIP := "192.168.30.250"
 
-			err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, kubeovnv1.GWCentralizedType)
+			err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, fabricv1.GWCentralizedType)
 			require.NoError(t, err)
 		})
 	})
@@ -211,7 +211,7 @@ func (suite *OvnClientTestSuite) testUpdateDnatAndSnat() {
 		lspName := "test-update-dnat-and-snat-lrp-1"
 		externalMac := "00:00:00:08:0a:ff"
 
-		err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, kubeovnv1.GWDistributedType)
+		err = nbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, fabricv1.GWDistributedType)
 		require.NoError(t, err)
 
 		lr, err := nbClient.GetLogicalRouter(lrName, false)
@@ -229,13 +229,13 @@ func (suite *OvnClientTestSuite) testUpdateDnatAndSnat() {
 	t.Run("fail dnat_and_snat", func(t *testing.T) {
 		lspName := "test-update-dnat-and-snat-lrp-1"
 		externalMac := "00:00:00:08:0a:ff"
-		err = failedNbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, kubeovnv1.GWDistributedType)
+		err = failedNbClient.UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, externalMac, fabricv1.GWDistributedType)
 		require.Error(t, err)
 
-		err = nbClient.UpdateDnatAndSnat(lrName, "", logicalIP, lspName, externalMac, kubeovnv1.GWDistributedType)
+		err = nbClient.UpdateDnatAndSnat(lrName, "", logicalIP, lspName, externalMac, fabricv1.GWDistributedType)
 		require.Error(t, err)
 
-		err = nbClient.UpdateDnatAndSnat(lrName, externalIP, "", lspName, externalMac, kubeovnv1.GWDistributedType)
+		err = nbClient.UpdateDnatAndSnat(lrName, externalIP, "", lspName, externalMac, fabricv1.GWDistributedType)
 		require.Error(t, err)
 	})
 }
@@ -287,7 +287,7 @@ func (suite *OvnClientTestSuite) testUpdateNat() {
 			lspName := "test-update-dnat-and-snat-lrp-1"
 			externalMac := "00:00:00:08:0a:ff"
 
-			err = nbClient.UpdateDnatAndSnat("", externalIP, logicalIP, lspName, externalMac, kubeovnv1.GWDistributedType)
+			err = nbClient.UpdateDnatAndSnat("", externalIP, logicalIP, lspName, externalMac, fabricv1.GWDistributedType)
 			require.ErrorContains(t, err, "the logical router name is required")
 		})
 	})

@@ -11,7 +11,7 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -458,7 +458,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 		endpointSlices     []*discoveryv1.EndpointSlice
 		pods               []*corev1.Pod
 		networkAttachments []*nadv1.NetworkAttachmentDefinition
-		subnets            []*kubeovnv1.Subnet
+		subnets            []*fabricv1.Subnet
 		expectedChanges    map[string]string // map of original IP to expected new IP
 		expectError        bool
 		description        string
@@ -490,7 +490,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Annotations: map[string]string{
 							// Network attachment annotation to indicate this pod uses net1
 							nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
-							// Kube-OVN annotations for net1 provider
+							// fabric annotations for net1 provider
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
@@ -518,12 +518,12 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "net1-subnet",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
 						Provider:  "net1.default.fabric",
 					},
@@ -532,7 +532,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ovn-default",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.244.0.0/24",
 						Provider:  util.OvnProvider,
 					},
@@ -571,7 +571,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Annotations: map[string]string{
 							// Network attachment annotation to indicate this pod uses net1
 							nadv1.NetworkAttachmentAnnot: "default/net1",
-							// Kube-OVN annotations for net1 provider
+							// fabric annotations for net1 provider
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
@@ -599,12 +599,12 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "net1-subnet",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
 						Provider:  "net1.default.fabric",
 					},
@@ -613,7 +613,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ovn-default",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.244.0.0/24",
 						Provider:  util.OvnProvider,
 					},
@@ -663,12 +663,12 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 				},
 			},
 			networkAttachments: []*nadv1.NetworkAttachmentDefinition{},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "default-subnet",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.244.0.0/24",
 						Provider:  util.OvnProvider,
 					},
@@ -705,11 +705,11 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Annotations: map[string]string{
 							// Network attachment annotation to indicate this pod uses net1, net2
 							nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}, {"name": "net2"}]`,
-							// Kube-OVN annotations for net1 provider
+							// fabric annotations for net1 provider
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
-							// Kube-OVN annotations for net2 provider
+							// fabric annotations for net2 provider
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net2.default.fabric"): "net2-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net2.default.fabric"): "net2-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net2.default.fabric"):     "192.168.2.10",
@@ -752,12 +752,12 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "net1-subnet",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
 						Provider:  "net1.default.fabric",
 					},
@@ -766,7 +766,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "net2-subnet",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "192.168.2.0/24",
 						Provider:  "net2.default.fabric",
 					},
@@ -775,7 +775,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ovn-default",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.244.0.0/24",
 						Provider:  util.OvnProvider,
 					},

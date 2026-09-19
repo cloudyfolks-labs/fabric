@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestCheckSystemCIDR(t *testing.T) {
@@ -443,17 +443,17 @@ func TestCheckProtocol(t *testing.T) {
 		{
 			name:    "v4",
 			address: "192.168.0.23",
-			want:    kubeovnv1.ProtocolIPv4,
+			want:    fabricv1.ProtocolIPv4,
 		},
 		{
 			name:    "v6",
 			address: "ffff:ffff:ffff:ffff:ffff:0:ffff:fffe",
-			want:    kubeovnv1.ProtocolIPv6,
+			want:    fabricv1.ProtocolIPv6,
 		},
 		{
 			name:    "dual",
 			address: "192.168.0.23,ffff:ffff:ffff:ffff:ffff:0:ffff:fffe",
-			want:    kubeovnv1.ProtocolDual,
+			want:    fabricv1.ProtocolDual,
 		},
 		{
 			name:    "error",

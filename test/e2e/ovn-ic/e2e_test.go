@@ -147,7 +147,7 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 		azNames := make([]string, len(clusters))
 		for i := range clusters {
 			ginkgo.By("fetching the ConfigMap in cluster " + clusters[i])
-			cm, err := clientSets[i].CoreV1().ConfigMaps(framework.KubeOvnNamespace).Get(context.TODO(), util.InterconnectionConfig, metav1.GetOptions{})
+			cm, err := clientSets[i].CoreV1().ConfigMaps(framework.FabricNamespace).Get(context.TODO(), util.InterconnectionConfig, metav1.GetOptions{})
 			framework.ExpectNoError(err, "failed to get ConfigMap")
 			azNames[i] = cm.Data["az-name"]
 		}
@@ -182,7 +182,7 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 		azNames := make([]string, len(clusters))
 		for i := range clusters {
 			ginkgo.By("fetching the ConfigMap in cluster " + clusters[i])
-			cm, err := clientSets[i].CoreV1().ConfigMaps(framework.KubeOvnNamespace).Get(context.TODO(), util.InterconnectionConfig, metav1.GetOptions{})
+			cm, err := clientSets[i].CoreV1().ConfigMaps(framework.FabricNamespace).Get(context.TODO(), util.InterconnectionConfig, metav1.GetOptions{})
 			framework.ExpectNoError(err, "failed to get ConfigMap")
 			azNames[i] = cm.Data["az-name"]
 		}
@@ -196,13 +196,13 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 		framework.ExpectNoError(err, "failed to marshal patch data")
 
 		ginkgo.By("patching the ConfigMap in cluster " + clusters[0])
-		_, err = clientSets[0].CoreV1().ConfigMaps(framework.KubeOvnNamespace).Patch(context.TODO(), util.InterconnectionConfig, k8stypes.StrategicMergePatchType, configMapPatchPayload, metav1.PatchOptions{})
+		_, err = clientSets[0].CoreV1().ConfigMaps(framework.FabricNamespace).Patch(context.TODO(), util.InterconnectionConfig, k8stypes.StrategicMergePatchType, configMapPatchPayload, metav1.PatchOptions{})
 		framework.ExpectNoError(err, "failed to patch ConfigMap")
 
 		ginkgo.By("Waiting for new az names to be applied")
 		time.Sleep(10 * time.Second)
 
-		pods, err := clientSets[0].CoreV1().Pods(framework.KubeOvnNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ovs"})
+		pods, err := clientSets[0].CoreV1().Pods(framework.FabricNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ovs"})
 		framework.ExpectNoError(err, "failed to get ovs-ovn pods")
 		cmd := "ovn-appctl -t ovn-controller inc-engine/recompute"
 		for _, pod := range pods.Items {
@@ -236,7 +236,7 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 		gwNodes := make([]string, len(clusters))
 		for i := range clusters {
 			ginkgo.By("fetching the ConfigMap in cluster " + clusters[i])
-			cm, err := clientSets[i].CoreV1().ConfigMaps(framework.KubeOvnNamespace).Get(context.TODO(), util.InterconnectionConfig, metav1.GetOptions{})
+			cm, err := clientSets[i].CoreV1().ConfigMaps(framework.FabricNamespace).Get(context.TODO(), util.InterconnectionConfig, metav1.GetOptions{})
 			framework.ExpectNoError(err, "failed to get ConfigMap")
 			gwNodes[i] = cm.Data["gw-nodes"]
 			oldGatewayStr[i] = cm.Data["gw-nodes"]
@@ -248,7 +248,7 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 					"gw-nodes": newGatewayStr,
 				},
 			})
-			_, err = clientSets[i].CoreV1().ConfigMaps(framework.KubeOvnNamespace).Patch(context.TODO(), util.InterconnectionConfig, k8stypes.StrategicMergePatchType, configMapPatchPayload, metav1.PatchOptions{})
+			_, err = clientSets[i].CoreV1().ConfigMaps(framework.FabricNamespace).Patch(context.TODO(), util.InterconnectionConfig, k8stypes.StrategicMergePatchType, configMapPatchPayload, metav1.PatchOptions{})
 			framework.ExpectNoError(err, "patch ovn-ic-config failed")
 		}
 		fnCheckPodHTTP()
@@ -263,7 +263,7 @@ var _ = framework.SerialDescribe("[group:ovn-ic]", func() {
 				},
 			})
 
-			_, err := clientSets[i].CoreV1().ConfigMaps(framework.KubeOvnNamespace).Patch(context.TODO(), util.InterconnectionConfig, k8stypes.StrategicMergePatchType, configMapPatchPayload, metav1.PatchOptions{})
+			_, err := clientSets[i].CoreV1().ConfigMaps(framework.FabricNamespace).Patch(context.TODO(), util.InterconnectionConfig, k8stypes.StrategicMergePatchType, configMapPatchPayload, metav1.PatchOptions{})
 			framework.ExpectNoError(err, "patch ovn-ic-config failed")
 		}
 		fnCheckPodHTTP()

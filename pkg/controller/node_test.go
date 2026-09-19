@@ -13,14 +13,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	ovs "github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnsb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-func TestKubeOvnAnnotationsChanged(t *testing.T) {
+func TestFabricAnnotationsChanged(t *testing.T) {
 	tests := []struct {
 		name           string
 		oldAnnotations map[string]string
@@ -184,19 +184,19 @@ func TestKubeOvnAnnotationsChanged(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := kubeOvnAnnotationsChanged(tt.oldAnnotations, tt.newAnnotations)
+			result := fabricAnnotationsChanged(tt.oldAnnotations, tt.newAnnotations)
 			if result != tt.expected {
-				t.Errorf("kubeOvnAnnotationsChanged() = %v, expected %v", result, tt.expected)
+				t.Errorf("fabricAnnotationsChanged() = %v, expected %v", result, tt.expected)
 			}
 		})
 	}
 }
 
-func newBFDPortVpc(name string, selector map[string]string) *kubeovnv1.Vpc {
-	return &kubeovnv1.Vpc{
+func newBFDPortVpc(name string, selector map[string]string) *fabricv1.Vpc {
+	return &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: kubeovnv1.VpcSpec{
-			BFDPort: &kubeovnv1.BFDPort{
+		Spec: fabricv1.VpcSpec{
+			BFDPort: &fabricv1.BFDPort{
 				Enabled: true,
 				IP:      "169.254.0.1/32",
 				NodeSelector: &metav1.LabelSelector{
@@ -207,7 +207,7 @@ func newBFDPortVpc(name string, selector map[string]string) *kubeovnv1.Vpc {
 	}
 }
 
-func prepareNodeQueueTestController(t *testing.T, vpcs ...*kubeovnv1.Vpc) *Controller {
+func prepareNodeQueueTestController(t *testing.T, vpcs ...*fabricv1.Vpc) *Controller {
 	t.Helper()
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: vpcs})
@@ -488,10 +488,10 @@ func TestGetPolicyRouteParams_ClonedExternalIDs(t *testing.T) {
 	require.Contains(t, policy.ExternalIDs, "node-1")
 }
 
-func newExternalVpc(name string, enableExternal bool) *kubeovnv1.Vpc {
-	return &kubeovnv1.Vpc{
+func newExternalVpc(name string, enableExternal bool) *fabricv1.Vpc {
+	return &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       kubeovnv1.VpcSpec{EnableExternal: enableExternal},
+		Spec:       fabricv1.VpcSpec{EnableExternal: enableExternal},
 	}
 }
 

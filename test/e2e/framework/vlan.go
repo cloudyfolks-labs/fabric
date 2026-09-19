@@ -11,9 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/kubeovn/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -32,7 +32,7 @@ func NewVlanClient(cs clientset.Interface) *VlanClient {
 func (f *Framework) VlanClient() *VlanClient {
 	return &VlanClient{
 		f:             f,
-		VlanInterface: f.KubeOVNClientSet.FabricV1().Vlans(),
+		VlanInterface: f.FabricClientSet.FabricV1().Vlans(),
 	}
 }
 

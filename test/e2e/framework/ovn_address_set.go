@@ -212,7 +212,7 @@ func resolveOVNNbConnection() (string, error) {
 		dbIPs     string
 	)
 
-	deploy, err := client.AppsV1().Deployments(KubeOvnNamespace).Get(ctx, "fabric-controller", metav1.GetOptions{})
+	deploy, err := client.AppsV1().Deployments(FabricNamespace).Get(ctx, "fabric-controller", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -245,7 +245,7 @@ func resolveOVNNbConnection() (string, error) {
 			targets = append(targets, fmt.Sprintf("%s:[%s]:%d", protocol, host, port))
 		}
 	} else {
-		svc, err := client.CoreV1().Services(KubeOvnNamespace).Get(ctx, "ovn-nb", metav1.GetOptions{})
+		svc, err := client.CoreV1().Services(FabricNamespace).Get(ctx, "ovn-nb", metav1.GetOptions{})
 		if err != nil {
 			return "", err
 		}
@@ -256,7 +256,7 @@ func resolveOVNNbConnection() (string, error) {
 		if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != corev1.ClusterIPNone {
 			targets = append(targets, fmt.Sprintf("%s:[%s]:%d", protocol, svc.Spec.ClusterIP, port))
 		} else {
-			eps, err := client.CoreV1().Endpoints(KubeOvnNamespace).Get(ctx, svc.Name, metav1.GetOptions{})
+			eps, err := client.CoreV1().Endpoints(FabricNamespace).Get(ctx, svc.Name, metav1.GetOptions{})
 			if err != nil {
 				return "", err
 			}

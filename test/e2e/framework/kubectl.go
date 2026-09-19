@@ -19,7 +19,7 @@ func KubectlExec(namespace, name string, cmd ...string) (stdout, stderr []byte, 
 
 func ovnExecSvc(db string, cmd ...string) (stdout, stderr []byte, err error) {
 	c := strings.Join(cmd, " ")
-	outStr, errStr, err := e2epodoutput.RunHostCmdWithFullOutput(KubeOvnNamespace, "svc/ovn-"+db, c)
+	outStr, errStr, err := e2epodoutput.RunHostCmdWithFullOutput(FabricNamespace, "svc/ovn-"+db, c)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to exec ovn %s cmd %q: %w\nstderr:\n%s", db, c, err, errStr)
 	}

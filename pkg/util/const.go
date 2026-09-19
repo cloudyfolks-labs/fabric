@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 const (
@@ -18,9 +18,9 @@ const (
 	CniTypeName = "fabric"
 	VendorTag   = "kube-ovn"
 
-	DeprecatedFinalizerName    = "kube-ovn-controller"
-	LegacyControllerFinalizer  = "kubeovn.io/kube-ovn-controller"
-	KubeOVNControllerFinalizer = "fabric.cloudyfolks.io/controller"
+	DeprecatedFinalizerName   = "kube-ovn-controller"
+	LegacyControllerFinalizer = "kubeovn.io/kube-ovn-controller"
+	FabricControllerFinalizer = "fabric.cloudyfolks.io/controller"
 
 	AllocatedAnnotation       = "fabric.cloudyfolks.io/allocated"
 	ServiceCIDRHashAnnotation = "fabric.cloudyfolks.io/service-cidr-hash"
@@ -416,15 +416,15 @@ var (
 	KindJob         = ObjectKind[*batchv1.Job]()
 	KindCronJob     = ObjectKind[*batchv1.CronJob]()
 
-	KindIP               = ObjectKind[*kubeovnv1.IP]()
-	KindLoadBalancerPool = ObjectKind[*kubeovnv1.LoadBalancerPool]()
-	KindOvnEip           = ObjectKind[*kubeovnv1.OvnEip]()
-	KindOvnFip           = ObjectKind[*kubeovnv1.OvnFip]()
-	KindOvnDnatRule      = ObjectKind[*kubeovnv1.OvnDnatRule]()
-	KindOvnSnatRule      = ObjectKind[*kubeovnv1.OvnSnatRule]()
-	KindSubnet           = ObjectKind[*kubeovnv1.Subnet]()
-	KindVip              = ObjectKind[*kubeovnv1.Vip]()
-	KindVpc              = ObjectKind[*kubeovnv1.Vpc]()
+	KindIP               = ObjectKind[*fabricv1.IP]()
+	KindLoadBalancerPool = ObjectKind[*fabricv1.LoadBalancerPool]()
+	KindOvnEip           = ObjectKind[*fabricv1.OvnEip]()
+	KindOvnFip           = ObjectKind[*fabricv1.OvnFip]()
+	KindOvnDnatRule      = ObjectKind[*fabricv1.OvnDnatRule]()
+	KindOvnSnatRule      = ObjectKind[*fabricv1.OvnSnatRule]()
+	KindSubnet           = ObjectKind[*fabricv1.Subnet]()
+	KindVip              = ObjectKind[*fabricv1.Vip]()
+	KindVpc              = ObjectKind[*fabricv1.Vpc]()
 
 	KindVirtualMachine                  = ObjectKind[*kubevirtv1.VirtualMachine]()
 	KindVirtualMachineInstance          = ObjectKind[*kubevirtv1.VirtualMachineInstance]()

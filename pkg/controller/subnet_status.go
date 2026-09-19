@@ -15,14 +15,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-func (c *Controller) updateNatOutgoingPolicyRulesStatus(subnet *kubeovnv1.Subnet) error {
+func (c *Controller) updateNatOutgoingPolicyRulesStatus(subnet *fabricv1.Subnet) error {
 	if subnet.Spec.NatOutgoing {
-		subnet.Status.NatOutgoingPolicyRules = make([]kubeovnv1.NatOutgoingPolicyRuleStatus, len(subnet.Spec.NatOutgoingPolicyRules))
+		subnet.Status.NatOutgoingPolicyRules = make([]fabricv1.NatOutgoingPolicyRuleStatus, len(subnet.Spec.NatOutgoingPolicyRules))
 		for index, rule := range subnet.Spec.NatOutgoingPolicyRules {
 			jsonRule, err := json.Marshal(rule)
 			if err != nil {
@@ -41,13 +41,13 @@ func (c *Controller) updateNatOutgoingPolicyRulesStatus(subnet *kubeovnv1.Subnet
 			subnet.Status.NatOutgoingPolicyRules[index].Action = rule.Action
 		}
 	} else {
-		subnet.Status.NatOutgoingPolicyRules = []kubeovnv1.NatOutgoingPolicyRuleStatus{}
+		subnet.Status.NatOutgoingPolicyRules = []fabricv1.NatOutgoingPolicyRuleStatus{}
 	}
 
 	return nil
 }
 
-func (c *Controller) patchSubnetStatus(subnet *kubeovnv1.Subnet, reason, errStr string) error {
+func (c *Controller) patchSubnetStatus(subnet *fabricv1.Subnet, reason, errStr string) error {
 	if errStr != "" {
 		subnet.Status.SetError(reason, errStr)
 		if reason == "ValidateLogicalSwitchFailed" {
@@ -73,7 +73,7 @@ func (c *Controller) patchSubnetStatus(subnet *kubeovnv1.Subnet, reason, errStr 
 		klog.Error(err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err := c.config.FabricClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch status for subnet %s, %v", subnet.Name, err)
 		return err
 	}
@@ -119,7 +119,7 @@ func (c *Controller) handleUpdateSubnetStatus(key string) error {
 	return nil
 }
 
-func filterNonGatewayExcludeIPs(subnet *kubeovnv1.Subnet) []string {
+func filterNonGatewayExcludeIPs(subnet *fabricv1.Subnet) []string {
 	noGWExcludeIPs := []string{}
 	v4gw, v6gw := util.SplitStringIP(subnet.Spec.Gateway)
 	for _, excludeIP := range subnet.Spec.ExcludeIps {
@@ -131,7 +131,7 @@ func filterNonGatewayExcludeIPs(subnet *kubeovnv1.Subnet) []string {
 	return noGWExcludeIPs
 }
 
-func (c *Controller) calculateUsingIPs(subnet *kubeovnv1.Subnet, podUsedIPs []*kubeovnv1.IP, noGWExcludeIPs []string) (internal.BigInt, error) {
+func (c *Controller) calculateUsingIPs(subnet *fabricv1.Subnet, podUsedIPs []*fabricv1.IP, noGWExcludeIPs []string) (internal.BigInt, error) {
 	usingIPNums := len(podUsedIPs)
 
 	if len(noGWExcludeIPs) > 0 {
@@ -165,7 +165,7 @@ func (c *Controller) calculateUsingIPs(subnet *kubeovnv1.Subnet, podUsedIPs []*k
 	return internal.NewBigInt(int64(usingIPNums)), nil
 }
 
-func (c *Controller) calcSubnetStatusIP(subnet *kubeovnv1.Subnet) (*kubeovnv1.Subnet, error) {
+func (c *Controller) calcSubnetStatusIP(subnet *fabricv1.Subnet) (*fabricv1.Subnet, error) {
 	if err := util.CheckCidrs(subnet.Spec.CIDRBlock); err != nil {
 		return nil, err
 	}
@@ -177,9 +177,9 @@ func (c *Controller) calcSubnetStatusIP(subnet *kubeovnv1.Subnet) (*kubeovnv1.Su
 		klog.Error(err)
 		return nil, err
 	}
-	podUsedIPs := make([]*kubeovnv1.IP, 0, len(ipObjs))
+	podUsedIPs := make([]*fabricv1.IP, 0, len(ipObjs))
 	for _, obj := range ipObjs {
-		if ip, ok := obj.(*kubeovnv1.IP); ok {
+		if ip, ok := obj.(*fabricv1.IP); ok {
 			podUsedIPs = append(podUsedIPs, ip)
 		}
 	}
@@ -195,7 +195,7 @@ func (c *Controller) calcSubnetStatusIP(subnet *kubeovnv1.Subnet) (*kubeovnv1.Su
 	v4UsingIPStr, v6UsingIPStr, v4AvailableIPStr, v6AvailableIPStr := c.ipam.GetSubnetIPRangeString(subnet.Name, subnet.Spec.ExcludeIps)
 
 	switch subnet.Spec.Protocol {
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		v4ExcludeIPs, v6ExcludeIPs := util.SplitIpsByProtocol(subnet.Spec.ExcludeIps)
 		cidrBlocks := strings.Split(subnet.Spec.CIDRBlock, ",")
 		v4toSubIPs := util.ExpandExcludeIPs(v4ExcludeIPs, cidrBlocks[0])
@@ -204,11 +204,11 @@ func (c *Controller) calcSubnetStatusIP(subnet *kubeovnv1.Subnet) (*kubeovnv1.Su
 		_, v6CIDR, _ := net.ParseCIDR(cidrBlocks[1])
 		v4availableIPs = util.AddressCountBigInt(v4CIDR).Sub(util.CountIPNumsBigInt(v4toSubIPs)).Sub(usingIPs)
 		v6availableIPs = util.AddressCountBigInt(v6CIDR).Sub(util.CountIPNumsBigInt(v6toSubIPs)).Sub(usingIPs)
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		_, cidr, _ := net.ParseCIDR(subnet.Spec.CIDRBlock)
 		toSubIPs := util.ExpandExcludeIPs(subnet.Spec.ExcludeIps, subnet.Spec.CIDRBlock)
 		v4availableIPs = util.AddressCountBigInt(cidr).Sub(util.CountIPNumsBigInt(toSubIPs)).Sub(usingIPs)
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		_, cidr, _ := net.ParseCIDR(subnet.Spec.CIDRBlock)
 		toSubIPs := util.ExpandExcludeIPs(subnet.Spec.ExcludeIps, subnet.Spec.CIDRBlock)
 		v6availableIPs = util.AddressCountBigInt(cidr).Sub(util.CountIPNumsBigInt(toSubIPs)).Sub(usingIPs)
@@ -223,9 +223,9 @@ func (c *Controller) calcSubnetStatusIP(subnet *kubeovnv1.Subnet) (*kubeovnv1.Su
 
 	v4UsingIPs, v6UsingIPs := usingIPs.Clone(), usingIPs.Clone()
 	switch subnet.Spec.Protocol {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		v6UsingIPs = internal.BigInt{}
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		v4UsingIPs = internal.BigInt{}
 	}
 
@@ -276,11 +276,11 @@ func (c *Controller) calcSubnetStatusIP(subnet *kubeovnv1.Subnet) (*kubeovnv1.Su
 		klog.Error(err)
 		return nil, err
 	}
-	newSubnet, err := c.config.KubeOvnClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
+	newSubnet, err := c.config.FabricClient.FabricV1().Subnets().Patch(context.Background(), subnet.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status")
 	return newSubnet, err
 }
 
-func (c *Controller) checkSubnetUsingIPs(subnet *kubeovnv1.Subnet) error {
+func (c *Controller) checkSubnetUsingIPs(subnet *fabricv1.Subnet) error {
 	if !subnet.Status.V4UsingIPs.EqualInt64(0) && subnet.Status.V4UsingIPRange == "" {
 		err := fmt.Errorf("subnet %s has %s v4 ip in use, while the v4 using ip range is empty", subnet.Name, subnet.Status.V4UsingIPs)
 		klog.Error(err)

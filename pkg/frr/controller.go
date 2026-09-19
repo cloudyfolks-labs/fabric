@@ -21,9 +21,9 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovninformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
-	kubeovnlister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricinformer "github.com/cloudyfolks-labs/fabric/pkg/client/informers/externalversions"
+	fabriclister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -31,24 +31,24 @@ type Controller struct {
 	config  *Configuration
 	applier *Applier
 
-	bgpConfLister kubeovnlister.BgpConfLister
+	bgpConfLister fabriclister.BgpConfLister
 	bgpConfSynced cache.InformerSynced
-	vpcLister     kubeovnlister.VpcLister
+	vpcLister     fabriclister.VpcLister
 	vpcSynced     cache.InformerSynced
-	ovnEipLister  kubeovnlister.OvnEipLister
+	ovnEipLister  fabriclister.OvnEipLister
 	ovnEipSynced  cache.InformerSynced
-	lbPoolLister  kubeovnlister.LoadBalancerPoolLister
+	lbPoolLister  fabriclister.LoadBalancerPoolLister
 	lbPoolSynced  cache.InformerSynced
-	subnetLister  kubeovnlister.SubnetLister
+	subnetLister  fabriclister.SubnetLister
 	subnetSynced  cache.InformerSynced
 	nodeLister    listerv1.NodeLister
 	nodeSynced    cache.InformerSynced
 	podLister     listerv1.PodLister
 	podSynced     cache.InformerSynced
 
-	informerFactory        kubeinformers.SharedInformerFactory
-	podInformerFactory     kubeinformers.SharedInformerFactory
-	kubeovnInformerFactory kubeovninformer.SharedInformerFactory
+	informerFactory       kubeinformers.SharedInformerFactory
+	podInformerFactory    kubeinformers.SharedInformerFactory
+	fabricInformerFactory fabricinformer.SharedInformerFactory
 
 	trigger chan struct{}
 }
@@ -66,41 +66,41 @@ func NewController(config *Configuration) (*Controller, error) {
 			listOption.FieldSelector = "spec.nodeName=" + config.NodeName
 			listOption.AllowWatchBookmarks = true
 		}))
-	kubeovnInformerFactory := kubeovninformer.NewSharedInformerFactoryWithOptions(config.KubeOvnClient, config.ResyncInterval,
-		kubeovninformer.WithTransform(util.TrimManagedFields),
-		kubeovninformer.WithTweakListOptions(func(listOption *metav1.ListOptions) {
+	fabricInformerFactory := fabricinformer.NewSharedInformerFactoryWithOptions(config.FabricClient, config.ResyncInterval,
+		fabricinformer.WithTransform(util.TrimManagedFields),
+		fabricinformer.WithTweakListOptions(func(listOption *metav1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
 
-	bgpConfInformer := kubeovnInformerFactory.Fabric().V1().BgpConves()
-	vpcInformer := kubeovnInformerFactory.Fabric().V1().Vpcs()
-	ovnEipInformer := kubeovnInformerFactory.Fabric().V1().OvnEips()
-	lbPoolInformer := kubeovnInformerFactory.Fabric().V1().LoadBalancerPools()
-	subnetInformer := kubeovnInformerFactory.Fabric().V1().Subnets()
+	bgpConfInformer := fabricInformerFactory.Fabric().V1().BgpConves()
+	vpcInformer := fabricInformerFactory.Fabric().V1().Vpcs()
+	ovnEipInformer := fabricInformerFactory.Fabric().V1().OvnEips()
+	lbPoolInformer := fabricInformerFactory.Fabric().V1().LoadBalancerPools()
+	subnetInformer := fabricInformerFactory.Fabric().V1().Subnets()
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	podInformer := podInformerFactory.Core().V1().Pods()
 
 	c := &Controller{
-		config:                 config,
-		applier:                NewApplier(config.FrrDir),
-		bgpConfLister:          bgpConfInformer.Lister(),
-		bgpConfSynced:          bgpConfInformer.Informer().HasSynced,
-		vpcLister:              vpcInformer.Lister(),
-		vpcSynced:              vpcInformer.Informer().HasSynced,
-		ovnEipLister:           ovnEipInformer.Lister(),
-		ovnEipSynced:           ovnEipInformer.Informer().HasSynced,
-		lbPoolLister:           lbPoolInformer.Lister(),
-		lbPoolSynced:           lbPoolInformer.Informer().HasSynced,
-		subnetLister:           subnetInformer.Lister(),
-		subnetSynced:           subnetInformer.Informer().HasSynced,
-		nodeLister:             nodeInformer.Lister(),
-		nodeSynced:             nodeInformer.Informer().HasSynced,
-		podLister:              podInformer.Lister(),
-		podSynced:              podInformer.Informer().HasSynced,
-		informerFactory:        informerFactory,
-		podInformerFactory:     podInformerFactory,
-		kubeovnInformerFactory: kubeovnInformerFactory,
-		trigger:                make(chan struct{}, 1),
+		config:                config,
+		applier:               NewApplier(config.FrrDir),
+		bgpConfLister:         bgpConfInformer.Lister(),
+		bgpConfSynced:         bgpConfInformer.Informer().HasSynced,
+		vpcLister:             vpcInformer.Lister(),
+		vpcSynced:             vpcInformer.Informer().HasSynced,
+		ovnEipLister:          ovnEipInformer.Lister(),
+		ovnEipSynced:          ovnEipInformer.Informer().HasSynced,
+		lbPoolLister:          lbPoolInformer.Lister(),
+		lbPoolSynced:          lbPoolInformer.Informer().HasSynced,
+		subnetLister:          subnetInformer.Lister(),
+		subnetSynced:          subnetInformer.Informer().HasSynced,
+		nodeLister:            nodeInformer.Lister(),
+		nodeSynced:            nodeInformer.Informer().HasSynced,
+		podLister:             podInformer.Lister(),
+		podSynced:             podInformer.Informer().HasSynced,
+		informerFactory:       informerFactory,
+		podInformerFactory:    podInformerFactory,
+		fabricInformerFactory: fabricInformerFactory,
+		trigger:               make(chan struct{}, 1),
 	}
 
 	handler := cache.ResourceEventHandlerFuncs{
@@ -134,7 +134,7 @@ func (c *Controller) requestReconcile() {
 func (c *Controller) Run(ctx context.Context) error {
 	c.informerFactory.Start(ctx.Done())
 	c.podInformerFactory.Start(ctx.Done())
-	c.kubeovnInformerFactory.Start(ctx.Done())
+	c.fabricInformerFactory.Start(ctx.Done())
 
 	if !cache.WaitForCacheSync(ctx.Done(), c.bgpConfSynced, c.vpcSynced, c.ovnEipSynced, c.lbPoolSynced, c.subnetSynced, c.nodeSynced, c.podSynced) {
 		return errors.New("failed to wait for caches to sync")
@@ -169,11 +169,11 @@ func (c *Controller) drainTrigger() {
 func nodeApplyState(serial string, st ApplyStatus) (string, string) {
 	switch {
 	case st.AppliedSerial == serial:
-		return kubeovnv1.BgpNodeStateApplied, ""
+		return fabricv1.BgpNodeStateApplied, ""
 	case st.ResultSerial == serial && st.ResultState == "error":
-		return kubeovnv1.BgpNodeStateFailed, st.Detail
+		return fabricv1.BgpNodeStateFailed, st.Detail
 	default:
-		return kubeovnv1.BgpNodeStatePending, "waiting for the FRR reload"
+		return fabricv1.BgpNodeStatePending, "waiting for the FRR reload"
 	}
 }
 
@@ -188,7 +188,7 @@ func (c *Controller) reconcile() {
 	if err != nil {
 		klog.Errorf("failed to compute desired FRR configuration: %v", err)
 		if conf != nil {
-			c.reportNodeState(conf.Name, kubeovnv1.BgpNodeStateFailed, "", err.Error())
+			c.reportNodeState(conf.Name, fabricv1.BgpNodeStateFailed, "", err.Error())
 		}
 		return
 	}
@@ -200,7 +200,7 @@ func (c *Controller) reconcile() {
 	if err != nil {
 		klog.Errorf("failed to apply FRR configuration: %v", err)
 		if conf != nil {
-			c.reportNodeState(conf.Name, kubeovnv1.BgpNodeStateFailed, "", err.Error())
+			c.reportNodeState(conf.Name, fabricv1.BgpNodeStateFailed, "", err.Error())
 		}
 		return
 	}
@@ -208,9 +208,9 @@ func (c *Controller) reconcile() {
 	st := c.applier.Status()
 	state, message := nodeApplyState(s, st)
 	switch state {
-	case kubeovnv1.BgpNodeStateApplied:
+	case fabricv1.BgpNodeStateApplied:
 		klog.V(5).Infof("FRR configuration %s applied", s)
-	case kubeovnv1.BgpNodeStateFailed:
+	case fabricv1.BgpNodeStateFailed:
 		klog.Errorf("FRR reload failed for configuration %s: %s", s, st.Detail)
 	default:
 		klog.V(3).Infof("FRR configuration %s pending, applied %s", s, st.AppliedSerial)
@@ -221,7 +221,7 @@ func (c *Controller) reconcile() {
 	}
 }
 
-func (c *Controller) purgeStaleTables(conf *kubeovnv1.BgpConf) {
+func (c *Controller) purgeStaleTables(conf *fabricv1.BgpConf) {
 	vpcs, err := c.vpcLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("failed to list vpcs for the stale table purge: %v", err)
@@ -246,7 +246,7 @@ func (c *Controller) purgeStaleTables(conf *kubeovnv1.BgpConf) {
 	}
 }
 
-func (c *Controller) selectedBgpConf() (*kubeovnv1.BgpConf, error) {
+func (c *Controller) selectedBgpConf() (*fabricv1.BgpConf, error) {
 	node, err := c.nodeLister.Get(c.config.NodeName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node %s: %w", c.config.NodeName, err)
@@ -255,7 +255,7 @@ func (c *Controller) selectedBgpConf() (*kubeovnv1.BgpConf, error) {
 }
 
 func (c *Controller) reportNodeState(confName, state, serial, message string) {
-	confs := c.config.KubeOvnClient.FabricV1().BgpConves()
+	confs := c.config.FabricClient.FabricV1().BgpConves()
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		conf, err := confs.Get(context.Background(), confName, metav1.GetOptions{})
 		if err != nil {
@@ -265,8 +265,8 @@ func (c *Controller) reportNodeState(confName, state, serial, message string) {
 			return err
 		}
 		newConf := conf.DeepCopy()
-		nodes := make([]kubeovnv1.BgpNodeStatus, 0, len(newConf.Status.Nodes)+1)
-		var current *kubeovnv1.BgpNodeStatus
+		nodes := make([]fabricv1.BgpNodeStatus, 0, len(newConf.Status.Nodes)+1)
+		var current *fabricv1.BgpNodeStatus
 		for i := range newConf.Status.Nodes {
 			if newConf.Status.Nodes[i].Node == c.config.NodeName {
 				current = &newConf.Status.Nodes[i]
@@ -277,7 +277,7 @@ func (c *Controller) reportNodeState(confName, state, serial, message string) {
 		if current != nil && current.State == state && current.Serial == serial && current.Message == message {
 			return nil
 		}
-		nodes = append(nodes, kubeovnv1.BgpNodeStatus{
+		nodes = append(nodes, fabricv1.BgpNodeStatus{
 			Node:           c.config.NodeName,
 			Serial:         serial,
 			State:          state,
@@ -374,13 +374,13 @@ func (c *Controller) bgpState(bgpRendered bool) (map[string]BgpPeer, map[string]
 	return peers, prefixes
 }
 
-func (c *Controller) selectBgpConf(node *corev1.Node) (*kubeovnv1.BgpConf, error) {
+func (c *Controller) selectBgpConf(node *corev1.Node) (*fabricv1.BgpConf, error) {
 	confs, err := c.bgpConfLister.List(labels.Everything())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list bgp-confs: %w", err)
 	}
 
-	var matched []*kubeovnv1.BgpConf
+	var matched []*fabricv1.BgpConf
 	for _, conf := range confs {
 		if len(conf.Spec.NodeSelector) == 0 {
 			continue
@@ -420,14 +420,14 @@ func netDevicePresent(name string) bool {
 	return err == nil
 }
 
-func vrfDeviceName(dr *kubeovnv1.VpcDynamicRouting) string {
+func vrfDeviceName(dr *fabricv1.VpcDynamicRouting) string {
 	if dr.VrfName != "" {
 		return dr.VrfName
 	}
 	return fmt.Sprintf("ovnvrf%d", dr.VrfID)
 }
 
-func vpcAdvertisements(vpcs []*kubeovnv1.Vpc, eips []*kubeovnv1.OvnEip, devicePresent func(string) bool) []VpcAdvertisement {
+func vpcAdvertisements(vpcs []*fabricv1.Vpc, eips []*fabricv1.OvnEip, devicePresent func(string) bool) []VpcAdvertisement {
 	result := make([]VpcAdvertisement, 0, len(vpcs))
 	for _, vpc := range vpcs {
 		dr := vpc.Spec.DynamicRouting
@@ -465,7 +465,7 @@ func (c *Controller) collectHostRouteEntries() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ovn-eips: %w", err)
 	}
-	subnets := make([]*kubeovnv1.Subnet, 0)
+	subnets := make([]*fabricv1.Subnet, 0)
 	for _, name := range advertisedSubnetNames(pools, eips) {
 		subnet, err := c.subnetLister.Get(name)
 		if err != nil {
@@ -477,10 +477,10 @@ func (c *Controller) collectHostRouteEntries() ([]string, error) {
 	return hostRouteEntries(subnets), nil
 }
 
-func advertisedSubnetNames(pools []*kubeovnv1.LoadBalancerPool, eips []*kubeovnv1.OvnEip) []string {
+func advertisedSubnetNames(pools []*fabricv1.LoadBalancerPool, eips []*fabricv1.OvnEip) []string {
 	names := make(map[string]struct{})
 	for _, pool := range pools {
-		if pool.Spec.Announce == kubeovnv1.LoadBalancerPoolAnnounceBGP {
+		if pool.Spec.Announce == fabricv1.LoadBalancerPoolAnnounceBGP {
 			names[pool.Spec.Subnet] = struct{}{}
 		}
 	}
@@ -492,11 +492,11 @@ func advertisedSubnetNames(pools []*kubeovnv1.LoadBalancerPool, eips []*kubeovnv
 	return slices.Sorted(maps.Keys(names))
 }
 
-func hostRouteEntries(subnets []*kubeovnv1.Subnet) []string {
+func hostRouteEntries(subnets []*fabricv1.Subnet) []string {
 	entries := make([]string, 0, len(subnets))
 	for _, subnet := range subnets {
 		for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
-			if cidr == "" || util.CheckProtocol(cidr) != kubeovnv1.ProtocolIPv4 {
+			if cidr == "" || util.CheckProtocol(cidr) != fabricv1.ProtocolIPv4 {
 				continue
 			}
 			entries = append(entries, cidr+" ge 32 le 32")
@@ -516,7 +516,7 @@ func mergeAdvertiseEntries(base, extra []string) []string {
 	return merged
 }
 
-func lrpAddress(eips []*kubeovnv1.OvnEip, vpc *kubeovnv1.Vpc) (string, error) {
+func lrpAddress(eips []*fabricv1.OvnEip, vpc *fabricv1.Vpc) (string, error) {
 	if subnet := vpc.Spec.DynamicRouting.ExternalSubnet; subnet != "" {
 		for _, eip := range eips {
 			if eip.Spec.Type == util.OvnEipTypeLRP && eip.Spec.ExternalSubnet == subnet && eip.Name == vpc.Name+"-"+subnet && eip.Status.V4Ip != "" {

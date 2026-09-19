@@ -18,9 +18,9 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovnfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
-	kubeovnlister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricfake "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/fake"
+	fabriclister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/request"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -134,13 +134,13 @@ func TestHandleAddSuccessEvent(t *testing.T) {
 			fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, provider): subnet,
 		},
 	}}
-	podSubnet := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: subnet}, Spec: kubeovnv1.SubnetSpec{Provider: provider}}
+	podSubnet := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: subnet}, Spec: fabricv1.SubnetSpec{Provider: provider}}
 	recorder := &cniEventRecorder{}
 	handler := cniEventTestHandler(t, pod, podSubnet, recorder)
 	ipCRName := ovs.PodNameToPortName(pod.Name, pod.Namespace, provider)
-	handler.KubeOvnClient = kubeovnfake.NewSimpleClientset(&kubeovnv1.IP{
+	handler.FabricClient = fabricfake.NewSimpleClientset(&fabricv1.IP{
 		ObjectMeta: metav1.ObjectMeta{Name: ipCRName},
-		Spec:       kubeovnv1.IPSpec{NodeName: "node-a"},
+		Spec:       fabricv1.IPSpec{NodeName: "node-a"},
 	})
 
 	response := serveCNIRequest(t, handler, "/api/v1/add", request.CniRequest{
@@ -253,7 +253,7 @@ func TestHandleAddAndDelInvalidRequestHaveNoEvent(t *testing.T) {
 	}
 }
 
-func cniEventTestHandler(t *testing.T, pod *v1.Pod, subnet *kubeovnv1.Subnet, recorder *cniEventRecorder) *cniServerHandler {
+func cniEventTestHandler(t *testing.T, pod *v1.Pod, subnet *fabricv1.Subnet, recorder *cniEventRecorder) *cniServerHandler {
 	t.Helper()
 	podIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	if pod != nil {
@@ -267,7 +267,7 @@ func cniEventTestHandler(t *testing.T, pod *v1.Pod, subnet *kubeovnv1.Subnet, re
 	controller := &Controller{
 		config:        config,
 		podsLister:    listerv1.NewPodLister(podIndexer),
-		subnetsLister: kubeovnlister.NewSubnetLister(subnetIndexer),
+		subnetsLister: fabriclister.NewSubnetLister(subnetIndexer),
 		recorder:      recorder,
 	}
 	return createCniServerHandler(config, controller)

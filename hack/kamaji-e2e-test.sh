@@ -202,7 +202,7 @@ require_text "$SCRIPT" "sha256sum --check"
 
 require_text "$SCRIPT_DIR/../makefiles/e2e.mk" "KUBE_OVN_HCP_OVN_NB_ADDR"
 require_text "$SCRIPT_DIR/../makefiles/e2e.mk" "KUBE_OVN_HCP_OVN_SB_ADDR"
-require_text "$SCRIPT_DIR/../makefiles/e2e.mk" '$(GINKGO_E2E_RUN) --focus=CNI:Kube-OVN ./test/e2e/kamaji/kamaji.test'
+require_text "$SCRIPT_DIR/../makefiles/e2e.mk" '$(GINKGO_E2E_RUN) --focus=CNI:fabric ./test/e2e/kamaji/kamaji.test'
 reject_text "$SCRIPT_DIR/../makefiles/e2e.mk" "FABRIC_KAMAJI_MGMT_VIP"
 
 for source_file in \

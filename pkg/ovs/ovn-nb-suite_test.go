@@ -1121,8 +1121,8 @@ func (suite *OvnClientTestSuite) Test_MigrateRunsWhenOldVersion() {
 	suite.testMigrateRunsWhenOldVersion()
 }
 
-func (suite *OvnClientTestSuite) Test_MigrateVendorExternalIDsSkipsNonKubeOvn() {
-	suite.testMigrateVendorExternalIDsSkipsNonKubeOvn()
+func (suite *OvnClientTestSuite) Test_MigrateVendorExternalIDsSkipsNonFabric() {
+	suite.testMigrateVendorExternalIDsSkipsNonFabric()
 }
 
 /* sb chassis unit test */
@@ -1154,8 +1154,8 @@ func (suite *OvnClientTestSuite) Test_UpdateChassisTag() {
 	suite.testUpdateChassisTag()
 }
 
-func (suite *OvnClientTestSuite) Test_GetKubeOvnChassises() {
-	suite.testGetKubeOvnChassises()
+func (suite *OvnClientTestSuite) Test_GetFabricChassises() {
+	suite.testGetFabricChassises()
 }
 
 // ovn ic
