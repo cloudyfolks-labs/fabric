@@ -1107,7 +1107,8 @@ func Test_cleanupRouterLBVipsUnscoped(t *testing.T) {
 				}
 			}
 			return matched, nil
-		})
+		},
+	)
 	for _, lb := range lbs {
 		for _, vip := range vips {
 			mockOvnClient.EXPECT().LoadBalancerDeleteVip(lb.Name, vip, true).Return(nil)
