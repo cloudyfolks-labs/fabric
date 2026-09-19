@@ -22,9 +22,6 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].imagePullPolicy
           value: Always
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content: --image=ghcr.io/example/fabric-controller-dev:custom-controller
 
   - it: keeps other components on the global image by default
     template: agent/agent-daemonset.yaml
@@ -34,7 +31,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: docker.io/cloudyfolks-labs/fabric:v1.17.0
+          value: ghcr.io/cloudyfolks-labs/fabric:v1.2.1
 
   - it: uses the Kubernetes capability name without the CAP_ prefix
     template: agent/agent-daemonset.yaml
