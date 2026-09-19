@@ -175,7 +175,7 @@ jobs:
             trustedExecution=false
           fi
           trustedRef="$currentBaseSHA"
-          if ! [[ "$baseRef" == master || "$baseRef" =~ ^release-[A-Za-z0-9._-]+$ ]]; then
+          if ! [[ "$baseRef" == main || "$baseRef" =~ ^release-[A-Za-z0-9._-]+$ ]]; then
             echo 'Pull request base branch is outside the supported trusted set.' >&2
             exit 1
           fi

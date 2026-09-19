@@ -105,8 +105,8 @@ require_line "$TMP_DIR/tenant-tcp-ha.yaml" "              topologyKey: kubernete
 
 require_line "$TMP_DIR/vars" "KUBE_OVN_HCP_OVN_NB_ADDR=tcp:10.0.0.10:30641"
 require_line "$TMP_DIR/vars" "KUBE_OVN_HCP_OVN_SB_ADDR=tcp:10.0.0.10:30642"
-require_line "$TMP_DIR/vars" "KUBE_OVN_KAMAJI_TENANT_CONTROL_PLANE_REPLICAS=1"
-reject_text "$TMP_DIR/vars" "KUBE_OVN_KAMAJI_MGMT_VIP"
+require_line "$TMP_DIR/vars" "FABRIC_KAMAJI_TENANT_CONTROL_PLANE_REPLICAS=1"
+reject_text "$TMP_DIR/vars" "FABRIC_KAMAJI_MGMT_VIP"
 
 for family in ipv4 ipv6 dual; do
   E2E_IP_FAMILY="$family" "$SCRIPT" render-mgmt-values > "$TMP_DIR/mgmt-values-$family.yaml"
@@ -116,7 +116,7 @@ for family in ipv4 ipv6 dual; do
 done
 "$SCRIPT" render-tenant-worker-docker-args > "$TMP_DIR/tenant-worker-docker-args"
 "$SCRIPT" render-tenant-worker-kubelet-env > "$TMP_DIR/tenant-worker-kubelet-env"
-"$SCRIPT" render-tenant-kubeovn-image > "$TMP_DIR/tenant-kubeovn-image"
+"$SCRIPT" render-tenant-fabric-image > "$TMP_DIR/tenant-fabric-image"
 "$SCRIPT" render-tenant-e2e-images > "$TMP_DIR/tenant-e2e-images"
 
 require_line "$TMP_DIR/mgmt-values-ipv4.yaml" "  stack: IPv4"
@@ -180,7 +180,7 @@ require_line "$TMP_DIR/tenant-worker-docker-args" "/var"
 require_line "$TMP_DIR/tenant-worker-docker-args" "--cgroupns=private"
 reject_text "$TMP_DIR/tenant-worker-docker-args" "--cgroupns=host"
 require_line "$TMP_DIR/tenant-worker-kubelet-env" "KUBELET_EXTRA_ARGS=--fail-swap-on=false"
-require_line "$TMP_DIR/tenant-kubeovn-image" "ghcr.io/cloudyfolks-labs/fabric:dev"
+require_line "$TMP_DIR/tenant-fabric-image" "ghcr.io/cloudyfolks-labs/fabric:dev"
 require_line "$TMP_DIR/tenant-e2e-images" "ghcr.io/kubeovn/pause:3.9"
 require_line "$TMP_DIR/tenant-e2e-images" "ghcr.io/kubeovn/agnhost:2.47"
 require_text "$SCRIPT" "install_tenant_kube_proxy"
@@ -203,7 +203,7 @@ require_text "$SCRIPT" "sha256sum --check"
 require_text "$SCRIPT_DIR/../makefiles/e2e.mk" "KUBE_OVN_HCP_OVN_NB_ADDR"
 require_text "$SCRIPT_DIR/../makefiles/e2e.mk" "KUBE_OVN_HCP_OVN_SB_ADDR"
 require_text "$SCRIPT_DIR/../makefiles/e2e.mk" '$(GINKGO_E2E_RUN) --focus=CNI:Kube-OVN ./test/e2e/kamaji/kamaji.test'
-reject_text "$SCRIPT_DIR/../makefiles/e2e.mk" "KUBE_OVN_KAMAJI_MGMT_VIP"
+reject_text "$SCRIPT_DIR/../makefiles/e2e.mk" "FABRIC_KAMAJI_MGMT_VIP"
 
 for source_file in \
   "$SCRIPT_DIR/../.github/workflows/build-x86-image.yaml" \
@@ -218,12 +218,12 @@ for source_file in \
   reject_text "$source_file" "Kamaji-style"
   reject_text "$source_file" "external HCP ovn-central"
   reject_text "$source_file" "HCP mode was introduced"
-  reject_text "$source_file" "Kube-OVN HCP E2E"
+  reject_text "$source_file" "fabric HCP E2E"
   reject_text "$source_file" "Kamaji-style hosted-control-plane"
 done
 
-require_text "$SCRIPT_DIR/../.github/workflows/build-x86-image.yaml" "name: Kube-OVN Hosted OVN Central E2E"
-require_text "$SCRIPT_DIR/../.github/workflows/scheduled-e2e.yaml" "name: Kube-OVN Hosted OVN Central E2E"
+require_text "$SCRIPT_DIR/../.github/workflows/build-x86-image.yaml" "name: fabric Hosted OVN Central E2E"
+require_text "$SCRIPT_DIR/../.github/workflows/scheduled-e2e.yaml" "name: fabric Hosted OVN Central E2E"
 require_workflow_case "$SCRIPT_DIR/../.github/workflows/build-x86-image.yaml" ipv4 single 1
 require_workflow_case "$SCRIPT_DIR/../.github/workflows/build-x86-image.yaml" ipv6 single 1
 require_workflow_case "$SCRIPT_DIR/../.github/workflows/build-x86-image.yaml" dual single 1

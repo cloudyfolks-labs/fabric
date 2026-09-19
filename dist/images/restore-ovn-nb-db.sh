@@ -1,6 +1,6 @@
 #!/bin/bash
 
-KUBE_OVN_NS=kube-system
+FABRIC_NS=kube-system
 MODE=${1:-cluster}
 # Override RESTORE_HELPER_IMAGE in air-gapped or private-registry environments
 # where docker.io/busybox:1.36 is not reachable. The image only needs `sh`,
@@ -31,7 +31,7 @@ if [ "$MODE" = "single" ]; then
   # Discover the actual PVC name from the Deployment so this also works when
   # the operator pointed ovn-central at a custom claim via
   # ovn-central.storage.existingClaim.
-  pvc_name=$(kubectl get deployment -n $KUBE_OVN_NS ovn-central \
+  pvc_name=$(kubectl get deployment -n $FABRIC_NS ovn-central \
     -o jsonpath='{.spec.template.spec.volumes[?(@.name=="host-config-ovn")].persistentVolumeClaim.claimName}' 2>/dev/null)
   if [ -z "$pvc_name" ]; then
     echo "ERROR: ovn-central Deployment does not mount host-config-ovn from a PVC."
@@ -39,19 +39,19 @@ if [ "$MODE" = "single" ]; then
     echo "       installed with OVN_CENTRAL_MODE=single (or ENABLE_SINGLE_REPLICA_OVN=true)."
     exit 1
   fi
-  if ! kubectl get pvc -n $KUBE_OVN_NS "$pvc_name" >/dev/null 2>&1; then
-    echo "ERROR: PVC $KUBE_OVN_NS/$pvc_name (from ovn-central Deployment) not found."
+  if ! kubectl get pvc -n $FABRIC_NS "$pvc_name" >/dev/null 2>&1; then
+    echo "ERROR: PVC $FABRIC_NS/$pvc_name (from ovn-central Deployment) not found."
     exit 1
   fi
 
-  echo "Restoring ovn-central from $BACKUP_FILE into PVC $KUBE_OVN_NS/$pvc_name"
+  echo "Restoring ovn-central from $BACKUP_FILE into PVC $FABRIC_NS/$pvc_name"
 
-  replicas=$(kubectl get deployment -n $KUBE_OVN_NS ovn-central -o jsonpath='{.spec.replicas}')
-  kubectl scale deployment -n $KUBE_OVN_NS ovn-central --replicas=0
+  replicas=$(kubectl get deployment -n $FABRIC_NS ovn-central -o jsonpath='{.spec.replicas}')
+  kubectl scale deployment -n $FABRIC_NS ovn-central --replicas=0
   echo "ovn-central scaled to 0 (was $replicas)"
 
   # Wait until the existing pod is fully gone so the PVC is detachable.
-  kubectl wait --for=delete pod -l app=ovn-central -n $KUBE_OVN_NS --timeout=120s || true
+  kubectl wait --for=delete pod -l app=ovn-central -n $FABRIC_NS --timeout=120s || true
 
   helper_pod="ovn-central-restore-$(date +%s)"
   cat <<HELPER | kubectl apply -f -
@@ -59,7 +59,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: $helper_pod
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
 spec:
   restartPolicy: Never
   # Mirror ovn-central's tolerations so the helper can schedule onto the
@@ -84,11 +84,11 @@ spec:
         claimName: $pvc_name
 HELPER
 
-  kubectl wait --for=condition=Ready pod/$helper_pod -n $KUBE_OVN_NS --timeout=120s
+  kubectl wait --for=condition=Ready pod/$helper_pod -n $FABRIC_NS --timeout=120s
 
   echo "Copying $BACKUP_FILE into the PVC"
-  kubectl cp -n $KUBE_OVN_NS "$BACKUP_FILE" "$helper_pod:/etc/ovn/ovnnb_db.db.restore"
-  kubectl exec -n $KUBE_OVN_NS $helper_pod -- sh -c '
+  kubectl cp -n $FABRIC_NS "$BACKUP_FILE" "$helper_pod:/etc/ovn/ovnnb_db.db.restore"
+  kubectl exec -n $FABRIC_NS $helper_pod -- sh -c '
     set -e
     [ -f /etc/ovn/ovnnb_db.db ] && mv /etc/ovn/ovnnb_db.db /etc/ovn/ovnnb_db.db.bak.$(date +%s) || true
     [ -f /etc/ovn/ovnsb_db.db ] && mv /etc/ovn/ovnsb_db.db /etc/ovn/ovnsb_db.db.bak.$(date +%s) || true
@@ -100,16 +100,16 @@ HELPER
     ls -l /etc/ovn/
   '
 
-  kubectl delete pod -n $KUBE_OVN_NS $helper_pod --wait=true
+  kubectl delete pod -n $FABRIC_NS $helper_pod --wait=true
 
-  kubectl scale deployment -n $KUBE_OVN_NS ovn-central --replicas="${replicas:-1}"
+  kubectl scale deployment -n $FABRIC_NS ovn-central --replicas="${replicas:-1}"
   echo "ovn-central scaled back to ${replicas:-1}"
 
   # Best-effort ovs-ovn restart. In a Kamaji-style controlPlaneOnly install
   # there is no ovs-ovn DaemonSet on this cluster, so missing is expected.
-  if kubectl -n $KUBE_OVN_NS get ds ovs-ovn >/dev/null 2>&1; then
+  if kubectl -n $FABRIC_NS get ds ovs-ovn >/dev/null 2>&1; then
     echo "restart ovs-ovn"
-    kubectl -n $KUBE_OVN_NS rollout restart ds ovs-ovn
+    kubectl -n $FABRIC_NS rollout restart ds ovs-ovn
   else
     echo "ovs-ovn DaemonSet not present on this cluster — skipping restart"
     echo "  (expected in controlPlaneOnly installs; restart ovs-ovn on the data-plane cluster yourself)"
@@ -123,8 +123,8 @@ if [ "$MODE" != "cluster" ]; then
 fi
 
 # set ovn-central replicas to 0
-replicas=$(kubectl get deployment -n $KUBE_OVN_NS ovn-central -o jsonpath={.spec.replicas})
-kubectl scale deployment -n $KUBE_OVN_NS ovn-central --replicas=0
+replicas=$(kubectl get deployment -n $FABRIC_NS ovn-central -o jsonpath={.spec.replicas})
+kubectl scale deployment -n $FABRIC_NS ovn-central --replicas=0
 echo "ovn-central original replicas is $replicas"
 
 # backup ovn-nb db
@@ -139,7 +139,7 @@ else
   nodeIps=`kubectl get node -lfabric/role=master -o wide | grep -v "INTERNAL-IP" | awk '{print $6}'`
 fi
 firstIP=${nodeIps[0]}
-podNames=`kubectl get pod -n $KUBE_OVN_NS | grep ovs-ovn | awk '{print $1}'`
+podNames=`kubectl get pod -n $FABRIC_NS | grep ovs-ovn | awk '{print $1}'`
 echo "first nodeIP is $firstIP"
 
 i=0
@@ -147,7 +147,7 @@ for nodeIp in ${nodeIps[@]}
 do
   for pod in $podNames
   do
-    hostip=$(kubectl get pod -n $KUBE_OVN_NS $pod -o jsonpath={.status.hostIP})
+    hostip=$(kubectl get pod -n $FABRIC_NS $pod -o jsonpath={.status.hostIP})
     if [ $nodeIp = $hostip ]; then
       nodeIpArray[$i]=$nodeIp
       podNameArray[$i]=$pod
@@ -164,15 +164,15 @@ ovsdb-tool cluster-to-standalone  /etc/ovn/ovnnb_db_standalone.db  /etc/ovn/ovnn
 # mv all db files
 for pod in ${podNameArray[@]}
 do
-  kubectl exec -it -n $KUBE_OVN_NS $pod -- mv /etc/ovn/ovnnb_db.db /tmp
-  kubectl exec -it -n $KUBE_OVN_NS $pod -- mv /etc/ovn/ovnsb_db.db /tmp
+  kubectl exec -it -n $FABRIC_NS $pod -- mv /etc/ovn/ovnnb_db.db /tmp
+  kubectl exec -it -n $FABRIC_NS $pod -- mv /etc/ovn/ovnsb_db.db /tmp
 done
 
 # restore db and replicas
 echo "restore nb db file"
 mv /etc/ovn/ovnnb_db_standalone.db /etc/ovn/ovnnb_db.db
-kubectl scale deployment -n $KUBE_OVN_NS ovn-central --replicas=$replicas
+kubectl scale deployment -n $FABRIC_NS ovn-central --replicas=$replicas
 echo "finish restore nb db file and ovn-central replicas"
 
 echo "restart ovs-ovn"
-kubectl -n $KUBE_OVN_NS rollout restart ds ovs-ovn
+kubectl -n $FABRIC_NS rollout restart ds ovs-ovn

@@ -239,5 +239,5 @@ clean:
 .PHONY: local-dev
 local-dev:
 	@DEBUG=1 $(MAKE) build-go
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker --build-arg BASE_IMAGE=$(BASE_IMAGE) -f dist/images/Dockerfile dist/images/
 	@$(MAKE) kind-init kind-install

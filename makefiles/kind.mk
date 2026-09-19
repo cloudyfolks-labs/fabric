@@ -1,10 +1,8 @@
-# Makefile for managing kind environments
 
 UNTAINT_CONTROL_PLANE ?= true
 TENANT_CONTROL_PLANE_REPLICAS ?= 1
 
 
-# Cilium configuration variables (fallback if not defined in main Makefile)
 CILIUM_VERSION ?= v1.18.5
 CILIUM_IMAGE_REPO ?= quay.io/cilium
 
@@ -251,15 +249,9 @@ kind-install-dual:
 kind-install-single-replica:
 	@ENABLE_SINGLE_REPLICA_OVN=true OVN_CENTRAL_STORAGE_CLASS=standard $(MAKE) kind-install
 
-# Kamaji-backed setup for fabric's hosted OVN central chart path. It brings
-# up a mgmt kind cluster running Kamaji plus fabric HCP control-plane
-# components, and a docker-container tenant worker joined to the Kamaji-hosted
-# tenant apiserver and running fabric data-plane components.
-# Requires `ghcr.io/cloudyfolks-labs/fabric:dev` to already exist locally (run
-# `make build-dev` first).
 .PHONY: kind-install-kamaji
 kind-install-kamaji:
-	@E2E_IP_FAMILY=$(E2E_IP_FAMILY) TENANT_CONTROL_PLANE_REPLICAS=$(TENANT_CONTROL_PLANE_REPLICAS) KUBEOVN_IMAGE=$(REGISTRY)/fabric:$(DEV_TAG) ./hack/kamaji-e2e.sh setup
+	@E2E_IP_FAMILY=$(E2E_IP_FAMILY) TENANT_CONTROL_PLANE_REPLICAS=$(TENANT_CONTROL_PLANE_REPLICAS) FABRIC_IMAGE=$(REGISTRY)/fabric:$(DEV_TAG) ./hack/kamaji-e2e.sh setup
 
 .PHONY: kind-clean-kamaji
 kind-clean-kamaji:
@@ -749,7 +741,7 @@ kind-install-multus-cilium-fabric-non-primary: kind-install-multus-cilium-fabric
 
 .PHONY: kind-install-multus-cilium-fabric-non-primary-%
 kind-install-multus-cilium-fabric-non-primary-%:
-	@echo "Setting up KIND cluster with Multus-CNI, Cilium delegate as primary CNI, and Kube-OVN as secondary CNI..."
+	@echo "Setting up KIND cluster with Multus-CNI, Cilium delegate as primary CNI, and fabric as secondary CNI..."
 	@echo "1. Create underlay network and connect nodes..."
 	@$(MAKE) kind-network-create-underlay
 	@$(MAKE) kind-network-connect-underlay
@@ -757,16 +749,15 @@ kind-install-multus-cilium-fabric-non-primary-%:
 	@$(MAKE) kind-install-cilium-delegate-$*
 	@echo "3. Installing Multus-CNI..."
 	@$(MAKE) kind-install-multus
-	@echo "4. Installing Kube-OVN as secondary/non-primary CNI..."
+	@echo "4. Installing fabric as secondary/non-primary CNI..."
 	@$(MAKE) NET_STACK=$* ENABLE_NON_PRIMARY_CNI=true CNI_CONFIG_PRIORITY=10 kind-install-chart
 	@echo "KIND cluster setup complete!"
 	@echo "  - Multus: Multi-CNI support"
 	@echo "  - Cilium: Primary CNI"
-	@echo "  - Kube-OVN: Secondary CNI for additional network interfaces"
+	@echo "  - fabric: Secondary CNI for additional network interfaces"
 	@echo ""
 	@echo "You can now run non-primary CNI tests with:"
 	@echo "  make fabric-non-primary-cni-e2e"
 
-# Convenience target for the most common use case (IPv4)
 .PHONY: kind-setup-non-primary-cni
 kind-setup-non-primary-cni: kind-install-multus-cilium-fabric-non-primary

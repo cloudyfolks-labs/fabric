@@ -14,7 +14,7 @@ var (
 func String() string {
 	return fmt.Sprintf(`
 -------------------------------------------------------------------------------
-Kube-OVN: 
+fabric:
   Version:       %v
   Build:         %v
   Commit:        %v

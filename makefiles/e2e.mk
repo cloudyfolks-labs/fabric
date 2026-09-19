@@ -1,10 +1,9 @@
-# Makefile for running end-to-end tests
 
 E2E_BUILD_FLAGS = -ldflags "-w -s"
 
 KUBECONFIG = $(shell echo $${KUBECONFIG:-$(HOME)/.kube/config})
 
-E2E_BRANCH := $(shell echo $${E2E_BRANCH:-master})
+E2E_BRANCH := $(shell echo $${E2E_BRANCH:-main})
 E2E_IP_FAMILY := $(shell echo $${E2E_IP_FAMILY:-ipv4})
 E2E_NETWORK_MODE := $(shell echo $${E2E_NETWORK_MODE:-overlay})
 E2E_CILIUM_CHAINING = $(shell echo $${E2E_CILIUM_CHAINING:-false})
@@ -230,10 +229,6 @@ fabric-single-replica-e2e:
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/single-replica/single-replica.test -- $(TEST_BIN_ARGS)
 
-# Kamaji-backed e2e for fabric's hosted OVN central chart path. Runs against
-# the tenant cluster the setup script brings up; expects KUBECONFIG and the
-# fabric HCP OVN DB addresses exported via
-# `./hack/kamaji-e2e.sh vars`.
 .PHONY: fabric-kamaji-e2e
 fabric-kamaji-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/kamaji

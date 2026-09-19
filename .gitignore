@@ -80,3 +80,4 @@ yamls/gen
 __pycache__/
 .superpowers/
 .mcp.json
+e2e-branches/

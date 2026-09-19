@@ -90,6 +90,6 @@ jobs:
           kubectl label node --overwrite -l node-role.kubernetes.io/control-plane fabric/role=master
           ct install --config charts/fabric/ct.yaml
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
         run: make check-fabric-pod-restarts

@@ -1,4 +1,3 @@
-# Makefile for managing Talos environment
 
 TALOS_ARCH = $(shell go env GOHOSTARCH)
 TALOS_VERSION ?= $(shell talosctl version --client --short | awk '{print $$NF}' | tail -n 1)
@@ -13,7 +12,6 @@ TALOS_IMAGE_ISO = $(TALOS_VERSION)-metal-$(TALOS_ARCH).iso
 TALOS_IMAGE_PATH = $(TALOS_IMAGE_DIR)/$(TALOS_IMAGE_ISO)
 
 TALOS_REGISTRY_MIRROR_NAME ?= talos-registry-mirror
-# libvirt network gateway address
 TALOS_REGISTRY_MIRROR_HOST_IPV4 ?= 172.99.99.1
 TALOS_REGISTRY_MIRROR_HOST_IPV6 ?= 2001:db8:99:99::1
 TALOS_REGISTRY_MIRROR_PORT ?= 6000
@@ -275,10 +273,10 @@ talos-clean: talos-libvirt-clean
 .PHONY: talos-install-prepare
 talos-install-prepare:
 	$(eval IMAGE_REPO = 127.0.0.1:$(TALOS_REGISTRY_MIRROR_PORT)/$(REGISTRY)/fabric:$(VERSION))
-	@echo ">>> Installing Kube-OVN with version $(VERSION)..."
-	@echo ">>>>>> Tagging Kube-OVN image..."
+	@echo ">>> Installing fabric with version $(VERSION)..."
+	@echo ">>>>>> Tagging fabric image..."
 	@docker tag "$(REGISTRY)/fabric:$(VERSION)" "$(IMAGE_REPO)"
-	@echo ">>>>>> Pushing Kube-OVN image..."
+	@echo ">>>>>> Pushing fabric image..."
 	@docker push --quiet "$(IMAGE_REPO)"
 
 .PHONY: talos-install

@@ -169,7 +169,7 @@ display_help() {
     echo "Usage: $0 [option...]"
     echo
     echo "  -h, --help               Print Help (this message) and exit"
-    echo "  --with-hybrid-dpdk       Install Kube-OVN with nodes which run ovs-dpdk or ovs-kernel"
+    echo "  --with-hybrid-dpdk       Install fabric with nodes which run ovs-dpdk or ovs-kernel"
     echo "  --dpdk-tag=<tag>         Specify the tag of DPDK image, default is $DPDK_TAG"
     echo "  --dpdk-cpu=<amount>m     Configure DPDK to use a specific amount of CPU"
     echo "  --dpdk-memory=<amount>Gi Configure DPDK to use a specific amount of memory"
@@ -223,7 +223,7 @@ then
 fi
 
 echo "-------------------------------"
-echo "Kube-OVN Version:     $VERSION"
+echo "fabric Version:       $VERSION"
 echo "Default Network Mode: $NETWORK_TYPE"
 if [[ $NETWORK_TYPE = "vlan" ]];then
   echo "Default Vlan Nic:     $VLAN_INTERFACE_NAME"
@@ -399,7 +399,7 @@ else
   OVN_CENTRAL_INIT_CHOWN_CMD="chown -R nobody: /var/run/ovn /etc/ovn /var/log/ovn"
 fi
 
-# BEGIN GENERATED KUBE-OVN CRD BUNDLE
+# BEGIN GENERATED FABRIC CRD BUNDLE
 cat <<'EOF' > fabric-crd.yaml
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -3609,7 +3609,7 @@ spec:
     subresources:
       status: {}
 EOF
-# END GENERATED KUBE-OVN CRD BUNDLE
+# END GENERATED FABRIC CRD BUNDLE
 
 cat <<EOF > ovn-ovs-sa.yaml
 ---
@@ -4854,7 +4854,7 @@ kubectl rollout status daemonset/ovs-ovn -n kube-system --timeout 120s
 echo "-------------------------------"
 echo ""
 
-echo "[Step 3/6] Install Kube-OVN"
+echo "[Step 3/6] Install fabric"
 
 cat <<EOF > fabric.yaml
 ---
@@ -5709,7 +5709,7 @@ while true; do
   sleep 1
 done
 
-echo "Install Kube-ovn-pinger"
+echo "Install fabric-pinger"
 cat <<EOF > fabric-pinger.yaml
 ---
 kind: Service
@@ -5941,6 +5941,6 @@ echo "
                     ,::::,
                     ,,::,
 "
-echo "Thanks for choosing Kube-OVN!
-For more advanced features, please read https://kubeovn.github.io/docs/stable/en/
+echo "Thank you for choosing fabric!
+Read the documentation at https://github.com/cloudyfolks-labs/fabric
 If you have any question, please file an issue https://github.com/cloudyfolks-labs/fabric/issues/new/choose"

@@ -3,7 +3,7 @@
 # Set up / tear down a local Kamaji-backed tenant cluster environment to
 # exercise fabric's hosted OVN central Helm flow end to end.
 #
-# Kamaji provides the tenant Kubernetes control plane. Kube-OVN HCP is the
+# Kamaji provides the tenant Kubernetes control plane. fabric HCP is the
 # chart path under test (`central.hcp.enabled=true`); it is not the same
 # feature as Kamaji.
 #
@@ -63,7 +63,7 @@ KAMAJI_CHART_SOURCE_COMMIT=${KAMAJI_CHART_SOURCE_COMMIT:-5ce3f6c337edc63347a32b2
 KAMAJI_CHART_SHA256=${KAMAJI_CHART_SHA256:-2e642a485eae8bd964c0a363b4ce01bd8379d05b42960b7919676f96f7c63b36}
 KAMAJI_CHART_URL=${KAMAJI_CHART_URL:-https://raw.githubusercontent.com/clastix/charts/$KAMAJI_CHART_SOURCE_COMMIT/kamaji-$KAMAJI_CHART_VERSION.tgz}
 
-KUBEOVN_IMAGE=${KUBEOVN_IMAGE:-ghcr.io/cloudyfolks-labs/fabric:dev}
+FABRIC_IMAGE=${FABRIC_IMAGE:-ghcr.io/cloudyfolks-labs/fabric:dev}
 JOB_DIR=${JOB_DIR:-/tmp/kamaji-e2e}
 REGISTRY_NAME=${REGISTRY_NAME:-kamaji-e2e-reg}
 
@@ -139,7 +139,7 @@ hosted_ovn_central_net_stack() {
   # The hosted OVN central runs in the IPv4 kind management cluster and exposes
   # its OVN NB/SB databases through IPv4 NodePorts. The tenant data plane below
   # still uses chart_net_stack, so IPv6 and dual-stack coverage applies to the
-  # Kube-OVN data-plane cluster instead of Kamaji's management-cluster plumbing.
+  # fabric data-plane cluster instead of Kamaji's management-cluster plumbing.
   chart_net_stack >/dev/null || return 1
   echo "IPv4"
 }
@@ -182,8 +182,8 @@ JOB_DIR=$JOB_DIR
 KUBECONFIG=$JOB_DIR/tenant.kubeconfig
 KUBE_OVN_HCP_OVN_NB_ADDR=tcp:$endpoint:$HCP_OVN_NB_NODE_PORT
 KUBE_OVN_HCP_OVN_SB_ADDR=tcp:$endpoint:$HCP_OVN_SB_NODE_PORT
-KUBE_OVN_KAMAJI_TENANT_CONTROL_PLANE_REPLICAS=$TENANT_CONTROL_PLANE_REPLICAS
-KUBE_OVN_KAMAJI_TENANT_WORKER=tenant-worker-0
+FABRIC_KAMAJI_TENANT_CONTROL_PLANE_REPLICAS=$TENANT_CONTROL_PLANE_REPLICAS
+FABRIC_KAMAJI_TENANT_WORKER=tenant-worker-0
 EOF
 }
 
@@ -203,8 +203,8 @@ require_tools() {
 }
 
 ensure_image() {
-  if ! docker image inspect "$KUBEOVN_IMAGE" >/dev/null 2>&1; then
-    echo "ERROR: $KUBEOVN_IMAGE not found in local docker; build it first (make build-dev)" >&2
+  if ! docker image inspect "$FABRIC_IMAGE" >/dev/null 2>&1; then
+    echo "ERROR: $FABRIC_IMAGE not found in local docker; build it first (make build-dev)" >&2
     exit 1
   fi
 }
@@ -335,7 +335,7 @@ $scheduling
   networkProfile:
     port: 6443
     # Kamaji provisions the tenant Kubernetes control plane only. Keep this
-    # bootstrap control plane on IPv4 while Helm renders the Kube-OVN data
+    # bootstrap control plane on IPv4 while Helm renders the fabric data
     # plane with the requested E2E_IP_FAMILY.
     podCidr: $pod_cidr
     serviceCidr: $service_cidr
@@ -560,7 +560,7 @@ install_tenant_kube_proxy() {
   fi
 }
 
-cmd_render_tenant_kubeovn_image() {
+cmd_render_tenant_fabric_image() {
   echo "ghcr.io/cloudyfolks-labs/fabric:dev"
 }
 
@@ -568,11 +568,11 @@ cmd_render_tenant_e2e_images() {
   printf '%s\n' $TENANT_E2E_IMAGES
 }
 
-local_registry_kubeovn_image() {
+local_registry_fabric_image() {
   echo "localhost:5000/cloudyfolks-labs/fabric:dev"
 }
 
-tenant_registry_kubeovn_image() {
+tenant_registry_fabric_image() {
   local reg_ip=$1
   echo "$reg_ip:5000/cloudyfolks-labs/fabric:dev"
 }
@@ -626,7 +626,7 @@ setup_mgmt_cluster() {
   kind create cluster --config "$JOB_DIR/mgmt-kind.yaml"
   kubectl --context="kind-$MGMT_KIND_NAME" label node "$MGMT_KIND_NAME-control-plane" \
     fabric/role=master --overwrite
-  kind load docker-image "$KUBEOVN_IMAGE" --name "$MGMT_KIND_NAME"
+  kind load docker-image "$FABRIC_IMAGE" --name "$MGMT_KIND_NAME"
 }
 
 download_kamaji_chart() {
@@ -906,8 +906,8 @@ setup_local_registry() {
   sleep 3
   REG_IP=$(docker inspect "$REGISTRY_NAME" \
     -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-  docker tag "$KUBEOVN_IMAGE" "$(local_registry_kubeovn_image)"
-  docker push "$(local_registry_kubeovn_image)" >/dev/null
+  docker tag "$FABRIC_IMAGE" "$(local_registry_fabric_image)"
+  docker push "$(local_registry_fabric_image)" >/dev/null
   echo "$REG_IP" > "$JOB_DIR/reg-ip"
 }
 
@@ -944,10 +944,10 @@ CFG
   "
   sleep 6
 
-  echo ">>> Pre-pulling $KUBEOVN_IMAGE on tenant worker..."
-  docker exec tenant-worker-0 crictl pull "$(tenant_registry_kubeovn_image "$reg_ip")"
+  echo ">>> Pre-pulling $FABRIC_IMAGE on tenant worker..."
+  docker exec tenant-worker-0 crictl pull "$(tenant_registry_fabric_image "$reg_ip")"
   docker exec tenant-worker-0 ctr -n k8s.io images tag --force \
-    "$(tenant_registry_kubeovn_image "$reg_ip")" "$(cmd_render_tenant_kubeovn_image)"
+    "$(tenant_registry_fabric_image "$reg_ip")" "$(cmd_render_tenant_fabric_image)"
 
   echo ">>> Pre-pulling tenant E2E images..."
   while IFS= read -r image; do
@@ -1047,7 +1047,7 @@ cmd_teardown() {
   echo ">>> Tearing down Kamaji e2e environment..."
   kind delete cluster --name "$MGMT_KIND_NAME" 2>/dev/null || true
   docker rm -f tenant-worker-0 "$REGISTRY_NAME" 2>/dev/null || true
-  docker rmi "$(local_registry_kubeovn_image)" 2>/dev/null || true
+  docker rmi "$(local_registry_fabric_image)" 2>/dev/null || true
   rm -rf "$JOB_DIR"
 }
 
@@ -1063,11 +1063,11 @@ case "${1:-}" in
   render-tenant-kube-proxy-manifest) cmd_render_tenant_kube_proxy_manifest "${2:-}" ;;
   render-tenant-worker-docker-args) cmd_render_tenant_worker_docker_args ;;
   render-tenant-worker-kubelet-env) cmd_render_tenant_worker_kubelet_env ;;
-  render-tenant-kubeovn-image) cmd_render_tenant_kubeovn_image ;;
+  render-tenant-fabric-image) cmd_render_tenant_fabric_image ;;
   render-tenant-e2e-images) cmd_render_tenant_e2e_images ;;
   *)
     cat >&2 <<USAGE
-Usage: $0 <setup|teardown|kubeconfig|vars|render-mgmt-values|render-tenant-values|render-tenant-control-plane|render-mgmt-kind-config|render-tenant-kube-proxy-manifest|render-tenant-worker-docker-args|render-tenant-worker-kubelet-env|render-tenant-kubeovn-image|render-tenant-e2e-images>
+Usage: $0 <setup|teardown|kubeconfig|vars|render-mgmt-values|render-tenant-values|render-tenant-control-plane|render-mgmt-kind-config|render-tenant-kube-proxy-manifest|render-tenant-worker-docker-args|render-tenant-worker-kubelet-env|render-tenant-fabric-image|render-tenant-e2e-images>
 
   setup       Bring up the mgmt kind cluster + Kamaji + tenant worker and
               install both halves of fabric.
@@ -1088,7 +1088,7 @@ Usage: $0 <setup|teardown|kubeconfig|vars|render-mgmt-values|render-tenant-value
               Print the docker run arguments used for the tenant worker.
   render-tenant-worker-kubelet-env
               Print the kubelet env file used by the tenant worker.
-  render-tenant-kubeovn-image
+  render-tenant-fabric-image
               Print the fabric image reference rendered by tenant Helm values.
   render-tenant-e2e-images
               Print the tenant worker E2E images pre-pulled by setup.
