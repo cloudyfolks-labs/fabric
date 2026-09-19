@@ -1,4 +1,4 @@
-suite: Component image overrides (v2)
+suite: Component image overrides
 templates:
   - controller/controller-deployment.yaml
   - agent/agent-daemonset.yaml

@@ -1,4 +1,4 @@
-suite: Master node affinity (v2)
+suite: Master node affinity
 templates:
   - central/central-deployment.yaml
   - monitor/monitor-deployment.yaml

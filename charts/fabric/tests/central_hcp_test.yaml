@@ -1,4 +1,4 @@
-suite: OVN central HCP deployment (v2)
+suite: OVN central HCP deployment
 templates:
   - central/central-deployment.yaml
   - central/central-service.yaml

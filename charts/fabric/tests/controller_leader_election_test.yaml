@@ -1,4 +1,4 @@
-suite: Kube-OVN controller leader election (v2)
+suite: fabric-controller leader election
 templates:
   - controller/controller-deployment.yaml
 tests:
