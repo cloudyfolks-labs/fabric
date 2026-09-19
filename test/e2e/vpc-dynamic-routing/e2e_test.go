@@ -527,7 +527,8 @@ ip protocol bgp route-map OVN-NO-FIB
 
 		ginkgo.By("Deleting the FRR agent pod on " + bindings[wa.vpcName] + " and verifying recovery")
 		agentPod, err := f.DaemonSetClientNS(framework.FabricNamespace).GetPodOnNode(
-			f.DaemonSetClientNS(framework.FabricNamespace).Get("fabric-frr-e2e"), bindings[wa.vpcName])
+			f.DaemonSetClientNS(framework.FabricNamespace).Get("fabric-frr-e2e"), bindings[wa.vpcName],
+		)
 		framework.ExpectNoError(err, "finding agent pod on binding chassis")
 		f.PodClientNS(framework.FabricNamespace).DeleteSync(agentPod.Name)
 		framework.WaitUntil(2*time.Second, 2*time.Minute, func(_ context.Context) (bool, error) {
