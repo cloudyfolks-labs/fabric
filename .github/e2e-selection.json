@@ -99,7 +99,7 @@
       "reason": "service, load balancer, and underlay suites"
     },
     {
-      "patterns": ["pkg/controller/service.go", "pkg/controller/switch_lb_rule.go", "pkg/controller/vpc_dns.go"],
+      "patterns": ["pkg/controller/service.go", "pkg/controller/switch_lb_rule.go"],
       "groups": ["service-lb-underlay"],
       "owner": "networking-e2e",
       "reason": "service and load balancer reconciliation"

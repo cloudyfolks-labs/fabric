@@ -16,7 +16,6 @@ infrastructureJobs = {
     "build-fabric",
     "build-fabric-dpdk",
     "lint-ut",
-    "build-vpc-nat-gateway",
     "build-e2e-binaries",
     "netpol-path-filter",
     "e2e-selection",
