@@ -1299,7 +1299,6 @@ func TestIPRangeList_NilReceiverSafety(t *testing.T) {
 			require.Equal(t, "", nilList.String())
 		})
 	})
-
 }
 
 func TestIPRangeListSeparate_WithEmptyList(t *testing.T) {

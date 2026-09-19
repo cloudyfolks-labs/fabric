@@ -72,7 +72,7 @@ func requestAndResponseLogger(request *restful.Request, response *restful.Respon
 	klog.Info(formatRequestLog(request))
 	start := time.Now()
 	chain.ProcessFilter(request, response)
-	elapsed := float64((time.Since(start)) / time.Millisecond)
+	elapsed := float64(time.Since(start) / time.Millisecond)
 	cniOperationHistogram.WithLabelValues(
 		nodeName,
 		getRequestURI(request),
