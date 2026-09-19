@@ -285,7 +285,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>API NetworkAttachmentDefinition to give some pods (CoreDNS, NAT GW) in custom VPCs access to the K8S API. This requires Multus to be installed.</td>
+			<td>API NetworkAttachmentDefinition to give some pods (for example CoreDNS) in custom VPCs access to the K8S API. This requires Multus to be installed.</td>
 		</tr>
 		<tr>
 			<td>apiNad.enabled</td>

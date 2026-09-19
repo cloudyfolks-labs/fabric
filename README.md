@@ -43,8 +43,8 @@ Removed, with the replacement in parentheses:
 - BGP speaker (the FRR agent)
 - VpcNatGateway, IptablesEIP/FIP/DnatRule/SnatRule, and QoSPolicy
   (OVN-native `OvnEip`/`OvnFip`/`OvnSnatRule`/`OvnDnatRule`)
-- VpcEgressGateway BGP/EVPN announcer (the FRR agent; the egress
-  gateway itself remains)
+- VpcEgressGateway and its BGP/EVPN announcer (OVN-native
+  `OvnSnatRule` on the VPC router; the FRR agent announces the routes)
 - Kernel fastpath module (the OVN datapath does not need it)
 
 Everything else from Kube-OVN remains: subnets, underlay/VLAN, security

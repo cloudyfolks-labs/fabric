@@ -82,7 +82,7 @@ one, migrate to the replacement before you move to fabric.
 | STT tunnel encapsulation | Geneve (default) or VXLAN |
 | `--mac-learning-fallback`, `--set-vxlan-tx-off` | Not needed |
 | Kernel fastpath module | The OVN datapath does not need it |
-| VpcEgressGateway BGP/EVPN announcer (`EvpnConf`) | The FRR agent; the egress gateway itself remains |
+| `VpcEgressGateway` and its BGP/EVPN announcer (`EvpnConf`) | `OvnSnatRule` on the VPC router; the FRR agent announces the routes |
 | `BgpConf.spec.advertiseLoadBalancerVips` | `Vpc.spec.dynamicRouting.redistribute: lb` |
 
 ## New clusters
