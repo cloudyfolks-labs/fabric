@@ -226,7 +226,7 @@ kubectl-ko-log:
 
 .PHONY: clean
 clean:
-	$(RM) dist/images/fabric dist/images/fabric-cmd dist/images/fabric-bfdd-supervisor
+	$(RM) dist/images/fabric dist/images/fabric-cmd
 	$(RM) yamls/kind.yaml
 	$(RM) ovn.yaml fabric.yaml fabric-crd.yaml
 	$(RM) ovn-ic-config.yaml ovn-ic-0.yaml ovn-ic-1.yaml

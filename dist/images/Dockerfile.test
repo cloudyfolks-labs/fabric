@@ -9,7 +9,6 @@ RUN set -ex \
     redis nginx qperf iperf3 iperf net-tools curl wrk
 
 WORKDIR /fabric
-COPY test-server /fabric/test-server
 COPY test-server.sh /fabric/test-server.sh
 RUN chmod +x /fabric/test-server.sh
 CMD ["bash", "test-server.sh"]

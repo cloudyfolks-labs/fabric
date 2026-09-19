@@ -10,7 +10,6 @@ COPY 01-fabric.conflist /fabric/01-fabric.conflist
 
 COPY fabric /fabric/fabric
 COPY fabric-cmd /fabric/fabric-cmd
-COPY fabric-bfdd-supervisor /fabric/fabric-bfdd-supervisor
 COPY fabric-daemon /fabric/fabric-daemon
 COPY fabric-controller /fabric/fabric-controller
 RUN ln -s /fabric/fabric-cmd /fabric/fabric-monitor && \

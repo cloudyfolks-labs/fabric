@@ -1,15 +1,12 @@
 .idea/*
 .vscode/*
 .DS_Store
-dist/images/test-server
 dist/images/fabric
 dist/images/fabric-cmd
-dist/images/fabric-bfdd-supervisor
 dist/images/fabric-daemon
 dist/images/fabric-controller
 dist/images/fabric-pinger
 dist/images/fabric-webhook
-dist/images/vpc-egress-gateway-observer
 ovnnb_db.*.backup
 ovnsb_db.*.backup
 **/kubectl-ko-log/*
@@ -34,7 +31,6 @@ yamls/clab-bgp.yaml
 yamls/clab-bgp-ha.yaml
 fabric.tar
 fabric-dpdk.tar
-vpc-nat-gateway.tar
 image-amd64.tar
 image-amd64-dpdk.tar
 image-arm64.tar
