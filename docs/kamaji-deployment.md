@@ -1,164 +1,183 @@
 # Kamaji-style split-cluster deployment
 
-In a Kamaji-style topology the tenant's Kubernetes control plane (apiserver,
-controller-manager, scheduler, etcd) runs as pods in a **management cluster**
-while the tenant's worker nodes run in a separate **data-plane cluster**. Each
-tenant gets its own apiserver instance hosted in the management cluster.
+In a Kamaji-style topology the tenant Kubernetes control plane
+(apiserver, controller-manager, scheduler, etcd) runs as pods in a
+**management cluster**. The tenant worker nodes run in a separate
+**data-plane cluster**. Each tenant gets its own apiserver in the
+management cluster.
 
-Kube-OVN can be split along the same boundary:
+fabric splits along the same boundary:
 
 ```
 ┌────────────────────────────────────────┐         ┌────────────────────────────────────────┐
 │  Management cluster                    │         │  Tenant data-plane cluster             │
 │                                        │         │                                        │
 │  ┌────────────────┐                    │         │  ┌────────────────┐                    │
-│  │ ovn-central    │  (single replica   │         │  │ kube-ovn-      │                    │
-│  │  + PVC         │   recommended)     │  TLS    │  │ controller     │                    │
-│  └─────────┬──────┘                    │ <─────> │  └────────────────┘                    │
-│            │                           │ ovn-nb  │  ┌────────────────┐                    │
-│  ┌─────────▼──────┐                    │ ovn-sb  │  │ ovs-ovn (DS)   │                    │
-│  │ ovn-nb /       │  (LoadBalancer)    │         │  │ kube-ovn-cni   │                    │
-│  │ ovn-sb /       │ ──── 10.99.99.99 ──┼─────────┼─►│ kube-ovn-pinger│                    │
+│  │ ovn-central    │  StatefulSet       │         │  │ fabric-        │                    │
+│  │  + PVC         │  (1 or 3 replicas) │  TCP or │  │ controller     │                    │
+│  └─────────┬──────┘                    │  SSL    │  └────────────────┘                    │
+│            │                           │ <─────> │  ┌────────────────┐                    │
+│  ┌─────────▼──────┐                    │ ovn-nb  │  │ ovs-ovn (DS)   │                    │
+│  │ ovn-nb /       │  NodePort or       │ ovn-sb  │  │ fabric-cni     │                    │
+│  │ ovn-sb /       │  LoadBalancer  ────┼─────────┼─►│ fabric-pinger  │                    │
 │  │ ovn-northd svc │                    │         │  └────────────────┘                    │
 │  └────────────────┘                    │         │  + Subnet / IP / Vpc CRDs in tenant   │
 │                                        │         │    apiserver                           │
 └────────────────────────────────────────┘         └────────────────────────────────────────┘
 ```
 
-The same Helm chart is installed twice, with different `installMode` values
-targeting different `--kube-context`s.
+The same Helm chart is installed twice, with a different `installMode`
+value and a different `--kube-context`. The `central.hcp` values block
+turns `ovn-central` into a PVC-backed StatefulSet that the chart can
+expose outside the cluster, and tells the data-plane components where
+to find it.
 
 ## Component placement
 
 | Component | Where it runs | Why |
 |---|---|---|
-| `ovn-central` (Deployment + PVC + nb/sb/northd Services) | Management cluster | Centralised OVN DB; PVC keeps DB durable across pod drift |
-| `kube-ovn-controller` | Tenant cluster | Watches tenant Subnet/IP/Vpc CRs — best done with in-cluster auth |
-| `ovs-ovn`, `kube-ovn-cni`, `kube-ovn-pinger` (DaemonSets) | Tenant cluster | They program local OVS on every tenant node |
-| `kube-ovn-monitor` (Deployment) | **`full` mode only** | Reads ovn-central's local Unix sockets and DB files; would crashloop in a tenant-only install. Tracked as follow-up. |
-| Kube-OVN CRDs (`fabric.cloudyfolks.io/v1` …) | Tenant apiserver | Tenants `kubectl create subnet` against their own apiserver |
-| `kube-ovn-tls` Secret | **Both clusters** | ovn-central serves SSL listeners (mgmt); controller / ovs-ovn use client certs (tenant) |
+| `ovn-central` (StatefulSet + PVC per replica, `ovn-nb` / `ovn-sb` / `ovn-northd` Services) | Management cluster, namespace `central.hcp.namespace` | Central OVN database. The PVC keeps the database when a pod moves. |
+| `fabric-controller` | Tenant cluster | Watches the tenant Subnet, IP and Vpc CRs with in-cluster auth. |
+| `ovs-ovn`, `fabric-cni`, `fabric-pinger` (DaemonSets) | Tenant cluster | They program the local OVS on every tenant node. |
+| `fabric-monitor` (Deployment) | `installMode: full` only | It reads the local Unix sockets and database files of `ovn-central`. |
+| fabric CRDs (`fabric.cloudyfolks.io/v1`) | Tenant apiserver | Tenants create Subnets against their own apiserver. |
+| `fabric-tls` Secret | Both clusters, when `networking.enableSsl` is `true` | `ovn-central` serves SSL listeners; the tenant components use the client certificate. |
 
 ## Prerequisites
 
-- Two reachable clusters with separate kubeconfigs / contexts (`mgmt`, `tenant`).
-- A LoadBalancer (or NodePort / Ingress) in the management cluster that exposes
-  ports 6641 (NB) and 6642 (SB) of the `ovn-nb` / `ovn-sb` Services. The
-  tenant cluster's pods must be able to reach that VIP/hostname.
-- A StorageClass in the management cluster that supports cross-node attach
-  (NFS-CSI, Ceph RBD, cloud block storage) — see
+- Two reachable clusters with separate kubeconfigs or contexts
+  (`mgmt`, `tenant`).
+- A path from the tenant nodes to the `ovn-nb` and `ovn-sb` Services of
+  the management cluster: a NodePort on a reachable node address, or a
+  LoadBalancer.
+- A StorageClass in the management cluster that supports detach from
+  one node and attach on another node. See
   [single-replica-deployment.md](./single-replica-deployment.md).
-- Recommended: enable SSL (`networking.ENABLE_SSL=true`) before exposing OVN DB
-  ports outside the cluster. Plain TCP across cluster boundaries should be
-  considered insecure.
+- Recommended: set `networking.enableSsl: true` before you expose the
+  OVN database ports outside the cluster. Plain TCP across a cluster
+  boundary is not secure.
 
 ## Install
 
-### 1. Management cluster — `controlPlaneOnly`
+### 1. Management cluster: `controlPlaneOnly`
+
+The chart does not create `central.hcp.namespace`. Create it first.
 
 ```yaml
 # mgmt-values.yaml
 namespace: kube-system
-
 installMode: controlPlaneOnly
-OVN_CENTRAL_MODE: single
 
-ovn-central:
-  storage:
-    storageClassName: my-csi
-    size: 10Gi
-  service:
-    type: LoadBalancer
-    loadBalancerIP: 10.99.99.99        # provider-dependent; omit for auto
-    externalTrafficPolicy: Local       # preserves tenant source IPs (optional)
+central:
+  hcp:
+    enabled: true
+    namespace: hcp
+    replicas: 1                          # 1 or 3; 3 makes a raft cluster
+    nbAddress: tcp:10.99.99.99:30641     # the address the tenant nodes use
+    sbAddress: tcp:10.99.99.99:30642
+    service:
+      type: NodePort                     # or LoadBalancer
+      nbNodePort: 30641
+      sbNodePort: 30642
+    storage:
+      storageClassName: my-csi           # empty selects the cluster default
+      size: 5Gi
 
 networking:
-  ENABLE_SSL: true                     # strongly recommended
+  enableSsl: true                        # recommended
 ```
 
 ```bash
-helm install --kube-context=mgmt kube-ovn ./charts/fabric -f mgmt-values.yaml
+kubectl --context=mgmt create namespace hcp
+helm install --kube-context=mgmt fabric oci://ghcr.io/cloudyfolks-labs/charts/fabric \
+  --version 1.2.1 -n kube-system -f mgmt-values.yaml
 ```
 
 This release renders:
 
-- `ovn-central` Deployment + `ovn-central-data` PVC
-- `ovn-nb` / `ovn-sb` / `ovn-northd` Services (`type: LoadBalancer`)
-- `kube-ovn-tls` Secret (SSL keying material)
-- `ovn-ovs` ServiceAccount + `system:ovn-ovs` ClusterRole + binding
+- the `ovn-central` StatefulSet with one `ovn-data` PVC per replica
+- the `ovn-central` headless Service and the `ovn-nb`, `ovn-sb` and
+  `ovn-northd` Services of type `central.hcp.service.type`
+- the `ovn-central` ServiceAccount and its RBAC
+- the `fabric-tls` Secret in `kube-system` when SSL is on
+- the fabric CRDs, unless you set `crds.enabled: false`
 
-…and nothing else. No CRDs, no agents.
+It renders no agents and no controller.
 
-After install, capture the LoadBalancer's ingress IP/hostname and copy the
-`kube-ovn-tls` Secret out of the management cluster — the tenant cluster
-needs the same TLS material.
+With `service.type: LoadBalancer`, read the assigned address after the
+install and put it into `nbAddress` and `sbAddress` of both releases.
 
-```bash
-# Pull the assigned VIP (if you let the LB pick)
-kubectl --context=mgmt -n kube-system get svc ovn-nb \
-  -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-
-# Export the TLS Secret for syncing to the tenant cluster
-kubectl --context=mgmt -n kube-system get secret kube-ovn-tls -o yaml > kube-ovn-tls.yaml
-```
-
-### 2. Tenant data-plane cluster — `dataPlaneOnly`
-
-First seed the TLS Secret into the tenant cluster's `kube-system` namespace
-(or whatever you set `.Values.namespace` to). In production, use tooling like
-`external-secrets`, `sealed-secrets`, or Argo CD's secret syncing rather than
-`kubectl apply -f kube-ovn-tls.yaml`.
+The chart renders the `fabric-tls` Secret into `namespace`.
+`ovn-central` mounts it from `central.hcp.namespace`. When the two
+differ, copy the Secret into `central.hcp.namespace` before the
+`ovn-central` pods start. When SSL is on, also copy the Secret out of
+the management cluster. The tenant cluster needs the same certificate
+material.
 
 ```bash
-kubectl --context=tenant -n kube-system apply -f kube-ovn-tls.yaml
+kubectl --context=mgmt -n kube-system get secret fabric-tls -o yaml > fabric-tls.yaml
 ```
 
-Then install the data-plane release pointing at the management cluster's LB:
+### 2. Tenant data-plane cluster: `dataPlaneOnly`
+
+When SSL is on, seed the `fabric-tls` Secret into the tenant
+`kube-system` namespace first. The chart refuses to render
+`dataPlaneOnly` with `networking.enableSsl: true` when the Secret is
+missing, because a locally generated certificate is not trusted by the
+management cluster. In production, sync the Secret with a tool such as
+`external-secrets` or `sealed-secrets` instead of `kubectl apply`.
+
+```bash
+kubectl --context=tenant -n kube-system apply -f fabric-tls.yaml
+```
+
+Then install the data-plane release. `nbAddress` and `sbAddress` are
+passed verbatim to `ovn-controller` and `fabric-controller`. Use the
+`ssl:` scheme when SSL is on.
 
 ```yaml
 # tenant-values.yaml
 namespace: kube-system
-
 installMode: dataPlaneOnly
-externalOvnCentral:
-  endpoint: 10.99.99.99                # or DNS name of the mgmt cluster LB
-  nbPort: 6641
-  sbPort: 6642
+
+central:
+  hcp:
+    enabled: true
+    nbAddress: ssl:10.99.99.99:30641
+    sbAddress: ssl:10.99.99.99:30642
 
 networking:
-  ENABLE_SSL: true                     # must match mgmt cluster
+  enableSsl: true                        # must match the management cluster
 ```
 
 ```bash
-helm install --kube-context=tenant kube-ovn ./charts/fabric -f tenant-values.yaml
+helm install --kube-context=tenant fabric oci://ghcr.io/cloudyfolks-labs/charts/fabric \
+  --version 1.2.1 -n kube-system -f tenant-values.yaml
 ```
 
 This release renders:
 
-- Kube-OVN CRDs (Subnet / IP / Vpc / …) — installed into the **tenant apiserver**
-- `kube-ovn-controller` Deployment with `OVN_DB_IPS=10.99.99.99` →
-  start-controller.sh builds `tcp:[10.99.99.99]:6641` and `tcp:[…]:6642`
-- `ovs-ovn`, `kube-ovn-cni`, `kube-ovn-pinger` DaemonSets — also pointing at
-  the management cluster's LB via `OVN_DB_IPS`
-- All the related ServiceAccounts / ClusterRoles / RoleBindings
+- the fabric CRDs, installed into the tenant apiserver
+- the `fabric-controller` Deployment with `OVN_NB_ADDR` and
+  `OVN_SB_ADDR` set from `central.hcp`; it runs at most two replicas in
+  this mode
+- the `ovs-ovn` DaemonSet with `OVN_SB_ADDR` set the same way, and
+  the `fabric-cni` and `fabric-pinger` DaemonSets
+- the webhook, the FRR agent when enabled, and the related
+  ServiceAccounts, ClusterRoles and bindings
 
-…and **does not** render `ovn-central` or its Services.
+It does not render `ovn-central` or its Services.
 
-## Verifying connectivity
+## Verify connectivity
 
-After both installs, on the tenant cluster:
+On the tenant cluster:
 
 ```bash
-# kube-ovn-controller must be Ready
-kubectl --context=tenant -n kube-system rollout status deploy/kube-ovn-controller
+kubectl --context=tenant -n kube-system rollout status deploy/fabric-controller
 
-# Active TCP connection from ovn-controller (in the ovs-ovn DS) to the LB
-kubectl --context=tenant -n kube-system exec ds/ovs-ovn -- \
-  ss -tnp | grep ':6642'
+kubectl --context=tenant -n kube-system exec ds/ovs-ovn -- ss -tnp | grep ':30642'
+# ESTAB ... <node IP>:<port> 10.99.99.99:30642 users:(("ovn-controller",...))
 
-# Should show ESTAB ... <node IP>:<port> 10.99.99.99:6642 users:(("ovn-controller",...))
-
-# Sanity: create a tenant Subnet, watch a pod get an IP
 kubectl --context=tenant create -f - <<EOF
 apiVersion: fabric.cloudyfolks.io/v1
 kind: Subnet
@@ -169,59 +188,34 @@ spec:
 EOF
 ```
 
+A pod in a namespace bound to `smoke` gets an address from
+`10.50.0.0/16`.
+
 ## Version lockstep
 
-The chart enforces that both installs use the same `kube-ovn` image tag (via
-`global.images.kubeovn.tag`). Keep them aligned — if you upgrade the
-management cluster's chart, upgrade the tenant cluster's chart in the same
-window. Cross-version OVN schema drift can wedge `ovn-northd` reconciliation
-in ways that are painful to diagnose.
+Both releases must run the same image tag (`global.images.fabric.tag`)
+and the same chart version. The chart does not enforce this. When you
+upgrade the management release, upgrade the tenant release in the same
+window. OVN schema drift between `ovn-northd` and `ovn-controller` is
+hard to diagnose.
 
-Using one of the cross-cluster GitOps patterns helps:
+A cross-cluster GitOps pattern keeps the versions aligned:
 
-- **Argo CD `ApplicationSet`** with two `Application`s sharing one Helm values
-  fragment (the version) and overriding only `installMode` + the
-  `externalOvnCentral.endpoint`.
-- **Flux `Kustomization`** per cluster, each pointing at the same Helm chart
+- Argo CD `ApplicationSet` with two Applications that share one values
+  fragment and override only `installMode` and `central.hcp`.
+- Flux `Kustomization` per cluster, each pinned to the same chart
   revision.
 
 ## Limitations
 
-- The CRD bundle is intentionally rendered **only** in the data-plane release,
-  but its content matches the chart version used by the management release.
-  Apply the data-plane release before the management release does its first
-  reconcile loop, otherwise the controller will spam "CRD not found" until
-  the tenant CRDs land.
-- ovn-northd's port (6643) does **not** need to be exposed across the cluster
-  boundary — only the management cluster components talk to it. The chart
-  still defines the Service so internal traffic works.
-- Single-cluster IC (interconnect) deployments are still rendered under
-  `installMode: full`. Multi-cluster IC topologies need their own design and
-  are out of scope here.
-- `externalOvnCentral.endpoint` should be an **IP address** (IPv4 or IPv6).
-  DNS hostnames work with recent OVN releases but the connection string
-  format `tcp:[host]:port` is fragile against older OVN parsers. If you
-  expose ovn-central behind a hostname, prefer a static VIP that hostname
-  resolves to and put the VIP in `endpoint`.
-- The three OVN Services (ovn-nb / ovn-sb / ovn-northd) share the single
-  `ovn-central.service.loadBalancerIP`. With MetalLB the chart emits the
-  `metallb.universe.tf/allow-shared-ip: kube-ovn-central` annotation so
-  the three Services land on one VIP distinguished by port. With cloud
-  LoadBalancer providers that reject duplicate `loadBalancerIP`, you have
-  two options: (a) use NodePort instead and front the node IPs with an
-  external LB you control, or (b) extend the chart to render
-  per-Service VIPs and have `externalOvnCentral` accept separate `nbEndpoint`
-  / `sbEndpoint` fields. The chart does not currently support (b) — track it
-  as follow-up work.
-- In `installMode=dataPlaneOnly` with `networking.ENABLE_SSL=true`, you
-  **must** pre-seed the `kube-ovn-tls` Secret in the tenant cluster
-  before installing the chart. Self-signing locally would produce certs
-  the management cluster does not trust. The chart fails with a clear
-  message in this case rather than silently generating an incompatible
-  CA.
-- `kube-ovn-monitor`, DPDK (`HYBRID_DPDK=true`), and the OVS upgrade hooks
-  (`pre-upgrade-ovs-ovn` / `upgrade-ovs-ovn`) are currently disabled outside
-  `installMode: full` because they reference a local ovn-central. Running
-  Kamaji with DPDK or doing in-place OVS upgrades on the tenant cluster
-  requires a follow-up to make `start-ovs-dpdk-v2.sh` and `upgrade-ovs.sh`
-  honor `OVN_DB_IPS` / `externalOvnCentral`.
+- The CRD subchart renders in both releases. Set `crds.enabled: false`
+  on the management release if you do not want the CRDs there.
+- `ovn-northd` (port 6643) does not need to be reachable across the
+  cluster boundary. Only the management cluster components talk to it.
+- `fabric-monitor`, the DPDK daemonset (`HYBRID_DPDK=true`) and the OVS
+  upgrade hooks render under `installMode: full` only. They reference a
+  local `ovn-central`.
+- `nbAddress` and `sbAddress` take one address each. With a
+  LoadBalancer, the `ovn-nb` and `ovn-sb` Services get separate
+  addresses unless the provider supports a shared address. Put each
+  assigned address into its own field.

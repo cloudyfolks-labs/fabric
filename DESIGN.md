@@ -28,27 +28,27 @@ not shape it.
   `<provider>.cloudyfolks.io/<key>`. The default provider is `fabric`,
   so primary-network keys read `fabric.cloudyfolks.io/<key>` and
   secondary-network keys read `<nad>.<namespace>.fabric.cloudyfolks.io/<key>`.
-- Identifiers internal to the OVN and OVS databases (`external_ids`
-  such as `fabric.io/*` and `vendor=fabric`) are wire contracts
-  with the vendored OVN patches. They are not user API and do not
-  change.
+- Identifiers internal to the OVN and OVS databases (the
+  `external_ids` keys and the `vendor=kube-ovn` tag) are wire
+  contracts with the vendored OVN patches. They are not user API and
+  do not change.
 - All other names — binaries, container images, the Go module and
   package paths, Kubernetes object names, metric namespaces,
   environment variables, file paths, and CLI tools — carry no
   compatibility guarantee. fabric renames the names inherited from
-  fabric as the project converges on the fabric identity.
+  Kube-OVN as the project converges on the fabric identity.
 
 ## Origin
 
-fabric imported the fabric source tree once and develops
-independently. It does not track or sync upstream. The Apache-2.0
+fabric imported the [Kube-OVN](https://github.com/kubeovn/kube-ovn)
+source tree once and develops independently. It does not track or sync upstream. The Apache-2.0
 license and the upstream copyright headers apply to the imported code.
 Upstream fixes or ideas can be ported deliberately, as normal changes
 with review.
 
 ## Migration
 
-fabric documents a migration path from fabric for every breaking
+fabric documents a migration path from Kube-OVN for every breaking
 divergence. The API group and annotation renames are breaking:
 cluster-level CRs must be re-created under the new group, and workload
 annotations must be rewritten. `MIGRATION.md` describes the procedure.

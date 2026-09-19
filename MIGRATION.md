@@ -1,13 +1,15 @@
-# Migration from kube-ovn
+# Migration from Kube-OVN
 
-fabric started as a fork of kube-ovn and develops independently. This
-guide describes how to move a kube-ovn cluster or manifests to fabric.
+fabric started as a fork of
+[Kube-OVN](https://github.com/kubeovn/kube-ovn) and develops
+independently. This guide describes how to move a Kube-OVN cluster or
+Kube-OVN manifests to fabric.
 
 ## Renamed APIs
 
 fabric renamed the user-facing API domains. This is a breaking change.
 
-| kube-ovn | fabric |
+| Kube-OVN | fabric |
 |---|---|
 | CRD group `kubeovn.io/v1` | `fabric.cloudyfolks.io/v1` |
 | Annotations/labels `ovn.kubernetes.io/<key>` | `fabric.cloudyfolks.io/<key>` |
@@ -21,14 +23,14 @@ OVN logical topology of an existing cluster stays valid.
 
 `domainName` rules in AdminNetworkPolicy and ClusterNetworkPolicy need
 no resolver plugin. The controller resolves the domain names against
-cluster DNS itself. Remove the kube-ovn CoreDNS resolver plugin and
+cluster DNS itself. Remove the Kube-OVN CoreDNS resolver plugin and
 its DNSNameResolver objects; fabric does not read them.
 
-## Upgrading a running kube-ovn release
+## Upgrading a running Kube-OVN release
 
-`helm upgrade` over an existing kube-ovn release patches `ovs-ovn` and
-`ovn-central` in place. Both keep the kube-ovn selector labels, so no
-object needs deletion first. The `ovs-ovn` pods roll to the fabric
+`helm upgrade` over an existing Kube-OVN Helm release patches
+`ovs-ovn` and `ovn-central` in place. Both keep the Kube-OVN selector
+labels, so no object needs deletion first. The `ovs-ovn` pods roll to the fabric
 image one node at a time: the chart selects `RollingUpdate` for an
 existing daemonset whose image is 1.12.0 or newer. `ovn-central` rolls
 with `maxUnavailable: 1`, so a three-replica cluster keeps its raft
@@ -36,20 +38,20 @@ quorum. The same upgrade deletes the `kube-ovn-cni`,
 `kube-ovn-controller`, `kube-ovn-pinger` and `kube-ovn-monitor`
 workloads and creates their `fabric-` counterparts. The CR conversion
 before the upgrade and the CRD cleanup after it stay the steps of
-"Existing kube-ovn clusters" below.
+"Existing Kube-OVN clusters" below.
 
 ## Upgrading a fabric v1.0.0 release
 
 The v1.0.0 chart rendered fabric selector labels on `ovs-ovn` and
-`ovn-central`; v1.1.0 restored the kube-ovn ones (F26). A selector is
+`ovn-central`; v1.1.0 restored the Kube-OVN ones. A selector is
 immutable, so `helm upgrade` from v1.0.0 fails on those two objects
 after it has replaced the other workloads. Recover without a
-control-plane gap:
+control-plane gap (`<release>` is the name of your Helm release):
 
 ```sh
 kubectl -n kube-system delete deploy ovn-central --cascade=orphan
 kubectl -n kube-system delete ds ovs-ovn --cascade=orphan
-helm upgrade kube-ovn oci://ghcr.io/cloudyfolks-labs/charts/fabric --version 1.1.1 -f values.yaml
+helm upgrade <release> oci://ghcr.io/cloudyfolks-labs/charts/fabric --version 1.2.1 -f values.yaml
 ```
 
 The upgrade creates the two objects with the new selectors. The new
@@ -66,7 +68,7 @@ kubectl -n kube-system delete rs -l app.kubernetes.io/part-of=fabric,app.kuberne
 
 ## Removed features
 
-fabric does not carry these kube-ovn features. If your cluster uses
+fabric does not carry these Kube-OVN features. If your cluster uses
 one, migrate to the replacement before you move to fabric.
 
 | Removed | Replacement in fabric |
@@ -104,19 +106,19 @@ Do this before you start:
 - Do not drain the nodes. A drain makes new Pods that cannot get an IP
   address.
 - Keep the window short. Prepare and check the converted manifests
-  before you stop the kube-ovn control plane.
+  before you stop the Kube-OVN control plane.
 
 Uncordon the nodes after step 6, when the fabric controller reports
 that all Subnets are ready.
 
-## Existing kube-ovn clusters
+## Existing Kube-OVN clusters
 
 A fresh install is the recommended path. An in-place migration is
 possible with a maintenance window:
 
-1. Stop the kube-ovn control plane (controller, webhook). Do not stop
+1. Stop the Kube-OVN control plane (controller, webhook). Do not stop
    ovn-central or ovs-ovn; the datapath keeps forwarding.
-2. Export all kube-ovn CRs. For each object: set `apiVersion` to
+2. Export all Kube-OVN CRs. For each object: set `apiVersion` to
    `fabric.cloudyfolks.io/v1`, rename all `ovn.kubernetes.io/` keys in
    metadata, and remove `status`, `resourceVersion`, and `uid`.
 3. Convert CRs of removed features to their replacements from the
@@ -131,7 +133,7 @@ possible with a maintenance window:
    logical switches, routers, and ports keep their names.
 7. Update workload manifests (Deployments, VirtualMachine templates)
    to the new annotation keys before the next rollout.
-8. Remove the kube-ovn finalizers from the objects in the old API
+8. Remove the Kube-OVN finalizers from the objects in the old API
    group. fabric runs no controller for that group, so nothing else
    removes them, and step 9 blocks for ever if they stay.
 
@@ -145,7 +147,7 @@ possible with a maintenance window:
 9. Delete the old `*.kubeovn.io` CRDs only after all CRs are converted
    and verified.
 
-Pods with kube-ovn secondary NICs get new logical switch port names on
+Pods with Kube-OVN secondary NICs get new logical switch port names on
 their next recreation because the provider suffix changed. Plan a
 rolling restart for multi-NIC workloads.
 
@@ -173,7 +175,7 @@ and you must restore them from the export you made in step 2.
 6. Put back the `ovn.kubernetes.io/` annotations on Pods, Nodes,
    Namespaces and VirtualMachines. Set `spec.provider` back to
    `...ovn` in Subnet and NetworkAttachmentDefinition objects.
-7. Install kube-ovn again. It adopts the same OVN database.
+7. Install Kube-OVN again. It adopts the same OVN database.
 8. Uncordon the nodes.
 
 The OVN northbound and southbound databases stay valid through the
