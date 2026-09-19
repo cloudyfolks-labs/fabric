@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 ARG VERSION=latest
 ARG BASE_TAG=$VERSION
-FROM kubeovn/kube-ovn-base:$BASE_TAG AS setcap
+ARG BASE_IMAGE=ghcr.io/cloudyfolks-labs/fabric-base
+FROM $BASE_IMAGE:$BASE_TAG AS setcap
 
 COPY *.sh /fabric/
 COPY kubectl-ko /fabric/kubectl-ko
@@ -22,7 +23,7 @@ RUN ln -s /fabric/fabric-cmd /fabric/fabric-monitor && \
     setcap CAP_NET_RAW,CAP_NET_BIND_SERVICE+eip /fabric/fabric-controller && \
     setcap CAP_NET_ADMIN,CAP_NET_RAW,CAP_NET_BIND_SERVICE,CAP_SYS_ADMIN+eip /fabric/fabric-daemon
 
-FROM kubeovn/kube-ovn-base:$BASE_TAG
+FROM $BASE_IMAGE:$BASE_TAG
 
 COPY --chmod=0644 logrotate/* /etc/logrotate.d/
 COPY grace_stop_ovn_controller /usr/share/ovn/scripts/grace_stop_ovn_controller

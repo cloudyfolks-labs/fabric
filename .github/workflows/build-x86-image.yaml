@@ -112,7 +112,7 @@ jobs:
     outputs:
       executionJobIds: ${{ steps.outputs.outputs.executionJobIds }}
       k8sConformanceMatrix: ${{ steps.outputs.outputs.k8sConformanceMatrix || steps.fallbackMatrices.outputs.k8sConformanceMatrix }}
-      kubeOvnConformanceMatrix: ${{ steps.outputs.outputs.kubeOvnConformanceMatrix || steps.fallbackMatrices.outputs.kubeOvnConformanceMatrix }}
+      fabricConformanceMatrix: ${{ steps.outputs.outputs.fabricConformanceMatrix || steps.fallbackMatrices.outputs.fabricConformanceMatrix }}
       headSHA: ${{ steps.context.outputs.headSHA }}
       prNumber: ${{ steps.context.outputs.prNumber }}
     steps:
@@ -128,7 +128,7 @@ jobs:
         run: |
           matrix='{"include":[{"ip-family":"ipv4","mode":"overlay"},{"ip-family":"ipv4","mode":"underlay"},{"ip-family":"ipv6","mode":"overlay"},{"ip-family":"ipv6","mode":"underlay"},{"ip-family":"dual","mode":"overlay"},{"ip-family":"dual","mode":"underlay"}]}'
           echo "k8sConformanceMatrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "kubeOvnConformanceMatrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "fabricConformanceMatrix=$matrix" >> "$GITHUB_OUTPUT"
 
       - name: Collect trusted selection context
         id: context
@@ -321,7 +321,7 @@ jobs:
                   executionPlan,
                   "k8s-conformance-e2e",
               ),
-              "kubeOvnConformanceMatrix": e2eSelector.jobMatrix(
+              "fabricConformanceMatrix": e2eSelector.jobMatrix(
                   executionPlan,
                   "fabric-conformance-e2e",
               ),
@@ -346,8 +346,8 @@ jobs:
             e2e-selection-summary.md
           retention-days: 30
 
-  build-kube-ovn-base:
-    name: Build kube-ovn-base
+  build-fabric-base:
+    name: Build fabric-base
     if: github.event_name != 'workflow_dispatch' || github.actor == 'github-actions[bot]'
     runs-on: ubuntu-24.04
     outputs:
@@ -394,7 +394,7 @@ jobs:
           check-latest: true
           cache: false
 
-      - name: Build kube-ovn-base image
+      - name: Build fabric-base image
         id: build
         if: steps.check.outputs.build-base == 1
         env:
@@ -407,7 +407,7 @@ jobs:
         if: steps.check.outputs.build-base == 1
         uses: actions/upload-artifact@v7
         with:
-          name: kube-ovn-base
+          name: fabric-base
           path: image-amd64.tar
 
   build-fabric-dpdk-base:
@@ -547,7 +547,7 @@ jobs:
         if: needs.build-fabric-dpdk-base.outputs.build-dpdk-base == 1
         run: |
           docker load --input image-amd64-dpdk.tar
-          docker tag kubeovn/kube-ovn-base:$TAG-amd64-dpdk kubeovn/kube-ovn-base:$TAG-dpdk
+          docker tag ghcr.io/cloudyfolks-labs/fabric-base:$TAG-amd64-dpdk ghcr.io/cloudyfolks-labs/fabric-base:$TAG-dpdk
 
       - name: Pull dpdk base image
         if: needs.build-fabric-dpdk-base.outputs.build-dpdk-base != 1
@@ -573,7 +573,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - e2e-selection
-      - build-kube-ovn-base
+      - build-fabric-base
     steps:
       - name: Free disk space
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
@@ -608,20 +608,20 @@ jobs:
             ${{ runner.os }}-go-${{ env.GO_VERSION }}-x86-${{ github.base_ref }}-
 
       - name: Download base images
-        if: needs.build-kube-ovn-base.outputs.build-base == 1
+        if: needs.build-fabric-base.outputs.build-base == 1
         uses: actions/download-artifact@v8
         with:
-          name: kube-ovn-base
+          name: fabric-base
 
       - name: Load base images
-        if: needs.build-kube-ovn-base.outputs.build-base == 1
+        if: needs.build-fabric-base.outputs.build-base == 1
         run: |
           docker load --input image-amd64.tar
-          docker tag kubeovn/kube-ovn-base:$TAG-amd64 kubeovn/kube-ovn-base:$TAG
-          docker tag kubeovn/kube-ovn-base:$TAG-debug-amd64 kubeovn/kube-ovn-base:$TAG-debug
+          docker tag ghcr.io/cloudyfolks-labs/fabric-base:$TAG-amd64 ghcr.io/cloudyfolks-labs/fabric-base:$TAG
+          docker tag ghcr.io/cloudyfolks-labs/fabric-base:$TAG-debug-amd64 ghcr.io/cloudyfolks-labs/fabric-base:$TAG-debug
 
       - name: Pull base images
-        if: needs.build-kube-ovn-base.outputs.build-base != 1
+        if: needs.build-fabric-base.outputs.build-base != 1
         run: make pull-base
 
       - name: Scan base image
@@ -631,7 +631,7 @@ jobs:
         with:
           scan-type: image
           scanners: vuln
-          image-ref: docker.io/kubeovn/kube-ovn-base:${{ env.TAG }}
+          image-ref: ghcr.io/cloudyfolks-labs/fabric-base:${{ env.TAG }}
           format: json
           output: trivy-result.json
           ignore-unfixed: true
@@ -700,7 +700,7 @@ jobs:
         run: |
           go mod tidy
           git diff --exit-code -- go.mod go.sum
-          if [ ${{ needs.build-kube-ovn-base.outputs.build-base || 0 }} = 1 ]; then
+          if [ ${{ needs.build-fabric-base.outputs.build-base || 0 }} = 1 ]; then
             make build-fabric
           else
             make image-fabric
@@ -925,7 +925,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-${{ matrix.mode }}-${{ matrix.ip-family }}
 
@@ -965,7 +965,7 @@ jobs:
           path: k8s-conformance-e2e-${{ matrix.ip-family }}-${{ matrix.mode }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -1128,7 +1128,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-${{ matrix.ip-family }}
 
@@ -1164,7 +1164,7 @@ jobs:
           path: k8s-netpol-e2e-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -1298,7 +1298,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         env:
           NP_ENFORCEMENT: "${{ matrix.np-enforcement }}"
         id: install
@@ -1336,7 +1336,7 @@ jobs:
           path: cyclonus-netpol-e2e-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -1389,7 +1389,7 @@ jobs:
           done
 
   fabric-conformance-e2e:
-    name: Kube-OVN Conformance E2E
+    name: fabric Conformance E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-conformance-e2e')
     needs:
       - e2e-selection
@@ -1399,7 +1399,7 @@ jobs:
     timeout-minutes: 50
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.e2e-selection.outputs.kubeOvnConformanceMatrix) }}
+      matrix: ${{ fromJSON(needs.e2e-selection.outputs.fabricConformanceMatrix) }}
     steps:
       - name: Free disk space
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
@@ -1478,7 +1478,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-${{ matrix.mode }}-${{ matrix.ip-family }}
 
@@ -1522,7 +1522,7 @@ jobs:
           path: fabric-conformance-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -1578,7 +1578,7 @@ jobs:
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
   fabric-ic-conformance-e2e:
-    name: Kube-OVN IC Conformance E2E
+    name: fabric IC Conformance E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-ic-conformance-e2e')
     needs:
       - e2e-selection
@@ -1663,7 +1663,7 @@ jobs:
           pipx install jinjanator
           make kind-init-ovn-ic-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-ovn-ic-${{ matrix.ip-family }}
 
@@ -1710,7 +1710,7 @@ jobs:
           path: fabric-ic-conformance-e2e-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -1819,7 +1819,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-${{ matrix.ip-family }}
 
@@ -1861,7 +1861,7 @@ jobs:
           path: multus-conformance-e2e-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -1967,7 +1967,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Mults-CNI, Cilium, and Kube-OVN
+      - name: Install Multus, Cilium and fabric
         id: install
         run: make kind-install-multus-cilium-fabric-non-primary-${{ matrix.ip-family }}
 
@@ -2008,7 +2008,7 @@ jobs:
           path: non-primary-cni-e2e-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -2027,7 +2027,7 @@ jobs:
           path: non-primary-cni-e2e-${{ matrix.ip-family }}-ko-log.tar.gz
 
   fabric-hosted-ovn-central-e2e:
-    name: Kube-OVN Hosted OVN Central E2E (${{ matrix.ip-family }}, ${{ matrix.tenant-control-plane }} control-plane)
+    name: fabric Hosted OVN Central E2E (${{ matrix.ip-family }}, ${{ matrix.tenant-control-plane }} control-plane)
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-hosted-ovn-central-e2e')
     needs:
       - e2e-selection
@@ -2222,13 +2222,13 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         env:
           ENABLE_SSL: "${{ matrix.ssl }}"
         run: make kind-install-chart
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
         run: make check-fabric-pod-restarts
@@ -2246,7 +2246,7 @@ jobs:
           name: chart-test-${{ matrix.ssl }}-ko-log
           path: chart-test-${{ matrix.ssl }}-ko-log.tar.gz
 
-      - name: Uninstall Kube-OVN
+      - name: Uninstall fabric
         run: make uninstall-chart
 
   underlay-logical-gateway-installation-test:
@@ -2285,11 +2285,11 @@ jobs:
           pipx install jinjanator
           make kind-init-dual
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-underlay-logical-gateway-dual
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
         run: make check-fabric-pod-restarts
@@ -2346,13 +2346,13 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN without LoadBalancer
+      - name: Install fabric without LoadBalancer
         id: install
         env:
           ENABLE_LB: "false"
         run: make kind-install
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
         run: make check-fabric-pod-restarts
@@ -2409,13 +2409,13 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         env:
           ENABLE_NP: "false"
         run: make kind-install
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
         run: make check-fabric-pod-restarts
@@ -2516,7 +2516,7 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN with webhook
+      - name: Install fabric with webhook
         id: install
         run: make kind-install-webhook
 
@@ -2528,7 +2528,7 @@ jobs:
         run: make fabric-webhook-e2e
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -2589,11 +2589,11 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && steps.install.conclusion == 'failure') }}
         run: make check-fabric-pod-restarts
@@ -2615,7 +2615,7 @@ jobs:
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
   fabric-cnp-domain-e2e:
-    name: Kube-OVN CNP Domain E2E
+    name: fabric CNP Domain E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-cnp-domain-e2e')
     needs:
       - e2e-selection
@@ -2706,7 +2706,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-anp
 
@@ -2732,7 +2732,7 @@ jobs:
           name: fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
           path: fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -2751,7 +2751,7 @@ jobs:
           path: fabric-cnp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-ko-log.tar.gz
 
   fabric-anp-domain-e2e:
-    name: Kube-OVN ANP Domain E2E
+    name: fabric ANP Domain E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-anp-domain-e2e')
     needs:
       - e2e-selection
@@ -2842,7 +2842,7 @@ jobs:
           pipx install jinjanator
           make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-anp
 
@@ -2868,7 +2868,7 @@ jobs:
           name: fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events
           path: fabric-anp-domain-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-events.tar.gz
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -2987,7 +2987,7 @@ jobs:
           pipx install jinjanator
           make kind-init-cilium-chaining-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN with Cilium chaining
+      - name: Install fabric with Cilium chaining
         id: install
         run: make kind-install-cilium-chaining-${{ matrix.mode }}-${{ matrix.ip-family }}
 
@@ -3028,7 +3028,7 @@ jobs:
           path: cilium-chaining-e2e-${{ matrix.mode }}-${{ matrix.ip-family }}-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -3050,7 +3050,7 @@ jobs:
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
   fabric-ha-e2e:
-    name: Kube-OVN HA E2E
+    name: fabric HA E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-ha-e2e')
     needs:
       - e2e-selection
@@ -3141,7 +3141,7 @@ jobs:
           pipx install jinjanator
           make kind-init-ha-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         env:
           NET_STACK: "${{ matrix.ip-family }}"
@@ -3163,7 +3163,7 @@ jobs:
           make fabric-ha-e2e
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -3185,7 +3185,7 @@ jobs:
         run: timeout -k 10 180 sh -x dist/images/cleanup.sh
 
   fabric-submariner-conformance-e2e:
-    name: Kube-OVN Submariner Conformance E2E
+    name: fabric Submariner Conformance E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-submariner-conformance-e2e')
     needs:
       - e2e-selection
@@ -3247,7 +3247,7 @@ jobs:
           pipx install jinjanator
           make kind-init-ovn-submariner
 
-      - name: Install Kube-OVN and Submariner
+      - name: Install fabric and Submariner
         id: install
         run: make kind-install-ovn-submariner
 
@@ -3257,7 +3257,7 @@ jobs:
         run: make fabric-submariner-conformance-e2e
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -3357,7 +3357,7 @@ jobs:
           pipx install jinjanator
           n_worker=2 make kind-init-ipv4
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         env:
           UNTAINT_CONTROL_PLANE: "false"
@@ -3393,7 +3393,7 @@ jobs:
           name: vpc-dynamic-routing-e2e-events
           path: vpc-dynamic-routing-e2e-events.tar.gz
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -3493,7 +3493,7 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install
 
@@ -3538,7 +3538,7 @@ jobs:
           path: ovn-vpc-nat-gw-conformance-e2e-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.vip-e2e.conclusion == 'failure' || steps.vpc-e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -3635,7 +3635,7 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-ovn-ipsec
 
@@ -3673,7 +3673,7 @@ jobs:
           path: fabric-ipsec-e2e-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-e2e.conclusion == 'failure')) }}
         env:
@@ -3772,7 +3772,7 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-ovn-ipsec-cert-manager
 
@@ -3810,7 +3810,7 @@ jobs:
           path: fabric-ipsec-cert-mgr-e2e-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.fabric-ipsec-cert-mgr-e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -3829,7 +3829,7 @@ jobs:
           path: fabric-ipsec-cert-mgr-e2e-ko-log.tar.gz
 
   fabric-connectivity-test:
-    name: Kube-OVN Connectivity E2E
+    name: fabric Connectivity E2E
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON(needs.e2e-selection.outputs.executionJobIds), 'fabric-connectivity-test')
     needs:
       - e2e-selection
@@ -3913,7 +3913,7 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-${{ matrix.mode }}
 
@@ -4024,11 +4024,11 @@ jobs:
           pipx install jinjanator
           n_worker=2 make kind-init-${{ matrix.ip-family }}
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install-metallb-pool-from-underlay-${{ matrix.ip-family }}
 
-      - name: Run Ovn Metallb and Kube-OVN Combine E2E
+      - name: Run MetalLB and fabric combined E2E
         id: fabric-underlay-metallb-e2e
         working-directory: ${{ env.E2E_DIR }}
         env:
@@ -4063,7 +4063,7 @@ jobs:
           path: fabric-underlay-metallb-${{ matrix.ip-family }}-e2e-audit-log.tar.gz
 
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.fabric-underlay-metallb-e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -4160,7 +4160,7 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install
 
@@ -4197,7 +4197,7 @@ jobs:
           name: router-lb-rule-e2e-audit-log
           path: router-lb-rule-e2e-audit-log.tar.gz
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
@@ -4294,7 +4294,7 @@ jobs:
           pipx install jinjanator
           make kind-init
 
-      - name: Install Kube-OVN
+      - name: Install fabric
         id: install
         run: make kind-install
 
@@ -4331,7 +4331,7 @@ jobs:
           name: dns-zone-e2e-audit-log
           path: dns-zone-e2e-audit-log.tar.gz
 
-      - name: Check kube ovn pod restarts
+      - name: Check fabric pod restarts
         id: check-restarts
         if: ${{ success() || (failure() && (steps.install.conclusion == 'failure' || steps.rlr-e2e.conclusion == 'failure')) }}
         run: make check-fabric-pod-restarts
