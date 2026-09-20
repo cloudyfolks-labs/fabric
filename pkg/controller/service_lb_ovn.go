@@ -305,7 +305,8 @@ func (c *Controller) handleAddOrUpdateOvnLbSvc(key string) error {
 	}
 
 	endpointSlices, err := c.endpointSlicesLister.EndpointSlices(namespace).List(
-		labels.Set{discoveryv1.LabelServiceName: name}.AsSelector())
+		labels.Set{discoveryv1.LabelServiceName: name}.AsSelector(),
+	)
 	if err != nil {
 		klog.Error(err)
 		return err

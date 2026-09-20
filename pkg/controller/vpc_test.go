@@ -542,7 +542,8 @@ func Test_createVpcRouter_dynamicRouting(t *testing.T) {
 					"dynamic-routing-vrf-id":                  "1001",
 				}, lr.Options)
 				return nil
-			})
+			},
+		)
 
 		require.NoError(t, ctrl.createVpcRouter(vpc, true))
 	})
@@ -573,7 +574,8 @@ func Test_createVpcRouter_dynamicRouting(t *testing.T) {
 					"dynamic_neigh_routers":     "true",
 				}, lr.Options)
 				return nil
-			})
+			},
+		)
 
 		require.NoError(t, ctrl.createVpcRouter(vpc, true))
 	})

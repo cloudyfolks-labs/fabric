@@ -54,11 +54,13 @@ func createHandler(csh *cniServerHandler) http.Handler {
 	ws.Route(
 		ws.POST("/add").
 			To(csh.handleAdd).
-			Reads(request.CniRequest{}))
+			Reads(request.CniRequest{}),
+	)
 	ws.Route(
 		ws.POST("/del").
 			To(csh.handleDel).
-			Reads(request.CniRequest{}))
+			Reads(request.CniRequest{}),
+	)
 
 	ws.Filter(requestAndResponseLogger)
 
@@ -76,7 +78,8 @@ func requestAndResponseLogger(request *restful.Request, response *restful.Respon
 	cniOperationHistogram.WithLabelValues(
 		nodeName,
 		getRequestURI(request),
-		strconv.Itoa(response.StatusCode())).Observe(elapsed / 1000)
+		strconv.Itoa(response.StatusCode()),
+	).Observe(elapsed / 1000)
 	klog.Info(formatResponseLog(response, request, elapsed))
 }
 

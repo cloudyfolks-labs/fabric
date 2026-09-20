@@ -110,7 +110,8 @@ func (c *Controller) needNewCert(p *pkiFiles) (bool, error) {
 		x509.VerifyOptions{
 			Roots:     caCertPool,
 			KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-		})
+		},
+	)
 	if err != nil {
 		klog.Infof("certificate failed to validate: %v", err)
 		return true, nil

@@ -135,7 +135,8 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	nadClient := nadfake.NewSimpleClientset()
 	for _, nad := range opts.NetworkAttachments {
 		_, err := nadClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions(nad.Namespace).Create(
-			context.Background(), nad, metav1.CreateOptions{})
+			context.Background(), nad, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -145,98 +146,112 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	fabricClient := fabricfake.NewSimpleClientset()
 	for _, subnet := range opts.Subnets {
 		_, err := fabricClient.FabricV1().Subnets().Create(
-			context.Background(), subnet, metav1.CreateOptions{})
+			context.Background(), subnet, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, ippool := range opts.IPPools {
 		_, err := fabricClient.FabricV1().IPPools().Create(
-			context.Background(), ippool, metav1.CreateOptions{})
+			context.Background(), ippool, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, ip := range opts.IPs {
 		_, err := fabricClient.FabricV1().IPs().Create(
-			context.Background(), ip, metav1.CreateOptions{})
+			context.Background(), ip, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, vlan := range opts.Vlans {
 		_, err := fabricClient.FabricV1().Vlans().Create(
-			context.Background(), vlan, metav1.CreateOptions{})
+			context.Background(), vlan, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, pn := range opts.ProviderNetworks {
 		_, err := fabricClient.FabricV1().ProviderNetworks().Create(
-			context.Background(), pn, metav1.CreateOptions{})
+			context.Background(), pn, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, vpc := range opts.Vpcs {
 		_, err := fabricClient.FabricV1().Vpcs().Create(
-			context.Background(), vpc, metav1.CreateOptions{})
+			context.Background(), vpc, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, rlr := range opts.RouterLBRules {
 		_, err := fabricClient.FabricV1().RouterLBRules().Create(
-			context.Background(), rlr, metav1.CreateOptions{})
+			context.Background(), rlr, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, lb := range opts.LoadBalancers {
 		_, err := fabricClient.FabricV1().LoadBalancers().Create(
-			context.Background(), lb, metav1.CreateOptions{})
+			context.Background(), lb, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, zone := range opts.DNSZones {
 		_, err := fabricClient.FabricV1().DNSZones().Create(
-			context.Background(), zone, metav1.CreateOptions{})
+			context.Background(), zone, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, pool := range opts.LoadBalancerPools {
 		_, err := fabricClient.FabricV1().LoadBalancerPools().Create(
-			context.Background(), pool, metav1.CreateOptions{})
+			context.Background(), pool, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, eip := range opts.OvnEips {
 		_, err := fabricClient.FabricV1().OvnEips().Create(
-			context.Background(), eip, metav1.CreateOptions{})
+			context.Background(), eip, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, dnat := range opts.OvnDnatRules {
 		_, err := fabricClient.FabricV1().OvnDnatRules().Create(
-			context.Background(), dnat, metav1.CreateOptions{})
+			context.Background(), dnat, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, fip := range opts.OvnFipRules {
 		_, err := fabricClient.FabricV1().OvnFips().Create(
-			context.Background(), fip, metav1.CreateOptions{})
+			context.Background(), fip, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for _, snat := range opts.OvnSnatRules {
 		_, err := fabricClient.FabricV1().OvnSnatRules().Create(
-			context.Background(), snat, metav1.CreateOptions{})
+			context.Background(), snat, metav1.CreateOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
