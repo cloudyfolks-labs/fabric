@@ -361,6 +361,13 @@ jobs:
 
       - id: check
         run: |
+          base_tag=$(cat BASE_VERSION)
+          for tag in "$base_tag" "$base_tag-debug" "$base_tag-amd64-legacy"; do
+            if ! docker manifest inspect "ghcr.io/cloudyfolks-labs/fabric-base:$tag" >/dev/null 2>&1; then
+              echo build-base=1 >> "$GITHUB_OUTPUT"
+              exit
+            fi
+          done
           if [ ${{ github.event_name }} != 'pull_request' ]; then
             exit
           fi
@@ -425,6 +432,10 @@ jobs:
 
       - id: check
         run: |
+          if ! docker manifest inspect "ghcr.io/cloudyfolks-labs/fabric-base:$(cat BASE_VERSION)-dpdk" >/dev/null 2>&1; then
+            echo build-dpdk-base=1 >> "$GITHUB_OUTPUT"
+            exit
+          fi
           if [ ${{ github.event_name }} != 'pull_request' ]; then
             exit
           fi
