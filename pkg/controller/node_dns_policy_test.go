@@ -13,22 +13,12 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// pgAs mirrors the pgAs variable construction in addPolicyRouteForLocalDNSCacheOnNode
 func pgAs(nodePortName string, af int) string {
 	return strings.ReplaceAll(fmt.Sprintf("%s_ip%d", nodePortName, af), "-", ".")
 }
 
 func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.T) {
 	t.Parallel()
-
-	// This test verifies that in a dual-stack environment,
-	// addPolicyRouteForLocalDNSCacheOnNode(af=4) does NOT delete af=6 policies,
-	// and vice versa.
-	//
-	// Previously, GetLogicalRouterPoliciesByExtID filtered only by "node" key,
-	// returning policies from ALL address families. The cleanup loop then deleted
-	// any policy whose Match was not in the current af's match set — which
-	// included all policies from the other address family.
 
 	fc := newFakeController(t)
 	ctrl := fc.fakeController
@@ -46,7 +36,6 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 	matchV4 := fmt.Sprintf("ip4.src == $%s && ip4.dst == %s", pgAs(nodePortName, 4), dnsIPv4)
 	matchV6 := fmt.Sprintf("ip6.src == $%s && ip6.dst == %s", pgAs(nodePortName, 6), dnsIPv6)
 
-	// Simulate existing policies for BOTH address families in OVN
 	existingV4Policy := &ovnnb.LogicalRouterPolicy{
 		UUID:     "uuid-v4-dns",
 		Priority: util.NodeRouterPolicyPriority,
@@ -76,8 +65,6 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 	}
 
 	t.Run("af4_call_should_not_delete_af6_policy", func(t *testing.T) {
-		// After fix: ListLogicalRouterPolicies filters by address-family=4,
-		// so only the v4 policy is returned. The v6 policy is never seen.
 		mockOvnClient.EXPECT().
 			ListLogicalRouterPolicies(ctrl.config.ClusterRouter, -1, map[string]string{
 				"vendor":          util.VendorTag,
@@ -87,8 +74,6 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 			}, true).
 			Return([]*ovnnb.LogicalRouterPolicy{existingV4Policy}, nil)
 
-		// No delete calls expected — the v4 policy matches and the v6 is not returned.
-
 		err := ctrl.addPolicyRouteForLocalDNSCacheOnNode(
 			[]string{dnsIPv4}, nodePortName, nodeIPv4, nodeName, 4,
 		)
@@ -96,7 +81,6 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 	})
 
 	t.Run("af6_call_should_not_delete_af4_policy", func(t *testing.T) {
-		// After fix: only af=6 policies are returned
 		mockOvnClient.EXPECT().
 			ListLogicalRouterPolicies(ctrl.config.ClusterRouter, -1, map[string]string{
 				"vendor":          util.VendorTag,
@@ -105,8 +89,6 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 				"isLocalDNSCache": "true",
 			}, true).
 			Return([]*ovnnb.LogicalRouterPolicy{existingV6Policy}, nil)
-
-		// No delete calls expected
 
 		err := ctrl.addPolicyRouteForLocalDNSCacheOnNode(
 			[]string{dnsIPv6}, nodePortName, nodeIPv6, nodeName, 6,
@@ -117,10 +99,6 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 
 func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing.T) {
 	t.Parallel()
-
-	// Simulate the full dual-stack scenario from handleAddNode:
-	// 1. First call with af=4 creates v4 policies (no existing policies)
-	// 2. Second call with af=6 creates v6 policies WITHOUT touching v4 ones
 
 	fc := newFakeController(t)
 	ctrl := fc.fakeController
@@ -152,12 +130,10 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing
 	}
 
 	t.Run("step1_af4_creates_policy", func(t *testing.T) {
-		// No existing af=4 policies
 		mockOvnClient.EXPECT().
 			ListLogicalRouterPolicies(ctrl.config.ClusterRouter, -1, externalIDsV4, true).
 			Return(nil, nil)
 
-		// Should create v4 policy
 		mockOvnClient.EXPECT().
 			AddLogicalRouterPolicy(
 				ctrl.config.ClusterRouter,
@@ -176,14 +152,10 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing
 	})
 
 	t.Run("step2_af6_creates_without_deleting_af4", func(t *testing.T) {
-		// After fix: ListLogicalRouterPolicies filters by af=6, v4 policy is invisible
 		mockOvnClient.EXPECT().
 			ListLogicalRouterPolicies(ctrl.config.ClusterRouter, -1, externalIDsV6, true).
 			Return(nil, nil)
 
-		// No delete expected — v4 policy is safe
-
-		// v6 policy gets created
 		mockOvnClient.EXPECT().
 			AddLogicalRouterPolicy(
 				ctrl.config.ClusterRouter,
@@ -204,9 +176,6 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing
 
 func TestAddPolicyRouteForLocalDNSCacheOnNode_DeletesStalePolicy(t *testing.T) {
 	t.Parallel()
-
-	// Verify that stale policies within the SAME address family are still deleted.
-	// For example, if a DNS IP changes, the old policy should be removed.
 
 	fc := newFakeController(t)
 	ctrl := fc.fakeController
@@ -239,17 +208,14 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DeletesStalePolicy(t *testing.T) {
 		ExternalIDs: externalIDsV4,
 	}
 
-	// ListLogicalRouterPolicies returns the stale policy (same af)
 	mockOvnClient.EXPECT().
 		ListLogicalRouterPolicies(ctrl.config.ClusterRouter, -1, externalIDsV4, true).
 		Return([]*ovnnb.LogicalRouterPolicy{stalePolicy}, nil)
 
-	// Stale policy should be deleted (old DNS IP, same af)
 	mockOvnClient.EXPECT().
 		DeleteLogicalRouterPolicyByUUID(ctrl.config.ClusterRouter, "uuid-stale").
 		Return(nil)
 
-	// New policy should be created
 	mockOvnClient.EXPECT().
 		AddLogicalRouterPolicy(
 			ctrl.config.ClusterRouter,

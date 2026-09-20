@@ -21,7 +21,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// NamespaceClient is a struct for namespace client.
 type NamespaceClient struct {
 	v1core.NamespaceInterface
 }
@@ -45,7 +44,6 @@ func (c *NamespaceClient) Get(name string) *corev1.Namespace {
 	return np
 }
 
-// Create creates a new namespace according to the framework specifications
 func (c *NamespaceClient) Create(ns *corev1.Namespace) *corev1.Namespace {
 	ginkgo.GinkgoHelper()
 	np, err := c.NamespaceInterface.Create(context.TODO(), ns, metav1.CreateOptions{})
@@ -80,7 +78,6 @@ func (c *NamespaceClient) Patch(original, modified *corev1.Namespace) *corev1.Na
 	return nil
 }
 
-// Delete deletes a namespace if the namespace exists
 func (c *NamespaceClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.NamespaceInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -89,15 +86,12 @@ func (c *NamespaceClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the namespace and waits for the namespace to disappear for `timeout`.
-// If the namespace doesn't disappear before the timeout, it will fail the test.
 func (c *NamespaceClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for namespace %q to disappear", name)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified namespace to disappear.
 func (c *NamespaceClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*corev1.Namespace, error) {
 		policy, err := c.NamespaceInterface.Get(ctx, name, metav1.GetOptions{})
@@ -112,7 +106,6 @@ func (c *NamespaceClient) WaitToDisappear(name string, _, timeout time.Duration)
 	return nil
 }
 
-// WaitUntil waits the given timeout duration for the specified condition to be met.
 func (c *NamespaceClient) WaitUntil(name string, cond func(ns *corev1.Namespace) (bool, error), condDesc string, interval, timeout time.Duration) *corev1.Namespace {
 	ginkgo.GinkgoHelper()
 

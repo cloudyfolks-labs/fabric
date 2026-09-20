@@ -20,7 +20,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// VipClient is a struct for vip client.
 type VipClient struct {
 	f *Framework
 	v1.VipInterface
@@ -40,7 +39,6 @@ func (c *VipClient) Get(name string) *apiv1.Vip {
 	return vip.DeepCopy()
 }
 
-// Create creates a new vip according to the framework specifications
 func (c *VipClient) Create(vip *apiv1.Vip) *apiv1.Vip {
 	ginkgo.GinkgoHelper()
 	vip, err := c.VipInterface.Create(context.TODO(), vip, metav1.CreateOptions{})
@@ -48,19 +46,15 @@ func (c *VipClient) Create(vip *apiv1.Vip) *apiv1.Vip {
 	return vip.DeepCopy()
 }
 
-// CreateSync creates a new ovn vip according to the framework specifications, and waits for it to be ready.
 func (c *VipClient) CreateSync(vip *apiv1.Vip) *apiv1.Vip {
 	ginkgo.GinkgoHelper()
 
 	vip = c.Create(vip)
 	ExpectTrue(c.WaitToBeReady(vip.Name, timeout))
-	// Get the newest ovn vip after it becomes ready
+
 	return c.Get(vip.Name).DeepCopy()
 }
 
-// WaitToBeReady returns whether the ovn vip is ready within timeout.
-// A VIP is considered ready when it has an IP assigned AND has the controller finalizer,
-// ensuring the controller has fully processed the VIP before tests proceed.
 func (c *VipClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	Logf("Waiting up to %v for ovn vip %s to be ready", timeout, name)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
@@ -76,7 +70,6 @@ func (c *VipClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	return false
 }
 
-// Patch patches the vip
 func (c *VipClient) Patch(original, modified *apiv1.Vip, timeout time.Duration) *apiv1.Vip {
 	ginkgo.GinkgoHelper()
 
@@ -104,7 +97,6 @@ func (c *VipClient) Patch(original, modified *apiv1.Vip, timeout time.Duration) 
 	return nil
 }
 
-// Delete deletes a vip if the vip exists
 func (c *VipClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.VipInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -113,15 +105,12 @@ func (c *VipClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the ovn vip and waits for the ovn vip to disappear for `timeout`.
-// If the ovn vip doesn't disappear before the timeout, it will fail the test.
 func (c *VipClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for ovn vip %q to disappear", name)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified OVN VIP to disappear.
 func (c *VipClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.Vip, error) {
 		vip, err := c.VipInterface.Get(ctx, name, metav1.GetOptions{})

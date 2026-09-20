@@ -467,20 +467,19 @@ func TestGetPolicyRouting(t *testing.T) {
 				},
 			},
 			pods: []*v1.Pod{
-				// dual-stack pod: should generate 2 rules
 				newPodForPolicyRouting("pod1", "default", subnetName, "10.16.0.5",
 					[]v1.PodIP{{IP: "10.16.0.5"}, {IP: "fd00::5"}}),
-				// IPv4-only pod: should generate 1 rule
+
 				newPodForPolicyRouting("pod2", "default", subnetName, "10.16.0.6",
 					[]v1.PodIP{{IP: "10.16.0.6"}}),
-				// pod in different subnet: should be skipped
+
 				newPodForPolicyRouting("pod3", "default", "other-subnet", "10.16.0.7",
 					[]v1.PodIP{{IP: "10.16.0.7"}}),
-				// pod without IP: should be skipped
+
 				newPodForPolicyRouting("pod4", "default", subnetName, "",
 					nil),
 			},
-			expectedRules: 3, // 2 from pod1 + 1 from pod2
+			expectedRules: 3,
 			expectedRtns:  2,
 			validateRules: func(t *testing.T, rules []netlink.Rule) {
 				for _, r := range rules {
@@ -543,13 +542,11 @@ func TestGetPolicyRouting(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Build pod indexer
 			podIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			for _, pod := range tt.pods {
 				require.NoError(t, podIndexer.Add(pod))
 			}
 
-			// Build node indexer for centralized gateway tests
 			nodeIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			require.NoError(t, nodeIndexer.Add(&v1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
@@ -569,7 +566,6 @@ func TestGetPolicyRouting(t *testing.T) {
 			require.Len(t, rules, tt.expectedRules)
 			require.Len(t, routes, tt.expectedRtns)
 
-			// Validate all rules have non-nil Src.IP
 			for i, r := range rules {
 				require.NotNil(t, r.Src, "rule[%d].Src must not be nil", i)
 				require.NotNil(t, r.Src.IP, "rule[%d].Src.IP must not be nil", i)

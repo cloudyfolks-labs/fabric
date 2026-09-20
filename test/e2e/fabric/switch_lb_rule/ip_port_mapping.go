@@ -17,7 +17,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
-// getLoadBalancerIPPortMappings queries OVN NB database for ip_port_mappings of a specific load balancer
 func getLoadBalancerIPPortMappings(lbName string) (map[string]string, error) {
 	cmd := fmt.Sprintf("ovn-nbctl --format=csv --data=bare --no-heading --columns=ip_port_mappings list Load_Balancer %s", lbName)
 	output, _, err := framework.NBExec(cmd)
@@ -25,36 +24,27 @@ func getLoadBalancerIPPortMappings(lbName string) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to query load balancer %s: %w", lbName, err)
 	}
 
-	// Parse output format from OVN CSV - can be in two formats:
-	// Format 1 (space-separated): key1=value1 key2=value2
-	// Format 2 (quoted): "{""key1""=""value1"", ""key2""=""value2""}"
 	mappings := make(map[string]string)
 	output = bytes.TrimSpace(output)
 	if len(output) == 0 {
 		return mappings, nil
 	}
 
-	// Strip surrounding quotes if present (OVN CSV format for map columns)
 	if len(output) >= 2 && output[0] == '"' && output[len(output)-1] == '"' {
 		output = output[1 : len(output)-1]
 	}
 
-	// Check for empty map representation: {} or empty string
 	outputStr := strings.TrimSpace(string(output))
 	if outputStr == "" || outputStr == "{}" {
 		return mappings, nil
 	}
 
-	// Determine format and parse accordingly
 	var pairs []string
 	if strings.HasPrefix(outputStr, "{") && strings.HasSuffix(outputStr, "}") {
-		// Format 2: Quoted format with braces "{""key1""=""value1"", ""key2""=""value2""}"
-		// Strip the surrounding braces
 		outputStr = outputStr[1 : len(outputStr)-1]
-		// Split by comma
+
 		pairs = strings.Split(outputStr, ",")
 	} else {
-		// Format 1: Space-separated format "key1=value1 key2=value2"
 		pairs = strings.Fields(outputStr)
 	}
 
@@ -64,13 +54,11 @@ func getLoadBalancerIPPortMappings(lbName string) (map[string]string, error) {
 			continue
 		}
 
-		// Split on the first = to separate key and value
 		parts := strings.SplitN(pair, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
 
-		// Trim quotes and spaces from key and value
 		key := strings.Trim(strings.TrimSpace(parts[0]), `"`)
 		value := strings.Trim(strings.TrimSpace(parts[1]), `"`)
 
@@ -82,8 +70,6 @@ func getLoadBalancerIPPortMappings(lbName string) (map[string]string, error) {
 	return mappings, nil
 }
 
-// getLoadBalancerNameForVPC returns the load balancer name for a VPC
-// This follows the naming scheme in pkg/controller/vpc.go:239
 func getLoadBalancerNameForVPC(vpcName string) string {
 	return fmt.Sprintf("vpc-%s-tcp-load", vpcName)
 }
@@ -127,11 +113,6 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 	})
 
 	ginkgo.AfterEach(func() {
-		// Defensively clean up any remaining SLRs created by this spec before
-		// deleting the subnet/VPC.  This prevents the subnet from getting stuck
-		// when VIPs created by the endpoint_slice controller haven't been fully
-		// cleaned up yet.  Filter by both suffix and namespace to avoid
-		// interfering with other specs in the cluster.
 		ginkgo.By("Cleaning up any remaining SwitchLBRules for suffix " + suffix)
 		slrs, err := switchLBRuleClient.List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -219,7 +200,6 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 			return len(mappings) == 3, nil
 		}, "initial 3 ip_port_mappings are created")
 
-		// Record the IP that will be removed
 		removedPodName := pods.Items[2].Name
 		removedPodIP := pods.Items[2].Status.PodIP
 
@@ -342,7 +322,7 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 				return false, nil
 			}
 			if len(mappings) == 3 {
-				// Verify all pod IPs are present
+
 				for _, pod := range pods.Items {
 					if _, exists := mappings[pod.Status.PodIP]; !exists {
 						return false, nil
@@ -383,7 +363,6 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 		pods := stsClient.GetPods(sts)
 		framework.ExpectHaveLen(pods.Items, 3)
 
-		// Create two services with different VIPs
 		ginkgo.By("Creating first service")
 		ports1 := []corev1.ServicePort{{
 			Name:       "http",
@@ -414,7 +393,6 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 		}, "cluster ips are not empty")
 		vip2 := svc2.Spec.ClusterIPs[0]
 
-		// SLR1 will use pods 0 and 1 (overlapping with SLR2 on pod 1)
 		ginkgo.By("Creating first SwitchLBRule with endpoints " + pods.Items[0].Status.PodIP + " and " + pods.Items[1].Status.PodIP)
 		slr1Ports := []fabricv1.SwitchLBRulePort{{
 			Name:       "http",
@@ -427,7 +405,6 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 			nil, []string{pods.Items[0].Status.PodIP, pods.Items[1].Status.PodIP}, slr1Ports)
 		_ = switchLBRuleClient.Create(slr1)
 
-		// SLR2 will use pods 1 and 2 (overlapping with SLR1 on pod 1)
 		ginkgo.By("Creating second SwitchLBRule with endpoints " + pods.Items[1].Status.PodIP + " and " + pods.Items[2].Status.PodIP)
 		slr2Ports := []fabricv1.SwitchLBRulePort{{
 			Name:       "http",
@@ -449,7 +426,7 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 				return false, nil
 			}
 			if len(mappings) == 3 {
-				// Verify all pod IPs are present
+
 				for _, pod := range pods.Items {
 					if _, exists := mappings[pod.Status.PodIP]; !exists {
 						return false, nil
@@ -460,7 +437,6 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 			return false, nil
 		}, "all 3 pod IPs have ip_port_mappings")
 
-		// Update SLR1 to only use pod 0 (removing shared pod 1)
 		ginkgo.By("Updating first SwitchLBRule to only use " + pods.Items[0].Status.PodIP)
 		slr1, err = switchLBRuleClient.SwitchLBRuleInterface.Get(context.TODO(), slr1Name, metav1.GetOptions{})
 		framework.ExpectNoError(err)
@@ -474,7 +450,7 @@ var _ = framework.Describe("[group:slr-ip-port-mapping]", func() {
 			if err != nil {
 				return false, nil
 			}
-			// Verify all 3 pods still have mappings (shared pod should not be removed)
+
 			if len(mappings) == 3 {
 				if _, exists := mappings[pods.Items[0].Status.PodIP]; !exists {
 					return false, nil

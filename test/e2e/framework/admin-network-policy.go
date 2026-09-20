@@ -14,7 +14,6 @@ import (
 	cnpclient "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/typed/apis/v1alpha2"
 )
 
-// MakeAdminNetworkPolicy creates a basic AdminNetworkPolicy with common defaults
 func MakeAdminNetworkPolicy(name string, priority int32, namespaceSelector *metav1.LabelSelector, egressRules []netpolv1alpha1.AdminNetworkPolicyEgressRule, ingressRules []netpolv1alpha1.AdminNetworkPolicyIngressRule) *netpolv1alpha1.AdminNetworkPolicy {
 	anp := &netpolv1alpha1.AdminNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -32,7 +31,6 @@ func MakeAdminNetworkPolicy(name string, priority int32, namespaceSelector *meta
 	return anp
 }
 
-// MakeClusterNetworkPolicy creates a basic ClusterNetworkPolicy with common defaults
 func MakeClusterNetworkPolicy(name string, priority int32, namespaceSelector *metav1.LabelSelector, egressRules []netpolv1alpha2.ClusterNetworkPolicyEgressRule, ingressRules []netpolv1alpha2.ClusterNetworkPolicyIngressRule) *netpolv1alpha2.ClusterNetworkPolicy {
 	anp := &netpolv1alpha2.ClusterNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -51,7 +49,6 @@ func MakeClusterNetworkPolicy(name string, priority int32, namespaceSelector *me
 	return anp
 }
 
-// MakeAdminNetworkPolicyEgressRule creates an egress rule with domain names
 func MakeAdminNetworkPolicyEgressRule(name string, action netpolv1alpha1.AdminNetworkPolicyRuleAction, ports []netpolv1alpha1.AdminNetworkPolicyPort, domainNames []netpolv1alpha1.DomainName) netpolv1alpha1.AdminNetworkPolicyEgressRule {
 	rule := netpolv1alpha1.AdminNetworkPolicyEgressRule{
 		Name:   name,
@@ -68,7 +65,6 @@ func MakeAdminNetworkPolicyEgressRule(name string, action netpolv1alpha1.AdminNe
 	return rule
 }
 
-// MakeClusterNetworkPolicyEgressRule creates an egress rule with domain names
 func MakeClusterNetworkPolicyEgressRule(name string, action netpolv1alpha2.ClusterNetworkPolicyRuleAction, ports []netpolv1alpha2.ClusterNetworkPolicyPort, domainNames []netpolv1alpha2.DomainName) netpolv1alpha2.ClusterNetworkPolicyEgressRule {
 	rule := netpolv1alpha2.ClusterNetworkPolicyEgressRule{
 		Name:   name,
@@ -85,7 +81,6 @@ func MakeClusterNetworkPolicyEgressRule(name string, action netpolv1alpha2.Clust
 	return rule
 }
 
-// MakeAdminNetworkPolicyPort creates a port specification
 func MakeAdminNetworkPolicyPort(port int32, protocol corev1.Protocol) netpolv1alpha1.AdminNetworkPolicyPort {
 	return netpolv1alpha1.AdminNetworkPolicyPort{
 		PortNumber: &netpolv1alpha1.Port{
@@ -95,7 +90,6 @@ func MakeAdminNetworkPolicyPort(port int32, protocol corev1.Protocol) netpolv1al
 	}
 }
 
-// MakeClusterNetworkPolicyPort creates a port specification
 func MakeClusterNetworkPolicyPort(port int32, protocol corev1.Protocol) netpolv1alpha2.ClusterNetworkPolicyPort {
 	return netpolv1alpha2.ClusterNetworkPolicyPort{
 		PortNumber: &netpolv1alpha2.Port{
@@ -105,7 +99,6 @@ func MakeClusterNetworkPolicyPort(port int32, protocol corev1.Protocol) netpolv1
 	}
 }
 
-// AnpClient is a struct for AdminNetworkPolicy client.
 type AnpClient struct {
 	f *Framework
 	anpclient.AdminNetworkPolicyInterface
@@ -118,7 +111,6 @@ func (f *Framework) AnpClient() *AnpClient {
 	}
 }
 
-// CnpClient is a struct for ClusterNetworkPolicy client.
 type CnpClient struct {
 	f *Framework
 	cnpclient.ClusterNetworkPolicyInterface
@@ -131,7 +123,6 @@ func (f *Framework) CnpClient() *CnpClient {
 	}
 }
 
-// Get gets the AdminNetworkPolicy.
 func (c *AnpClient) Get(name string) *netpolv1alpha1.AdminNetworkPolicy {
 	ginkgo.GinkgoHelper()
 	anp, err := c.AdminNetworkPolicyInterface.Get(context.TODO(), name, metav1.GetOptions{})
@@ -139,7 +130,6 @@ func (c *AnpClient) Get(name string) *netpolv1alpha1.AdminNetworkPolicy {
 	return anp
 }
 
-// Create creates the AdminNetworkPolicy.
 func (c *AnpClient) Create(anp *netpolv1alpha1.AdminNetworkPolicy) *netpolv1alpha1.AdminNetworkPolicy {
 	ginkgo.GinkgoHelper()
 	anp, err := c.AdminNetworkPolicyInterface.Create(context.TODO(), anp, metav1.CreateOptions{})
@@ -147,7 +137,6 @@ func (c *AnpClient) Create(anp *netpolv1alpha1.AdminNetworkPolicy) *netpolv1alph
 	return anp
 }
 
-// Update updates the AdminNetworkPolicy.
 func (c *AnpClient) Update(anp *netpolv1alpha1.AdminNetworkPolicy) *netpolv1alpha1.AdminNetworkPolicy {
 	ginkgo.GinkgoHelper()
 	anp, err := c.AdminNetworkPolicyInterface.Update(context.TODO(), anp, metav1.UpdateOptions{})
@@ -155,17 +144,15 @@ func (c *AnpClient) Update(anp *netpolv1alpha1.AdminNetworkPolicy) *netpolv1alph
 	return anp
 }
 
-// Delete deletes the AdminNetworkPolicy.
 func (c *AnpClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.AdminNetworkPolicyInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
-	// If the resource is not found, that's also considered a successful deletion
+
 	if err != nil && !apierrors.IsNotFound(err) {
 		ExpectNoError(err)
 	}
 }
 
-// CreateSync creates the AdminNetworkPolicy and waits for it to be ready.
 func (c *AnpClient) CreateSync(anp *netpolv1alpha1.AdminNetworkPolicy) *netpolv1alpha1.AdminNetworkPolicy {
 	ginkgo.GinkgoHelper()
 	return c.Create(anp)

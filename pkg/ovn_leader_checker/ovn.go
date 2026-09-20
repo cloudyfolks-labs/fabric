@@ -50,7 +50,6 @@ var failCount int
 
 var labelSelector = labels.Set{discoveryv1.LabelServiceName: OvnNorthdServiceName}.AsSelector().String()
 
-// Configuration is the controller config
 type Configuration struct {
 	KubeConfigFile              string
 	KubeClient                  kubernetes.Interface
@@ -77,8 +76,6 @@ func (c *Configuration) observeDuplicateLeader(database string, duplicate bool) 
 	return count, count >= maxDuplicateLeaderObservations
 }
 
-// ParseFlags parses cmd args then init kubeclient and conf
-// TODO: validate configuration
 func ParseFlags() (*Configuration, error) {
 	podIP := os.Getenv(util.EnvPodIP)
 	var (
@@ -93,7 +90,6 @@ func ParseFlags() (*Configuration, error) {
 	klogFlags := flag.NewFlagSet("klog", flag.ContinueOnError)
 	klog.InitFlags(klogFlags)
 
-	// Sync the glog and klog flags.
 	pflag.CommandLine.VisitAll(func(f1 *pflag.Flag) {
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {
@@ -104,8 +100,6 @@ func ParseFlags() (*Configuration, error) {
 		}
 	})
 
-	// change the behavior of cmdline
-	// not exit. not good
 	pflag.CommandLine.Init(os.Args[0], pflag.ContinueOnError)
 	pflag.CommandLine.AddGoFlagSet(klogFlags)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
@@ -114,12 +108,6 @@ func ParseFlags() (*Configuration, error) {
 		return nil, err
 	}
 
-	// Determine single-replica mode from the *raw* flag input, not from the
-	// filtered remoteAddresses slice. A one-node raft cluster passes a single
-	// IP equal to the local address, which DeleteFunc removes — that must
-	// stay in raft mode (with raft header backup and northd lock stealing),
-	// not be conflated with the single-replica standalone deployment that
-	// passes --remoteAddresses="" explicitly.
 	singleReplica := true
 	for _, addr := range *remoteAddresses {
 		if addr != "" {
@@ -135,9 +123,6 @@ func ParseFlags() (*Configuration, error) {
 		IsICDBServer:   *argIsICDBServer,
 		localAddress:   *localAddress,
 		remoteAddresses: slices.DeleteFunc(*remoteAddresses, func(s string) bool {
-			// Drop the local address (already covered by isDBLeader on localAddress)
-			// and any empty entries produced by --remoteAddresses="" in single-replica
-			// mode.
 			return s == "" || s == *localAddress
 		}),
 		singleReplica: singleReplica,
@@ -146,24 +131,15 @@ func ParseFlags() (*Configuration, error) {
 	return config, nil
 }
 
-// isSingleReplicaMode reports whether ovn-central is running as a single
-// standalone pod (no raft cluster, no peers). In that mode the leader-checker
-// skips raft leader queries and ovn_northd lock stealing because they are
-// meaningless with only one DB instance. This is computed from the original
-// --remoteAddresses flag, not the filtered slice, so a one-node raft cluster
-// stays in cluster behaviour (raft header backup, lock stealing) rather than
-// being mistakenly demoted to standalone semantics.
 func (c *Configuration) isSingleReplicaMode() bool {
 	return c.singleReplica
 }
 
-// KubeClientInit funcs to check apiserver alive
 func KubeClientInit(cfg *Configuration) error {
 	if cfg == nil {
 		return errors.New("invalid cfg")
 	}
 
-	// init kubeconfig here
 	var kubeCfg *rest.Config
 	var err error
 	if cfg.KubeConfigFile == "" {
@@ -215,7 +191,6 @@ func checkOvnIsAlive() bool {
 	return true
 }
 
-// isDBLeader checks whether the ovn db at address is leader for the given database.
 func isDBLeader(address, database string) (bool, error) {
 	var dbAddr string
 	switch database {
@@ -334,7 +309,6 @@ func checkNorthdEpAlive(cfg *Configuration, namespace, service string, expectedA
 	}
 
 	for _, eps := range epsList.Items {
-		// Only check endpoint slices matching the pod IP protocol
 		if eps.AddressType != expectedAddrType {
 			continue
 		}
@@ -371,16 +345,6 @@ func compactOvnDatabase(db string) {
 	}
 }
 
-// backupRaftHeader backs up the raft header of the ovn db file.
-// The backup file name is ovn<db>_db.hdr, e.g., ovnnb_db.hdr for ovnnb database file named ovnnb_db.db.
-// Example content of the header file:
-//
-//	{
-//	  "server_id": "8d77699d-8dc6-4f32-b1ba-b66aad05ba46",
-//	  "name": "OVN_Northbound",
-//	  "local_address": "tcp:[172.18.0.2]:6643",
-//	  "cluster_id": "6d240b86-177e-4f17-aded-ed1b7b364d97"
-//	}
 func backupRaftHeader(db string) {
 	backupRaftHeaderAt(db, "/etc/ovn")
 }
@@ -566,7 +530,6 @@ func doOvnLeaderCheck(cfg *Configuration, podName, podNamespace string) {
 		util.LogFatalAndExit(nil, "preValidChkCfg: invalid cfg")
 	}
 
-	// Determine the expected AddressType based on pod IP protocol
 	podIP := os.Getenv(util.EnvPodIP)
 	var expectedAddrType discoveryv1.AddressType
 	if util.CheckProtocol(podIP) == fabricv1.ProtocolIPv6 {
@@ -582,9 +545,6 @@ func doOvnLeaderCheck(cfg *Configuration, podName, podNamespace string) {
 
 	if !cfg.IsICDBServer {
 		if cfg.isSingleReplicaMode() {
-			// Standalone DB: no raft leader to query, no peers to detect a split
-			// brain against, no ovn_northd lock contention. Just keep the pod
-			// labelled as the leader for all three services and run compaction.
 			northdActive := checkNorthdActive()
 			patch := util.KVPatch{
 				"ovn-nb-leader":     "true",

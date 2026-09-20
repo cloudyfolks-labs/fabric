@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// This file comes from sigs.k8s.io/controller-runtime/pkg/metrics/client_go_adapter.go
-
 package metrics
 
 import (
@@ -42,12 +40,9 @@ func InitClientGoMetrics() {
 	registerClientMetrics()
 }
 
-// registerClientMetrics sets up the client latency metrics from client-go
 func registerClientMetrics() {
-	// register the metrics with our registry
 	ctrlmetrics.Registry.MustRegister(requestLatency)
 
-	// register the metrics with client-go
 	metrics.RequestLatency = &latencyAdapter{metric: requestLatency}
 }
 

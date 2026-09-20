@@ -50,7 +50,6 @@ func (c *OVNNbClient) GetNbGlobal() (*ovnnb.NBGlobal, error) {
 
 	nbGlobalList := make([]ovnnb.NBGlobal, 0, 1)
 
-	// there is only one nb_global in OVN_Northbound, so return true and it will work
 	err := c.WhereCache(func(_ *ovnnb.NBGlobal) bool {
 		return true
 	}).List(ctx, &nbGlobalList)
@@ -94,7 +93,7 @@ func (c *OVNNbClient) SetAzName(azName string) error {
 		return fmt.Errorf("failed to get nb global: %w", err)
 	}
 	if azName == nbGlobal.Name {
-		return nil // no need to update
+		return nil
 	}
 
 	nbGlobal.Name = azName

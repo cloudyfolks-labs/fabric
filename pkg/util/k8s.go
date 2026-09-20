@@ -26,12 +26,6 @@ import (
 	"k8s.io/utils/set"
 )
 
-// APIResourceExists checks if all specified kinds exist in the given group version.
-// It returns true if all kinds are found, false otherwise.
-// Parameters:
-// - discoveryClient: The discovery client to use for querying API resources.
-// - gv: The group version string (e.g., "apps/v1").
-// - kinds: A variadic list of kind names to check for existence (e.g., "Deployment", "StatefulSet").
 func APIResourceExists(discoveryClient discovery.DiscoveryInterface, gv string, kinds ...string) (bool, error) {
 	apiResourceLists, err := discoveryClient.ServerResourcesForGroupVersion(gv)
 	if err != nil {
@@ -49,10 +43,6 @@ func APIResourceExists(discoveryClient discovery.DiscoveryInterface, gv string, 
 	return existingKinds.HasAll(kinds...), nil
 }
 
-// ObjectMatchesLabelSelector checks if the given object matches the provided label selector.
-// It returns true if the object has labels that match the selector, otherwise false.
-// If the selector is invalid, it logs an error and returns false.
-// if the selector is nil, it returns false.
 func ObjectMatchesLabelSelector(obj metav1.Object, selector *metav1.LabelSelector) bool {
 	labelSelector, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
@@ -213,16 +203,11 @@ func SetNodeNetworkUnavailableCondition(cs kubernetes.Interface, nodeName string
 	return nil
 }
 
-// InjectedServiceVariables returns the environment variable values for the given service name.
-// For a service named "my-service", it returns values of "MY_SERVICE_SERVICE_HOST" and "MY_SERVICE_SERVICE_PORT".
 func InjectedServiceVariables(service string) (string, string) {
 	prefix := strings.ToUpper(strings.ReplaceAll(service, "-", "_"))
 	return os.Getenv(prefix + "_SERVICE_HOST"), os.Getenv(prefix + "_SERVICE_PORT")
 }
 
-// ObjectKind returns the kind name of the given k8s object type T.
-// If T is a pointer type, it returns the kind name of the underlying type.
-// For example, if T is v1.Pod, it returns "Pod".
 func ObjectKind[T metav1.Object]() string {
 	typ := reflect.TypeFor[T]()
 	if typ.Kind() == reflect.Pointer {
@@ -231,8 +216,6 @@ func ObjectKind[T metav1.Object]() string {
 	return typ.Name()
 }
 
-// TrimManagedFields removes the managed fields from the given k8s object.
-// It returns the modified object and any error encountered during the process.
 func TrimManagedFields(obj any) (any, error) {
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
@@ -244,21 +227,6 @@ func TrimManagedFields(obj any) (any, error) {
 	return obj, nil
 }
 
-// TrimPodForController is an informer transform that strips pod fields the
-// controller never reads, in addition to clearing managed fields. It shrinks
-// the pod informer cache footprint on large clusters.
-//
-// Preserved (required by controller code paths):
-//   - ObjectMeta (labels, annotations, ownerReferences, finalizers, deletionTimestamp, ...)
-//   - Spec.NodeName, Spec.HostNetwork, Spec.RestartPolicy
-//   - Spec.Containers[].Name and .Ports (named-port policy lookup)
-//   - Spec.InitContainers[].Name, .Ports, .RestartPolicy (restartable sidecars)
-//   - Status.Phase, .PodIP, .PodIPs, .HostIP, .Reason
-//   - Status.ContainerStatuses[].{Name, RestartCount, State} (restart
-//     detection paths which read State.Running.StartedAt)
-//   - Status.Conditions[].{Type, Status, LastTransitionTime}
-//
-// Non-pod objects fall through to TrimManagedFields.
 func TrimPodForController(obj any) (any, error) {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
@@ -322,8 +290,7 @@ func trimPodContainers(containers []v1.Container) {
 		c.EnvFrom = nil
 		c.Resources = v1.ResourceRequirements{}
 		c.ResizePolicy = nil
-		// c.RestartPolicy is intentionally preserved: restartable init-containers
-		// are detected by the named-port code path.
+
 		c.VolumeMounts = nil
 		c.VolumeDevices = nil
 		c.LivenessProbe = nil
@@ -343,9 +310,7 @@ func trimPodContainers(containers []v1.Container) {
 func trimPodContainerStatuses(statuses []v1.ContainerStatus) {
 	for i := range statuses {
 		s := &statuses[i]
-		// s.State is preserved: the VPC NAT gateway redo path reads
-		// State.Running.StartedAt to decide whether to reapply iptables
-		// rules after a gateway pod restart.
+
 		s.LastTerminationState = v1.ContainerState{}
 		s.Ready = false
 		s.Image = ""

@@ -25,7 +25,6 @@ func (c *OVNNbClient) AddLoadBalancerHealthCheck(lbName, vipEndpoint string, ext
 	return c.CreateLoadBalancerHealthCheck(lbName, vipEndpoint, lbhc)
 }
 
-// newLoadBalancerHealthCheck return hc with basic information
 func (c *OVNNbClient) newLoadBalancerHealthCheck(lbName, vipEndpoint string, externals map[string]string) (*ovnnb.LoadBalancerHealthCheck, error) {
 	var (
 		exists bool
@@ -49,7 +48,6 @@ func (c *OVNNbClient) newLoadBalancerHealthCheck(lbName, vipEndpoint string, ext
 		return nil, err
 	}
 
-	// found, ignore
 	if exists {
 		klog.Infof("already exists health check with vip %s for lb %s", vipEndpoint, lbName)
 		return nil, nil
@@ -69,7 +67,6 @@ func (c *OVNNbClient) newLoadBalancerHealthCheck(lbName, vipEndpoint string, ext
 	}, nil
 }
 
-// CreateLoadBalancerHealthCheck create lb health check
 func (c *OVNNbClient) CreateLoadBalancerHealthCheck(lbName, vipEndpoint string, lbhc *ovnnb.LoadBalancerHealthCheck) error {
 	if lbhc == nil {
 		return nil
@@ -109,7 +106,6 @@ func (c *OVNNbClient) CreateLoadBalancerHealthCheck(lbName, vipEndpoint string, 
 	return nil
 }
 
-// UpdateLoadBalancerHealthCheck update lb
 func (c *OVNNbClient) UpdateLoadBalancerHealthCheck(lbhc *ovnnb.LoadBalancerHealthCheck, fields ...any) error {
 	var (
 		op  []ovsdb.Operation
@@ -129,7 +125,6 @@ func (c *OVNNbClient) UpdateLoadBalancerHealthCheck(lbhc *ovnnb.LoadBalancerHeal
 	return nil
 }
 
-// DeleteLoadBalancerHealthChecks delete several lb health checks once
 func (c *OVNNbClient) DeleteLoadBalancerHealthChecks(filter func(lb *ovnnb.LoadBalancerHealthCheck) bool) error {
 	op, err := c.ovsDbClient.WhereCache(
 		func(lbhc *ovnnb.LoadBalancerHealthCheck) bool {
@@ -152,7 +147,6 @@ func (c *OVNNbClient) DeleteLoadBalancerHealthChecks(filter func(lb *ovnnb.LoadB
 	return nil
 }
 
-// DeleteLoadBalancerHealthCheck delete lb health check
 func (c *OVNNbClient) DeleteLoadBalancerHealthCheck(lbName, vip string) error {
 	var (
 		op  []ovsdb.Operation
@@ -173,7 +167,6 @@ func (c *OVNNbClient) DeleteLoadBalancerHealthCheck(lbName, vip string) error {
 	return nil
 }
 
-// GetLoadBalancerHealthCheck get lb health check by vip
 func (c *OVNNbClient) GetLoadBalancerHealthCheck(lbName, vipEndpoint string, ignoreNotFound bool) (*ovnnb.LoadBalancer, *ovnnb.LoadBalancerHealthCheck, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -222,7 +215,6 @@ func (c *OVNNbClient) GetLoadBalancerHealthCheck(lbName, vipEndpoint string, ign
 	return lb, &healthCheckList[0], nil
 }
 
-// ListLoadBalancerHealthChecks list all lb health checks
 func (c *OVNNbClient) ListLoadBalancerHealthChecks(filter func(lbhc *ovnnb.LoadBalancerHealthCheck) bool) ([]ovnnb.LoadBalancerHealthCheck, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -247,7 +239,6 @@ func (c *OVNNbClient) ListLoadBalancerHealthChecks(filter func(lbhc *ovnnb.LoadB
 	return lbhcList, nil
 }
 
-// LoadBalancerHealthCheckExists get lb health check and return the result of existence
 func (c *OVNNbClient) LoadBalancerHealthCheckExists(lbName, vipEndpoint string) (bool, error) {
 	_, lbhc, err := c.GetLoadBalancerHealthCheck(lbName, vipEndpoint, true)
 	if err != nil {
@@ -257,14 +248,13 @@ func (c *OVNNbClient) LoadBalancerHealthCheckExists(lbName, vipEndpoint string) 
 	return lbhc != nil, err
 }
 
-// DeleteLoadBalancerHealthCheckOp delete operation which delete lb health check
 func (c *OVNNbClient) DeleteLoadBalancerHealthCheckOp(lbName, vip string) ([]ovsdb.Operation, error) {
 	lb, lbhc, err := c.GetLoadBalancerHealthCheck(lbName, vip, true)
 	if err != nil {
 		klog.Errorf("failed to get lb health check: %v", err)
 		return nil, err
 	}
-	// not found, skip
+
 	if lbhc == nil {
 		return nil, nil
 	}

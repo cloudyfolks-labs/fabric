@@ -34,17 +34,13 @@ func Test_handleUpdateIP_deletedSubnet(t *testing.T) {
 
 	ctrl := fakeCtrl.fakeController
 
-	// Shut down work queues to avoid goroutine leaks
 	t.Cleanup(func() {
 		ctrl.updateSubnetStatusQueue.ShutDown()
 		ctrl.syncVirtualPortsQueue.ShutDown()
 	})
 
-	// The subnet "deleted-subnet" does not exist in the fake client.
-	// This must not panic (previously caused NPE in isOvnSubnet).
 	err = ctrl.handleUpdateIP("test-ip")
 	require.NoError(t, err)
 
-	// Verify the subnet status update was enqueued
 	require.Equal(t, 1, ctrl.updateSubnetStatusQueue.Len())
 }

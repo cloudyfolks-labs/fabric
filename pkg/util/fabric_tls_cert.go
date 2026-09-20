@@ -14,8 +14,6 @@ import (
 
 const fabricTLSOrganization = "fabric"
 
-// GenerateFabricTLSSecretData returns the legacy cacert/cert/key Secret data
-// used by OVN components.
 func GenerateFabricTLSSecretData(now time.Time, caDuration, certDuration time.Duration, commonName string) (map[string][]byte, error) {
 	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {

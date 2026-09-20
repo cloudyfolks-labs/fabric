@@ -170,8 +170,6 @@ func (c *Controller) calcSubnetStatusIP(subnet *fabricv1.Subnet) (*fabricv1.Subn
 		return nil, err
 	}
 
-	// Look up the subnet's IPs via the bySubnet indexer instead of scanning the
-	// whole IP store with a label selector, keeping this hot path O(matched).
 	ipObjs, err := c.ipIndexer.ByIndex(IndexIPBySubnet, subnet.Name)
 	if err != nil {
 		klog.Error(err)
@@ -249,8 +247,6 @@ func (c *Controller) calcSubnetStatusIP(subnet *fabricv1.Subnet) (*fabricv1.Subn
 	subnet.Status.V4AvailableIPRange = v4AvailableIPStr
 	subnet.Status.V6AvailableIPRange = v6AvailableIPStr
 
-	// Use a targeted patch with only IP-related fields to avoid overwriting
-	// non-IP status fields (e.g., U2OInterconnectionVPC) set by other handlers.
 	ipStatusPatch := struct {
 		Status struct {
 			V4AvailableIPs     internal.BigInt `json:"v4availableIPs"`

@@ -14,7 +14,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// GetMeter get meter by name
 func (c *OVNNbClient) GetMeter(name string, ignoreNotFound bool) (*ovnnb.Meter, error) {
 	if name == "" {
 		return nil, errors.New("meter name is empty")
@@ -39,14 +38,12 @@ func (c *OVNNbClient) GetMeter(name string, ignoreNotFound bool) (*ovnnb.Meter, 
 	return meter, nil
 }
 
-// ListAllMeters retrieves all meters from the database for debugging
 func (c *OVNNbClient) ListAllMeters() ([]*ovnnb.Meter, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var meters []*ovnnb.Meter
 
-	// Use cached listing to retrieve all meters
 	meterList := make([]ovnnb.Meter, 0)
 	if err := c.ovsDbClient.WhereCache(func(_ *ovnnb.Meter) bool {
 		return true
@@ -61,14 +58,11 @@ func (c *OVNNbClient) ListAllMeters() ([]*ovnnb.Meter, error) {
 	return meters, nil
 }
 
-// MeterExists check meter exists by name
 func (c *OVNNbClient) MeterExists(name string) (bool, error) {
 	meter, err := c.GetMeter(name, true)
 	return meter != nil, err
 }
 
-// CreateOrUpdateMeter ensures a single-band meter exists with the given rate/burst.
-// If the meter exists, it updates the first band; otherwise it creates a new meter and band.
 func (c *OVNNbClient) CreateOrUpdateMeter(name string, unit ovnnb.MeterUnit, rate, burst int) error {
 	if rate <= 0 {
 		return c.DeleteMeter(name)
@@ -129,7 +123,6 @@ func (c *OVNNbClient) createMeterWithBand(name string, unit ovnnb.MeterUnit, rat
 func (c *OVNNbClient) updateMeterAndBand(meter *ovnnb.Meter, unit ovnnb.MeterUnit, rate, burst int) error {
 	ops := make([]ovsdb.Operation, 0, 3)
 
-	// update or create band
 	var bandUUID string
 	if len(meter.Bands) > 0 {
 		bandUUID = meter.Bands[0]
@@ -202,7 +195,6 @@ func (c *OVNNbClient) updateMeterAndBand(meter *ovnnb.Meter, unit ovnnb.MeterUni
 	return nil
 }
 
-// DeleteMeter removes the meter and its bands if present.
 func (c *OVNNbClient) DeleteMeter(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()

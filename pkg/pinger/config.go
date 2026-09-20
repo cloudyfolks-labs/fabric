@@ -39,7 +39,6 @@ type Configuration struct {
 	NetworkMode     string
 	EnableMetrics   bool
 
-	// Used for OVS Monitor
 	PollTimeout                     int
 	PollInterval                    int
 	SystemRunDir                    string
@@ -98,7 +97,6 @@ func ParseFlags() (*Configuration, error) {
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 
-	// Sync the glog and klog flags.
 	pflag.CommandLine.VisitAll(func(f1 *pflag.Flag) {
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {
@@ -136,7 +134,6 @@ func ParseFlags() (*Configuration, error) {
 		UDPConnCheckPort:       *argUDPConnectivityCheckPort,
 		TargetIPPorts:          *argTargetIPPorts,
 
-		// OVS Monitor
 		PollTimeout:                     *argPollTimeout,
 		PollInterval:                    *argPollInterval,
 		SystemRunDir:                    *argSystemRunDir,

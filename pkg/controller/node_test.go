@@ -405,7 +405,7 @@ func TestCleanDuplicatedChassis(t *testing.T) {
 		mockSb := fakeCtrl.mockOvnSbClient
 
 		mockSb.EXPECT().GetChassisByHost("test-node").Return(nil, errors.New("connection refused"))
-		// DeleteChassisByHost should NOT be called
+
 		mockSb.EXPECT().DeleteChassisByHost(gomock.Any()).Times(0)
 
 		err := ctrl.cleanDuplicatedChassis(node)
@@ -444,11 +444,9 @@ func TestCheckAndUpdateNodePortGroup_EmptyPgName(t *testing.T) {
 	ctrl.config.EnableNP = false
 	mockNb := fakeCtrl.mockOvnClient
 
-	// The initialized node should still be processed; the uninitialized node should be skipped.
 	mockNb.EXPECT().PortGroupSetPorts("node.initialized.node", gomock.Any()).Return(nil)
 	mockNb.EXPECT().DeleteAcls("node.initialized.node", portGroupKey, "", nil).Return(nil)
 
-	// PortGroupSetPorts should NOT be called for empty pgName
 	mockNb.EXPECT().PortGroupSetPorts("", gomock.Any()).Times(0)
 
 	err = ctrl.checkAndUpdateNodePortGroup()
@@ -477,10 +475,8 @@ func TestGetPolicyRouteParams_ClonedExternalIDs(t *testing.T) {
 	_, returnedMap, err := ctrl.getPolicyRouteParams("10.244.0.0/16", util.GatewayRouterPolicyPriority)
 	require.NoError(t, err)
 
-	// Mutate the returned map (as callers do)
 	delete(returnedMap, "node-1")
 
-	// The original ExternalIDs in the policy object must remain unchanged
 	require.Equal(t, map[string]string{
 		"node-1": "10.0.0.1",
 		"node-2": "10.0.0.2",

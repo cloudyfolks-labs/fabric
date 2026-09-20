@@ -11,7 +11,7 @@ func (suite *OvnClientTestSuite) testOvnIcSbCommand() {
 	ovnLegacyClient := suite.ovnLegacyClient
 	cmd := []string{"--format=csv", "--data=bare", "--no-heading", "--columns=name", "list", "Chassis"}
 	output, err := ovnLegacyClient.ovnIcSbCommand(cmd...)
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 	require.Empty(t, output)
 }
@@ -22,7 +22,7 @@ func (suite *OvnClientTestSuite) testFindUUIDWithAttrInTable() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	uuids, err := ovnLegacyClient.FindUUIDWithAttrInTable("availability_zone", "xx_uuid", "gateway")
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 	require.Empty(t, uuids)
 }
@@ -33,7 +33,7 @@ func (suite *OvnClientTestSuite) testDestroyTableWithUUID() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	err := ovnLegacyClient.DestroyTableWithUUID("uuid", "gateway")
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 }
 
@@ -43,7 +43,7 @@ func (suite *OvnClientTestSuite) testGetAzUUID() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	uuid, err := ovnLegacyClient.GetAzUUID("az1")
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 	require.Empty(t, uuid)
 }
@@ -54,7 +54,7 @@ func (suite *OvnClientTestSuite) testGetGatewayUUIDsInOneAZ() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	uuids, err := ovnLegacyClient.GetGatewayUUIDsInOneAZ("uuid")
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 	require.Empty(t, uuids)
 }
@@ -65,7 +65,7 @@ func (suite *OvnClientTestSuite) testGetRouteUUIDsInOneAZ() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	uuids, err := ovnLegacyClient.GetRouteUUIDsInOneAZ("uuid")
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 	require.Empty(t, uuids)
 }
@@ -76,7 +76,7 @@ func (suite *OvnClientTestSuite) testGetPortBindingUUIDsInOneAZ() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	uuids, err := ovnLegacyClient.GetPortBindingUUIDsInOneAZ("uuid")
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 	require.Empty(t, uuids)
 }
@@ -87,7 +87,7 @@ func (suite *OvnClientTestSuite) testDestroyGateways() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	err := ovnLegacyClient.DestroyGateways([]string{"uuid"})
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 }
 
@@ -97,7 +97,7 @@ func (suite *OvnClientTestSuite) testDestroyRoutes() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	err := ovnLegacyClient.DestroyRoutes([]string{"uuid"})
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 }
 
@@ -107,7 +107,7 @@ func (suite *OvnClientTestSuite) testDestroyPortBindings() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	err := ovnLegacyClient.DestroyPortBindings([]string{"uuid"})
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 }
 
@@ -117,6 +117,6 @@ func (suite *OvnClientTestSuite) testDestroyChassis() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	err := ovnLegacyClient.DestroyChassis("uuid")
-	// ovn-ic-sbctl not found
+
 	require.Error(t, err)
 }

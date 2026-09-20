@@ -20,27 +20,27 @@ import (
 var limiter = new(Limiter)
 
 var readOnlyCommands = set.New(
-	"",                   // no command specified
-	"show",               // print overview of database contents
-	"list-br",            // print the names of all the bridges
-	"br-exists",          // exit 2 if BRIDGE does not exist
-	"br-to-vlan",         // print the VLAN which BRIDGE is on
-	"br-to-parent",       // print the parent of BRIDGE
-	"br-get-external-id", // print value of KEY on BRIDGE or list key-value pairs on BRIDGE
-	"list-ports",         // print the names of all the ports on BRIDGE
-	"port-to-br",         // print name of bridge that contains PORT
-	"list-ifaces",        // print the names of all interfaces on BRIDGE
-	"iface-to-br",        // print name of bridge that contains IFACE
-	"get-controller",     // print the controllers for BRIDGE
-	"get-fail-mode",      // print the fail-mode for BRIDGE
-	"get-manager",        // print the managers
-	"get-ssl",            // print the SSL configuration
-	"get-aa-mapping",     // get Auto Attach mappings from BRIDGE
-	"list-zone-limits",   // list all limits configured on DATAPATH
-	"list",               // list RECord (or all records) in TBL
-	"find",               // list records satisfying CONDITION in TBL
-	"get",                // print values of COLumns in RECord in TBL
-	"wait-until",         // wait until condition is true
+	"",
+	"show",
+	"list-br",
+	"br-exists",
+	"br-to-vlan",
+	"br-to-parent",
+	"br-get-external-id",
+	"list-ports",
+	"port-to-br",
+	"list-ifaces",
+	"iface-to-br",
+	"get-controller",
+	"get-fail-mode",
+	"get-manager",
+	"get-ssl",
+	"get-aa-mapping",
+	"list-zone-limits",
+	"list",
+	"find",
+	"get",
+	"wait-until",
 )
 
 func UpdateOVSVsctlLimiter(c int32) {
@@ -120,7 +120,6 @@ func ovsAdd(table, record, column string, values ...string) error {
 	return err
 }
 
-// Returns the given column of records that match the condition
 func ovsFind(table, column string, conditions ...string) ([]string, error) {
 	args := make([]string, len(conditions)+4)
 	args[0], args[1], args[2], args[3] = "--no-heading", "--columns="+column, "find", table
@@ -136,9 +135,7 @@ func ovsFind(table, column string, conditions ...string) ([]string, error) {
 
 func parseOvsFindOutput(output string) []string {
 	values := strings.Split(output, "\n\n")
-	// We want "bare" values for strings, but we can't pass --bare to ovs-vsctl because
-	// it breaks more complicated types. So try passing each value through Unquote();
-	// if it fails, that means the value wasn't a quoted string, so use it as-is.
+
 	for i, val := range values {
 		if unquoted, err := strconv.Unquote(val); err == nil {
 			values[i] = unquoted
@@ -179,12 +176,10 @@ func Get(table, record, column, key string, ifExists bool) (string, error) {
 	return Exec(args...)
 }
 
-// Bridges returns bridges created by fabric
 func Bridges() ([]string, error) {
 	return ovsFind("bridge", "name", "external-ids:vendor="+util.VendorTag)
 }
 
-// BridgeExists checks whether the bridge already exists
 func BridgeExists(name string) (bool, error) {
 	bridges, err := Bridges()
 	if err != nil {
@@ -194,7 +189,6 @@ func BridgeExists(name string) (bool, error) {
 	return slices.Contains(bridges, name), nil
 }
 
-// PortExists checks whether the port already exists
 func PortExists(name string) (bool, error) {
 	result, err := ovsFind("port", "_uuid", "name="+name)
 	if err != nil {
@@ -225,7 +219,6 @@ func GetQosList(podName, podNamespace, ifaceID string) ([]string, error) {
 	return qosList, nil
 }
 
-// ClearPodBandwidth remove qos related to this pod.
 func ClearPodBandwidth(podName, podNamespace, ifaceID string) error {
 	qosList, err := GetQosList(podName, podNamespace, ifaceID)
 	if err != nil {
@@ -333,7 +326,6 @@ func CleanDuplicatePort(ifaceID, portName string) {
 	}
 }
 
-// ValidatePortVendor returns true if the port has external_ids:vendor=VendorTag
 func ValidatePortVendor(port string) (bool, error) {
 	output, err := ovsFind("Port", "name", "external_ids:vendor="+util.VendorTag)
 	return slices.Contains(output, port), err
@@ -359,20 +351,17 @@ func GetInterfacePodNs(iface string) (string, error) {
 	return podNetNs, nil
 }
 
-// config mirror for interface by pod annotations and install param
 func ConfigInterfaceMirror(globalMirror bool, open, iface string) error {
 	if globalMirror {
 		return nil
 	}
-	// find interface name for port
+
 	interfaceList, err := ovsFind("interface", "name", "external-ids:iface-id="+iface)
 	if err != nil {
 		klog.Error(err)
 		return err
 	}
 	for _, ifName := range interfaceList {
-		// ifName example: xxx_h
-		// find port uuid by interface name
 		portUUIDs, err := ovsFind("port", "_uuid", "name="+ifName)
 		if err != nil {
 			klog.Error(err)
@@ -383,7 +372,6 @@ func ConfigInterfaceMirror(globalMirror bool, open, iface string) error {
 		}
 		portID := portUUIDs[0]
 		if open == "true" {
-			// add port to mirror
 			err = ovsAdd("mirror", util.MirrorDefaultName, "select_dst_port", portID)
 			if err != nil {
 				klog.Error(err)
@@ -403,7 +391,6 @@ func ConfigInterfaceMirror(globalMirror bool, open, iface string) error {
 			}
 			for _, mirrorPortIDs := range mirrorPorts {
 				if strings.Contains(mirrorPortIDs, portID) {
-					// remove port from mirror
 					_, err := Exec("remove", "mirror", util.MirrorDefaultName, "select_dst_port", portID)
 					if err != nil {
 						klog.Error(err)
@@ -416,7 +403,6 @@ func ConfigInterfaceMirror(globalMirror bool, open, iface string) error {
 	return nil
 }
 
-// remove qos related to this port.
 func ClearPortQosBinding(ifaceID string) error {
 	interfaceList, err := ovsFind("interface", "name", fmt.Sprintf(`external-ids:iface-id="%s"`, ifaceID))
 	if err != nil {

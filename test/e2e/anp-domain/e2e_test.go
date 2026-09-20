@@ -85,24 +85,22 @@ var _ = framework.SerialDescribe("[group:admin-network-policy]", func() {
 			if shouldSucceed {
 				if success {
 					framework.Logf("Attempt %d: Successfully connected to %s", i+1, target)
-					return // Success, no need to retry
+					return
 				}
 				framework.Logf("Attempt %d: Failed to connect to %s - stdout: %s, stderr: %s, err: %v", i+1, target, stdout, stderr, err)
 			} else {
 				if !success {
 					framework.Logf("Attempt %d: Successfully blocked access to %s", i+1, target)
-					return // Blocked as expected, no need to retry
+					return
 				}
 				framework.Logf("Attempt %d: Unexpectedly connected to %s - stdout: %s", i+1, target, stdout)
 			}
 
-			// Wait between attempts if not the last attempt
 			if i < maxRetries-1 {
 				time.Sleep(retryInterval)
 			}
 		}
 
-		// If we reach here, the expected result was not achieved
 		if shouldSucceed {
 			ginkgo.Fail(fmt.Sprintf("Failed to connect to %s after %d attempts", target, maxRetries))
 		} else {

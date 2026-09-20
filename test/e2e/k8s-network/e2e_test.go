@@ -11,14 +11,12 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	// Import tests.
 	_ "k8s.io/kubernetes/test/e2e/network"
 )
 
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)

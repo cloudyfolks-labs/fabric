@@ -31,7 +31,6 @@ func makeSecurityGroup(name string, allowSameGroupTraffic bool, ingressRules, eg
 func testConnectivity(ip, namespaceName, srcPod, dstPod string, f *framework.Framework) {
 	ginkgo.GinkgoHelper()
 
-	// other pods can communicate with the allow address pair pod through vip
 	var addIP, delIP, command string
 	switch util.CheckProtocol(ip) {
 	case apiv1.ProtocolIPv4:
@@ -45,22 +44,22 @@ func testConnectivity(ip, namespaceName, srcPod, dstPod string, f *framework.Fra
 	default:
 		framework.Failf("unexpected ip address: %q", ip)
 	}
-	// check srcPod ping dstPod through vip
+
 	stdout, stderr, err := framework.ExecShellInPod(context.Background(), f, namespaceName, dstPod, addIP)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", addIP, err, stderr, stdout)
 	stdout, stderr, err = framework.ExecShellInPod(context.Background(), f, namespaceName, srcPod, command)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", command, err, stderr, stdout)
-	// srcPod can not ping dstPod vip when ip is deleted
+
 	stdout, stderr, err = framework.ExecShellInPod(context.Background(), f, namespaceName, dstPod, delIP)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", delIP, err, stderr, stdout)
 	_, _, err = framework.ExecShellInPod(context.Background(), f, namespaceName, srcPod, command)
 	framework.ExpectError(err)
-	// check dstPod ping srcPod through vip
+
 	stdout, stderr, err = framework.ExecShellInPod(context.Background(), f, namespaceName, srcPod, addIP)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", addIP, err, stderr, stdout)
 	stdout, stderr, err = framework.ExecShellInPod(context.Background(), f, namespaceName, dstPod, command)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", command, err, stderr, stdout)
-	// dstPod can not ping srcPod vip when ip is deleted
+
 	stdout, stderr, err = framework.ExecShellInPod(context.Background(), f, namespaceName, srcPod, delIP)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", delIP, err, stderr, stdout)
 	_, _, err = framework.ExecShellInPod(context.Background(), f, namespaceName, dstPod, command)
@@ -70,7 +69,6 @@ func testConnectivity(ip, namespaceName, srcPod, dstPod string, f *framework.Fra
 func testVipWithSG(ip, namespaceName, allowPod, denyPod, aapPod, securityGroupName string, f *framework.Framework) {
 	ginkgo.GinkgoHelper()
 
-	// check if security group working
 	var sgCheck, conditions string
 	switch util.CheckProtocol(ip) {
 	case apiv1.ProtocolIPv4:
@@ -80,30 +78,28 @@ func testVipWithSG(ip, namespaceName, allowPod, denyPod, aapPod, securityGroupNa
 		sgCheck = "ping6 -c 1 " + ip
 		conditions = fmt.Sprintf("name=ovn.sg.%s.associated.v6", strings.ReplaceAll(securityGroupName, "-", "."))
 	}
-	// allowPod can ping aapPod with security group
+
 	stdout, stderr, err := framework.ExecShellInPod(context.Background(), f, namespaceName, allowPod, sgCheck)
 	framework.ExpectNoError(err, "exec %q failed, err: %q, stderr: %q, stdout: %q", sgCheck, err, stderr, stdout)
-	// denyPod can not ping aapPod with security group
+
 	framework.WaitUntil(2*time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
 		_, _, err = framework.ExecShellInPod(context.Background(), f, namespaceName, denyPod, sgCheck)
 		return err != nil, nil
 	}, "security group denies traffic from denyPod")
 
 	ginkgo.By("Checking ovn address_set and lsp port_security")
-	// address_set should have allow address pair ip
+
 	cmd := "ovn-nbctl --format=list --data=bare --no-heading --columns=addresses find Address_Set " + conditions
 	output, _, err := framework.NBExec(cmd)
 	framework.ExpectNoError(err)
 	addressSet := strings.Split(strings.ReplaceAll(string(output), "\n", ""), " ")
 	framework.ExpectContainElement(addressSet, ip)
-	// port_security should have allow address pair IP
+
 	cmd = fmt.Sprintf("ovn-nbctl --format=list --data=bare --no-heading --columns=port_security list Logical_Switch_Port %s.%s", aapPod, namespaceName)
 	output, _, err = framework.NBExec(cmd)
 	framework.ExpectNoError(err)
 	portSecurity := strings.Split(strings.ReplaceAll(string(output), "\n", ""), " ")
 	framework.ExpectContainElement(portSecurity, ip)
-	// TODO: Checking allow address pair connectivity with security group
-	// AAP does not work fine with security group in kind test env for now
 }
 
 var _ = framework.Describe("[group:vip]", func() {
@@ -118,17 +114,12 @@ var _ = framework.Describe("[group:vip]", func() {
 	var securityGroupClient *framework.SecurityGroupClient
 	var namespaceName, vpcName, subnetName, cidr string
 
-	// test switch lb vip, which ip is in the vpc subnet cidr
-	// switch lb vip use gw mac to trigger lb nat flows
 	var switchLbVip1Name, switchLbVip2Name string
 
-	// test allowed address pair vip
 	var countingVipName, vip1Name, vip2Name, aapPodName1, aapPodName2, aapPodName3 string
 
-	// test ipv6 vip
 	var lowerCaseStaticIpv6VipName, upperCaseStaticIpv6VipName, lowerCaseV6IP, upperCaseV6IP string
 
-	// test allowed address pair connectivity in the security group scenario
 	var securityGroupName string
 
 	ginkgo.BeforeEach(func() {
@@ -142,22 +133,18 @@ var _ = framework.Describe("[group:vip]", func() {
 
 		f.SkipVersionPriorTo(1, 15, "Skip e2e tests for fabric versions prior to 1.15 temporarily")
 
-		// should create lower case static ipv6 address vip in ovn-default
 		lowerCaseStaticIpv6VipName = "lower-case-static-ipv6-vip-" + framework.RandomSuffix()
 		lowerCaseV6IP = "fd00:10:16::a1"
-		// should not create upper case static ipv6 address vip in ovn-default
+
 		upperCaseStaticIpv6VipName = "Upper-Case-Static-Ipv6-Vip-" + framework.RandomSuffix()
 		upperCaseV6IP = "fd00:10:16::A1"
 
-		// should have the same mac, which mac is the same as its vpc overlay subnet gw mac
 		randomSuffix := framework.RandomSuffix()
 		switchLbVip1Name = "switch-lb-vip1-" + randomSuffix
 		switchLbVip2Name = "switch-lb-vip2-" + randomSuffix
 
-		// subnet status counting vip
 		countingVipName = "counting-vip-" + randomSuffix
 
-		// should have different mac
 		vip1Name = "vip1-" + randomSuffix
 		vip2Name = "vip2-" + randomSuffix
 
@@ -187,7 +174,6 @@ var _ = framework.Describe("[group:vip]", func() {
 		ginkgo.By("Deleting allowed address pair vip " + vip2Name)
 		vipClient.DeleteSync(vip2Name)
 
-		// clean fip pod
 		ginkgo.By("Deleting pod " + aapPodName1)
 		podClient.DeleteSync(aapPodName1)
 		ginkgo.By("Deleting pod " + aapPodName2)
@@ -198,7 +184,7 @@ var _ = framework.Describe("[group:vip]", func() {
 		subnetClient.DeleteSync(subnetName)
 		ginkgo.By("Deleting vpc " + vpcName)
 		vpcClient.DeleteSync(vpcName)
-		// clean security group
+
 		ginkgo.By("Deleting security group " + securityGroupName)
 		securityGroupClient.DeleteSync(securityGroupName)
 	})
@@ -221,13 +207,11 @@ var _ = framework.Describe("[group:vip]", func() {
 		testVipName := "test-vip-finalizer-" + framework.RandomSuffix()
 		testVip := makeOvnVip(namespaceName, testVipName, subnetName, "", "", "")
 		testVip = vipClient.CreateSync(testVip)
-		// Ensure the VIP is cleaned up even if the test fails early,
-		// otherwise the subnet deletion in AfterEach will time out.
+
 		ginkgo.DeferCleanup(func() {
 			vipClient.DeleteSync(testVipName)
 		})
 
-		// Verify VIP has finalizer (CreateSync now waits for both IP and finalizer)
 		framework.ExpectContainElement(testVip.Finalizers, util.FabricControllerFinalizer)
 
 		ginkgo.By("3. Wait for subnet status to be updated after VIP creation")
@@ -237,41 +221,37 @@ var _ = framework.Describe("[group:vip]", func() {
 		afterCreateSubnet := subnetClient.Get(subnetName)
 		switch afterCreateSubnet.Spec.Protocol {
 		case apiv1.ProtocolIPv4:
-			// Verify IP count changed
+
 			framework.ExpectTrue(initialV4AvailableIPs.SubInt(1).Equal(afterCreateSubnet.Status.V4AvailableIPs),
 				"V4AvailableIPs should decrease by 1 after VIP creation")
 			framework.ExpectTrue(initialV4UsingIPs.AddInt(1).Equal(afterCreateSubnet.Status.V4UsingIPs),
 				"V4UsingIPs should increase by 1 after VIP creation")
 
-			// Verify IP range changed
 			framework.ExpectNotEqual(initialV4AvailableIPRange, afterCreateSubnet.Status.V4AvailableIPRange,
 				"V4AvailableIPRange should change after VIP creation")
 			framework.ExpectNotEqual(initialV4UsingIPRange, afterCreateSubnet.Status.V4UsingIPRange,
 				"V4UsingIPRange should change after VIP creation")
 
-			// Verify the VIP's IP is in the using range
 			vipIP := testVip.Status.V4ip
 			framework.ExpectTrue(strings.Contains(afterCreateSubnet.Status.V4UsingIPRange, vipIP),
 				"VIP IP %s should be in V4UsingIPRange %s", vipIP, afterCreateSubnet.Status.V4UsingIPRange)
 		case apiv1.ProtocolIPv6:
-			// Verify IP count changed
+
 			framework.ExpectTrue(initialV6AvailableIPs.SubInt(1).Equal(afterCreateSubnet.Status.V6AvailableIPs),
 				"V6AvailableIPs should decrease by 1 after VIP creation")
 			framework.ExpectTrue(initialV6UsingIPs.AddInt(1).Equal(afterCreateSubnet.Status.V6UsingIPs),
 				"V6UsingIPs should increase by 1 after VIP creation")
 
-			// Verify IP range changed
 			framework.ExpectNotEqual(initialV6AvailableIPRange, afterCreateSubnet.Status.V6AvailableIPRange,
 				"V6AvailableIPRange should change after VIP creation")
 			framework.ExpectNotEqual(initialV6UsingIPRange, afterCreateSubnet.Status.V6UsingIPRange,
 				"V6UsingIPRange should change after VIP creation")
 
-			// Verify the VIP's IP is in the using range
 			vipIP := testVip.Status.V6ip
 			framework.ExpectTrue(strings.Contains(afterCreateSubnet.Status.V6UsingIPRange, vipIP),
 				"VIP IP %s should be in V6UsingIPRange %s", vipIP, afterCreateSubnet.Status.V6UsingIPRange)
 		default:
-			// Dual stack
+
 			framework.ExpectTrue(initialV4AvailableIPs.SubInt(1).Equal(afterCreateSubnet.Status.V4AvailableIPs),
 				"V4AvailableIPs should decrease by 1 after VIP creation")
 			framework.ExpectTrue(initialV4UsingIPs.AddInt(1).Equal(afterCreateSubnet.Status.V4UsingIPs),
@@ -291,7 +271,6 @@ var _ = framework.Describe("[group:vip]", func() {
 				"V6UsingIPRange should change after VIP creation")
 		}
 
-		// Store the status after creation for later comparison
 		afterCreateV4AvailableIPs := afterCreateSubnet.Status.V4AvailableIPs
 		afterCreateV4UsingIPs := afterCreateSubnet.Status.V4UsingIPs
 		afterCreateV6AvailableIPs := afterCreateSubnet.Status.V6AvailableIPs
@@ -311,43 +290,39 @@ var _ = framework.Describe("[group:vip]", func() {
 		afterDeleteSubnet := subnetClient.Get(subnetName)
 		switch afterDeleteSubnet.Spec.Protocol {
 		case apiv1.ProtocolIPv4:
-			// Verify IP count is restored
+
 			framework.ExpectTrue(afterCreateV4AvailableIPs.AddInt(1).Equal(afterDeleteSubnet.Status.V4AvailableIPs),
 				"V4AvailableIPs should increase by 1 after VIP deletion")
 			framework.ExpectTrue(afterCreateV4UsingIPs.SubInt(1).Equal(afterDeleteSubnet.Status.V4UsingIPs),
 				"V4UsingIPs should decrease by 1 after VIP deletion")
 
-			// Verify IP range changed
 			framework.ExpectNotEqual(afterCreateV4AvailableIPRange, afterDeleteSubnet.Status.V4AvailableIPRange,
 				"V4AvailableIPRange should change after VIP deletion")
 			framework.ExpectNotEqual(afterCreateV4UsingIPRange, afterDeleteSubnet.Status.V4UsingIPRange,
 				"V4UsingIPRange should change after VIP deletion")
 
-			// Verify counts match initial state
 			framework.ExpectEqual(initialV4AvailableIPs, afterDeleteSubnet.Status.V4AvailableIPs,
 				"V4AvailableIPs should return to initial value after VIP deletion")
 			framework.ExpectEqual(initialV4UsingIPs, afterDeleteSubnet.Status.V4UsingIPs,
 				"V4UsingIPs should return to initial value after VIP deletion")
 		case apiv1.ProtocolIPv6:
-			// Verify IP count is restored
+
 			framework.ExpectTrue(afterCreateV6AvailableIPs.AddInt(1).Equal(afterDeleteSubnet.Status.V6AvailableIPs),
 				"V6AvailableIPs should increase by 1 after VIP deletion")
 			framework.ExpectTrue(afterCreateV6UsingIPs.SubInt(1).Equal(afterDeleteSubnet.Status.V6UsingIPs),
 				"V6UsingIPs should decrease by 1 after VIP deletion")
 
-			// Verify IP range changed
 			framework.ExpectNotEqual(afterCreateV6AvailableIPRange, afterDeleteSubnet.Status.V6AvailableIPRange,
 				"V6AvailableIPRange should change after VIP deletion")
 			framework.ExpectNotEqual(afterCreateV6UsingIPRange, afterDeleteSubnet.Status.V6UsingIPRange,
 				"V6UsingIPRange should change after VIP deletion")
 
-			// Verify counts match initial state
 			framework.ExpectEqual(initialV6AvailableIPs, afterDeleteSubnet.Status.V6AvailableIPs,
 				"V6AvailableIPs should return to initial value after VIP deletion")
 			framework.ExpectEqual(initialV6UsingIPs, afterDeleteSubnet.Status.V6UsingIPs,
 				"V6UsingIPs should return to initial value after VIP deletion")
 		default:
-			// Dual stack
+
 			framework.ExpectTrue(afterCreateV4AvailableIPs.AddInt(1).Equal(afterDeleteSubnet.Status.V4AvailableIPs),
 				"V4AvailableIPs should increase by 1 after VIP deletion")
 			framework.ExpectTrue(afterCreateV4UsingIPs.SubInt(1).Equal(afterDeleteSubnet.Status.V4UsingIPs),
@@ -386,7 +361,6 @@ var _ = framework.Describe("[group:vip]", func() {
 		countingVip := makeOvnVip(namespaceName, countingVipName, subnetName, "", "", "")
 		countingVip = vipClient.CreateSync(countingVip)
 
-		// Wait for finalizer to be added
 		ginkgo.By("Waiting for VIP finalizer to be added")
 		for range 10 {
 			countingVip = vipClient.Get(countingVipName)
@@ -397,7 +371,6 @@ var _ = framework.Describe("[group:vip]", func() {
 		}
 		framework.ExpectContainElement(countingVip.Finalizers, util.FabricControllerFinalizer)
 
-		// Wait for subnet status to be updated
 		ginkgo.By("Waiting for subnet status to be updated after VIP creation")
 		time.Sleep(5 * time.Second)
 		newSubnet := subnetClient.Get(subnetName)
@@ -413,7 +386,7 @@ var _ = framework.Describe("[group:vip]", func() {
 			framework.ExpectNotEqual(oldSubnet.Status.V6UsingIPRange, newSubnet.Status.V6UsingIPRange)
 		}
 		oldSubnet = newSubnet
-		// delete counting vip
+
 		ginkgo.By("Deleting counting VIP and waiting for subnet status update")
 		vipClient.DeleteSync(countingVipName)
 		time.Sleep(5 * time.Second)
@@ -442,7 +415,7 @@ var _ = framework.Describe("[group:vip]", func() {
 			upperCaseStaticIpv6Vip = vipClient.Get(upperCaseStaticIpv6VipName)
 			framework.ExpectEqual(upperCaseStaticIpv6Vip.Status.V6ip, "")
 		}
-		// create vip1 and vip2, should have different ip and mac
+
 		ginkgo.By("Creating allowed address pair vip, should have different ip and mac")
 		ginkgo.By("Creating allowed address pair vip " + vip1Name)
 		vip1 := makeOvnVip(namespaceName, vip1Name, subnetName, "", "", "")
@@ -464,13 +437,13 @@ var _ = framework.Describe("[group:vip]", func() {
 		ginkgo.By("Creating pod2 support allowed address pair using " + vip1Name)
 		aapPod2 := framework.MakePrivilegedPod(namespaceName, aapPodName2, nil, annotations, f.FabricImage, cmd, nil)
 		_ = podClient.CreateSync(aapPod2)
-		// logical switch port with type virtual should be created
+
 		conditions := fmt.Sprintf("type=virtual name=%s options:virtual-ip=%q", vip1Name, virtualIP1)
 		nbctlCmd := "ovn-nbctl --format=list --data=bare --no-heading --columns=options find logical-switch-port " + conditions
 		output, _, err := framework.NBExec(nbctlCmd)
 		framework.ExpectNoError(err)
 		framework.ExpectNotEmpty(strings.TrimSpace(string(output)))
-		// virtual parents should be set correctly
+
 		pairs := strings.Split(string(output), " ")
 		options := make(map[string]string)
 		for _, pair := range pairs {
@@ -501,7 +474,7 @@ var _ = framework.Describe("[group:vip]", func() {
 		allowAddressV4, allowAddressV6 := util.SplitStringIP(aapPod1.Annotations[util.IPAddressAnnotation])
 		rules := make([]apiv1.SecurityGroupRule, 0, 4)
 		if f.HasIPv4() {
-			// gateway should be added for pinger
+
 			rules = append(rules, apiv1.SecurityGroupRule{
 				IPVersion:     "ipv4",
 				Protocol:      apiv1.SgProtocolALL,
@@ -510,7 +483,7 @@ var _ = framework.Describe("[group:vip]", func() {
 				RemoteAddress: gatewayV4,
 				Policy:        apiv1.SgPolicyAllow,
 			})
-			// aapPod1 should be allowed by aapPod3 for security group allow address pair test
+
 			rules = append(rules, apiv1.SecurityGroupRule{
 				IPVersion:     "ipv4",
 				Protocol:      apiv1.SgProtocolALL,
@@ -521,7 +494,7 @@ var _ = framework.Describe("[group:vip]", func() {
 			})
 		}
 		if f.HasIPv6() {
-			// gateway should be added for pinger
+
 			rules = append(rules, apiv1.SecurityGroupRule{
 				IPVersion:     "ipv6",
 				Protocol:      apiv1.SgProtocolALL,
@@ -530,7 +503,7 @@ var _ = framework.Describe("[group:vip]", func() {
 				RemoteAddress: gatewayV6,
 				Policy:        apiv1.SgPolicyAllow,
 			})
-			// aapPod1 should be allowed by aapPod3 for security group allow address pair test
+
 			rules = append(rules, apiv1.SecurityGroupRule{
 				IPVersion:     "ipv6",
 				Protocol:      apiv1.SgProtocolALL,
@@ -566,7 +539,7 @@ var _ = framework.Describe("[group:vip]", func() {
 		ginkgo.By("Creating arp proxy switch lb vip " + switchLbVip2Name)
 		switchLbVip2 := makeOvnVip(namespaceName, switchLbVip2Name, subnetName, "", "", util.SwitchLBRuleVip)
 		switchLbVip2 = vipClient.CreateSync(switchLbVip2)
-		// arp proxy vip only used in switch lb rule, the lb vip use the subnet gw mac to use lb nat flow
+
 		framework.ExpectEqual(switchLbVip1.Status.Mac, switchLbVip2.Status.Mac)
 		if vip1.Status.V4ip != "" {
 			framework.ExpectNotEqual(vip1.Status.V4ip, vip2.Status.V4ip)
@@ -578,7 +551,7 @@ var _ = framework.Describe("[group:vip]", func() {
 
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
-	// Register flags.
+
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)

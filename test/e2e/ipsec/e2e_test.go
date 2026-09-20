@@ -35,7 +35,6 @@ import (
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)
@@ -117,9 +116,7 @@ func getValueFromSecret(cs clientset.Interface, namespace, secretName, fieldName
 	return string(val), nil
 }
 
-// generateSelfSignedCA generates a new self-signed CA certificate
 func generateSelfSignedCA(privateKey *rsa.PrivateKey) (string, error) {
-	// Create certificate template
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -130,20 +127,18 @@ func generateSelfSignedCA(privateKey *rsa.PrivateKey) (string, error) {
 			Locality:     []string{"Test"},
 		},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // Valid for 1 year
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
 
-	// Create the certificate
 	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create certificate: %w", err)
 	}
 
-	// Encode certificate to PEM format
 	certPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certDER,
@@ -152,18 +147,14 @@ func generateSelfSignedCA(privateKey *rsa.PrivateKey) (string, error) {
 	return string(certPEM), nil
 }
 
-// Convert RSA private key to PEM string
 func privateKeyToBytes(privateKey *rsa.PrivateKey) ([]byte, error) {
-	// Convert private key to PKCS#1 ASN.1 DER format
 	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
 
-	// Create PEM block
 	privateKeyPEM := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
 
-	// Encode to PEM format
 	privateKeyPEMBytes := pem.EncodeToMemory(privateKeyPEM)
 
 	return privateKeyPEMBytes, nil
@@ -289,9 +280,6 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 			}, "Verifying new trust bundle distributed")
 		}
 
-		// changing the CA cert will cause ovs-ipsec-monitor to spin up new
-		// tunnels and spin down the old ones so wait for that processing to
-		// complete before checking xfrm state.
 		checkXfrmState(podList.Items, nodeIPs[0], nodeIPs[1])
 
 		ginkgo.By("Verifying client certificates not changed")
@@ -314,8 +302,7 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 
 		ginkgo.By("Triggering client cert reissue on worker")
 		for _, pod := range podList.Items {
-			// clearing the certificate on disk and restarting the pod should
-			// trigger a new certificate request
+
 			_, err := e2epodoutput.RunHostCmd(pod.Namespace, pod.Name, "rm /etc/ovs_ipsec_keys/ipsec-cert-*.pem")
 			framework.ExpectNoError(err)
 		}
@@ -365,7 +352,6 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 	})
 })
 
-// split the content by the certificate delimiter
 func splitCerts(content string) []string {
 	parts := strings.Split(content, "-----BEGIN CERTIFICATE-----")
 	certs := make([]string, 0, len(parts))
@@ -376,6 +362,6 @@ func splitCerts(content string) []string {
 		}
 		certs = append(certs, strings.TrimSpace(prefix))
 	}
-	sort.Strings(certs) // Sort to ensure consistent order
+	sort.Strings(certs)
 	return certs
 }

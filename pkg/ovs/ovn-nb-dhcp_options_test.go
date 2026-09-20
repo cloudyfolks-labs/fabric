@@ -314,7 +314,6 @@ func (suite *OvnClientTestSuite) testDeleteDHCPOptionsByUUIDs() {
 	v4CidrBlock := []string{"192.168.30.0/24", "192.168.40.0/24", "192.168.50.0/24"}
 	uuidList := make([]string, 0)
 
-	// create three ipv4 dhcp options
 	for _, cidr := range v4CidrBlock {
 		err := nbClient.CreateDHCPOptions(lsName, cidr, "")
 		require.NoError(t, err)
@@ -345,13 +344,11 @@ func (suite *OvnClientTestSuite) testDeleteDHCPOptions() {
 	v6CidrBlock := []string{"fd00::c0a8:6401/120", "fd00::c0a8:6e01/120"}
 
 	prepare := func() {
-		// create three ipv4 dhcp options
 		for _, cidr := range v4CidrBlock {
 			err := nbClient.CreateDHCPOptions(lsName, cidr, "")
 			require.NoError(t, err)
 		}
 
-		// create two ipv6 dhcp options
 		for _, cidr := range v6CidrBlock {
 			err := nbClient.CreateDHCPOptions(lsName, cidr, "")
 			require.NoError(t, err)
@@ -361,7 +358,6 @@ func (suite *OvnClientTestSuite) testDeleteDHCPOptions() {
 	t.Run("delete single protocol dhcp options", func(t *testing.T) {
 		prepare()
 
-		/* delete ipv4 dhcp options */
 		err := nbClient.DeleteDHCPOptions(lsName, "IPv4")
 		require.NoError(t, err)
 
@@ -373,7 +369,6 @@ func (suite *OvnClientTestSuite) testDeleteDHCPOptions() {
 		require.NoError(t, err)
 		require.Len(t, out, 2)
 
-		/* delete ipv6 dhcp options */
 		err = nbClient.DeleteDHCPOptions(lsName, "IPv6")
 		require.NoError(t, err)
 
@@ -476,13 +471,11 @@ func (suite *OvnClientTestSuite) testListDHCPOptions() {
 	lsName := "test-list-dhcp-opt-ls"
 	v4CidrBlock := []string{"192.168.30.0/24", "192.168.40.0/24", "192.168.50.0/24"}
 
-	// create three ipv4 dhcp options
 	for _, cidr := range v4CidrBlock {
 		err := nbClient.CreateDHCPOptions(lsName, cidr, "")
 		require.NoError(t, err)
 	}
 
-	/* list all direction acl */
 	out, err := nbClient.ListDHCPOptions(true, map[string]string{LogicalSwitchKey: lsName})
 	require.NoError(t, err)
 	require.Len(t, out, 3)
@@ -500,21 +493,18 @@ func (suite *OvnClientTestSuite) testDhcpOptionsFilter() {
 	t.Run("filter dhcp options", func(t *testing.T) {
 		t.Parallel()
 
-		// create three ipv4 dhcp options
 		for _, cidr := range v4CidrBlock {
 			dhcpOpt, err := newDHCPOptionsEntry(lsName, "", cidr, "")
 			require.NoError(t, err)
 			dhcpOpts = append(dhcpOpts, dhcpOpt)
 		}
 
-		// create two ipv6 dhcp options
 		for _, cidr := range v6CidrBlock {
 			dhcpOpt, err := newDHCPOptionsEntry(lsName, "", cidr, "")
 			require.NoError(t, err)
 			dhcpOpts = append(dhcpOpts, dhcpOpt)
 		}
 
-		// create three ipv4 dhcp options with other logical switch name
 		for _, cidr := range v4CidrBlock {
 			dhcpOpt, err := newDHCPOptionsEntry(lsName, "", cidr, "")
 			dhcpOpt.ExternalIDs[LogicalSwitchKey] = lsName + "-test"
@@ -522,7 +512,6 @@ func (suite *OvnClientTestSuite) testDhcpOptionsFilter() {
 			dhcpOpts = append(dhcpOpts, dhcpOpt)
 		}
 
-		// create three ipv4 dhcp options with other vendor
 		for _, cidr := range v4CidrBlock {
 			dhcpOpt, err := newDHCPOptionsEntry(lsName, "", cidr, "")
 			dhcpOpt.ExternalIDs["vendor"] = util.VendorTag + "-test"
@@ -530,7 +519,6 @@ func (suite *OvnClientTestSuite) testDhcpOptionsFilter() {
 			dhcpOpts = append(dhcpOpts, dhcpOpt)
 		}
 
-		/* include all dhcp options */
 		filterFunc := dhcpOptionsFilter(false, nil)
 		count := 0
 		for _, dhcpOpt := range dhcpOpts {
@@ -540,7 +528,6 @@ func (suite *OvnClientTestSuite) testDhcpOptionsFilter() {
 		}
 		require.Equal(t, count, 11)
 
-		/* include same vendor dhcp options */
 		filterFunc = dhcpOptionsFilter(true, nil)
 		count = 0
 		for _, dhcpOpt := range dhcpOpts {
@@ -550,7 +537,6 @@ func (suite *OvnClientTestSuite) testDhcpOptionsFilter() {
 		}
 		require.Equal(t, count, 8)
 
-		/* include same ls dhcp options */
 		filterFunc = dhcpOptionsFilter(true, map[string]string{LogicalSwitchKey: lsName})
 		count = 0
 		for _, dhcpOpt := range dhcpOpts {
@@ -560,7 +546,6 @@ func (suite *OvnClientTestSuite) testDhcpOptionsFilter() {
 		}
 		require.Equal(t, count, 5)
 
-		/* include same protocol dhcp options */
 		filterFunc = dhcpOptionsFilter(true, map[string]string{LogicalSwitchKey: lsName, "protocol": "IPv4"})
 		count = 0
 		for _, dhcpOpt := range dhcpOpts {
@@ -570,7 +555,6 @@ func (suite *OvnClientTestSuite) testDhcpOptionsFilter() {
 		}
 		require.Equal(t, count, 3)
 
-		/* include all protocol dhcp options */
 		filterFunc = dhcpOptionsFilter(true, map[string]string{LogicalSwitchKey: lsName, "protocol": ""})
 		count = 0
 		for _, dhcpOpt := range dhcpOpts {
@@ -676,7 +660,6 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		uuids2, err := nbClient.UpdateDHCPOptionsForPort(lsName, portName, cidr, gateway, "lease_time=7200", "", 1500)
 		require.NoError(t, err)
 
-		// UUID must remain the same across updates.
 		require.Equal(t, uuids1.DHCPv4OptionsUUID, uuids2.DHCPv4OptionsUUID)
 
 		opt, err := nbClient.getDHCPOptionsEntry("", portName, fabricv1.ProtocolIPv4, false)
@@ -685,7 +668,6 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 	})
 
 	t.Run("per-port dhcp options not returned by GetDHCPOptions", func(t *testing.T) {
-		// GetDHCPOptions (subnet-level) must not return per-port entries.
 		opt, err := nbClient.GetDHCPOptions(lsName, fabricv1.ProtocolIPv4, true)
 		require.NoError(t, err)
 		require.Nil(t, opt, "per-port DHCP entry must not be returned by subnet-level GetDHCPOptions")
@@ -715,7 +697,6 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		dualCIDR := "10.35.0.0/24,fd00::a:23:0:0/112"
 		dualGateway := "10.35.0.1,fd00::a:23:0:1"
 
-		// Only v4 annotation set; v6 should return empty UUID.
 		uuids, err := nbClient.UpdateDHCPOptionsForPort(lsName, v4OnlyPortName, dualCIDR, dualGateway, "lease_time=7200", "", 1500)
 		require.NoError(t, err)
 		require.NotEmpty(t, uuids.DHCPv4OptionsUUID, "per-port v4 entry must be created when v4 annotation is set")
@@ -753,15 +734,12 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		_, err := nbClient.UpdateDHCPOptions(subnet, 1500)
 		require.NoError(t, err)
 
-		// Create per-port entry on the same LS.
 		_, err = nbClient.UpdateDHCPOptionsForPort(subnet.Name, "isolation-port", subnet.Spec.CIDRBlock, subnet.Spec.Gateway, "lease_time=3600", "", 1500)
 		require.NoError(t, err)
 
-		// Delete per-port entry.
 		err = nbClient.DeleteDHCPOptionsForPort("isolation-port")
 		require.NoError(t, err)
 
-		// Subnet-level entry must still exist.
 		opt, err := nbClient.GetDHCPOptions(subnet.Name, fabricv1.ProtocolIPv4, false)
 		require.NoError(t, err)
 		require.NotNil(t, opt)

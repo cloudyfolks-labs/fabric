@@ -17,7 +17,6 @@ import (
 	v1 "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/typed/fabric/v1"
 )
 
-// BgpConfClient is a struct for BgpConf client.
 type BgpConfClient struct {
 	f *Framework
 	v1.BgpConfInterface

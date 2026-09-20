@@ -30,7 +30,6 @@ func (c *OVNSbClient) UpdateChassis(chassis *ovnsb.Chassis, fields ...any) error
 	return nil
 }
 
-// DeleteChassis delete one chassis by name
 func (c *OVNSbClient) DeleteChassis(chassisName string) error {
 	chassis, err := c.GetChassis(chassisName, true)
 	if err != nil {
@@ -52,7 +51,6 @@ func (c *OVNSbClient) DeleteChassis(chassisName string) error {
 	return nil
 }
 
-// GetChassis return south bound db chassis from cache
 func (c *OVNSbClient) GetChassis(chassisName string, ignoreNotFound bool) (*ovnsb.Chassis, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -73,7 +71,6 @@ func (c *OVNSbClient) GetChassis(chassisName string, ignoreNotFound bool) (*ovns
 	return chassis, nil
 }
 
-// ListChassis return south bound db chassis from cache
 func (c *OVNSbClient) ListChassis() (*[]ovnsb.Chassis, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -117,7 +114,6 @@ func (c *OVNSbClient) GetChassisByHost(nodeName string) (*ovnsb.Chassis, error) 
 	return &chassisList[0], nil
 }
 
-// DeleteChassisByHost delete all chassis by node name
 func (c *OVNSbClient) DeleteChassisByHost(nodeName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -149,7 +145,7 @@ func (c *OVNSbClient) UpdateChassisTag(chassisName, nodeName string) error {
 	}
 	if chassis == nil {
 		err := fmt.Errorf("fail to get chassis by name=%s", chassisName)
-		// restart fabric-cni, chassis will be created
+
 		klog.Error(err)
 		return err
 	}
@@ -157,8 +153,7 @@ func (c *OVNSbClient) UpdateChassisTag(chassisName, nodeName string) error {
 		externalIDs := make(map[string]string, len(chassis.ExternalIDs)+2)
 		maps.Copy(externalIDs, chassis.ExternalIDs)
 		externalIDs["vendor"] = util.VendorTag
-		// externalIDs["node"] = nodeName
-		// not need filter chassis by node name if we use libovsdb
+
 		chassis.ExternalIDs = externalIDs
 		if err := c.UpdateChassis(chassis, &chassis.ExternalIDs); err != nil {
 			klog.Error(err)
@@ -168,7 +163,6 @@ func (c *OVNSbClient) UpdateChassisTag(chassisName, nodeName string) error {
 	return nil
 }
 
-// GetFabricChassises return all chassis which vendor is fabric
 func (c *OVNSbClient) GetFabricChassises() (*[]ovnsb.Chassis, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()

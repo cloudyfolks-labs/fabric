@@ -70,7 +70,7 @@ var _ = framework.Describe("[group:slr]", func() {
 		epSlrName, epSvcName                      string
 		nadName                                   string
 		overlaySubnetCidr, vip                    string
-		// TODO:// slr support dual-stack
+
 		frontPort, selSlrFrontPort, epSlrFrontPort, backendPort int32
 	)
 
@@ -108,7 +108,6 @@ var _ = framework.Describe("[group:slr]", func() {
 	})
 
 	ginkgo.AfterEach(func() {
-		// Level 1: Initiate all independent deletes
 		ginkgo.By("Deleting client pod " + clientPodName)
 		podClient.DeleteGracefully(clientPodName)
 		ginkgo.By("Deleting statefulset " + stsName)
@@ -122,18 +121,15 @@ var _ = framework.Describe("[group:slr]", func() {
 		ginkgo.By("Deleting network attachment definition " + nadName)
 		nadClient.Delete(nadName)
 
-		// Level 1: Wait for all to disappear
 		podClient.WaitForNotFound(clientPodName)
 		framework.ExpectNoError(stsClient.WaitToDisappear(stsName, 0, 2*time.Minute))
 		framework.ExpectNoError(switchLBRuleClient.WaitToDisappear(selSlrName, 0, 2*time.Minute))
 		framework.ExpectNoError(switchLBRuleClient.WaitToDisappear(epSlrName, 0, 2*time.Minute))
 		framework.ExpectNoError(serviceClient.WaitToDisappear(stsSvcName, 0, 2*time.Minute))
 
-		// Level 2: Subnet (needs workloads deleted first)
 		ginkgo.By("Deleting subnet " + subnetName)
 		subnetClient.DeleteSync(subnetName)
 
-		// Level 3: VPC (needs subnet deleted first)
 		ginkgo.By("Deleting vpc " + vpcName)
 		vpcClient.DeleteSync(vpcName)
 	})
@@ -147,7 +143,7 @@ var _ = framework.Describe("[group:slr]", func() {
 		if customProvider {
 			f.SkipVersionPriorTo(1, 15, "This feature was introduced in v1.15")
 
-			if !isMultusInstalled(f) { // Multus must be installed for some tests
+			if !isMultusInstalled(f) {
 				ginkgo.Skip("Multus must be activated to run the SLR tests with custom providers")
 			}
 
@@ -408,31 +404,26 @@ var _ = framework.Describe("[group:slr]", func() {
 	ginkgo.It("should not delete VIPs in other VPCs when deleting SLR with same VIP IP", func() {
 		f.SkipVersionPriorTo(1, 16, "This fix was introduced in v1.16")
 
-		// Health check VIPs are only created for IPv4 endpoints.
 		if !f.HasIPv4() {
 			ginkgo.Skip("Health check VIPs require IPv4")
 		}
 
-		// --- Setup: 2 VPCs + 2 Subnets, using the same VIP IP ---
 		suffix2 := framework.RandomSuffix()
 		vpcName2 := generateVpcName(suffix2)
 		subnetName2 := generateSubnetName(suffix2)
 		cidr2 := framework.RandomCIDR(f.ClusterIPFamily)
 		slrName2 := "sel-" + generateSwitchLBRuleName(suffix2)
 
-		// Create subnet-1 in VPC-1 (VPC-1 is created in BeforeEach)
 		ginkgo.By("Creating subnet " + subnetName + " in VPC " + vpcName)
 		subnet1 := framework.MakeSubnet(subnetName, "", overlaySubnetCidr, "", vpcName, "", nil, nil, nil)
 		_ = subnetClient.CreateSync(subnet1)
 
-		// Create VPC-2 + subnet-2
 		ginkgo.By("Creating VPC " + vpcName2 + " and subnet " + subnetName2)
 		vpc2 := framework.MakeVpc(vpcName2, "", false, false, []string{namespaceName})
 		_ = vpcClient.CreateSync(vpc2)
 		subnet2 := framework.MakeSubnet(subnetName2, "", cidr2, "", vpcName2, "", nil, nil, nil)
 		_ = subnetClient.CreateSync(subnet2)
 
-		// --- Deploy backend pods in each VPC's subnet ---
 		stsName1 := "sts-a-" + suffix
 		stsName2 := "sts-b-" + suffix2
 		stsSvcName1 := stsName1
@@ -452,7 +443,6 @@ var _ = framework.Describe("[group:slr]", func() {
 		sts2.Spec.Template.Spec.Containers[0].Command = []string{"/agnhost", "netexec", "--http-port", "80"}
 		_ = stsClient.CreateSync(sts2)
 
-		// --- Create a regular service to obtain a ClusterIP as shared VIP ---
 		ports := []corev1.ServicePort{{
 			Name:       "http",
 			Protocol:   corev1.ProtocolTCP,
@@ -467,7 +457,6 @@ var _ = framework.Describe("[group:slr]", func() {
 		}, "cluster ips are not empty")
 		sharedVip := svc1.Spec.ClusterIPs[0]
 
-		// --- Create two SLRs with the same VIP in different VPCs ---
 		slrPorts := []fabricv1.SwitchLBRulePort{{
 			Name:       "http",
 			Port:       8090,
@@ -495,7 +484,6 @@ var _ = framework.Describe("[group:slr]", func() {
 			[]string{"app:slr-vpc2"}, nil, slrPorts)
 		_ = switchLBRuleClient.Create(slr2)
 
-		// --- Wait for health check VIP CRDs to be created and ready ---
 		vipClient := f.VipClient()
 
 		ginkgo.By("Waiting for health check VIP " + subnetName + " to be created and ready")
@@ -522,22 +510,18 @@ var _ = framework.Describe("[group:slr]", func() {
 			return vip.Status.V4ip != "" || vip.Status.V6ip != "", nil
 		}, "health check VIP "+subnetName2+" is ready")
 
-		// --- Core verification: delete SLR-1, VIP-2 must survive ---
 		ginkgo.By("Deleting SLR " + selSlrName + " and verifying VIP for " + subnetName2 + " survives")
 		switchLBRuleClient.Delete(selSlrName)
 		framework.ExpectNoError(switchLBRuleClient.WaitToDisappear(selSlrName, 0, 2*time.Minute))
 
-		// VIP for subnet-1 should be deleted
 		ginkgo.By("Waiting for VIP " + subnetName + " to disappear")
 		framework.ExpectNoError(vipClient.WaitToDisappear(subnetName, 0, 2*time.Minute))
 
-		// VIP for subnet-2 should still exist
 		ginkgo.By("Verifying VIP " + subnetName2 + " still exists")
 		vip2, err := vipClient.VipInterface.Get(context.TODO(), subnetName2, metav1.GetOptions{})
 		framework.ExpectNoError(err, "VIP "+subnetName2+" should still exist")
 		framework.ExpectNotNil(vip2)
 
-		// --- Cleanup (in order: SLRs → workloads → subnets → VPCs) ---
 		ginkgo.By("Cleaning up cross-VPC test resources")
 		switchLBRuleClient.Delete(slrName2)
 		framework.ExpectNoError(switchLBRuleClient.WaitToDisappear(slrName2, 0, 2*time.Minute))

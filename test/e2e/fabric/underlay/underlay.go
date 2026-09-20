@@ -69,9 +69,6 @@ func nodeDockerNetworkSettings(node kind.Node, networkID string) *dockernetwork.
 	return nil
 }
 
-// nadAvailable reports whether the multus NetworkAttachmentDefinition CRD is
-// installed on the cluster. The mac-only secondary-interface spec depends on
-// multus, which the fabric conformance suite does not install by default.
 func nadAvailable(f *framework.Framework) bool {
 	_, err := f.AttachNetClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions(f.Namespace.Name).List(context.TODO(), metav1.ListOptions{Limit: 1})
 	if err == nil {
@@ -386,11 +383,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 			routeMap[node.Name()] = routeMap[node.ID]
 			nodeNames = append(nodeNames, node.Name())
 
-			// Clean up any stale OVS port references for this NIC.
-			// Previous provider network tests may leave stale port/netdev references
-			// when bridge cleanup races with NIC state changes. A stale netdev cache
-			// entry (type "system") prevents creating exchange-link-name bridges that
-			// need an internal port with the same NIC name.
 			nicName := linkMap[node.ID].IfName
 			if stdout, _, err := node.Exec("ovs-vsctl", "port-to-br", nicName); err == nil {
 				bridgeName := strings.TrimSpace(string(stdout))
@@ -670,11 +662,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		vlan := framework.MakeVlan(vlanName, providerNetworkName, 0)
 		_ = vlanClient.Create(vlan)
 
-		// A mac-only subnet is an underlay subnet (bound to a vlan) created WITHOUT a
-		// cidrBlock. The guest obtains its IP from an external DHCP server (BYO-DHCP);
-		// fabric only allocates a MAC address per pod NIC. The shared subnetName /
-		// podName / vlanName / providerNetworkName are torn down by the suite-level
-		// AfterEach in the correct order (pod -> subnet -> vlan -> provider network).
 		ginkgo.By("Creating mac-only subnet " + subnetName)
 		subnet := framework.MakeSubnet(subnetName, vlanName, "", "", "", "", nil, nil, []string{namespaceName})
 		subnetClient.CreateSync(subnet)
@@ -683,18 +670,9 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		subnet = subnetClient.Get(subnetName)
 		framework.ExpectEqual(subnet.Spec.Protocol, apiv1.ProtocolMac)
 		framework.ExpectEmpty(subnet.Spec.CIDRBlock)
-		// CreateSync already waited for the subnet to be Ready, which only happens
-		// once util.ValidateSubnet accepts the "Mac" protocol and IPAM registers the
-		// CIDR-less subnet.
+
 		framework.ExpectTrue(subnet.Status.IsReady(), "mac-only subnet should reach the Ready condition")
 
-		// A mac-only subnet allocates no IP, so it cannot back a pod's primary
-		// interface: containerd's CRI requires eth0 to have an address. This spec
-		// therefore validates the controller-side IPAM allocation (mac, no IP) on
-		// the pod object and the IP CR. The realistic data-plane consumption (a
-		// secondary interface whose guest does external DHCP) is covered by the
-		// multus spec below. The pod is created without waiting for it to become
-		// Running because it stays Pending by design.
 		ginkgo.By("Creating pod " + podName + " on the mac-only subnet")
 		annotations := map[string]string{util.LogicalSwitchAnnotation: subnetName}
 		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, []string{"sleep", "infinity"}, nil)
@@ -751,12 +729,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 			nadClient.Delete(nadName)
 		})
 
-		// The mac-only subnet is bound to the NAD provider so it is consumed as a
-		// secondary interface. The pod keeps a normal primary eth0 (IP from
-		// ovn-default), which satisfies the CRI, while the secondary NIC gets only a
-		// MAC and the guest would obtain its IP from an external DHCP server. The
-		// shared subnetName / podName / vlanName / providerNetworkName are cleaned up
-		// by the suite-level AfterEach.
 		ginkgo.By("Creating mac-only subnet " + subnetName + " bound to provider " + provider)
 		subnet := framework.MakeSubnet(subnetName, vlanName, "", "", "", provider, nil, nil, nil)
 		subnetClient.CreateSync(subnet)
@@ -959,7 +931,7 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		ginkgo.By("Creating underlay subnet " + subnetName)
 		subnet := framework.MakeSubnet(subnetName, vlanName, strings.Join(underlayCidr, ","), strings.Join(gateway, ","), "", "", excludeIPs, nil, []string{namespaceName})
 		subnet.Spec.U2OInterconnection = true
-		// only ipv4 needs to verify that the gateway address is consistent with U2OInterconnectionIP when enabling DHCP and U2O
+
 		if f.HasIPv4() {
 			subnet.Spec.EnableDHCP = true
 		}
@@ -1091,7 +1063,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 
 		ginkgo.By("step7: Specify u2oInterconnectionIP")
 
-		// change u2o interconnection ip twice
 		for index := range 2 {
 			getAvailableIPs := func(subnet *apiv1.Subnet) string {
 				var availIPs []string
@@ -1452,29 +1423,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		traceSameOverlayPodIP := podIPForProtocol(sameSubnetOverlayPod, traceProtocol)
 		framework.ExpectNotEmpty(traceSameOverlayPodIP)
 
-		// overlayOnlyRouting relies on existing baseline routes for overlay and
-		// join destinations, and adds an overlay->underlay allow policy plus
-		// underlay-specific routing for node IPs, same-subnet traffic, and the
-		// physical gateway fallback. The same-subnet allow was added after
-		// reproducing that U2O gateway readiness probes could not reach the U2O IP
-		// without an explicit underlay same-subnet exception.
-		// - underlay pod -> overlay pod: hit existing 31000 dst overlay CIDR allow.
-		// - underlay pod -> U2O IP: hit 30060 src/dst underlay CIDR allow because the
-		//   U2O interconnection IP is an LRP-local destination.
-		// - underlay pod -> same underlay subnet pod: same-subnet local/L2 path, do not hit
-		//   overlay-only policy.
-		// - underlay pod -> peer underlay CIDR: hit 30050 src underlay reroute physical gw.
-		// - underlay pod -> ServiceIP backed by overlay pod: DNAT to overlay pod, then hit existing 31000 dst overlay CIDR allow.
-		// - underlay pod -> ServiceIP backed by same underlay subnet pod: DNAT to underlay pod,
-		//   then hit 30060 src/dst underlay CIDR allow.
-		// - underlay pod -> node IP: hit 31000 dst excluded IP and src underlay CIDR reroute physical gw.
-		// - underlay pod -> join IP: keep baseline behavior and hit existing 31000 dst join CIDR allow.
-		// - overlay pod -> overlay pod: do not hit overlay-only policy.
-		// - overlay pod -> underlay pod: hit overlay-to-underlay allow policy.
-		// - overlay pod -> ServiceIP backed by overlay pod: DNAT to overlay pod and do not hit overlay-only policy.
-		// - overlay pod -> ServiceIP backed by underlay pod: DNAT to underlay pod, then hit overlay-to-underlay allow policy.
-		// - overlay pod -> node IP: keep baseline behavior and hit 30000 dst node IP reroute join IP.
-		// - overlay pod -> join IP: keep baseline behavior and hit existing 31000 dst join CIDR allow.
 		ginkgo.By("Tracing underlay pod to overlay pod: should hit existing overlay CIDR route " + traceIPSuffix)
 		checkKoOvnTracePolicy(namespaceName, underlayPod.Name, traceOverlayPodIP, "underlay to overlay "+traceIPSuffix, []string{
 			"lr_in_policy",
@@ -1744,7 +1692,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		nodes, err := kind.ListNodes(clusterName, "")
 		framework.ExpectNoError(err, "getting nodes in kind cluster")
 
-		// Find a node with IPv6 address
 		var nodeIPv6 string
 		var selectedNode kind.Node
 		for _, n := range nodes {
@@ -1768,7 +1715,7 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		ipv6Addr, _, _ := strings.Cut(nodeIPv6, "/")
 
 		ginkgo.By(fmt.Sprintf("Creating pod %s that pings IPv6 node IP %s on node %s", podName, ipv6Addr, selectedNode.Name()))
-		// Use ping6 with one attempt and 1s timeout, checking the return code
+
 		pingCmd := []string{"sh", "-c", fmt.Sprintf("ping6 -c 1 -w 1 %s && sleep 600 || exit $?", ipv6Addr)}
 		annotations := map[string]string{
 			util.LogicalSwitchAnnotation: subnetName,
@@ -1796,9 +1743,8 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		conflictVlanSubnet1 := framework.MakeSubnet(conflictVlanSubnet1Name, conflictVlan1Name, cidr1, "", "", "", nil, nil, []string{namespaceName})
 		_ = subnetClient.CreateSync(conflictVlanSubnet1)
 
-		// create a second VLAN with the same ID
 		ginkgo.By("Creating conflict vlan subnet2 " + conflictVlanSubnet2Name)
-		// wait for conflictVlan1 to be processed by the controller before creating the conflicting vlan
+
 		framework.WaitUntil(time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
 			v := vlanClient.Get(conflictVlan1Name)
 			return !v.Status.Conflict, nil
@@ -1810,23 +1756,22 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		cidr2 := framework.RandomCIDR(f.ClusterIPFamily)
 		conflictVlanSubnet2 := framework.MakeSubnet(conflictVlanSubnet2Name, conflictVlan2Name, cidr2, "", "", "", nil, nil, []string{namespaceName})
 		_ = subnetClient.Create(conflictVlanSubnet2)
-		// wait for the controller to detect the conflict
+
 		framework.WaitUntil(time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
 			v := vlanClient.Get(conflictVlan2Name)
 			return v.Status.Conflict, nil
 		}, fmt.Sprintf("vlan %s should be detected as conflicting", conflictVlan2Name))
 
-		// check
 		conflictVlan1 = vlanClient.Get(conflictVlan1Name)
 		conflictVlanSubnet1 = subnetClient.Get(conflictVlanSubnet1Name)
 		conflictVlan2 = vlanClient.Get(conflictVlan2Name)
 		conflictVlanSubnet2 = subnetClient.Get(conflictVlanSubnet2Name)
 		framework.ExpectFalse(conflictVlan1.Status.Conflict)
-		// new vlan should be conflict
+
 		framework.ExpectTrue(conflictVlan2.Status.Conflict)
 		if f.HasIPv4() {
 			framework.ExpectNotEmpty(conflictVlanSubnet1.Status.V4AvailableIPRange)
-			// new conflict vlan subnet should not have available ip
+
 			framework.ExpectEmpty(conflictVlanSubnet2.Status.V4AvailableIPRange)
 		}
 		if f.HasIPv6() {
@@ -1843,7 +1788,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 		framework.ExpectNoError(err)
 		framework.ExpectNotEmpty(k8sNodes.Items)
 
-		// Select the first node for inclusion
 		selectedNodeName := k8sNodes.Items[0].Name
 		testLabelKey := "provider-network-test"
 		testLabelValue := "selected"
@@ -1882,7 +1826,7 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 				selectedUpdatedNode = &updatedNodes.Items[i]
 			} else {
 				nonSelectedUpdatedNode = &updatedNodes.Items[i]
-				break // Take the first non-selected node for verification
+				break
 			}
 		}
 		framework.ExpectNotNil(selectedUpdatedNode, "Selected node should be found")
@@ -1937,7 +1881,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 
 		localnetPortName := "localnet." + subnetName
 
-		// verify initial network_name
 		framework.WaitUntil(2*time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
 			networkName, err := getLocalnetPortNetworkName(localnetPortName)
 			if err != nil {
@@ -1947,7 +1890,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 			return networkName == providerNetworkName, nil
 		}, "localnet port network_name should be "+providerNetworkName)
 
-		// create second provider network and update vlan to use it
 		ginkgo.By("Creating provider network " + providerNetworkName2)
 		pn2 := makeProviderNetwork(providerNetworkName2, false, linkMap)
 		_ = providerNetworkClient.Create(pn2)
@@ -1967,7 +1909,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 			return networkName == providerNetworkName2, nil
 		}, "localnet port network_name should be updated to "+providerNetworkName2)
 
-		// update vlan back to first provider
 		ginkgo.By("Updating vlan " + vlanName + " provider back to " + providerNetworkName)
 		originalVlan = vlanClient.Get(vlanName)
 		updatedVlan = originalVlan.DeepCopy()
@@ -2148,7 +2089,7 @@ func checkReachable(podName, podNamespace, sourceIP, targetIP, targetPort string
 		framework.ExpectNoError(err)
 		client, _, err := net.SplitHostPort(strings.TrimSpace(output))
 		framework.ExpectNoError(err)
-		// check packet has not SNAT
+
 		framework.ExpectEqual(sourceIP, client)
 	} else {
 		framework.ExpectError(err)
@@ -2381,7 +2322,6 @@ func checkU2OFilterOpenFlowExist(clusterName string, pn *apiv1.ProviderNetwork, 
 	return nil
 }
 
-// getLocalnetPortNetworkName retrieves the network_name option from a localnet logical switch port
 func getLocalnetPortNetworkName(lspName string) (string, error) {
 	cmd := fmt.Sprintf("ovn-nbctl get logical_switch_port %s options:network_name", lspName)
 	output, _, err := framework.NBExec(cmd)

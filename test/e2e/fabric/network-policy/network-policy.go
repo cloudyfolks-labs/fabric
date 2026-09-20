@@ -50,7 +50,6 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 		cidr = framework.RandomCIDR(f.ClusterIPFamily)
 	})
 	ginkgo.AfterEach(func() {
-		// Level 1: Delete pod and network policy in parallel
 		ginkgo.By("Deleting pod " + podName + " and network policy " + netpolName)
 		podClient.DeleteGracefully(podName)
 		netpolClient.Delete(netpolName)
@@ -58,7 +57,6 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 		podClient.WaitForNotFound(podName)
 		framework.ExpectNoError(netpolClient.WaitToDisappear(netpolName, 0, 2*time.Minute))
 
-		// Level 2: Subnet (needs pod deleted first)
 		ginkgo.By("Deleting subnet " + subnetName)
 		subnetClient.DeleteSync(subnetName)
 	})
@@ -130,7 +128,6 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 				return err == nil, nil
 			}, "")
 
-			// check one more time
 			for _, hostPod := range pods {
 				nodeName := hostPod.Spec.NodeName
 				if nodeName == pod.Spec.NodeName {
@@ -228,9 +225,7 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 		framework.ExpectNotEmpty(client2IP)
 
 		ginkgo.By("Creating network policy " + netpolName + " with two IPBlocks")
-		// The first IPBlock matches client1 IP.
-		// The second IPBlock is some other dummy CIDR.
-		// client2 IP is not included initially.
+
 		mask := "/32"
 		dummyCIDR := "1.2.3.4/32"
 		if f.ClusterIPFamily == "ipv6" {
@@ -292,7 +287,7 @@ var _ = framework.SerialDescribe("[group:network-policy]", func() {
 
 		ginkgo.By("Updating network policy " + netpolName + " to include client2 pod CIDR")
 		netpol = netpolClient.Get(netpolName)
-		// Update the second IPBlock to include client2IP
+
 		netpol.Spec.Ingress[0].From[1].IPBlock.CIDR = client2IP + mask
 		_, err := netpolClient.Update(context.TODO(), netpol, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)

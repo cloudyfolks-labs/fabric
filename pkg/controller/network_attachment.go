@@ -22,7 +22,6 @@ func (c *Controller) isNetAttachCRDInstalled() (bool, error) {
 	)
 }
 
-// startNetAttachInformer starts the NAD informer and waits for cache sync.
 func (c *Controller) startNetAttachInformer(ctx context.Context) {
 	c.netAttachInformerFactory.Start(ctx.Done())
 	if !cache.WaitForCacheSync(ctx.Done(), c.netAttachSynced) {
@@ -31,8 +30,6 @@ func (c *Controller) startNetAttachInformer(ctx context.Context) {
 	klog.Info("Network attachment informer cache synced")
 }
 
-// tryStartNetAttachInformer checks if NAD CRD is installed and starts the informer if so.
-// Returns true if informer was started, false otherwise.
 func (c *Controller) tryStartNetAttachInformer(ctx context.Context) bool {
 	exists, err := c.isNetAttachCRDInstalled()
 	if err != nil {
@@ -47,21 +44,11 @@ func (c *Controller) tryStartNetAttachInformer(ctx context.Context) bool {
 	return true
 }
 
-// StartNetAttachInformerFactory starts the network attachment definition (NAD) informer.
-// This MUST be called before other informers that depend on NAD cache (Pod, Subnet, etc.)
-//
-// The NAD CRD is optional - if installed, we start the informer synchronously and wait for
-// cache sync before returning. This ensures NAD cache is ready when other controllers start
-// processing resources that reference NADs.
-//
-// If the CRD is not installed at startup, we start a background goroutine to periodically
-// check and start the informer when the CRD becomes available.
 func (c *Controller) StartNetAttachInformerFactory(ctx context.Context) {
 	if c.tryStartNetAttachInformer(ctx) {
 		return
 	}
 
-	// CRD not found at startup, start background check loop
 	klog.Info("Network attachment CRD not found at startup, will check periodically in background")
 	ticker := time.NewTicker(10 * time.Second)
 	go func() {

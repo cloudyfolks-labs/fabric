@@ -16,7 +16,6 @@ import (
 )
 
 func TestNewIPRangeList(t *testing.T) {
-	// test ipv4 contains
 	v4RangeStart1, err := NewIP("10.0.0.5")
 	require.NoError(t, err)
 	v4RangeEnd1, err := NewIP("10.0.0.5")
@@ -56,7 +55,7 @@ func TestNewIPRangeList(t *testing.T) {
 	fakeV4RangeItem4, err := NewIP("10.0.0.19")
 	require.NoError(t, err)
 	require.False(t, v4.Contains(fakeV4RangeItem4))
-	// test ipv6 contains
+
 	v6RangeStart1, err := NewIP("2001:db8::5")
 	require.NoError(t, err)
 	v6RangeEnd1, err := NewIP("2001:db8::5")
@@ -90,7 +89,7 @@ func TestNewIPRangeList(t *testing.T) {
 	fakeV6RangeItem4, err := NewIP("2001:db8::19")
 	require.NoError(t, err)
 	require.False(t, v6.Contains(fakeV6RangeItem4))
-	// test ipv4 add
+
 	v4RangeStart1, err = NewIP("10.0.0.5")
 	require.NoError(t, err)
 	v4RangeEnd1, err = NewIP("10.0.0.5")
@@ -104,7 +103,7 @@ func TestNewIPRangeList(t *testing.T) {
 	v4AddIP1, err := NewIP("10.0.0.4")
 	require.NoError(t, err)
 	require.True(t, v4.Add(v4AddIP1))
-	// re add
+
 	require.False(t, v4.Add(v4AddIP1))
 	v4AddIP2, err := NewIP("10.0.0.5")
 	require.NoError(t, err)
@@ -144,7 +143,7 @@ func TestNewIPRangeList(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, v4.Equal(v4AddExpect))
-	// test ipv6 add
+
 	v6RangeStart1, err = NewIP("2001:db8::5")
 	require.NoError(t, err)
 	v6RangeEnd1, err = NewIP("2001:db8::5")
@@ -158,7 +157,7 @@ func TestNewIPRangeList(t *testing.T) {
 	v6AddIP1, err := NewIP("2001:db8::4")
 	require.NoError(t, err)
 	require.True(t, v6.Add(v6AddIP1))
-	// re add
+
 	require.False(t, v6.Add(v6AddIP1))
 	v6AddIP2, err := NewIP("2001:db8::5")
 	require.NoError(t, err)
@@ -197,7 +196,7 @@ func TestNewIPRangeList(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, v6.Equal(v6AddExpect))
-	// test ipv4 remove
+
 	v4RangeStart1, err = NewIP("10.0.0.5")
 	require.NoError(t, err)
 	v4RangeEnd1, err = NewIP("10.0.0.5")
@@ -244,7 +243,7 @@ func TestNewIPRangeList(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, v4.Equal(v4RemoveExpect))
-	// split the range
+
 	v4RangeStart1, err = NewIP("10.0.0.10")
 	require.NoError(t, err)
 	v4RangeEnd1, err = NewIP("10.0.0.20")
@@ -266,7 +265,6 @@ func TestNewIPRangeList(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, v4.Equal(v4SplitExpect))
 
-	// test ipv6 remove
 	v6RangeStart1, err = NewIP("2001:db8::5")
 	require.NoError(t, err)
 	v6RangeEnd1, err = NewIP("2001:db8::5")
@@ -314,7 +312,7 @@ func TestNewIPRangeList(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, v6.Equal(v6RemoveExpect))
-	// split the range
+
 	v6RangeStart1, err = NewIP("2001:db8::10")
 	require.NoError(t, err)
 	v6RangeEnd1, err = NewIP("2001:db8::20")
@@ -336,7 +334,6 @@ func TestNewIPRangeList(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, v6.Equal(v6SplitExpect))
 
-	// test ipv4 separate
 	v41RangeStart1, err := NewIP("10.0.0.1")
 	require.NoError(t, err)
 	v41RangeEnd1, err := NewIP("10.0.0.1")
@@ -441,7 +438,6 @@ func TestNewIPRangeList(t *testing.T) {
 	separated := v41.Separate(v42)
 	require.True(t, separated.Equal(expected))
 
-	// test ipv6 separate
 	v61RangeStart1, err := NewIP("2001:db8::1")
 	require.NoError(t, err)
 	v61RangeEnd1, err := NewIP("2001:db8::1")
@@ -546,7 +542,6 @@ func TestNewIPRangeList(t *testing.T) {
 	separated = v61.Separate(v62)
 	require.True(t, separated.Equal(expected))
 
-	// test ipv4 merge
 	v41RangeStart1, err = NewIP("10.0.0.1")
 	require.NoError(t, err)
 	v41RangeEnd1, err = NewIP("10.0.0.1")
@@ -867,7 +862,6 @@ func TestNewIPRangeListFrom(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	// ipv4
 	v4Cidr := "10.0.0.0/24"
 	_, v4IPNet, err := net.ParseCIDR(v4Cidr)
 	require.NoError(t, err)
@@ -881,7 +875,7 @@ func TestRemove(t *testing.T) {
 	removed, ok = v4IPRange.Remove(v4End)
 	require.True(t, ok)
 	require.Equal(t, removed[0].end.String(), "10.0.0.254")
-	// ipv6
+
 	v6Cidr := "2001:db8::/120"
 	_, v6IPNet, err := net.ParseCIDR(v6Cidr)
 	require.NoError(t, err)
@@ -898,7 +892,6 @@ func TestRemove(t *testing.T) {
 }
 
 func TestMergeRange(t *testing.T) {
-	// ipv4
 	v4StartIP1 := "10.0.0.50"
 	v4EndIP1 := "10.0.0.100"
 	rl := NewEmptyIPRangeList()
@@ -909,7 +902,7 @@ func TestMergeRange(t *testing.T) {
 	v4MergedRangeList := rl.MergeRange(NewIPRange(v4RangeStart1, v4RangeEnd1))
 	require.Equal(t, v4MergedRangeList.Len(), 1)
 	require.Equal(t, v4MergedRangeList.String(), "10.0.0.50-10.0.0.100")
-	// tail append ipv4
+
 	v4StartIP2 := "10.0.0.101"
 	v4EndIP2 := "10.0.0.200"
 	v4RangeStart2, err := NewIP(v4StartIP2)
@@ -919,7 +912,7 @@ func TestMergeRange(t *testing.T) {
 	v4MergedRangeList = v4MergedRangeList.MergeRange(NewIPRange(v4RangeStart2, v4RangeEnd2))
 	require.Equal(t, v4MergedRangeList.Len(), 1)
 	require.Equal(t, v4MergedRangeList.String(), "10.0.0.50-10.0.0.200")
-	// head append ipv4
+
 	v4StartIP3 := "10.0.0.20"
 	v4EndIP3 := "10.0.0.49"
 	v4RangeStart3, err := NewIP(v4StartIP3)
@@ -929,7 +922,7 @@ func TestMergeRange(t *testing.T) {
 	v4MergedRangeList = v4MergedRangeList.MergeRange(NewIPRange(v4RangeStart3, v4RangeEnd3))
 	require.Equal(t, v4MergedRangeList.Len(), 1)
 	require.Equal(t, v4MergedRangeList.String(), "10.0.0.20-10.0.0.200")
-	// ipv6
+
 	v6StartIP1 := "2001:db8::50"
 	v6EndIP1 := "2001:db8::100"
 	v6RangeStart1, err := NewIP(v6StartIP1)
@@ -939,7 +932,7 @@ func TestMergeRange(t *testing.T) {
 	v6MergedRangeList := rl.MergeRange(NewIPRange(v6RangeStart1, v6RangeEnd1))
 	require.Equal(t, v6MergedRangeList.Len(), 1)
 	require.Equal(t, v6MergedRangeList.String(), "2001:db8::50-2001:db8::100")
-	// tail append ipv6
+
 	v6StartIP2 := "2001:db8::101"
 	v6EndIP2 := "2001:db8::200"
 	v6RangeStart2, err := NewIP(v6StartIP2)
@@ -949,7 +942,7 @@ func TestMergeRange(t *testing.T) {
 	v6MergedRangeList = v6MergedRangeList.MergeRange(NewIPRange(v6RangeStart2, v6RangeEnd2))
 	require.Equal(t, v6MergedRangeList.Len(), 1)
 	require.Equal(t, v6MergedRangeList.String(), "2001:db8::50-2001:db8::200")
-	// head append ipv6
+
 	v6StartIP3 := "2001:db8::20"
 	v6EndIP3 := "2001:db8::4f"
 	v6RangeStart3, err := NewIP(v6StartIP3)
@@ -962,7 +955,6 @@ func TestMergeRange(t *testing.T) {
 }
 
 func TestIntersect(t *testing.T) {
-	// ipv4
 	v4StartIP1 := "10.0.0.50"
 	v4EndIP1 := "10.0.0.100"
 	v4RangeStart1, err := NewIP(v4StartIP1)
@@ -1008,7 +1000,6 @@ func TestIntersect(t *testing.T) {
 	require.Equal(t, v4Intersect4.Len(), 1)
 	require.Equal(t, v4Intersect4.String(), "10.0.0.70-10.0.0.80")
 
-	// ipv6
 	v6StartIP1 := "2001:db8::50"
 	v6EndIP1 := "2001:db8::100"
 	v6RangeStart1, err := NewIP(v6StartIP1)
@@ -1052,7 +1043,6 @@ func TestIntersect(t *testing.T) {
 }
 
 func TestAt(t *testing.T) {
-	// ipv4
 	v4StartIP1 := "10.0.0.50"
 	v4EndIP1 := "10.0.0.100"
 	v4RangeStart1, err := NewIP(v4StartIP1)
@@ -1066,7 +1056,6 @@ func TestAt(t *testing.T) {
 	v4IPRangeNil := v4RangeList1.At(1)
 	require.Nil(t, v4IPRangeNil)
 
-	// ipv6
 	v6StartIP1 := "2001:db8::50"
 	v6EndIP1 := "2001:db8::100"
 	v6RangeStart1, err := NewIP(v6StartIP1)
@@ -1081,7 +1070,6 @@ func TestAt(t *testing.T) {
 }
 
 func TestEqual(t *testing.T) {
-	// ipv4
 	v4StartIP1 := "10.0.0.50"
 	v4EndIP1 := "10.0.0.100"
 	v4RangeStart1, err := NewIP(v4StartIP1)
@@ -1124,7 +1112,6 @@ func TestEqual(t *testing.T) {
 	v4RL5 := NewEmptyIPRangeList()
 	require.False(t, v4RangeList1.Equal(v4RL5))
 
-	// ipv6
 	v6StartIP1 := "2001:db8::50"
 	v6EndIP1 := "2001:db8::100"
 	v6RangeStart1, err := NewIP(v6StartIP1)
@@ -1234,8 +1221,6 @@ func TestAllocate(t *testing.T) {
 }
 
 func TestIPRangeList_NilReceiverSafety(t *testing.T) {
-	// Background: In single-stack subnets, V4Available or V6Available can be nil.
-	// All IPRangeList methods must handle nil receiver without panic.
 	var nilList *IPRangeList
 	ip, _ := NewIP("10.0.0.1")
 
@@ -1309,7 +1294,6 @@ func TestIPRangeList_NilReceiverSafety(t *testing.T) {
 }
 
 func TestIPRangeListSeparate_WithEmptyList(t *testing.T) {
-	// An empty but non-nil list returns empty result immediately without using 'other'
 	emptyList := NewEmptyIPRangeList()
 
 	result := emptyList.Separate(nil)

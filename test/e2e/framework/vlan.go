@@ -17,7 +17,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// VlanClient is a struct for vlan client.
 type VlanClient struct {
 	f *Framework
 	v1.VlanInterface
@@ -43,7 +42,6 @@ func (c *VlanClient) Get(name string) *apiv1.Vlan {
 	return vlan
 }
 
-// Create creates a new vlan according to the framework specifications
 func (c *VlanClient) Create(pn *apiv1.Vlan) *apiv1.Vlan {
 	ginkgo.GinkgoHelper()
 	vlan, err := c.VlanInterface.Create(context.TODO(), pn, metav1.CreateOptions{})
@@ -51,7 +49,6 @@ func (c *VlanClient) Create(pn *apiv1.Vlan) *apiv1.Vlan {
 	return vlan.DeepCopy()
 }
 
-// Patch patches the vlan
 func (c *VlanClient) Patch(original, modified *apiv1.Vlan, timeout time.Duration) *apiv1.Vlan {
 	ginkgo.GinkgoHelper()
 
@@ -79,7 +76,6 @@ func (c *VlanClient) Patch(original, modified *apiv1.Vlan, timeout time.Duration
 	return nil
 }
 
-// Delete deletes a vlan if the vlan exists
 func (c *VlanClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.VlanInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})

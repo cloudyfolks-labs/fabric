@@ -59,8 +59,6 @@ func validateModelStructure(model model.Model, table string, expectedFields map[
 	}
 }
 
-// WaitForAddressSetCondition waits for the OVN address set backing the given IPPool
-// to satisfy the provided condition.
 func WaitForAddressSetCondition(condition func(rows any) (bool, error)) {
 	ginkgo.GinkgoHelper()
 
@@ -78,8 +76,6 @@ func WaitForAddressSetCondition(condition func(rows any) (bool, error)) {
 
 		result := reflect.New(reflect.SliceOf(reflect.TypeOf(model).Elem())).Interface()
 		if err := client.List(ctx, result); err != nil {
-			// Transient errors (e.g. "not connected" during leader failover)
-			// should be retried rather than immediately failing the poll.
 			Logf("Failed to list address sets (will retry): %v", err)
 			return false, nil
 		}
@@ -89,12 +85,9 @@ func WaitForAddressSetCondition(condition func(rows any) (bool, error)) {
 	ExpectNoError(err)
 }
 
-// WaitForAddressSetIPs waits for the OVN address set backing the given IPPool
-// to contain exactly the provided entries (order independent).
 func WaitForAddressSetIPs(ippoolName string, ips []string) {
 	ginkgo.GinkgoHelper()
 
-	// Use ExpandIPPoolAddressesForOVN to get the expected format (with simplified IPs)
 	expectedEntries, err := util.ExpandIPPoolAddressesForOVN(ips)
 	ExpectNoError(err)
 
@@ -141,7 +134,6 @@ func WaitForAddressSetIPs(ippoolName string, ips []string) {
 	})
 }
 
-// WaitForAddressSetDeletion waits until OVN deletes the address set for the given IPPool.
 func WaitForAddressSetDeletion(ippoolName string) {
 	ginkgo.GinkgoHelper()
 

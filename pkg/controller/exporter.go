@@ -16,7 +16,6 @@ import (
 
 var registerMetricsOnce sync.Once
 
-// registerSubnetMetrics register subnet metrics
 func (c *Controller) registerSubnetMetrics() {
 	registerMetricsOnce.Do(func() {
 		registerMetrics()

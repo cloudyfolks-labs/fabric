@@ -343,7 +343,6 @@ func probePortInNs(podIP string, probePort int32, isTProxyProbe bool, conn net.C
 	defer podNS.Close()
 
 	_ = ns.WithNetNSPath(podNS.Path(), func(_ ns.NetNS) error {
-		// Packet's src and dst IP are both PodIP in netns
 		localpodTCPAddr := net.TCPAddr{IP: net.ParseIP(podIP)}
 		remotepodTCPAddr := net.TCPAddr{IP: net.ParseIP(podIP), Port: int(probePort)}
 

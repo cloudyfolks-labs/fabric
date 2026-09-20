@@ -23,7 +23,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// ProviderNetworkClient is a struct for provider network client.
 type ProviderNetworkClient struct {
 	f *Framework
 	v1.ProviderNetworkInterface
@@ -49,7 +48,6 @@ func (c *ProviderNetworkClient) Get(name string) *apiv1.ProviderNetwork {
 	return pn
 }
 
-// Create creates a new provider network according to the framework specifications
 func (c *ProviderNetworkClient) Create(pn *apiv1.ProviderNetwork) *apiv1.ProviderNetwork {
 	ginkgo.GinkgoHelper()
 	pn, err := c.ProviderNetworkInterface.Create(context.TODO(), pn, metav1.CreateOptions{})
@@ -57,17 +55,15 @@ func (c *ProviderNetworkClient) Create(pn *apiv1.ProviderNetwork) *apiv1.Provide
 	return pn.DeepCopy()
 }
 
-// CreateSync creates a new provider network according to the framework specifications, and waits for it to be ready.
 func (c *ProviderNetworkClient) CreateSync(pn *apiv1.ProviderNetwork) *apiv1.ProviderNetwork {
 	ginkgo.GinkgoHelper()
 
 	pn = c.Create(pn)
 	ExpectTrue(c.WaitToBeReady(pn.Name, timeout))
-	// Get the newest provider network after it becomes ready
+
 	return c.Get(pn.Name).DeepCopy()
 }
 
-// Patch patches the provider network
 func (c *ProviderNetworkClient) Patch(original, modified *apiv1.ProviderNetwork) *apiv1.ProviderNetwork {
 	ginkgo.GinkgoHelper()
 
@@ -95,19 +91,16 @@ func (c *ProviderNetworkClient) Patch(original, modified *apiv1.ProviderNetwork)
 	return nil
 }
 
-// PatchSync patches the provider network and waits for the provider network to be ready for `timeout`.
-// If the provider network doesn't become ready before the timeout, it will fail the test.
 func (c *ProviderNetworkClient) PatchSync(original, modified *apiv1.ProviderNetwork, _ []string, timeout time.Duration) *apiv1.ProviderNetwork {
 	ginkgo.GinkgoHelper()
 
 	pn := c.Patch(original, modified)
 	ExpectTrue(c.WaitToBeUpdated(pn, timeout))
 	ExpectTrue(c.WaitToBeReady(pn.Name, timeout))
-	// Get the newest subnet after it becomes ready
+
 	return c.Get(pn.Name).DeepCopy()
 }
 
-// Delete deletes a provider network if the provider network exists
 func (c *ProviderNetworkClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.ProviderNetworkInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -116,8 +109,6 @@ func (c *ProviderNetworkClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the provider network and waits for the provider network to disappear for `timeout`.
-// If the provider network doesn't disappear before the timeout, it will fail the test.
 func (c *ProviderNetworkClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
@@ -143,16 +134,10 @@ func isProviderNetworkConditionSetAsExpected(pn *apiv1.ProviderNetwork, node str
 	return false
 }
 
-// IsProviderNetworkConditionSetAsExpected returns a wantTrue value if the subnet has a match to the conditionType,
-// otherwise returns an opposite value of the wantTrue with detailed logging.
 func IsProviderNetworkConditionSetAsExpected(pn *apiv1.ProviderNetwork, node string, conditionType apiv1.ConditionType, wantTrue bool) bool {
 	return isProviderNetworkConditionSetAsExpected(pn, node, conditionType, wantTrue, false)
 }
 
-// WaitConditionToBe returns whether provider network "name's" condition state matches wantTrue
-// within timeout. If wantTrue is true, it will ensure the provider network condition status is
-// ConditionTrue; if it's false, it ensures the provider network condition is in any state other
-// than ConditionTrue (e.g. not true or unknown).
 func (c *ProviderNetworkClient) WaitConditionToBe(name, node string, conditionType apiv1.ConditionType, wantTrue bool, deadline time.Time) bool {
 	timeout := time.Until(deadline)
 	Logf("Waiting up to %v for provider network %s condition %s of node %s to be %t", timeout, name, conditionType, node, wantTrue)
@@ -165,7 +150,6 @@ func (c *ProviderNetworkClient) WaitConditionToBe(name, node string, conditionTy
 	return false
 }
 
-// WaitToBeReady returns whether the provider network is ready within timeout.
 func (c *ProviderNetworkClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
 		if c.Get(name).Status.Ready {
@@ -175,7 +159,6 @@ func (c *ProviderNetworkClient) WaitToBeReady(name string, timeout time.Duration
 	return false
 }
 
-// WaitToBeUpdated returns whether the provider network is updated within timeout.
 func (c *ProviderNetworkClient) WaitToBeUpdated(pn *apiv1.ProviderNetwork, timeout time.Duration) bool {
 	Logf("Waiting up to %v for provider network %s to be updated", timeout, pn.Name)
 	rv, _ := big.NewInt(0).SetString(pn.ResourceVersion, 10)
@@ -189,7 +172,6 @@ func (c *ProviderNetworkClient) WaitToBeUpdated(pn *apiv1.ProviderNetwork, timeo
 	return false
 }
 
-// WaitToDisappear waits the given timeout duration for the specified provider network to disappear.
 func (c *ProviderNetworkClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.ProviderNetwork, error) {
 		pn, err := c.ProviderNetworkInterface.Get(ctx, name, metav1.GetOptions{})

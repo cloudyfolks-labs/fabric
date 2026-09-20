@@ -17,7 +17,6 @@ var routeScopeOrders = [...]netlink.Scope{
 	netlink.SCOPE_UNIVERSE,
 }
 
-// wait systemd-networkd to finish interface configuration
 func waitNetworkdConfiguration(linkIndex int) {
 	done := make(chan struct{})
 	ch := make(chan netlink.RouteUpdate)
@@ -28,22 +27,19 @@ func waitNetworkdConfiguration(linkIndex int) {
 		return
 	}
 
-	// wait route event on the link for 50ms
 	timer := time.NewTimer(50 * time.Millisecond)
 	for {
 		select {
 		case <-timer.C:
-			// timeout, interface configuration is expected to be completed
+
 			done <- struct{}{}
 			return
 		case event := <-ch:
 			if event.LinkIndex == linkIndex {
-				// received a route event on the link
-				// stop the timer
 				if !timer.Stop() {
 					<-timer.C
 				}
-				// reset the timer, wait for another 50ms
+
 				timer.Reset(50 * time.Millisecond)
 			}
 		}
@@ -54,7 +50,6 @@ func (c *Controller) changeProviderNicName(current, target string) (bool, error)
 	link, err := netlink.LinkByName(current)
 	if err != nil {
 		if _, ok := err.(netlink.LinkNotFoundError); ok {
-			// Check if the NIC was already renamed from a previous attempt
 			targetLink, targetErr := netlink.LinkByName(target)
 			if targetErr == nil && targetLink.Type() != "openvswitch" {
 				klog.Infof("link %s already renamed to %s, skip rename", current, target)
@@ -82,7 +77,6 @@ func (c *Controller) changeProviderNicName(current, target string) (bool, error)
 		return false, err
 	}
 
-	// set link unmanaged by NetworkManager
 	if err = c.nmSyncer.SetManaged(current, false); err != nil {
 		klog.Errorf("failed to set device %s unmanaged by NetworkManager: %v", current, err)
 		return false, err

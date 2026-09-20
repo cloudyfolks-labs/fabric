@@ -20,7 +20,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// SecurityGroupClient is a struct for security-group client.
 type SecurityGroupClient struct {
 	f *Framework
 	v1.SecurityGroupInterface
@@ -40,7 +39,6 @@ func (c *SecurityGroupClient) Get(name string) *apiv1.SecurityGroup {
 	return sg.DeepCopy()
 }
 
-// Create creates a new security group according to the framework specifications
 func (c *SecurityGroupClient) Create(sg *apiv1.SecurityGroup) *apiv1.SecurityGroup {
 	ginkgo.GinkgoHelper()
 	sg, err := c.SecurityGroupInterface.Create(context.TODO(), sg, metav1.CreateOptions{})
@@ -48,17 +46,15 @@ func (c *SecurityGroupClient) Create(sg *apiv1.SecurityGroup) *apiv1.SecurityGro
 	return sg.DeepCopy()
 }
 
-// CreateSync creates a new security group according to the framework specifications, and waits for it to be ready.
 func (c *SecurityGroupClient) CreateSync(sg *apiv1.SecurityGroup) *apiv1.SecurityGroup {
 	ginkgo.GinkgoHelper()
 
 	sg = c.Create(sg)
 	ExpectTrue(c.WaitToBeReady(sg.Name, timeout))
-	// Get the newest ovn security group after it becomes ready
+
 	return c.Get(sg.Name).DeepCopy()
 }
 
-// WaitToBeReady returns whether the security group is ready within timeout.
 func (c *SecurityGroupClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	Logf("Waiting up to %v for security group %s to be ready", timeout, name)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
@@ -72,7 +68,6 @@ func (c *SecurityGroupClient) WaitToBeReady(name string, timeout time.Duration) 
 	return false
 }
 
-// Patch patches the security group
 func (c *SecurityGroupClient) Patch(original, modified *apiv1.SecurityGroup, timeout time.Duration) *apiv1.SecurityGroup {
 	ginkgo.GinkgoHelper()
 
@@ -100,7 +95,6 @@ func (c *SecurityGroupClient) Patch(original, modified *apiv1.SecurityGroup, tim
 	return nil
 }
 
-// Delete deletes a security group if the security group exists
 func (c *SecurityGroupClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.SecurityGroupInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -109,15 +103,12 @@ func (c *SecurityGroupClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the security group and waits for the security group to disappear for `timeout`.
-// If the security group doesn't disappear before the timeout, it will fail the test.
 func (c *SecurityGroupClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for security group %q to disappear", name)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified Security Group to disappear.
 func (c *SecurityGroupClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.SecurityGroup, error) {
 		sg, err := c.SecurityGroupInterface.Get(ctx, name, metav1.GetOptions{})

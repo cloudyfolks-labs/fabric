@@ -9,7 +9,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 )
 
-// IPRange represents an IP range of [start, end]
 type IPRange struct {
 	start, end IP
 }

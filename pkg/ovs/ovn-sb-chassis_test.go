@@ -170,7 +170,6 @@ func (suite *OvnClientTestSuite) testListChassis() {
 	require.NoError(t, err)
 
 	t.Run("test list chassis", func(t *testing.T) {
-		// wait for ovsdb cache to be updated after transact
 		require.Eventually(t, func() bool {
 			chassisList, err := sbClient.ListChassis()
 			if err != nil {
@@ -469,7 +468,6 @@ func (suite *OvnClientTestSuite) testGetFabricChassises() {
 	err = sbClient.Transact("chassis-add", ops)
 	require.NoError(t, err)
 
-	// wait for ovsdb cache to be updated after transact
 	require.Eventually(t, func() bool {
 		chassisList, err := sbClient.GetFabricChassises()
 		if err != nil {

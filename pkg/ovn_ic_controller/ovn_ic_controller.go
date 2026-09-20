@@ -89,7 +89,6 @@ func (c *Controller) setAutoRoute(autoRoute bool) error {
 func (c *Controller) DeleteICResources(azName string) error {
 	icTSs := make([]string, 0)
 	if err := c.OVNNbClient.DeleteLogicalSwitchPorts(nil, func(lsp *ovnnb.LogicalSwitchPort) bool {
-		// add the code below because azName may have multi "-"
 		firstIndex := strings.Index(lsp.Name, "-")
 		if firstIndex != -1 {
 			firstPart := lsp.Name[:firstIndex]
@@ -367,7 +366,7 @@ func (c *Controller) acquireLrpAddress(ts string) (string, error) {
 			ips = append(ips, util.GenerateRandomIP(v6Cidr))
 		}
 		random = strings.Join(ips, ",")
-		// find a free address
+
 		if !existAddress.Has(random) {
 			return random, nil
 		}
@@ -469,7 +468,7 @@ func (c *Controller) deleteStaticRouteFromVpc(name, table, cidr, nextHop string,
 		return err
 	}
 	vpc = cachedVpc.DeepCopy()
-	// make sure custom policies not be deleted
+
 	_, err = c.config.FabricClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Error(err)
@@ -498,7 +497,7 @@ func genHostAddress(host, port string) (hostAddress string) {
 func (c *Controller) SynRouteToPolicy() {
 	c.syncOneRouteToPolicy(util.OvnICKey, util.OvnICConnected)
 	c.syncOneRouteToPolicy(util.OvnICKey, util.OvnICStatic)
-	// To support the version before fabric v1.9, in which version the option tag is origin=""
+
 	c.syncOneRouteToPolicy(util.OvnICKey, util.OvnICNone)
 }
 

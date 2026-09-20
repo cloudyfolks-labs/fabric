@@ -19,17 +19,10 @@ const (
 	responseLogFormat = "[%s] Outgoing response %s %s with %d status code in %vms"
 )
 
-// NewCNIListener binds the unix socket synchronously and returns the
-// listener plus a cleanup that removes the socket file. Binding before
-// the health server starts lets the liveness probe dial the socket
-// without racing the daemon's own startup.
 func NewCNIListener(config *Configuration) (net.Listener, func(), error) {
 	return listen(config.BindSocket)
 }
 
-// RunCNIServer serves CNI requests on the supplied listener. The
-// listener must come from NewCNIListener so that bind has completed
-// before the caller starts announcing readiness.
 func RunCNIServer(config *Configuration, controller *Controller, listener net.Listener) {
 	nodeName = config.NodeName
 	csh := createCniServerHandler(config, controller)
@@ -67,7 +60,6 @@ func createHandler(csh *cniServerHandler) http.Handler {
 	return wsContainer
 }
 
-// web-service filter function used for request and response logging.
 func requestAndResponseLogger(request *restful.Request, response *restful.Response,
 	chain *restful.FilterChain,
 ) {
@@ -83,19 +75,16 @@ func requestAndResponseLogger(request *restful.Request, response *restful.Respon
 	klog.Info(formatResponseLog(response, request, elapsed))
 }
 
-// formatRequestLog formats request log string.
 func formatRequestLog(request *restful.Request) string {
 	return fmt.Sprintf(requestLogFormat, time.Now().Format(time.RFC3339), request.Request.Proto,
 		request.Request.Method, getRequestURI(request))
 }
 
-// formatResponseLog formats response log string.
 func formatResponseLog(response *restful.Response, request *restful.Request, reqTime float64) string {
 	return fmt.Sprintf(responseLogFormat, time.Now().Format(time.RFC3339),
 		request.Request.Method, getRequestURI(request), response.StatusCode(), reqTime)
 }
 
-// getRequestURI get the request uri
 func getRequestURI(request *restful.Request) (uri string) {
 	if request.Request.URL != nil {
 		uri = request.Request.URL.RequestURI()

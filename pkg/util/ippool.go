@@ -12,17 +12,12 @@ import (
 	"k8s.io/utils/set"
 )
 
-// ExpandIPPoolAddressesForOVN expands IP pool entries for OVN address sets.
-// OVN Limitation: OVN address sets only support either IPv4 or IPv6, not both.
-// This function will return an error if the input contains mixed IP families.
-// For simplicity, single IP addresses are returned without /32 or /128 suffix.
 func ExpandIPPoolAddressesForOVN(entries []string) ([]string, error) {
 	addresses, err := expandSingleFamilyIPPoolAddresses(entries)
 	if err != nil {
 		return nil, err
 	}
 
-	// Simplify single IPs by removing /32 and /128 suffixes
 	for i, addr := range addresses {
 		addresses[i] = simplifyOVNAddress(addr)
 	}
@@ -83,7 +78,6 @@ func expandSingleFamilyIPPoolAddresses(entries []string) ([]string, error) {
 		return nil, errors.New("mixed IPv4 and IPv6 addresses are not supported in OVN address set")
 	}
 
-	// Convert set to sorted slice
 	addresses := make([]string, 0, len(seen))
 	for cidr := range seen {
 		addresses = append(addresses, cidr)
@@ -92,7 +86,6 @@ func expandSingleFamilyIPPoolAddresses(entries []string) ([]string, error) {
 	return addresses, nil
 }
 
-// expandIPRange expands an IP range (e.g., "10.0.0.1..10.0.0.10") into CIDRs.
 func expandIPRange(value string) ([]string, error) {
 	parts := strings.Split(value, "..")
 	if len(parts) != 2 {
@@ -121,7 +114,6 @@ func expandIPRange(value string) ([]string, error) {
 	return cidrs, nil
 }
 
-// normalizeCIDR normalizes a CIDR string to canonical form.
 func normalizeCIDR(value string) (string, error) {
 	_, network, err := net.ParseCIDR(value)
 	if err != nil {
@@ -130,7 +122,6 @@ func normalizeCIDR(value string) (string, error) {
 	return network.String(), nil
 }
 
-// ipToCIDR converts a single IP to CIDR notation (/32 for IPv4, /128 for IPv6).
 func ipToCIDR(value string) (string, error) {
 	ip, err := NormalizeIP(value)
 	if err != nil {
@@ -143,8 +134,6 @@ func ipToCIDR(value string) (string, error) {
 	return fmt.Sprintf("%s/%d", ip.String(), bits), nil
 }
 
-// simplifyOVNAddress removes /32 and /128 suffixes for single IP addresses in OVN address sets.
-// OVN accepts both "10.0.0.1" and "10.0.0.1/32", but the former is simpler.
 func simplifyOVNAddress(cidr string) string {
 	if before, found := strings.CutSuffix(cidr, "/32"); found {
 		return before
@@ -155,19 +144,16 @@ func simplifyOVNAddress(cidr string) string {
 	return cidr
 }
 
-// NormalizeAddressSetEntries normalizes an OVN address set string list into a lookup map.
 func NormalizeAddressSetEntries(raw string) set.Set[string] {
 	clean := strings.ReplaceAll(raw, "\"", "")
 	tokens := strings.Fields(strings.TrimSpace(clean))
 	return set.New(tokens...)
 }
 
-// IPPoolAddressSetName converts an IPPool name into the OVN address set name.
 func IPPoolAddressSetName(name string) string {
 	return strings.ReplaceAll(name, "-", ".")
 }
 
-// NormalizeIP parses an IP string and returns the canonical IP.
 func NormalizeIP(value string) (net.IP, error) {
 	ip := net.ParseIP(strings.TrimSpace(value))
 	if ip == nil {
@@ -179,7 +165,6 @@ func NormalizeIP(value string) (net.IP, error) {
 	return ip.To16(), nil
 }
 
-// IPRangeToCIDRs converts an IP range into the minimal set of covering CIDRs.
 func IPRangeToCIDRs(start, end net.IP) ([]string, error) {
 	length := net.IPv4len
 	totalBits := 32

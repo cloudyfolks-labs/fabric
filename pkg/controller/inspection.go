@@ -41,7 +41,7 @@ func (c *Controller) inspectPod() error {
 					return err
 				}
 
-				if !exists { // pod exists but not lsp
+				if !exists {
 					patch := util.KVPatch{
 						fmt.Sprintf(util.AllocatedAnnotationTemplate, podNet.ProviderName): nil,
 						fmt.Sprintf(util.RoutedAnnotationTemplate, podNet.ProviderName):    nil,

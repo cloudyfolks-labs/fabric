@@ -34,7 +34,6 @@ func DumpFlows(client *ovs.Client, bridgeName string) ([]string, error) {
 	return flowStrings, nil
 }
 
-// ReplaceFlows uses ovs-ofctl replace-flows because go-openvswitch does not provide a native API.
 func ReplaceFlows(bridgeName string, flows []string) error {
 	flowData := strings.Join(flows, "\n")
 
@@ -49,7 +48,6 @@ func ReplaceFlows(bridgeName string, flows []string) error {
 	return nil
 }
 
-// ClearU2OFlows clears obsolete U2O flows
 func ClearU2OFlows(client *ovs.Client) error {
 	bridges, err := Bridges()
 	if err != nil {

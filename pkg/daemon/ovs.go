@@ -288,7 +288,6 @@ func removeOvnMapping(name, key string) error {
 }
 
 func (c *Controller) configExternalBridge(provider, bridge, nic string, exchangeLinkName bool, vlanInterfaceMap map[string]int) error {
-	// check if nic exists before configuring external bridge
 	nicExists, err := linkExists(nic)
 	if err != nil {
 		return fmt.Errorf("failed to check if nic %s exists: %w", nic, err)
@@ -309,7 +308,6 @@ func (c *Controller) configExternalBridge(provider, bridge, nic string, exchange
 		"--", "set", "bridge", bridge, fmt.Sprintf("external_ids:exchange-link-name=%v", exchangeLinkName),
 	}
 	if !brExists {
-		// assign a new generated mac address only when the bridge is newly created
 		cmd = append(cmd, "--", "set", "bridge", bridge, fmt.Sprintf(`other-config:hwaddr="%s"`, util.GenerateMac()))
 	}
 	output, err := ovs.Exec(cmd...)
@@ -319,8 +317,6 @@ func (c *Controller) configExternalBridge(provider, bridge, nic string, exchange
 
 	if exchangeLinkName {
 		if err := c.waitForBridgeInterface(bridge, 5*time.Second); err != nil {
-			// Bridge created in OVSDB but kernel interface not available.
-			// Delete the stale bridge to allow a clean retry.
 			klog.Warningf("OVS bridge %s interface not ready, cleaning up: %v", bridge, err)
 			if output, delErr := ovs.Exec(ovs.IfExists, "del-br", bridge); delErr != nil {
 				klog.Errorf("failed to delete stale bridge %s: %v, %q", bridge, delErr, output)
@@ -343,7 +339,6 @@ func (c *Controller) configExternalBridge(provider, bridge, nic string, exchange
 		}
 
 		for port := range strings.SplitSeq(output, "\n") {
-			// Skip the main NIC or VLAN subinterfaces belonging to it
 			if port == nic {
 				klog.Infof("Skipping main NIC port %s on bridge %s", port, bridge)
 				continue

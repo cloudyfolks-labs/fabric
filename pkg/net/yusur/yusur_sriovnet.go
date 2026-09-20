@@ -20,7 +20,6 @@ const (
 
 var virtFnRe = regexp.MustCompile(`virtfn(\d+)`)
 
-// IsYusurSmartNic check is Yusur smart Nic
 func IsYusurSmartNic(pciAddress string) bool {
 	platFile := filepath.Join(PciSysDir, pciAddress, HwAddr, PlatName)
 
@@ -38,7 +37,6 @@ func IsYusurSmartNic(pciAddress string) bool {
 	return strings.HasSuffix(yusurSmartNic, YusurSmartNic)
 }
 
-// GetYusurNicPfPciFromVfPci retrieves the PF PCI address
 func GetYusurNicPfPciFromVfPci(vfPciAddress string) (string, error) {
 	pfPath := filepath.Join(PciSysDir, vfPciAddress, "physfn")
 	absPath, err := filepath.Abs(pfPath)
@@ -58,8 +56,6 @@ func GetYusurNicPfPciFromVfPci(vfPciAddress string) (string, error) {
 	return pf, err
 }
 
-// GetYusurNicPfIndexByPciAddress gets a VF PCI address and
-// returns the correlate PF index.
 func GetYusurNicPfIndexByPciAddress(pfPci string) (int, error) {
 	pfIndex, err := strconv.Atoi(string(pfPci[len(pfPci)-1]))
 	if err != nil {
@@ -69,8 +65,6 @@ func GetYusurNicPfIndexByPciAddress(pfPci string) (int, error) {
 	return pfIndex, nil
 }
 
-// GetYusurNicVfIndexByPciAddress gets a VF PCI address and
-// returns the correlate VF index.
 func GetYusurNicVfIndexByPciAddress(vfPciAddress string) (int, error) {
 	vfPath := filepath.Join(PciSysDir, vfPciAddress, "physfn", "virtfn*")
 	absPath, err := filepath.Abs(vfPath)
@@ -99,7 +93,6 @@ func GetYusurNicVfIndexByPciAddress(vfPciAddress string) (int, error) {
 	return -1, fmt.Errorf("vf index for %s not found", vfPciAddress)
 }
 
-// GetYusurNicVfRepresentor return representor name
 func GetYusurNicVfRepresentor(pfIndex, vfIndex int) string {
 	vfr := fmt.Sprintf("pf%dvf%drep", pfIndex, vfIndex)
 	return vfr

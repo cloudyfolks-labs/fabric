@@ -39,7 +39,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// Controller watch pod and namespace changes to update iptables, ipset and ovs qos
 type Controller struct {
 	config *Configuration
 
@@ -89,7 +88,6 @@ type Controller struct {
 
 	ipsecServiceStarted sync.Once
 
-	// channel used for fdb sync
 	fdbSyncChan   chan struct{}
 	fdbSyncMutex  sync.Mutex
 	vswitchClient ovs.Vswitch
@@ -102,7 +100,6 @@ func newTypedRateLimitingQueue[T comparable](name string, rateLimiter workqueue.
 	return workqueue.NewTypedRateLimitingQueueWithConfig(rateLimiter, workqueue.TypedRateLimitingQueueConfig[T]{Name: name})
 }
 
-// NewController init a daemon controller
 func NewController(config *Configuration,
 	stopCh <-chan struct{},
 	podInformerFactory, nodeInformerFactory, caSecretInformerFactory informers.SharedInformerFactory,
@@ -254,7 +251,6 @@ func (c *Controller) enqueueUpdateIPSecCA(oldObj, newObj any) {
 	oldSecret := oldObj.(*v1.Secret)
 	newSecret := newObj.(*v1.Secret)
 	if maps.EqualFunc(oldSecret.Data, newSecret.Data, bytes.Equal) {
-		// No changes in CA data, no need to enqueue
 		return
 	}
 
@@ -408,10 +404,6 @@ func (c *Controller) handleAddOrUpdateProviderNetwork(key string) error {
 		return err
 	}
 
-	// Skip initialization if the provider network is being deleted.
-	// Without this check, a requeue from a previous error could trigger re-init
-	// during deletion, adding the NIC as a port to a dying bridge. This creates
-	// stale OVS netdev cache entries that block exchange-link-name bridge creation.
 	if !pn.DeletionTimestamp.IsZero() {
 		klog.V(3).Infof("provider network %s is being deleted, skip init", key)
 		return nil
@@ -449,8 +441,6 @@ func providerNetworkNic(pn *fabricv1.ProviderNetwork, nodeName string) string {
 	return pn.Spec.DefaultInterface
 }
 
-// initProviderNetwork configures the provider network on the local node.
-// node must not be mutated; it is backed by the shared informer cache.
 func (c *Controller) initProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.Node) error {
 	nic := providerNetworkNic(pn, node.Name)
 
@@ -475,10 +465,9 @@ func (c *Controller) initProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.
 		}
 		vlans.Add(strconv.Itoa(vlan.Spec.ID))
 	}
-	// always add trunk 0 so that the ovs bridge can communicate with the external network
+
 	vlans.Add("0")
 
-	// Auto-create VLAN subinterface if enabled and nic contains VLAN ID
 	if pn.Spec.AutoCreateVlanSubinterfaces && strings.Contains(nic, ".") {
 		parts := strings.SplitN(nic, ".", 2)
 		parentIf := parts[0]
@@ -493,15 +482,12 @@ func (c *Controller) initProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.
 		}
 	}
 
-	// VLAN sub-interface handling - use map for efficiency
-	vlanInterfaceMap := make(map[string]int) // interfaceName -> vlanID
+	vlanInterfaceMap := make(map[string]int)
 
-	// Process explicitly specified VLAN interfaces
 	if len(pn.Spec.VlanInterfaces) > 0 {
 		klog.Infof("Processing %d explicitly specified VLAN interfaces", len(pn.Spec.VlanInterfaces))
 		for _, vlanIfName := range pn.Spec.VlanInterfaces {
 			if util.CheckInterfaceExists(vlanIfName) {
-				// Extract VLAN ID from interface name (e.g., "eth0.10" -> 10)
 				vlanID, err := util.ExtractVlanIDFromInterface(vlanIfName)
 				if err != nil {
 					klog.Warningf("Failed to extract VLAN ID from interface %s: %v", vlanIfName, err)
@@ -516,13 +502,12 @@ func (c *Controller) initProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.
 		}
 	}
 
-	// Auto-detection of additional VLAN interfaces (if enabled)
 	if pn.Spec.PreserveVlanInterfaces {
 		klog.Infof("Auto-detecting VLAN interfaces on %s", nic)
 		vlanIDs := util.DetectVlanInterfaces(nic)
 		for _, vlanID := range vlanIDs {
 			vlanIfName := fmt.Sprintf("%s.%d", nic, vlanID)
-			// Only add if not already explicitly specified
+
 			if _, exists := vlanInterfaceMap[vlanIfName]; !exists {
 				vlanInterfaceMap[vlanIfName] = vlanID
 				vlans.Add(strconv.Itoa(vlanID))
@@ -542,7 +527,7 @@ func (c *Controller) initProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.
 	var mtu int
 	var err error
 	klog.V(3).Infof("ovs init provider network %s", pn.Name)
-	// Configure main interface with ALL VLANs (including detected ones) in trunk
+
 	if mtu, err = c.ovsInitProviderNetwork(pn.Name, nic, vlans.List(), pn.Spec.ExchangeLinkName, vlanInterfaceMap); err != nil {
 		delete(patch, fmt.Sprintf(util.ProviderNetworkExcludeTemplate, pn.Name))
 		if err1 := util.PatchLabels(c.config.KubeClient.CoreV1().Nodes(), node.Name, patch); err1 != nil {
@@ -587,8 +572,6 @@ func (c *Controller) recordProviderNetworkErr(providerNetwork, errMsg string) {
 	}
 }
 
-// cleanProviderNetwork tears down the provider network from the local node.
-// node must not be mutated; it is backed by the shared informer cache.
 func (c *Controller) cleanProviderNetwork(pn *fabricv1.ProviderNetwork, node *v1.Node) error {
 	patch := util.KVPatch{
 		fmt.Sprintf(util.ProviderNetworkReadyTemplate, pn.Name):     nil,
@@ -832,13 +815,7 @@ func (c *Controller) processNextUpdatePodWorkItem() bool {
 	return true
 }
 
-// isVMLauncherPodAlive checks whether any KubeVirt launcher pod exists for the given VMI name.
-// It tries multiple lookup strategies to handle different KubeVirt versions:
-//  1. VirtualMachineInstanceIDLabel (vmi.kubevirt.io/id) — unique, available in KubeVirt >= 1.7
-//  2. DeprecatedVirtualMachineNameLabel (vm.kubevirt.io/name) — may not be unique when VM hostname is set
-//  3. DomainAnnotation (kubevirt.io/domain) — always the real VMI name, handles names > 63 chars
 func (c *Controller) isVMLauncherPodAlive(namespace, vmiName, iface string) bool {
-	// Try the new unique label first (KubeVirt >= 1.7)
 	selector := labels.SelectorFromSet(map[string]string{kubevirtv1.VirtualMachineInstanceIDLabel: vmiName})
 	launcherPods, err := c.podsLister.Pods(namespace).List(selector)
 	if err != nil {
@@ -852,7 +829,6 @@ func (c *Controller) isVMLauncherPodAlive(namespace, vmiName, iface string) bool
 		return true
 	}
 
-	// Fall back to the deprecated label for older KubeVirt versions
 	selector = labels.SelectorFromSet(map[string]string{kubevirtv1.DeprecatedVirtualMachineNameLabel: vmiName})
 	launcherPods, err = c.podsLister.Pods(namespace).List(selector)
 	if err != nil {
@@ -866,10 +842,6 @@ func (c *Controller) isVMLauncherPodAlive(namespace, vmiName, iface string) bool
 		return true
 	}
 
-	// Final fallback: for VMI names > 63 chars where VirtualMachineInstanceIDLabel is hashed,
-	// match by kubevirt.io/domain annotation which always contains the real VMI name.
-	// Use the deprecated label as a selector to narrow down to virt-launcher pods only,
-	// then match the annotation for the exact VMI name.
 	selector = labels.Everything()
 	if req, err := labels.NewRequirement(kubevirtv1.DeprecatedVirtualMachineNameLabel, selection.Exists, nil); err == nil {
 		selector = selector.Add(*req)
@@ -918,14 +890,10 @@ func (c *Controller) gcInterfaces() {
 				continue
 			}
 
-			// Pod not found by name. Check if this might be a KubeVirt VM.
-			// For KubeVirt VMs, the pod_name in OVS external_ids is set to the VMI name (not the launcher pod name).
-			// Try to find launcher pods using KubeVirt labels/annotations.
 			if c.isVMLauncherPodAlive(podNamespace, podName, iface) {
 				continue
 			}
 
-			// No pod on this node and no launcher pod found - safe to delete
 			klog.Infof("pod %s/%s not found on this node, delete ovs interface %s", podNamespace, podName, iface)
 			if err = ovs.CleanInterface(iface); err != nil {
 				klog.Errorf("failed to clean ovs interface %s: %v", iface, err)
@@ -1002,7 +970,6 @@ func (c *Controller) handleUpdateNode(key string) error {
 	return c.config.UpdateNodeNetworks(node)
 }
 
-// Run starts controller
 func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.addOrUpdateProviderNetworkQueue.ShutDown()
@@ -1034,8 +1001,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	go wait.Until(c.runUpdateNodeWorker, time.Second, stopCh)
 	go wait.Until(c.runIPSecWorker, 3*time.Second, stopCh)
 	if c.config.EnableNonPrimaryCNI {
-		// In non-primary CNI mode, iptables cleanup is a one-time operation at startup.
-		// There is no dynamic state to reconcile, so periodic execution is unnecessary.
 		if err := c.cleanupIptablesInNonPrimaryCNIMode(); err != nil {
 			klog.Errorf("failed to cleanup iptables in non-primary CNI mode: %v", err)
 		}
@@ -1053,9 +1018,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	if c.config.EnableTProxy {
 		go c.StartTProxyForwarding()
 		go wait.Until(c.runTProxyConfigWorker, 3*time.Second, stopCh)
-		// Using the tproxy method, kubelet's TCP probe packets cannot reach the namespace of the pod of the custom VPC,
-		// so tproxy itself probes the pod of the custom VPC, if probe failed remove the iptable rules from
-		// kubelet to tproxy, if probe success recover the iptable rules
+
 		go wait.Until(c.StartTProxyTCPPortProbe, 1*time.Second, stopCh)
 	} else {
 		c.cleanTProxyConfig()
@@ -1067,10 +1030,8 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 		}
 	}
 
-	// Start OpenFlow sync loop
 	go c.runFlowSync(stopCh)
 
-	// start fdb sync loop
 	go c.runFdbSync(stopCh)
 
 	<-stopCh

@@ -59,7 +59,6 @@ func (c *StatefulSetClient) GetPods(sts *appsv1.StatefulSet) *corev1.PodList {
 	return pods
 }
 
-// Create creates a new statefulset according to the framework specifications
 func (c *StatefulSetClient) Create(sts *appsv1.StatefulSet) *appsv1.StatefulSet {
 	ginkgo.GinkgoHelper()
 	s, err := c.StatefulSetInterface.Create(context.TODO(), sts, metav1.CreateOptions{})
@@ -67,17 +66,15 @@ func (c *StatefulSetClient) Create(sts *appsv1.StatefulSet) *appsv1.StatefulSet 
 	return s.DeepCopy()
 }
 
-// CreateSync creates a new statefulset according to the framework specifications, and waits for it to complete.
 func (c *StatefulSetClient) CreateSync(sts *appsv1.StatefulSet) *appsv1.StatefulSet {
 	ginkgo.GinkgoHelper()
 
 	s := c.Create(sts)
 	c.WaitForRunningAndReady(s)
-	// Get the newest statefulset
+
 	return c.Get(s.Name).DeepCopy()
 }
 
-// Delete deletes a statefulset if the statefulset exists
 func (c *StatefulSetClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.StatefulSetInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -86,8 +83,6 @@ func (c *StatefulSetClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the statefulset and waits for the statefulset to disappear for `timeout`.
-// If the statefulset doesn't disappear before the timeout, it will fail the test.
 func (c *StatefulSetClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
@@ -104,7 +99,6 @@ func (c *StatefulSetClient) WaitForRunningAndReady(sts *appsv1.StatefulSet) {
 	statefulset.WaitForRunning(context.Background(), c.f.ClientSet, *sts.Spec.Replicas, n, sts)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified statefulset to disappear.
 func (c *StatefulSetClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*appsv1.StatefulSet, error) {
 		sts, err := c.StatefulSetInterface.Get(ctx, name, metav1.GetOptions{})

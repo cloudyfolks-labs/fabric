@@ -133,7 +133,6 @@ func TestDialTCP(t *testing.T) {
 		}
 	}()
 
-	// Update tests with dynamic URLs
 	for i, tc := range tests {
 		if tc.host == "http://localhost:8080" || tc.host == "https://localhost:8443" {
 			tests[i].host = httpServer.URL
@@ -144,7 +143,6 @@ func TestDialTCP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := DialTCP(tt.host, tt.timeout, tt.verbose)
 
-			// Dynamically generate expected message for timeout
 			if tt.expected != nil && strings.Contains(tt.expected.Error(), "timed out dialing host") {
 				tt.expected = errors.New(`timed out dialing host "` + tt.host + `"`)
 			}
@@ -392,7 +390,7 @@ func TestLabelSelectorNotEquals(t *testing.T) {
 	selector, err := LabelSelectorNotEquals("key", "value")
 	require.NoError(t, err)
 	require.Equal(t, "key!=value", selector.String())
-	// Test error case
+
 	selector, err = LabelSelectorNotEquals("", "")
 	require.Error(t, err)
 	require.Nil(t, selector)
@@ -402,7 +400,7 @@ func TestLabelSelectorNotEmpty(t *testing.T) {
 	selector, err := LabelSelectorNotEmpty("key")
 	require.NoError(t, err)
 	require.Equal(t, "key!=", selector.String())
-	// Test error case
+
 	selector, err = LabelSelectorNotEmpty("")
 	require.Error(t, err)
 	require.Nil(t, selector)
@@ -637,7 +635,6 @@ func TestTrimManagedFields(t *testing.T) {
 				return
 			}
 			if err == nil {
-				// check whether managed fields are trimmed
 				accessor, err := meta.Accessor(ret)
 				require.NoError(t, err)
 				require.Empty(t, accessor.GetManagedFields())
@@ -759,7 +756,6 @@ func TestTrimPodForController(t *testing.T) {
 	trimmed, ok := ret.(*corev1.Pod)
 	require.True(t, ok)
 
-	// preserved metadata and spec fields required by the controller
 	require.Equal(t, "demo", trimmed.Name)
 	require.Equal(t, map[string]string{"app": "demo"}, trimmed.Labels)
 	require.Equal(t, map[string]string{"foo": "bar"}, trimmed.Annotations)
@@ -770,19 +766,16 @@ func TestTrimPodForController(t *testing.T) {
 	require.Equal(t, "node-1", trimmed.Spec.NodeName)
 	require.Equal(t, corev1.RestartPolicyAlways, trimmed.Spec.RestartPolicy)
 
-	// container name and ports preserved (NamedPort lookup)
 	require.Len(t, trimmed.Spec.Containers, 1)
 	require.Equal(t, "app", trimmed.Spec.Containers[0].Name)
 	require.Equal(t, "http", trimmed.Spec.Containers[0].Ports[0].Name)
 	require.EqualValues(t, 80, trimmed.Spec.Containers[0].Ports[0].ContainerPort)
 
-	// init-container RestartPolicy and ports preserved (restartable sidecar)
 	require.Len(t, trimmed.Spec.InitContainers, 1)
 	require.NotNil(t, trimmed.Spec.InitContainers[0].RestartPolicy)
 	require.Equal(t, corev1.ContainerRestartPolicyAlways, *trimmed.Spec.InitContainers[0].RestartPolicy)
 	require.Equal(t, "sidecar-http", trimmed.Spec.InitContainers[0].Ports[0].Name)
 
-	// status fields required for pod alive / restart checks
 	require.Equal(t, corev1.PodRunning, trimmed.Status.Phase)
 	require.Equal(t, "10.244.0.5", trimmed.Status.PodIP)
 	require.Equal(t, []corev1.PodIP{{IP: "10.244.0.5"}}, trimmed.Status.PodIPs)
@@ -791,13 +784,11 @@ func TestTrimPodForController(t *testing.T) {
 	require.Equal(t, "app", trimmed.Status.ContainerStatuses[0].Name)
 	require.EqualValues(t, 3, trimmed.Status.ContainerStatuses[0].RestartCount)
 
-	// condition type/status/lastTransitionTime preserved
 	require.Len(t, trimmed.Status.Conditions, 1)
 	require.Equal(t, corev1.PodReady, trimmed.Status.Conditions[0].Type)
 	require.Equal(t, corev1.ConditionTrue, trimmed.Status.Conditions[0].Status)
 	require.False(t, trimmed.Status.Conditions[0].LastTransitionTime.IsZero())
 
-	// trimmed: spec volumes / tolerations / affinity / node selector / scheduler name
 	require.Nil(t, trimmed.Spec.Volumes)
 	require.Nil(t, trimmed.Spec.Tolerations)
 	require.Nil(t, trimmed.Spec.NodeSelector)
@@ -810,7 +801,6 @@ func TestTrimPodForController(t *testing.T) {
 	require.Nil(t, trimmed.Spec.SecurityContext)
 	require.Nil(t, trimmed.Spec.AutomountServiceAccountToken)
 
-	// trimmed: container command/args/env/volumeMounts/probes/securityContext
 	c0 := trimmed.Spec.Containers[0]
 	require.Empty(t, c0.Image)
 	require.Nil(t, c0.Command)
@@ -826,7 +816,6 @@ func TestTrimPodForController(t *testing.T) {
 	require.Empty(t, c0.ImagePullPolicy)
 	require.Equal(t, corev1.ResourceRequirements{}, c0.Resources)
 
-	// trimmed: init container fields except preserved ones
 	ic0 := trimmed.Spec.InitContainers[0]
 	require.Empty(t, ic0.Image)
 	require.Nil(t, ic0.Command)
@@ -835,8 +824,6 @@ func TestTrimPodForController(t *testing.T) {
 	require.Nil(t, ic0.LivenessProbe)
 	require.Nil(t, ic0.SecurityContext)
 
-	// container status: State preserved (restart detection paths read
-	// State.Running.StartedAt); other heavy fields trimmed.
 	cs0 := trimmed.Status.ContainerStatuses[0]
 	require.NotNil(t, cs0.State.Running)
 	require.False(t, cs0.State.Running.StartedAt.IsZero())
@@ -847,21 +834,16 @@ func TestTrimPodForController(t *testing.T) {
 	require.Empty(t, cs0.ContainerID)
 	require.Nil(t, cs0.Started)
 
-	// trimmed: init container statuses / ephemeral / QOS / messages
 	require.Nil(t, trimmed.Status.InitContainerStatuses)
 	require.Empty(t, trimmed.Status.QOSClass)
 	require.Empty(t, trimmed.Status.Message)
 	require.Empty(t, trimmed.Status.NominatedNodeName)
 
-	// trimmed: condition probe time / reason / message
 	require.True(t, trimmed.Status.Conditions[0].LastProbeTime.IsZero())
 	require.Empty(t, trimmed.Status.Conditions[0].Reason)
 	require.Empty(t, trimmed.Status.Conditions[0].Message)
 }
 
-// BenchmarkPodInformerTrim estimates the per-pod in-memory retained size
-// after each transform by building N typical pods, running the transform,
-// forcing GC, and dividing HeapAlloc delta by N.
 func BenchmarkPodInformerTrim(b *testing.B) {
 	b.Run("TrimManagedFields", func(b *testing.B) {
 		reportRetainedBytesPerPod(b, TrimManagedFields)
@@ -881,7 +863,7 @@ func reportRetainedBytesPerPod(b *testing.B, transform func(any) (any, error)) {
 		pods := make([]*corev1.Pod, N)
 		for i := range N {
 			p := fullyPopulatedPod()
-			// Make names unique so strings actually allocate rather than getting interned.
+
 			p.Name = fmt.Sprintf("pod-%05d", i)
 			p.Namespace = fmt.Sprintf("ns-%03d", i%100)
 			p.UID = uuid.NewUUID()
@@ -895,8 +877,7 @@ func reportRetainedBytesPerPod(b *testing.B, transform func(any) (any, error)) {
 		runtime.GC()
 		var after runtime.MemStats
 		runtime.ReadMemStats(&after)
-		// HeapAlloc is unsigned; clamp so a shrinking heap between snapshots
-		// does not wrap around to a huge bogus retained size.
+
 		retained := max(int64(after.HeapAlloc)-int64(before.HeapAlloc), 0)
 		b.ReportMetric(float64(retained)/float64(N), "bytes/pod")
 		runtime.KeepAlive(pods)

@@ -18,10 +18,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// ---------------------------------------------------------------------------
-// Pure function tests
-// ---------------------------------------------------------------------------
-
 func Test_generateRlrHeadlessService(t *testing.T) {
 	makeRlr := func(name, vpc, eip, ns string, selectors []string, ports []fabricv1.RouterLBRulePort) *fabricv1.RouterLBRule {
 		return &fabricv1.RouterLBRule{
@@ -168,7 +164,6 @@ func Test_generateRlrEndpoints(t *testing.T) {
 
 	t.Run("TargetRef.Namespace uses passed namespace not rlr.Namespace", func(t *testing.T) {
 		rlr := &fabricv1.RouterLBRule{
-			// Namespace is empty because RouterLBRule is cluster-scoped
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
 			Spec: fabricv1.RouterLBRuleSpec{
 				Endpoints: []string{"192.168.1.10", "192.168.1.11"},
@@ -442,8 +437,6 @@ func Test_vpcLoadBalancerNames(t *testing.T) {
 	})
 }
 
-// getVipIps is in service.go; these cases cover the RouterLBRuleVipsAnnotation
-// branch added alongside the fix.
 func Test_getVipIps_routerLBRule(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -495,10 +488,6 @@ func Test_getVipIps_routerLBRule(t *testing.T) {
 		})
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Controller tests — checkEipPortConflict
-// ---------------------------------------------------------------------------
 
 func Test_checkEipPortConflict(t *testing.T) {
 	existingRlr := &fabricv1.RouterLBRule{
@@ -589,10 +578,6 @@ func Test_checkEipPortConflict(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Controller tests — handleAddOrUpdateRouterLBRule
-// ---------------------------------------------------------------------------
-
 func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	makeEip := func(name, v4ip, specType, externalSubnet string) *fabricv1.OvnEip {
 		return &fabricv1.OvnEip{
@@ -664,7 +649,7 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		rlr := makeRlr("rlr1", "lsp-eip", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
-			// V4Ip must be non-empty to pass GetOvnEip readiness check, but Spec.Type is LSP
+
 			OvnEips: []*fabricv1.OvnEip{makeEip("lsp-eip", "10.0.0.1", util.OvnEipTypeLSP, "")},
 		})
 		require.NoError(t, err)
@@ -696,7 +681,6 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
 			OvnEips:       []*fabricv1.OvnEip{makeEip("eip1", "10.0.0.1", util.OvnEipTypeNAT, "pubnet")},
-			// No vpc1-pubnet LRP EIP present.
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
@@ -716,7 +700,7 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 
 	t.Run("VPC LRP wrong type returns error", func(t *testing.T) {
 		lrpEip := makeLrpEip("vpc1", "pubnet")
-		lrpEip.Spec.Type = util.OvnEipTypeNAT // not LRP
+		lrpEip.Spec.Type = util.OvnEipTypeNAT
 		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			RouterLBRules: []*fabricv1.RouterLBRule{rlr},
@@ -805,7 +789,6 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	})
 
 	t.Run("port conflict with another RouterLBRule returns error", func(t *testing.T) {
-		// "rlr1" claims eip1:80; "existing-rlr" already owns eip1:80.
 		existing := makeRlr("existing-rlr", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		rlr := makeRlr("rlr1", "eip1", "vpc1", []fabricv1.RouterLBRulePort{{Port: 80}})
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
@@ -821,7 +804,6 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 	})
 
 	t.Run("port conflict with OvnDnatRule returns error", func(t *testing.T) {
-		// "rlr1" claims eip1:443; an OvnDnatRule already uses eip1:443.
 		dnat := &fabricv1.OvnDnatRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   "existing-dnat",
@@ -867,7 +849,6 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 
 		require.NoError(t, fc.fakeController.handleAddOrUpdateRouterLBRule("rlr1"))
 
-		// Service must exist with the correct VIP and router annotations.
 		svc, err := fc.fakeController.config.KubeClient.CoreV1().
 			Services(metav1.NamespaceDefault).
 			Get(context.Background(), "rlr-rlr1", metav1.GetOptions{})
@@ -876,7 +857,6 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		assert.Equal(t, "vpc1", svc.Annotations[util.LogicalRouterAnnotation])
 		assert.Equal(t, corev1.ClusterIPNone, svc.Spec.ClusterIP)
 
-		// Status must be updated with service reference.
 		updated, err := fc.fakeController.config.FabricClient.FabricV1().
 			RouterLBRules().
 			Get(context.Background(), "rlr1", metav1.GetOptions{})
@@ -885,10 +865,6 @@ func Test_handleAddOrUpdateRouterLBRule(t *testing.T) {
 		assert.Contains(t, updated.Status.Ports, "80/TCP")
 	})
 }
-
-// ---------------------------------------------------------------------------
-// Controller tests — handleDelRouterLBRule
-// ---------------------------------------------------------------------------
 
 func Test_handleDelRouterLBRule(t *testing.T) {
 	const (
@@ -923,7 +899,7 @@ func Test_handleDelRouterLBRule(t *testing.T) {
 	t.Run("service not found exits cleanly without OVN calls", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, nil)
 		require.NoError(t, err)
-		// No mock expectations — any unexpected OVN call fails the test.
+
 		assert.NoError(t, fc.fakeController.handleDelRouterLBRule(makeInfo()))
 	})
 
@@ -932,7 +908,7 @@ func Test_handleDelRouterLBRule(t *testing.T) {
 			Services: []*corev1.Service{makeSvc(false)},
 		})
 		require.NoError(t, err)
-		// No mock expectations — no OVN calls expected.
+
 		assert.NoError(t, fc.fakeController.handleDelRouterLBRule(makeInfo()))
 
 		_, err = fc.fakeController.config.KubeClient.CoreV1().
@@ -973,7 +949,6 @@ func Test_handleDelRouterLBRule(t *testing.T) {
 	t.Run("VPC not found still deletes the VIP from every LB that holds it", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			Services: []*corev1.Service{makeSvc(true)},
-			// VPC intentionally absent.
 		})
 		require.NoError(t, err)
 
@@ -990,10 +965,6 @@ func Test_handleDelRouterLBRule(t *testing.T) {
 		assert.NoError(t, fc.fakeController.handleDelRouterLBRule(makeInfo()))
 	})
 }
-
-// ---------------------------------------------------------------------------
-// Enqueue logic — IsRecreate flag
-// ---------------------------------------------------------------------------
 
 func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 	fc, err := newFakeControllerWithOptions(t, nil)
@@ -1025,7 +996,7 @@ func Test_enqueueUpdateRouterLBRule_isRecreate(t *testing.T) {
 		{
 			name: "same ResourceVersion is a no-op",
 			mutate: func(r *fabricv1.RouterLBRule) *fabricv1.RouterLBRule {
-				return r.DeepCopy() // ResourceVersion unchanged
+				return r.DeepCopy()
 			},
 		},
 		{

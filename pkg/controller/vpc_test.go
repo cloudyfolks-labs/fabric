@@ -21,11 +21,9 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 
 	vpcName := "test-vpc"
 
-	// Policy variables for taking pointers
 	srcIPPolicy := ovnnb.LogicalRouterStaticRoutePolicySrcIP
 	dstIPPolicy := ovnnb.LogicalRouterStaticRoutePolicyDstIP
 
-	// Internal static route created directly in OVN with fabric vendor
 	internalStaticRoute := &ovnnb.LogicalRouterStaticRoute{
 		UUID: "internal-static-route-uuid",
 		ExternalIDs: map[string]string{
@@ -37,7 +35,6 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 		RouteTable: util.MainRouteTable,
 	}
 
-	// Static route that matches VPC spec
 	managedStaticRoute := &ovnnb.LogicalRouterStaticRoute{
 		UUID: "managed-static-route-uuid",
 		ExternalIDs: map[string]string{
@@ -55,7 +52,6 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 		fakeinformers := fakeController.fakeInformers
 		mockOvnClient := fakeController.mockOvnClient
 
-		// Initialize mutexes
 		ctrl.vpcKeyMutex = keymutex.NewHashed(500)
 
 		vpc := &fabricv1.Vpc{
@@ -347,7 +343,7 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 			Nat:  []string{},
 		}, nil)
 		mockOvnClient.EXPECT().ListLogicalRouterPolicies(vpcName, -1, nil, true).Return(nil, nil)
-		// The key assertion: empty NextHopIP must produce nil next-hops, not [""]
+
 		mockOvnClient.EXPECT().AddLogicalRouterPolicy(
 			vpcName,
 			200,
@@ -410,9 +406,9 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 			Name: vpcName,
 			Nat:  []string{},
 		}, nil)
-		// No existing policies in OVN for this custom VPC
+
 		mockOvnClient.EXPECT().ListLogicalRouterPolicies(vpcName, -1, nil, true).Return(nil, nil)
-		// The key assertion: next-hops must be split into a slice, not wrapped as one element
+
 		mockOvnClient.EXPECT().AddLogicalRouterPolicy(
 			vpcName,
 			100,

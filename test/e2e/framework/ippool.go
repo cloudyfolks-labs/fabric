@@ -21,7 +21,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// IPPoolClient is a struct for ippool client.
 type IPPoolClient struct {
 	f *Framework
 	v1.IPPoolInterface
@@ -41,7 +40,6 @@ func (c *IPPoolClient) Get(name string) *apiv1.IPPool {
 	return ippool
 }
 
-// Create creates a new ippool according to the framework specifications
 func (c *IPPoolClient) Create(ippool *apiv1.IPPool) *apiv1.IPPool {
 	ginkgo.GinkgoHelper()
 	s, err := c.IPPoolInterface.Create(context.TODO(), ippool, metav1.CreateOptions{})
@@ -49,17 +47,15 @@ func (c *IPPoolClient) Create(ippool *apiv1.IPPool) *apiv1.IPPool {
 	return s.DeepCopy()
 }
 
-// CreateSync creates a new ippool according to the framework specifications, and waits for it to be ready.
 func (c *IPPoolClient) CreateSync(ippool *apiv1.IPPool) *apiv1.IPPool {
 	ginkgo.GinkgoHelper()
 
 	s := c.Create(ippool)
 	ExpectTrue(c.WaitToBeReady(s.Name, timeout))
-	// Get the newest ippool after it becomes ready
+
 	return c.Get(s.Name).DeepCopy()
 }
 
-// Update updates the ippool
 func (c *IPPoolClient) Update(ippool *apiv1.IPPool, options metav1.UpdateOptions, timeout time.Duration) *apiv1.IPPool {
 	ginkgo.GinkgoHelper()
 
@@ -67,13 +63,12 @@ func (c *IPPoolClient) Update(ippool *apiv1.IPPool, options metav1.UpdateOptions
 	err := wait.PollUntilContextTimeout(context.Background(), poll, timeout, true, func(ctx context.Context) (bool, error) {
 		s, err := c.IPPoolInterface.Update(ctx, ippool, options)
 		if err != nil {
-			// On conflict, refresh the resource and retry
 			if apierrors.IsConflict(err) {
 				latest, getErr := c.IPPoolInterface.Get(ctx, ippool.Name, metav1.GetOptions{})
 				if getErr != nil {
 					return handleWaitingAPIError(getErr, false, "get ippool %q for conflict retry", ippool.Name)
 				}
-				// Copy spec changes to the latest version
+
 				latest.Spec = ippool.Spec
 				ippool = latest
 			}
@@ -94,18 +89,15 @@ func (c *IPPoolClient) Update(ippool *apiv1.IPPool, options metav1.UpdateOptions
 	return nil
 }
 
-// UpdateSync updates the ippool and waits for the ippool to be ready for `timeout`.
-// If the ippool doesn't become ready before the timeout, it will fail the test.
 func (c *IPPoolClient) UpdateSync(ippool *apiv1.IPPool, options metav1.UpdateOptions, timeout time.Duration) *apiv1.IPPool {
 	ginkgo.GinkgoHelper()
 
 	s := c.Update(ippool, options, timeout)
 	ExpectTrue(c.WaitToBeReady(s.Name, timeout))
-	// Get the newest ippool after it becomes ready
+
 	return c.Get(s.Name).DeepCopy()
 }
 
-// Patch patches the ippool
 func (c *IPPoolClient) Patch(original, modified *apiv1.IPPool, timeout time.Duration) *apiv1.IPPool {
 	ginkgo.GinkgoHelper()
 
@@ -133,18 +125,15 @@ func (c *IPPoolClient) Patch(original, modified *apiv1.IPPool, timeout time.Dura
 	return nil
 }
 
-// PatchSync patches the ippool and waits for the ippool to be ready for `timeout`.
-// If the ippool doesn't become ready before the timeout, it will fail the test.
 func (c *IPPoolClient) PatchSync(original, modified *apiv1.IPPool) *apiv1.IPPool {
 	ginkgo.GinkgoHelper()
 
 	s := c.Patch(original, modified, timeout)
 	ExpectTrue(c.WaitToBeReady(s.Name, timeout))
-	// Get the newest ippool after it becomes ready
+
 	return c.Get(s.Name).DeepCopy()
 }
 
-// Delete deletes an ippool if the ippool exists
 func (c *IPPoolClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.IPPoolInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -153,8 +142,6 @@ func (c *IPPoolClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the ippool and waits for the ippool to disappear for `timeout`.
-// If the ippool doesn't disappear before the timeout, it will fail the test.
 func (c *IPPoolClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
@@ -180,16 +167,10 @@ func isIPPoolConditionSetAsExpected(ippool *apiv1.IPPool, conditionType apiv1.Co
 	return false
 }
 
-// IsIPPoolConditionSetAsExpected returns a wantTrue value if the ippool has a match to the conditionType,
-// otherwise returns an opposite value of the wantTrue with detailed logging.
 func IsIPPoolConditionSetAsExpected(ippool *apiv1.IPPool, conditionType apiv1.ConditionType, wantTrue bool) bool {
 	return isIPPoolConditionSetAsExpected(ippool, conditionType, wantTrue, false)
 }
 
-// WaitConditionToBe returns whether ippool "name's" condition state matches wantTrue
-// within timeout. If wantTrue is true, it will ensure the ippool condition status is
-// ConditionTrue; if it's false, it ensures the ippool condition is in any state other
-// than ConditionTrue (e.g. not true or unknown).
 func (c *IPPoolClient) WaitConditionToBe(name string, conditionType apiv1.ConditionType, wantTrue bool, timeout time.Duration) bool {
 	Logf("Waiting up to %v for ippool %s condition %s to be %t", timeout, name, conditionType, wantTrue)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
@@ -204,12 +185,10 @@ func (c *IPPoolClient) WaitConditionToBe(name string, conditionType apiv1.Condit
 	return false
 }
 
-// WaitToBeReady returns whether the ippool is ready within timeout.
 func (c *IPPoolClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	return c.WaitConditionToBe(name, apiv1.Ready, true, timeout)
 }
 
-// WaitToBeUpdated returns whether the ippool is updated within timeout.
 func (c *IPPoolClient) WaitToBeUpdated(ippool *apiv1.IPPool, timeout time.Duration) bool {
 	Logf("Waiting up to %v for ippool %s to be updated", timeout, ippool.Name)
 	rv, _ := big.NewInt(0).SetString(ippool.ResourceVersion, 10)
@@ -225,7 +204,6 @@ func (c *IPPoolClient) WaitToBeUpdated(ippool *apiv1.IPPool, timeout time.Durati
 	return false
 }
 
-// WaitUntil waits the given timeout duration for the specified condition to be met.
 func (c *IPPoolClient) WaitUntil(name string, cond func(s *apiv1.IPPool) (bool, error), condDesc string, interval, timeout time.Duration) *apiv1.IPPool {
 	ginkgo.GinkgoHelper()
 
@@ -251,7 +229,6 @@ func (c *IPPoolClient) WaitUntil(name string, cond func(s *apiv1.IPPool) (bool, 
 	return nil
 }
 
-// WaitToDisappear waits the given timeout duration for the specified ippool to disappear.
 func (c *IPPoolClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.IPPool, error) {
 		ippool, err := c.IPPoolInterface.Get(ctx, name, metav1.GetOptions{})

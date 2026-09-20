@@ -11,7 +11,6 @@ import (
 	"github.com/onsi/ginkgo/v2"
 )
 
-// NetworkAttachmentDefinitionClient is a struct for nad client.
 type NetworkAttachmentDefinitionClient struct {
 	f *Framework
 	v1.NetworkAttachmentDefinitionInterface
@@ -35,7 +34,6 @@ func (c *NetworkAttachmentDefinitionClient) Get(name string) *apiv1.NetworkAttac
 	return nad
 }
 
-// Create creates a new nad according to the framework specifications
 func (c *NetworkAttachmentDefinitionClient) Create(nad *apiv1.NetworkAttachmentDefinition) *apiv1.NetworkAttachmentDefinition {
 	ginkgo.GinkgoHelper()
 	nad, err := c.NetworkAttachmentDefinitionInterface.Create(context.TODO(), nad, metav1.CreateOptions{})
@@ -43,7 +41,6 @@ func (c *NetworkAttachmentDefinitionClient) Create(nad *apiv1.NetworkAttachmentD
 	return c.Get(nad.Name)
 }
 
-// Delete deletes a nad if the nad exists
 func (c *NetworkAttachmentDefinitionClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.NetworkAttachmentDefinitionInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})

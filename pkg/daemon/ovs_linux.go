@@ -55,7 +55,6 @@ func (csh cniServerHandler) configureDpdkNic(podName, podNamespace, provider, ne
 		vhostServerPath = path.Join(sharedDir, ifName)
 	}
 
-	// Add vhostuser host end to ovs port
 	output, err := ovs.Exec(ovs.MayExist, "add-port", "br-int", hostNicName, "--",
 		"set", "interface", hostNicName,
 		"type=dpdkvhostuserclient",
@@ -97,8 +96,6 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 		}
 		defer func() {
 			if err != nil {
-				// Bring the representor back up so the VF is not left blackholed
-				// when configureNic fails before configureHostNic runs.
 				if link, linkErr := netlink.LinkByName(hostNicName); linkErr == nil {
 					if linkErr = netlink.LinkSetUp(link); linkErr != nil {
 						klog.Errorf("failed to bring %s back up during rollback: %v", hostNicName, linkErr)
@@ -110,16 +107,14 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 
 	ipStr := util.GetIPWithoutMask(ip)
 	ifaceID := ovs.PodNameToPortName(podName, podNamespace, provider)
-	// in case of multiple interfaces the interface name is used to distinguish different interfaces
-	// currently ovs.PodNameToPortName ignores the ifname which results in same port being returned
-	// for default nics the ifname is set to eth0 by the handler, so we can use that to distinguish default nics and non default nics, for non default nics we can append the ifname to the ifaceID to make it unique for ovs port creation and later retrieval, this is required to avoid the issue of same port being returned for multiple interfaces which results in wrong port being configured and attached to the pod, and also results in wrong port being deleted during pod deletion which affects other interfaces attached to the same pod.
+
 	if appendIfName {
 		ifaceID = fmt.Sprintf("%s.%s", ifaceID, ifName)
 	}
 	ovs.CleanDuplicatePort(ifaceID, hostNicName)
 	if yusur.IsYusurSmartNic(deviceID) {
 		klog.Infof("add Yusur smartnic vfr %s to ovs", hostNicName)
-		// Add yusur ovs port
+
 		args := []string{
 			ovs.MayExist, "add-port", "br-int", hostNicName, "--",
 			"set", "interface", hostNicName, "type=dpdk",
@@ -142,7 +137,6 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 			return nil, fmt.Errorf("add nic to ovs failed %w: %q", err, output)
 		}
 	} else {
-		// Add veth pair host end to ovs port
 		args := []string{
 			ovs.MayExist, "add-port", "br-int", hostNicName, "--",
 			"set", "interface", hostNicName, "external_ids:iface-id=" + ifaceID,
@@ -171,7 +165,6 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 		}
 	}()
 
-	// add hostNicName and containerNicName into pod annotations
 	if deviceID != "" {
 		var podNameNew string
 		if podName != oldPodName {
@@ -190,7 +183,6 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 		}
 	}
 
-	// lsp and container nic must use same mac address, otherwise ovn will reject these packets by default
 	macAddr, err := net.ParseMAC(mac)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse mac %q: %w", mac, err)
@@ -232,14 +224,12 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 		return nil, err
 	}
 	if isUserspaceDP {
-		// turn off tx checksum
 		if err = TurnOffNicTxChecksum(containerNicName); err != nil {
 			klog.Error(err)
 			return nil, err
 		}
 	}
 
-	// wait for the ovs interface to be ready
 	var ready bool
 	ch := make(chan struct{}, 1)
 	timeout := 30 * time.Second
@@ -266,11 +256,6 @@ func (csh cniServerHandler) configureNic(podName, podNamespace, provider, netns,
 		return nil, err
 	}
 
-	// For underlay subnets, wait for the localnet patch port to be created by
-	// ovn-controller before configuring the container NIC. This ensures L2
-	// connectivity is established before kernel IPv6 DAD sends Neighbor
-	// Solicitation packets, preventing false DAD success due to NS packets
-	// being black-holed when the patch port does not yet exist.
 	if localnetSubnet != "" {
 		if err := waitForLocalnetPatchPort(localnetSubnet); err != nil {
 			klog.Error(err)
@@ -304,7 +289,6 @@ func waitForLocalnetPatchPort(subnetName string) error {
 }
 
 func (csh cniServerHandler) releaseVf(podName, podNamespace, podNetns, ifName, nicType, deviceID string) error {
-	// Only for SRIOV case, we'd need to move the VF from container namespace back to the host namespace
 	if nicType != util.OffloadType || deviceID == "" {
 		return nil
 	}
@@ -323,7 +307,6 @@ func (csh cniServerHandler) releaseVf(podName, podNamespace, podNetns, ifName, n
 	defer hostNS.Close()
 
 	err = netns.Do(func(_ ns.NetNS) error {
-		// container side interface deletion
 		link, err := netlink.LinkByName(ifName)
 		if err != nil {
 			return fmt.Errorf("failed to get container interface %s %s: %w", ifName, podDesc, err)
@@ -331,13 +314,13 @@ func (csh cniServerHandler) releaseVf(podName, podNamespace, podNetns, ifName, n
 		if err = netlink.LinkSetDown(link); err != nil {
 			return fmt.Errorf("failed to bring down container interface %s %s: %w", ifName, podDesc, err)
 		}
-		// rename VF device back to its original name in the host namespace:
+
 		vfName := link.Attrs().Alias
 		if err = netlink.LinkSetName(link, vfName); err != nil {
 			return fmt.Errorf("failed to rename container interface %s to %s %s: %w",
 				ifName, vfName, podDesc, err)
 		}
-		// move VF device to host netns
+
 		fd := int(netns.Fd()) // #nosec G115
 		if err = netlink.LinkSetNsFd(link, fd); err != nil {
 			return fmt.Errorf("failed to move container interface %s back to host namespace %s: %w",
@@ -390,7 +373,7 @@ func (csh cniServerHandler) deleteNic(podName, podNamespace, containerID, netns,
 			}
 		}
 	}
-	// Remove ovs port
+
 	output, err := ovs.Exec(ovs.IfExists, "--with-iface", "del-port", "br-int", nicName)
 	if err != nil {
 		return fmt.Errorf("failed to delete ovs port %w, %q", err, output)
@@ -408,8 +391,6 @@ func (csh cniServerHandler) deleteNic(podName, podNamespace, containerID, netns,
 	if deviceID == "" {
 		hostLink, err := netlink.LinkByName(nicName)
 		if err != nil {
-			// If link already not exists, return quietly
-			// E.g. Internal port had been deleted by Remove ovs port previously
 			if _, ok := err.(netlink.LinkNotFoundError); ok {
 				return nil
 			}
@@ -417,14 +398,13 @@ func (csh cniServerHandler) deleteNic(podName, podNamespace, containerID, netns,
 		}
 
 		hostLinkType := hostLink.Type()
-		// Sometimes no deviceID input for vf nic, avoid delete vf nic.
+
 		if hostLinkType == "veth" {
 			if err = netlink.LinkDel(hostLink); err != nil {
 				return fmt.Errorf("delete host link %s failed %w", hostLink, err)
 			}
 		}
 	} else if pciAddrRegexp.MatchString(deviceID) && !yusur.IsYusurSmartNic(deviceID) {
-		// Ret VF index from PCI
 		vfIndex, err := sriovnet.GetVfIndexByPciAddress(deviceID)
 		if err != nil {
 			klog.Errorf("failed to get vf %s index, %v", deviceID, err)
@@ -451,7 +431,7 @@ func generateNicName(containerID, ifname string) (string, string) {
 	if ifname == "eth0" {
 		return containerID[0:12] + "_h", containerID[0:12] + "_c"
 	}
-	// The nic name is 14 length and have prefix pod in the Kubevirt v1.0.0
+
 	if strings.HasPrefix(ifname, "pod") && len(ifname) == 14 {
 		ifname = ifname[3 : len(ifname)-4]
 		return fmt.Sprintf("%s_%s_h", containerID[0:12-len(ifname)], ifname), fmt.Sprintf("%s_%s_c", containerID[0:12-len(ifname)], ifname)
@@ -483,7 +463,6 @@ func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName
 		return nil, fmt.Errorf("can not find container nic %s: %w", nicName, err)
 	}
 
-	// Set link alias to its origin link name so teardown can rename the device back
 	if err := netlink.LinkSetAlias(containerLink, nicName); err != nil {
 		klog.Errorf("failed to set link alias for container nic %s: %v", nicName, err)
 		return nil, err
@@ -494,7 +473,6 @@ func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName
 		return nil, fmt.Errorf("failed to move link to netns: %w", err)
 	}
 
-	// do not perform ipv4/ipv6 duplicate address detection during VM live migration
 	ipv6DAD := !vmMigration
 	detectIPv4Conflict := !vmMigration && csh.Config.EnableArpDetectIPConflict
 	var finalRoutes []request.Route
@@ -509,16 +487,12 @@ func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName
 			return err
 		}
 
-		// MAC-only mode (BYO-DHCP / external DHCP): no IP address was allocated, so skip
-		// IP route and gateway configuration. The VM obtains its address from an external
-		// DHCP server.
 		if ipAddr == "" {
 			klog.Infof("configured MAC-only interface %s for pod %s/%s, skipping IP routes and gateway checks", ifName, podNamespace, podName)
 			return nil
 		}
 
 		if isDefaultRoute {
-			// Only eth0 requires the default route and gateway
 			containerGw := gateway
 			if u2oInterconnectionIP != "" {
 				containerGw = u2oInterconnectionIP
@@ -576,7 +550,6 @@ func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName
 			}
 			if r.Dst != nil && r.Dst.IP.IsLinkLocalUnicast() {
 				if _, bits := r.Dst.Mask.Size(); bits == net.IPv6len*8 {
-					// skip fe80::/10
 					continue
 				}
 			}
@@ -638,7 +611,6 @@ func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName
 
 func (csh cniServerHandler) checkGatewayReady(podName, podNamespace string, gwCheckMode int, intr, ipAddr, gateway string, verbose bool) error {
 	if gwCheckMode == gatewayCheckModeArpingNotConcerned || gwCheckMode == gatewayCheckModePingNotConcerned {
-		// ignore error if disableGatewayCheck=true
 		_ = waitNetworkReady(intr, ipAddr, gateway, true, verbose, 1, nil)
 		return nil
 	}
@@ -663,7 +635,6 @@ func (csh cniServerHandler) checkGatewayReady(podName, podNamespace string, gwCh
 				pod = nil
 			}
 			if pod == nil || !pod.DeletionTimestamp.IsZero() {
-				// TODO: check pod UID
 				select {
 				case <-done:
 				case done <- struct{}{}:
@@ -741,7 +712,6 @@ func configureNodeNic(cs kubernetes.Interface, nodeName, portName, ip, gw, joinC
 		return fmt.Errorf("can not set host nic %s qlen: %w", util.NodeNic, err)
 	}
 
-	// check and add default route for ovn0 in case of can not add automatically
 	nodeNicRoutes, err := getNicExistRoutes(hostLink, gw)
 	if err != nil {
 		klog.Error(err)
@@ -793,13 +763,11 @@ func configureNodeNic(cs kubernetes.Interface, nodeName, portName, ip, gw, joinC
 		}
 	}
 
-	// ping ovn0 gw to activate the flow
 	klog.Infof("wait %s gw ready", util.NodeNic)
 	if err = waitNetworkReady(util.NodeNic, ip, gw, false, true, gatewayCheckMaxRetry, nil); err != nil {
 		klog.Errorf("failed to init %s check: %v", util.NodeNic, err)
 	}
 
-	// Only set NetworkUnavailable condition when running as primary CNI
 	if !enableNonPrimaryCNI {
 		status := corev1.ConditionFalse
 		reason := "JoinSubnetGatewayReachable"
@@ -819,10 +787,7 @@ func configureNodeNic(cs kubernetes.Interface, nodeName, portName, ip, gw, joinC
 	return err
 }
 
-// If OVS restart, the ovn0 port will down and prevent host to pod network,
-// Restart the fabric-cni when this happens
 func (c *Controller) loopOvn0Check() {
-	// Skip ovn0 check when running as non-primary CNI
 	if c.config.EnableNonPrimaryCNI {
 		return
 	}
@@ -872,8 +837,6 @@ func (c *Controller) loopOvn0Check() {
 	}
 }
 
-// This method checks the status of the tunnel interface,
-// If the interface is found to be down, it attempts to bring it up
 func (c *Controller) loopTunnelCheck() {
 	tunnelType := c.config.NetworkType
 	var tunnelNic string
@@ -913,7 +876,7 @@ func (c *Controller) checkNodeGwNicInNs(nodeExtIP, ip, gw string, gwNS ns.NetNS)
 	}
 	if len(ovnEips) == 0 {
 		klog.Errorf("failed to get type %s ovn eip, %v", util.OvnEipTypeLRP, err)
-		// node ext gw eip need lrp eip to establish bfd session
+
 		return nil
 	}
 	if exists {
@@ -935,7 +898,6 @@ func (c *Controller) checkNodeGwNicInNs(nodeExtIP, ip, gw string, gwNS ns.NetNS)
 							out := outb.String()
 							klog.V(3).Info(out)
 							if strings.Contains(out, "No session") {
-								// not exist
 								cmd = exec.Command("bfdd-control", "allow", eip.Spec.V4Ip) // #nosec G204
 								if err := cmd.Run(); err != nil {
 									err := fmt.Errorf("failed to add lrp %s ip %s into bfd listening list, %w", eip.Name, eip.Status.V4Ip, err)
@@ -1084,11 +1046,9 @@ func (c *Controller) loopOvnExt0Check() {
 		if k8serrors.IsNotFound(err) {
 			val, ok := node.Labels[util.NodeExtGwLabel]
 			if !ok {
-				// not gw node before
 				return
 			}
 			if val == "false" {
-				// already clean
 				return
 			}
 			if val == "true" {
@@ -1155,7 +1115,6 @@ func (c *Controller) loopOvnExt0Check() {
 		return
 	}
 	if err := c.checkNodeGwNicInNs(nodeExtIP, ipAddr, gw, gwNS); err == nil {
-		// add all lrp ip in bfd listening list
 		return
 	}
 	klog.Infof("setup nic ovnext0 ip %s, mac %v, mtu %d", ipAddr, mac, c.config.MTU)
@@ -1233,23 +1192,19 @@ func configureMirrorLink(portName string, _ int) error {
 	return nil
 }
 
-// Convert MAC address to EUI-64 and generate link-local IPv6 address
 func macToLinkLocalIPv6(mac net.HardwareAddr) (net.IP, error) {
 	if len(mac) != 6 {
 		return nil, errors.New("invalid MAC address length")
 	}
 
-	// Create EUI-64 format
 	eui64 := make([]byte, 8)
-	copy(eui64[0:3], mac[0:3]) // Copy the first 3 bytes
-	eui64[3] = 0xff            // Insert ff
-	eui64[4] = 0xfe            // Insert fe
-	copy(eui64[5:], mac[3:])   // Copy the last 3 bytes
+	copy(eui64[0:3], mac[0:3])
+	eui64[3] = 0xff
+	eui64[4] = 0xfe
+	copy(eui64[5:], mac[3:])
 
-	// Flip the 7th bit of the first byte
 	eui64[0] ^= 0x02
 
-	// Prepend the link-local prefix
 	linkLocalIPv6 := net.IP{0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	copy(linkLocalIPv6[8:], eui64)
 
@@ -1286,10 +1241,6 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 		}
 	}
 
-	// List existing addresses up front so stale non-link-local IPs can be flushed. This runs
-	// even in MAC-only mode (BYO-DHCP / external DHCP) where no IP is assigned, so leftover
-	// addresses from a previous (or partial) configuration don't cause unintended routing/ARP
-	// behavior.
 	ipDelMap := make(map[string]netlink.Addr)
 	ipAddMap := make(map[string]netlink.Addr)
 	ipAddrs, err := util.AddrList(nodeLink, unix.AF_UNSPEC)
@@ -1302,7 +1253,6 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 	isIPv6LinkLocalExist := false
 	for _, ipAddr := range ipAddrs {
 		if ipAddr.IP.IsLinkLocalUnicast() {
-			// skip 169.254.0.0/16 and fe80::/10
 			if util.CheckProtocol(ipAddr.IP.String()) == fabricv1.ProtocolIPv6 {
 				isIPv6LinkLocalExist = true
 			}
@@ -1311,9 +1261,6 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 		ipDelMap[ipAddr.IPNet.String()] = ipAddr
 	}
 
-	// MAC-only mode (BYO-DHCP / external DHCP): skip assigning any IP when none was allocated.
-	// The interface keeps only its MAC and the VM gets its address from DHCP. Stale addresses
-	// collected above are still flushed below.
 	if ip != "" {
 		if ipv6LinkLocalOn && !isIPv6LinkLocalExist && (util.CheckProtocol(ip) == fabricv1.ProtocolIPv6 || util.CheckProtocol(ip) == fabricv1.ProtocolDual) {
 			linkLocal, err := macToLinkLocalIPv6(macAddr)
@@ -1329,7 +1276,6 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 		}
 
 		for ipStr := range strings.SplitSeq(ip, ",") {
-			// Do not reassign same address for link
 			if _, ok := ipDelMap[ipStr]; ok {
 				delete(ipDelMap, ipStr)
 				continue
@@ -1364,7 +1310,6 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 					return fmt.Errorf("IP address %s has already been used by host with MAC %s", ip, mac)
 				}
 			} else {
-				// when detectIPConflict is true, free arp is already broadcast in the step of announcement
 				if err := util.AnnounceArpAddress(link, addr.IP.String(), macAddr, 1, 1*time.Second); err != nil {
 					klog.Warningf("failed to broadcast free arp with err %v", err)
 				}
@@ -1386,9 +1331,6 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 	}
 
 	if setUfoOff {
-		// Probe is best-effort: some kernels/devices reject `ethtool -k` (e.g. restricted netns,
-		// certain veth setups). Treat probe failure or absence of the udp-fragmentation-offload
-		// feature as "nothing to disable" and continue, matching the previous shell behavior.
 		probe, probeErr := exec.Command("ethtool", "-k", link).CombinedOutput() // #nosec G204
 		if probeErr != nil {
 			klog.Warningf("failed to query offload features of device %s, skip disabling ufo: %v, %s", link, probeErr, probe)
@@ -1459,7 +1401,6 @@ func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExiste
 	if delNonExistent {
 		for _, addr := range brAddrs {
 			if addr.IP.IsLinkLocalUnicast() {
-				// skip 169.254.0.0/16 and fe80::/10
 				continue
 			}
 
@@ -1476,7 +1417,6 @@ func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExiste
 		}
 	}
 
-	// set link unmanaged by NetworkManager
 	if err = c.nmSyncer.SetManaged(nicName, false); err != nil {
 		klog.Errorf("failed to set device %s unmanaged by NetworkManager: %v", nicName, err)
 		return 0, err
@@ -1489,7 +1429,6 @@ func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExiste
 	var count int
 	for _, addr := range addrs {
 		if addr.IP.IsLinkLocalUnicast() {
-			// skip 169.254.0.0/16 and fe80::/10
 			continue
 		}
 		count++
@@ -1520,8 +1459,6 @@ func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExiste
 		}
 	}
 
-	// keep mac address the same with the provider nic,
-	// unless the provider nic is a bond in mode 6, or a vlan interface of a bond in mode 6
 	albBond, err := linkIsAlbBond(nic)
 	if err != nil {
 		return 0, err
@@ -1539,7 +1476,6 @@ func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExiste
 	for _, scope := range routeScopeOrders {
 		for _, route := range routes {
 			if route.Gw == nil && route.Dst != nil && route.Dst.IP.IsLinkLocalUnicast() {
-				// skip 169.254.0.0/16 and fe80::/10
 				continue
 			}
 			if route.Scope == scope {
@@ -1561,7 +1497,6 @@ func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExiste
 	if delNonExistent && count != 0 {
 		for _, route := range brRoutes {
 			if route.Gw == nil && route.Dst != nil && route.Dst.IP.IsLinkLocalUnicast() {
-				// skip 169.254.0.0/16 and fe80::/10
 				continue
 			}
 
@@ -1598,8 +1533,6 @@ func (c *Controller) transferAddrsAndRoutes(nicName, brName string, delNonExiste
 	return nic.Attrs().MTU, nil
 }
 
-// Add host nic to external bridge
-// Mac address, MTU, IP addresses & routes will be copied/transferred to the external bridge
 func (c *Controller) configProviderNic(nicName, brName string, trunks []string) (int, error) {
 	isUserspaceDP, err := ovs.IsUserspaceDataPath()
 	if err != nil {
@@ -1651,8 +1584,6 @@ func linkIsAlbBond(link netlink.Link) (bool, error) {
 	return check(parent), nil
 }
 
-// Remove host nic from external bridge
-// IP addresses & routes will be transferred to the host nic
 func (c *Controller) removeProviderNic(nicName, brName string) error {
 	c.nmSyncer.RemoveDevice(nicName)
 
@@ -1689,7 +1620,6 @@ func (c *Controller) removeProviderNic(nicName, brName string) error {
 
 	for _, addr := range addrs {
 		if addr.IP.IsLinkLocalUnicast() {
-			// skip 169.254.0.0/16 and fe80::/10
 			continue
 		}
 
@@ -1719,7 +1649,6 @@ func (c *Controller) removeProviderNic(nicName, brName string) error {
 	for _, scope := range routeScopeOrders {
 		for _, route := range routes {
 			if route.Gw == nil && route.Dst != nil && route.Dst.IP.IsLinkLocalUnicast() {
-				// skip 169.254.0.0/16 and fe80::/10
 				continue
 			}
 			if route.Scope == scope {
@@ -1750,10 +1679,7 @@ func (c *Controller) removeProviderNic(nicName, brName string) error {
 func setupVethPair(containerID, ifName string, mtu int) (string, string, error) {
 	var err error
 	hostNicName, containerNicName := generateNicName(containerID, ifName)
-	// Create a veth pair, put one end to container ,the other to ovs port
-	// NOTE: DO NOT use ovs internal type interface for container.
-	// Kubernetes will detect 'eth0' nic in pod, so the nic name in pod must be 'eth0'.
-	// When renaming internal interface to 'eth0', ovs will delete and recreate this interface.
+
 	veth := netlink.Veth{LinkAttrs: netlink.LinkAttrs{Name: hostNicName}, PeerName: containerNicName}
 	if mtu > 0 {
 		veth.MTU = mtu
@@ -1796,14 +1722,12 @@ func setupSriovInterface(containerID, deviceID, vfDriver, ifName, mac string) (s
 
 	var vfNetdevice string
 	if !isVfioPciDriver {
-		// 1. get VF netdevice from PCI
 		vfNetdevices, err := sriovnet.GetNetDevicesFromPci(deviceID)
 		if err != nil {
 			klog.Errorf("failed to get vf netdevice %s, %v", deviceID, err)
 			return "", "", "", -1, err
 		}
 
-		// Make sure we have 1 netdevice per pci address
 		if len(vfNetdevices) != 1 {
 			return "", "", "", -1, fmt.Errorf("failed to get one netdevice interface per %s", deviceID)
 		}
@@ -1811,26 +1735,22 @@ func setupSriovInterface(containerID, deviceID, vfDriver, ifName, mac string) (s
 	}
 
 	if yusur.IsYusurSmartNic(deviceID) {
-		// 2. get PF PCI
 		pfPci, err := yusur.GetYusurNicPfPciFromVfPci(deviceID)
 		if err != nil {
 			return "", "", "", -1, err
 		}
 
-		// 3. get PF index from Pci
 		pfIndex, err := yusur.GetYusurNicPfIndexByPciAddress(pfPci)
 		if err != nil {
 			klog.Errorf("failed to get up %s link device, %v", deviceID, err)
 			return "", "", "", -1, err
 		}
 
-		// 4. get VF index from PCI
 		vfIndex, err := yusur.GetYusurNicVfIndexByPciAddress(deviceID)
 		if err != nil {
 			return "", "", "", -1, err
 		}
 
-		// 5. get vf representor
 		rep := yusur.GetYusurNicVfRepresentor(pfIndex, vfIndex)
 
 		_, err = netlink.LinkByName(rep)
@@ -1841,21 +1761,18 @@ func setupSriovInterface(containerID, deviceID, vfDriver, ifName, mac string) (s
 		return rep, vfNetdevice, pfPci, vfIndex, nil
 	}
 
-	// 2. get Uplink netdevice
 	uplink, err := sriovnet.GetUplinkRepresentor(deviceID)
 	if err != nil {
 		klog.Errorf("failed to get up %s link device, %v", deviceID, err)
 		return "", "", "", -1, err
 	}
 
-	// 3. get VF index from PCI
 	vfIndex, err := sriovnet.GetVfIndexByPciAddress(deviceID)
 	if err != nil {
 		klog.Errorf("failed to get vf %s index, %v", deviceID, err)
 		return "", "", "", -1, err
 	}
 
-	// 4. lookup representor
 	rep, err := sriovnet.GetVfRepresentor(uplink, vfIndex)
 	if err != nil {
 		klog.Errorf("failed to get vf %d representor, %v", vfIndex, err)
@@ -1863,7 +1780,6 @@ func setupSriovInterface(containerID, deviceID, vfDriver, ifName, mac string) (s
 	}
 	oldHostRepName := rep
 
-	// 5. rename the host VF representor
 	hostNicName, _ := generateNicName(containerID, ifName)
 	if err = renameLink(oldHostRepName, hostNicName); err != nil {
 		return "", "", "", -1, fmt.Errorf("failed to rename %s to %s: %w", oldHostRepName, hostNicName, err)
@@ -1962,7 +1878,6 @@ func setVfMac(deviceID string, vfIndex int, mac string) error {
 		return fmt.Errorf("failed to get pf of device %s %w", deviceID, err)
 	}
 
-	// get real pf
 	var pfName string
 	for _, dev := range netDevs {
 		devicePortNameFile := filepath.Join(util.NetSysDir, dev, "phys_port_name")
@@ -2020,8 +1935,6 @@ func linkExists(name string) (bool, error) {
 func rollBackVethPair(nicName string) error {
 	hostLink, err := netlink.LinkByName(nicName)
 	if err != nil {
-		// if link already not exists, return quietly
-		// e.g. Internal port had been deleted by Remove ovs port previously
 		if _, ok := err.(netlink.LinkNotFoundError); ok {
 			return nil
 		}
@@ -2030,7 +1943,7 @@ func rollBackVethPair(nicName string) error {
 	}
 
 	hostLinkType := hostLink.Type()
-	// sometimes no deviceID input for vf nic, avoid delete vf nic.
+
 	if hostLinkType == "veth" {
 		if err = netlink.LinkDel(hostLink); err != nil {
 			klog.Error(err)
@@ -2041,7 +1954,6 @@ func rollBackVethPair(nicName string) error {
 	return nil
 }
 
-// return a map of unready IPv6 addresses and their flags
 func waitIPv6AddressPreferred(interfaceName string, maxRetry int, retryInterval time.Duration, checkIPv6DAD bool) (map[string]int, error) {
 	var retry int
 	var ret map[string]int
@@ -2060,11 +1972,10 @@ func waitIPv6AddressPreferred(interfaceName string, maxRetry int, retryInterval 
 
 		addrsFlags := make(map[string]int, len(addrs))
 		for _, addr := range addrs {
-			// skip ipv4 addresses
 			if addr.IP.To4() != nil {
 				continue
 			}
-			// Check if the address is in a bad state
+
 			switch {
 			case addr.Flags&unix.IFA_F_DEPRECATED != 0 || addr.Flags&unix.IFA_F_TENTATIVE != 0:
 				addrsFlags[addr.IP.String()] = addr.Flags

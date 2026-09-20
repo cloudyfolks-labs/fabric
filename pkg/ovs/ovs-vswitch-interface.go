@@ -9,7 +9,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
 )
 
-// ListInterface lists ovs interfaces
 func (c *VswitchClient) ListInterface(filter func(sw *vswitch.Interface) bool) ([]vswitch.Interface, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()

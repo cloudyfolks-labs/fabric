@@ -30,22 +30,16 @@ import (
 func (c *Controller) InitOVN() error {
 	var err error
 
-	// migrate vendor externalIDs to fabric resources created in versions prior to v1.15.0
-	// this must run before ACL cleanup to ensure existing resources are properly tagged
 	if err = c.OVNNbClient.MigrateVendorExternalIDs(); err != nil {
 		klog.Errorf("failed to migrate vendor externalIDs: %v", err)
 		return err
 	}
 
-	// migrate tier field of ACL rules created in versions prior to v1.13.0
-	// after upgrading, the tier field has a default value of zero, which is not the value used in versions >= v1.13.0
-	// we need to migrate the tier field to the correct value
 	if err = c.OVNNbClient.MigrateACLTier(); err != nil {
 		klog.Errorf("failed to migrate ACL tier: %v", err)
 		return err
 	}
 
-	// clean all no parent key acls
 	if err = c.OVNNbClient.CleanNoParentKeyAcls(); err != nil {
 		klog.Errorf("failed to clean all no parent key acls: %v", err)
 		return err
@@ -93,7 +87,7 @@ func (c *Controller) InitDefaultVpc() error {
 			klog.Errorf("failed to get default vpc %q: %v", c.config.ClusterRouter, err)
 			return err
 		}
-		// create default vpc
+
 		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: c.config.ClusterRouter},
 		}
@@ -104,7 +98,6 @@ func (c *Controller) InitDefaultVpc() error {
 		}
 	}
 
-	// update default vpc status
 	vpc := cachedVpc.DeepCopy()
 	if !vpc.Status.Default || !vpc.Status.Standby ||
 		vpc.Status.Router != c.config.ClusterRouter ||
@@ -123,12 +116,10 @@ func (c *Controller) InitDefaultVpc() error {
 	return nil
 }
 
-// InitDefaultLogicalSwitch init the default logical switch for ovn network
 func (c *Controller) initDefaultLogicalSwitch() error {
 	subnet, err := c.subnetsLister.Get(c.config.DefaultLogicalSwitch)
 	if err == nil {
 		if subnet != nil && util.CheckProtocol(c.config.DefaultCIDR) != util.CheckProtocol(subnet.Spec.CIDRBlock) {
-			// single-stack upgrade to dual-stack
 			if util.CheckProtocol(c.config.DefaultCIDR) == fabricv1.ProtocolDual {
 				subnet := subnet.DeepCopy()
 				subnet.Spec.CIDRBlock = c.config.DefaultCIDR
@@ -181,12 +172,10 @@ func (c *Controller) initDefaultLogicalSwitch() error {
 	return nil
 }
 
-// InitNodeSwitch init node switch to connect host and pod
 func (c *Controller) initNodeSwitch() error {
 	subnet, err := c.subnetsLister.Get(c.config.NodeSwitch)
 	if err == nil {
 		if util.CheckProtocol(c.config.NodeSwitchCIDR) == fabricv1.ProtocolDual && util.CheckProtocol(subnet.Spec.CIDRBlock) != fabricv1.ProtocolDual {
-			// single-stack upgrade to dual-stack
 			subnet := subnet.DeepCopy()
 			subnet.Spec.CIDRBlock = c.config.NodeSwitchCIDR
 			if _, err = c.formatSubnet(subnet); err != nil {
@@ -226,7 +215,6 @@ func (c *Controller) initNodeSwitch() error {
 	return nil
 }
 
-// InitClusterRouter init cluster router to connect different logical switches
 func (c *Controller) initClusterRouter() error {
 	if err := c.OVNNbClient.CreateLogicalRouter(c.config.ClusterRouter); err != nil {
 		klog.Errorf("create logical router %s failed: %v", c.config.ClusterRouter, err)
@@ -287,11 +275,6 @@ func (c *Controller) initLB(name, protocol string, sessionAffinity bool) error {
 		return err
 	}
 
-	// ct_flush wipes all conntrack entries on the LB's datapath whenever a vip
-	// is mutated. Session-affinity LBs are shared across services, and their
-	// per-client affinity binding is carried in conntrack; enabling ct_flush on
-	// those LBs lets an unrelated service's backend change invalidate another
-	// service's active affinity. Only enable ct_flush on non-session UDP LBs.
 	if protocol == "udp" && !sessionAffinity {
 		if err = c.OVNNbClient.SetLoadBalancerCtFlush(name, true); err != nil {
 			klog.Errorf("failed to set ct_flush for load balancer %s: %v", name, err)
@@ -302,18 +285,6 @@ func (c *Controller) initLB(name, protocol string, sessionAffinity bool) error {
 	return nil
 }
 
-// InitLoadBalancer creates the default TCP/UDP/SCTP cluster load balancers in
-// OVN for every existing VPC and records their names in each VPC's status so
-// the subnet worker can attach them to its logical switch on its first
-// reconcile.
-//
-// The status write uses a targeted merge patch that contains only the six
-// LB-name fields. An earlier version serialized the whole VpcStatus via
-// vpc.Status.Bytes() and raced InitDefaultVpc: if the VPC lister cache still
-// held the pre-UpdateStatus copy (Standby=false) the whole-status merge patch
-// would silently overwrite the Standby/Default/Router/DefaultLogicalSwitch
-// fields that InitDefaultVpc had just written, deadlocking the subnet worker.
-// A field-scoped patch avoids that class of overwrite entirely.
 func (c *Controller) initLoadBalancer() error {
 	vpcs, err := c.vpcsLister.List(labels.Everything())
 	if err != nil {
@@ -361,11 +332,6 @@ func (c *Controller) initLoadBalancer() error {
 	return nil
 }
 
-// buildVpcLBStatusPatch builds a merge-patch body that updates only the six
-// LB-name fields of VpcStatus. It deliberately excludes every other field so
-// the merge patch cannot overwrite state owned by InitDefaultVpc (Standby,
-// Default, Router, DefaultLogicalSwitch) when the caller reads from a stale
-// lister cache.
 func buildVpcLBStatusPatch(vpcLb *VpcLoadBalancer) ([]byte, error) {
 	patch := struct {
 		Status struct {
@@ -448,7 +414,7 @@ func (c *Controller) InitIPAM() error {
 			c.updateIPQueue.Add(ip.Name)
 			continue
 		}
-		// recover sts and kubevirt vm ip, other ip recover in later pod loop
+
 		if ip.Spec.PodType != util.KindStatefulSet &&
 			ip.Spec.PodType != util.KindVirtualMachine {
 			continue
@@ -513,8 +479,6 @@ func (c *Controller) InitIPAM() error {
 						klog.Errorf("failed to create/update ips CR %s.%s with ip address %s: %v", podName, pod.Namespace, ip, err)
 					}
 				}
-
-				// Append ExternalIds is added in v1.7, used for upgrading from v1.6.3. It should be deleted now since v1.7 is not used anymore.
 			}
 		}
 	}
@@ -641,7 +605,6 @@ func (c *Controller) initDefaultProviderNetwork() error {
 			return
 		}
 
-		// update nodes only when provider network has been created successfully
 		patch := util.KVPatch{excludeAnno: nil, interfaceAnno: nil}
 		for _, node := range patchNodes {
 			if err := util.PatchAnnotations(c.config.KubeClient.CoreV1().Nodes(), node, patch); err != nil {
@@ -768,7 +731,6 @@ func (c *Controller) syncSubnetCR() error {
 			}
 		}
 
-		// only sync subnet spec enableEcmp when subnet.Spec.EnableEcmp is false and c.config.EnableEcmp is true
 		if subnet.Spec.GatewayType == fabricv1.GWCentralizedType && !subnet.Spec.EnableEcmp && subnet.Spec.EnableEcmp != c.config.EnableEcmp {
 			subnet, err = c.subnetsLister.Get(subnet.Name)
 			if err != nil {
@@ -960,7 +922,6 @@ func migrateFinalizers(c client.Client, list client.ObjectList, getObjectItem fu
 		controllerutil.RemoveFinalizer(patchedObj, util.DeprecatedFinalizerName)
 		controllerutil.RemoveFinalizer(patchedObj, util.LegacyControllerFinalizer)
 		if cachedObj.GetDeletionTimestamp() == nil {
-			// if the object is not being deleted, add the new finalizer
 			controllerutil.AddFinalizer(patchedObj, util.FabricControllerFinalizer)
 		}
 		if err := c.Patch(context.Background(), patchedObj, client.MergeFrom(cachedObj)); client.IgnoreNotFound(err) != nil {
@@ -982,7 +943,6 @@ func (c *Controller) syncFinalizers() error {
 		return err
 	}
 
-	// migrate deprecated finalizer to new finalizer
 	klog.Info("start to sync finalizers")
 	if err := c.syncIPFinalizer(cl); err != nil {
 		klog.Errorf("failed to sync ip finalizer: %v", err)

@@ -14,17 +14,16 @@ type NetConf struct {
 	Provider     string          `json:"provider,omitempty"`
 	Routes       []request.Route `json:"routes,omitempty"`
 	IPAM         *IPAMConf       `json:"ipam,omitempty"`
-	// PciAddrs in case of using sriov
+
 	DeviceID string `json:"deviceID,omitempty"`
 	VfDriver string `json:"vf_driver,omitempty"`
-	// for dpdk
+
 	VhostUserSocketVolumeName  string `json:"vhost_user_socket_volume_name,omitempty"`
 	VhostUserSocketName        string `json:"vhost_user_socket_name,omitempty"`
 	VhostUserSocketConsumption string `json:"vhost_user_socket_consumption,omitempty"`
 }
 
 func (c *NetConf) MarshalJSON() ([]byte, error) {
-	// use type alias to escape recursion for json.Marshal() to MarshalJSON()
 	type fixObjType = NetConf
 
 	bytes, err := json.Marshal(fixObjType(*c)) //nolint:all
@@ -52,5 +51,4 @@ func (c *NetConf) MarshalJSON() ([]byte, error) {
 }
 
 func (c *NetConf) PostLoad() {
-	// nothing to do on linux
 }

@@ -49,7 +49,6 @@ func (r *RPCNotify) ProcessExit(_ struct{}, _ *struct{}) error {
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)
@@ -64,7 +63,6 @@ func TestE2E(t *testing.T) {
 
 	gomega.RegisterFailHandler(k8sframework.Fail)
 
-	// Run tests through the Ginkgo runner with output to console + JUnit for Jenkins
 	suiteConfig, reporterConfig := k8sframework.CreateGinkgoConfig()
 	klog.Infof("Starting e2e run %q on Ginkgo node %d", k8sframework.RunID, suiteConfig.ParallelProcess)
 	ginkgo.RunSpecs(t, "fabric e2e suite", suiteConfig, reporterConfig)
@@ -79,7 +77,6 @@ type suiteContext struct {
 var suiteCtx suiteContext
 
 var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
-	// Reference common test to make the import valid.
 	commontest.CurrentSuite = commontest.E2E
 
 	namespaceName := "ns-" + framework.RandomSuffix()
@@ -117,7 +114,6 @@ var _ = ginkgo.SynchronizedBeforeSuite(func() []byte {
 	framework.ExpectNotNil(nodes)
 	framework.ExpectNotEmpty(nodes.Items)
 
-	// use the internal IP of the node that is not the same as the pod node
 	for _, node := range nodes.Items {
 		if node.Name != suiteCtx.Node {
 			ipv4, ipv6 := util.GetNodeInternalIP(node)

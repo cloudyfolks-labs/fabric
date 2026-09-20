@@ -15,7 +15,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// Configuration is the controller config
 type Configuration struct {
 	KubeConfigFile string
 	KubeClient     kubernetes.Interface
@@ -55,7 +54,6 @@ func ParseFlags() (*Configuration, error) {
 	klogFlags := flag.NewFlagSet("klog", flag.ContinueOnError)
 	klog.InitFlags(klogFlags)
 
-	// Sync the glog and klog flags.
 	pflag.CommandLine.VisitAll(func(f1 *pflag.Flag) {
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {
@@ -66,8 +64,6 @@ func ParseFlags() (*Configuration, error) {
 		}
 	})
 
-	// change the behavior of cmdline
-	// not exit. not good
 	pflag.CommandLine.Init(os.Args[0], pflag.ContinueOnError)
 	pflag.CommandLine.AddGoFlagSet(klogFlags)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)

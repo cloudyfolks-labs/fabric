@@ -28,8 +28,6 @@ func Test_normalizeAddresses(t *testing.T) {
 		require.ElementsMatch(t, []string{"192.168.1.1", "192.168.1.0/24"}, result.List())
 	})
 
-	// the result is used to decide whether the address set needs to be updated,
-	// so addresses given in a different order must compare as equal
 	t.Run("compare equal regardless of the input order", func(t *testing.T) {
 		t.Parallel()
 
@@ -78,7 +76,7 @@ func (suite *OvnClientTestSuite) testCreateAddressSet() {
 		require.NoError(t, err)
 		require.NotEmpty(t, as.UUID)
 		require.Equal(t, asName, as.Name)
-		// vendor is automatically added by CreateAddressSet
+
 		require.Equal(t, map[string]string{
 			sgKey:    "test-sg",
 			"vendor": util.VendorTag,
@@ -97,11 +95,9 @@ func (suite *OvnClientTestSuite) testCreateAddressSet() {
 		err := nbClient.CreateAddressSet(asName, nil)
 		require.NoError(t, err)
 
-		// Attempt to create the same address set again
 		err = nbClient.CreateAddressSet(asName, nil)
 		require.NoError(t, err)
 
-		// Verify that only one address set exists
 		ass, err := nbClient.ListAddressSets(nil)
 		require.NoError(t, err)
 		count := 0
@@ -220,7 +216,6 @@ func (suite *OvnClientTestSuite) testAddressSetUpdateAddress() {
 		addresses := []string{"10.16.0.1", "10.16.0.2", "10.16.0.3"}
 		require.NoError(t, nbClient.AddressSetUpdateAddress(asName, addresses...))
 
-		// updating with the same addresses in a different order is a no-op
 		reversed := slices.Clone(addresses)
 		slices.Reverse(reversed)
 		require.NoError(t, nbClient.AddressSetUpdateAddress(asName, reversed...))
@@ -283,7 +278,6 @@ func (suite *OvnClientTestSuite) testDeleteAddressSets() {
 		require.NoError(t, err)
 	}
 
-	// create a new address set with no sg name, it should't be deleted
 	asName := fmt.Sprintf("%s_%d", asPrefix, 3)
 	err := nbClient.CreateAddressSet(asName, nil)
 	require.NoError(t, err)
@@ -291,16 +285,13 @@ func (suite *OvnClientTestSuite) testDeleteAddressSets() {
 	err = nbClient.DeleteAddressSets(externalIDs)
 	require.NoError(t, err)
 
-	// it should't be deleted
 	_, err = nbClient.GetAddressSet(asName, false)
 	require.NoError(t, err)
 
-	// should delete
 	ass, err := nbClient.ListAddressSets(externalIDs)
 	require.NoError(t, err)
 	require.Empty(t, ass)
 
-	// delete address sets with empty externalIDs
 	err = nbClient.DeleteAddressSets(map[string]string{})
 	require.NoError(t, err)
 }
@@ -332,7 +323,6 @@ func (suite *OvnClientTestSuite) testAddressSetFilter() {
 	ass := make([]*ovnnb.AddressSet, 0)
 
 	t.Run("filter address set", func(t *testing.T) {
-		// create two to-lport acl
 		i := 0
 		for ; i < 3; i++ {
 			as := newAddressSet(fmt.Sprintf("%s-%d", asPrefix, i), map[string]string{
@@ -341,13 +331,11 @@ func (suite *OvnClientTestSuite) testAddressSetFilter() {
 			ass = append(ass, as)
 		}
 
-		// create two as without sg name
 		for ; i < 5; i++ {
 			as := newAddressSet(fmt.Sprintf("%s-%d", asPrefix, i), nil)
 			ass = append(ass, as)
 		}
 
-		// create two as with other sg name
 		for ; i < 6; i++ {
 			as := newAddressSet(fmt.Sprintf("%s-%d", asPrefix, i), map[string]string{
 				sgKey: pgName + "-other",
@@ -355,7 +343,6 @@ func (suite *OvnClientTestSuite) testAddressSetFilter() {
 			ass = append(ass, as)
 		}
 
-		/* include all as */
 		filterFunc := addressSetFilter(nil)
 		count := 0
 		for _, as := range ass {
@@ -374,7 +361,6 @@ func (suite *OvnClientTestSuite) testAddressSetFilter() {
 		}
 		require.Equal(t, count, 4)
 
-		/* include all as with sg name */
 		filterFunc = addressSetFilter(map[string]string{sgKey: pgName})
 		count = 0
 		for _, as := range ass {

@@ -11,11 +11,8 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
 
-// benchNatSink keeps benchmark results live so the compiler can't elide the work.
 var benchNatSink []*ovnnb.NAT
 
-// listNatOldLoop reproduces the pre-optimization helper: one GetNATByUUID
-// (context.WithTimeout + reflection + double deep clone) per UUID in lr.Nat.
 func listNatOldLoop(c *OVNNbClient, lrName string) ([]*ovnnb.NAT, error) {
 	lr, err := c.GetLogicalRouter(lrName, false)
 	if err != nil {
@@ -45,7 +42,6 @@ func newBenchNbClient(b testing.TB, name string) *OVNNbClient {
 	return c
 }
 
-// seedNats creates `count` snat rules on lrName (single transaction).
 func seedNats(b testing.TB, c *OVNNbClient, lrName string, count int) {
 	b.Helper()
 	require.NoError(b, c.CreateLogicalRouter(lrName))
@@ -59,10 +55,6 @@ func seedNats(b testing.TB, c *OVNNbClient, lrName string, count int) {
 	require.NoError(b, c.CreateNats(lrName, nats...))
 }
 
-// BenchmarkListNAT compares the per-UUID Get loop against the single
-// WhereCache().List() scan. `target` is the NAT count on the router we list;
-// `others` is unrelated NAT rows on a second router that bloat the table but
-// must be filtered out (the N << T boundary case).
 func BenchmarkListNAT(b *testing.B) {
 	cases := []struct {
 		label  string
@@ -104,7 +96,6 @@ func BenchmarkListNAT(b *testing.B) {
 			}
 		})
 
-		// sanity: both paths must return the same number of rows
 		oldRes, err := listNatOldLoop(c, lrName)
 		require.NoError(b, err)
 		newRes, err := c.listLogicalRouterNatByFilter(lrName, nil)

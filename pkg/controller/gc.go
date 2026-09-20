@@ -38,7 +38,7 @@ func (c *Controller) gc() error {
 		c.gcChassis,
 		c.gcLogicalSwitch,
 		c.gcCustomLogicalRouter,
-		// The lsp gc is processed periodically by markAndCleanLSP, will not gc lsp when init
+
 		c.gcLoadBalancer,
 		c.gcDNSZones,
 		c.gcNetworkPolicy,
@@ -209,7 +209,6 @@ func (c *Controller) gcNode() error {
 	}
 	policies = append(policies, gatewayRouterPolicies...)
 	for _, policy := range policies {
-		// skip the policy for centralized subnet
 		if _, ok := policy.ExternalIDs["node"]; !ok {
 			continue
 		}
@@ -264,12 +263,10 @@ func (c *Controller) gcVip() error {
 }
 
 func (c *Controller) checkIPOwnerExists(ip *fabricv1.IP) (bool, error) {
-	// Check if Subnet exists
 	if _, ok := c.ipam.Subnets[ip.Spec.Subnet]; !ok {
 		return false, nil
 	}
 
-	// Check if Node exists
 	if ip.Spec.Namespace == metav1.NamespaceNone && ip.Spec.NodeName == ip.Spec.PodName {
 		_, err := c.nodesLister.Get(ip.Spec.NodeName)
 		if err != nil && k8serrors.IsNotFound(err) {
@@ -278,7 +275,6 @@ func (c *Controller) checkIPOwnerExists(ip *fabricv1.IP) (bool, error) {
 		return true, err
 	}
 
-	// Check if VM exists
 	if ip.Spec.PodType == util.KindVirtualMachine {
 		_, err := c.config.KubevirtClient.VirtualMachine(ip.Spec.Namespace).Get(context.Background(), ip.Spec.PodName, metav1.GetOptions{})
 		if err != nil && k8serrors.IsNotFound(err) {
@@ -287,10 +283,7 @@ func (c *Controller) checkIPOwnerExists(ip *fabricv1.IP) (bool, error) {
 		return true, err
 	}
 
-	// Check if StatefulSet exists
 	if ip.Spec.PodType == util.KindStatefulSet {
-		// Extract StatefulSet name from pod name by removing the last part after '-'
-		// e.g., "my-sts-1-0" -> "my-sts-1"
 		stsName := ip.Spec.PodName
 		if lastDash := strings.LastIndex(stsName, "-"); lastDash != -1 {
 			stsName = stsName[:lastDash]
@@ -303,7 +296,6 @@ func (c *Controller) checkIPOwnerExists(ip *fabricv1.IP) (bool, error) {
 		return true, err
 	}
 
-	// check whether the ip belongs to a subnet's u2o ip or mcast query ip
 	if owners := ip.GetOwnerReferences(); len(owners) != 0 {
 		var err error
 		var ownerExists bool
@@ -318,7 +310,6 @@ func (c *Controller) checkIPOwnerExists(ip *fabricv1.IP) (bool, error) {
 				continue
 			}
 			if err == nil {
-				// currently we do not check owner's UID
 				ownerExists = true
 				break
 			}
@@ -329,7 +320,6 @@ func (c *Controller) checkIPOwnerExists(ip *fabricv1.IP) (bool, error) {
 		return ownerExists, nil
 	}
 
-	// Check if Normal Pod exists
 	if ip.Spec.PodType == "" {
 		pod, err := c.podsLister.Pods(ip.Spec.Namespace).Get(ip.Spec.PodName)
 		if err != nil && k8serrors.IsNotFound(err) {
@@ -413,13 +403,10 @@ func (c *Controller) markAndCleanLSP() error {
 		}
 
 		if _, err := c.ovnEipsLister.Get(node.Name); err == nil {
-			// node external gw lsp is managed by ovn eip cr, skip gc its lsp
 			ipMap.Add(node.Name)
 		}
 	}
 
-	// The lsp for vm pod should not be deleted if vm still exists.
-	// Abort the GC cycle on a list failure so we never delete live VM LSPs based on an incomplete keep-set.
 	vmLsps, err := c.getVMLsps()
 	if err != nil {
 		klog.Errorf("failed to get vm lsps, %v", err)
@@ -465,7 +452,6 @@ func (c *Controller) markAndCleanLSP() error {
 			continue
 		}
 		if vipsMap.Has(lsp.Name) {
-			// skip gc lsp for k8s host network vm pod or switch lb rule
 			continue
 		}
 		if !lastNoPodLSP.Has(lsp.Name) {
@@ -481,7 +467,6 @@ func (c *Controller) markAndCleanLSP() error {
 		ipCR, err := c.config.FabricClient.FabricV1().IPs().Get(context.Background(), lsp.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				// ip cr not found, skip lsp gc
 				continue
 			}
 			klog.Errorf("failed to get ip %s, %v", lsp.Name, err)
@@ -491,7 +476,6 @@ func (c *Controller) markAndCleanLSP() error {
 			klog.Infof("gc ip %s", ipCR.Name)
 			if err := c.config.FabricClient.FabricV1().IPs().Delete(context.Background(), ipCR.Name, metav1.DeleteOptions{}); err != nil {
 				if k8serrors.IsNotFound(err) {
-					// ip cr not found, skip lsp gc
 					continue
 				}
 				klog.Errorf("failed to delete ip %s, %v", ipCR.Name, err)
@@ -499,7 +483,7 @@ func (c *Controller) markAndCleanLSP() error {
 			}
 			if ipCR.Spec.Subnet == "" {
 				klog.Errorf("ip %s has no subnet", ipCR.Name)
-				// ip cr no subnet, skip lsp gc
+
 				continue
 			}
 			if key := lsp.ExternalIDs["pod"]; key != "" {
@@ -537,7 +521,6 @@ func (c *Controller) gcLoadBalancer() error {
 	}
 
 	if !c.config.EnableLb {
-		// remove lb from logical switch
 		vpcs, err := c.vpcsLister.List(labels.Everything())
 		if err != nil {
 			klog.Error(err)
@@ -581,9 +564,7 @@ func (c *Controller) gcLoadBalancer() error {
 				return err
 			}
 		}
-		// lbs will remove from logical switch automatically when delete lbs
-		// Only delete load balancers that belong to fabric (vendor=VendorTag)
-		// This prevents deleting load balancers managed by external systems like OpenStack Neutron
+
 		if err = c.OVNNbClient.DeleteLoadBalancers(func(lb *ovnnb.LoadBalancer) bool {
 			if lb.ExternalIDs["vendor"] != util.VendorTag {
 				return false
@@ -719,7 +700,6 @@ func (c *Controller) gcLoadBalancer() error {
 		}
 	}
 
-	// delete lbs
 	if err = c.OVNNbClient.DeleteLoadBalancers(
 		func(lb *ovnnb.LoadBalancer) bool {
 			return !vpcLbs.Has(lb.Name)
@@ -734,8 +714,7 @@ func (c *Controller) gcLoadBalancer() error {
 
 func (c *Controller) gcAddressSet() error {
 	klog.Infof("start to gc address set")
-	// Only list address sets that belong to fabric (vendor=VendorTag)
-	// This prevents deleting address sets managed by external systems like OpenStack Neutron
+
 	addressSets, err := c.OVNNbClient.ListAddressSets(map[string]string{"vendor": util.VendorTag})
 	if err != nil {
 		klog.Errorf("failed to list address set,%v", err)
@@ -748,7 +727,7 @@ func (c *Controller) gcAddressSet() error {
 		if sg == "" {
 			continue
 		}
-		// if address set not found associated port group, delete it
+
 		if pg, err := c.OVNNbClient.GetPortGroup(ovs.GetSgPortGroupName(sg), true); err == nil && pg == nil {
 			klog.Infof("ready to gc address set %s", as.Name)
 			asList = append(asList, as.Name)
@@ -770,7 +749,7 @@ func (c *Controller) gcAddressSet() error {
 
 func (c *Controller) gcSecurityGroup() error {
 	klog.Infof("start to gc security group residual port groups")
-	// get security group
+
 	sgs, err := c.config.FabricClient.FabricV1().SecurityGroups().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("failed to list security group,%v", err)
@@ -781,8 +760,6 @@ func (c *Controller) gcSecurityGroup() error {
 		sgSet.Add(sg.Name)
 	}
 
-	// Only list port groups that belong to fabric (vendor=VendorTag)
-	// This prevents deleting port groups managed by external systems like OpenStack Neutron
 	pgs, err := c.OVNNbClient.ListPortGroups(map[string]string{"vendor": util.VendorTag})
 	if err != nil {
 		klog.Errorf("failed to list port group,%v", err)
@@ -800,7 +777,7 @@ func (c *Controller) gcSecurityGroup() error {
 		if sg == "" {
 			continue
 		}
-		// if port group not exist in security group, delete it
+
 		if !sgSet.Has(sg) {
 			klog.Infof("ready to gc port group %s", pg.Name)
 			needToDelPgs = append(needToDelPgs, pg.Name)
@@ -842,7 +819,6 @@ func (c *Controller) gcNetworkPolicy() error {
 		}
 	}
 
-	// append node port group to npNames to avoid gc node port group
 	nodes, err := c.nodesLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("failed to list nodes, %v", err)
@@ -853,7 +829,6 @@ func (c *Controller) gcNetworkPolicy() error {
 		npNames.Add(fmt.Sprintf("%s/%s", "node", node.Name))
 	}
 
-	// append overlay subnets port group to npNames to avoid gc distributed subnets port group
 	subnets, err := c.subnetsLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("failed to list subnets %v", err)
@@ -869,7 +844,6 @@ func (c *Controller) gcNetworkPolicy() error {
 		}
 	}
 
-	// list all np port groups which externalIDs[np]!=""
 	pgs, err := c.OVNNbClient.ListPortGroups(map[string]string{networkPolicyKey: ""})
 	if err != nil {
 		klog.Errorf("list np port group: %v", err)
@@ -879,7 +853,6 @@ func (c *Controller) gcNetworkPolicy() error {
 	for _, pg := range pgs {
 		np := strings.Split(pg.ExternalIDs[networkPolicyKey], "/")
 		if len(np) != 2 {
-			// not np port group
 			continue
 		}
 		if !npNames.Has(pg.ExternalIDs[networkPolicyKey]) {
@@ -890,10 +863,7 @@ func (c *Controller) gcNetworkPolicy() error {
 			}
 		}
 	}
-	// gc port group
-	// the pgName in the network policy is generated differently from the node/subnet pgName
-	// so processes port group gc separately
-	// ensure that the port group can be correctly gc
+
 	if err := c.OVNNbClient.DeletePortGroup(delPgNames.List()...); err != nil {
 		klog.Errorf("failed to gc port group %v: %v", delPgNames.List(), err)
 		return err
@@ -978,7 +948,7 @@ func (c *Controller) gcStaticRoute() error {
 			if exist {
 				continue
 			}
-			// policy is optional in the OVN schema; an unset value defaults to dst-ip
+
 			policy := ovnnb.LogicalRouterStaticRoutePolicyDstIP
 			if route.Policy != nil {
 				policy = *route.Policy
@@ -1018,16 +988,14 @@ func (c *Controller) gcChassis() error {
 	for _, node := range nodes {
 		chassisName := node.Annotations[util.ChassisAnnotation]
 		if chassisName == "" {
-			// fabric-cni not ready to set chassis annotation
 			continue
 		}
 		if hostname, exist := chassisNodes[chassisName]; exist {
 			if hostname == node.Name {
-				// node is alive, matched chassis should be alive
 				delete(chassisNodes, chassisName)
 				continue
 			}
-			// maybe node name changed, delete chassis
+
 			klog.Infof("gc node %s chassis %s", node.Name, chassisName)
 			if err := c.OVNNbClient.DeleteGatewayChassisByChassisName(chassisName); err != nil {
 				klog.Errorf("failed to delete gateway chassis of chassis %s: %v", chassisName, err)
@@ -1078,10 +1046,6 @@ func (c *Controller) getVMLsps() ([]string, error) {
 		return vmLsps, nil
 	}
 
-	// A single cluster-wide list avoids a per-namespace apiserver round-trip every GC cycle.
-	// On clusters without the KubeVirt CRD the request returns NotFound, which is treated as
-	// "no VMs" rather than an error. Any other failure is returned so the caller can skip the
-	// GC cycle instead of deleting live VM LSPs based on an incomplete keep-set.
 	vms, err := c.config.KubevirtClient.VirtualMachine(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -1232,14 +1196,12 @@ func (c *Controller) gcRouterLBRules() error {
 
 func logicalRouterPortFilter(exceptPeerPorts *strset.Set) func(lrp *ovnnb.LogicalRouterPort) bool {
 	return func(lrp *ovnnb.LogicalRouterPort) bool {
-		// Only delete logical router ports that belong to fabric (vendor=VendorTag)
-		// This prevents deleting LRPs managed by external systems like OpenStack Neutron
 		if lrp.ExternalIDs["vendor"] != util.VendorTag {
 			return false
 		}
 
 		if exceptPeerPorts.Has(lrp.Name) {
-			return false // ignore except lrp
+			return false
 		}
 
 		return lrp.Peer != nil && len(*lrp.Peer) != 0

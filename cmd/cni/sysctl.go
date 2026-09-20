@@ -27,7 +27,6 @@ func sysctlEnableIPv6(nsPath string) error {
 				value, err := sysctl.Sysctl(name)
 				if err != nil {
 					if os.IsNotExist(err) {
-						// The sysctl variable doesn't exist, so we can't set it
 						continue
 					}
 					return fmt.Errorf("failed to get sysctl variable %s: %w", name, err)
@@ -35,7 +34,6 @@ func sysctlEnableIPv6(nsPath string) error {
 				if value != settings.value {
 					if _, err = sysctl.Sysctl(name, settings.value); err != nil {
 						if os.IsPermission(err) {
-							// We don't have permission to set the sysctl variable, so we can't set it
 							continue
 						}
 						return fmt.Errorf("failed to set sysctl variable %s to %s: %w", name, settings.value, err)

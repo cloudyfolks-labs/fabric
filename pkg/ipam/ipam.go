@@ -91,9 +91,6 @@ func (ipam *IPAM) GetStaticAddressWithFamily(podName, nicName, ip string, mac *s
 		return "", "", "", ErrNoSubnet
 	}
 
-	// mac-only subnets have no CIDR, so there is no static IP to allocate. When the
-	// caller passes an empty IP (e.g. recovering a mac-only IP CR on init), register
-	// only the MAC so it is tracked in IPAM instead of failing the whole allocation.
 	if ip == "" && subnet.Protocol == fabricv1.ProtocolMac {
 		_, _, macStr, err := subnet.GetRandomAddress("", podName, nicName, mac, nil, checkConflict)
 		if err != nil {
@@ -127,7 +124,6 @@ func (ipam *IPAM) GetStaticAddressWithFamily(podName, nicName, ip string, mac *s
 		if err != nil {
 			klog.Errorf("failed to allocate static ip %s for %s", ip.String(), podName)
 			if len(ips) != 0 {
-				// release allocated ips if any
 				subnet.ReleaseAddressWithNicName(podName, nicName)
 			}
 			return "", "", "", err
@@ -165,8 +161,6 @@ func (ipam *IPAM) GetStaticAddressWithFamily(podName, nicName, ip string, mac *s
 	return "", "", "", ErrNoAvailable
 }
 
-// validateRequestedIPFamily checks only the request value itself. Subnet
-// compatibility is validated by callers that have subnet context.
 func validateRequestedIPFamily(ipFamily string) error {
 	ipFamily = util.NormalizeIPFamily(ipFamily)
 	if ipFamily == "" || ipFamily == fabricv1.ProtocolIPv4 || ipFamily == fabricv1.ProtocolIPv6 {
@@ -176,7 +170,6 @@ func validateRequestedIPFamily(ipFamily string) error {
 }
 
 func checkAndAppendIpsForDual(ips []IP, mac, podName, nicName string, subnet *Subnet, checkConflict bool) ([]IP, error) {
-	// IP Address for dual-stack should be format of 'IPv4,IPv6'
 	if subnet.Protocol != fabricv1.ProtocolDual || len(ips) == 2 {
 		return ips, nil
 	}
@@ -230,15 +223,10 @@ func (ipam *IPAM) ReleaseAddressByNic(podName, nicName, subnetName string) {
 }
 
 func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []string) error {
-	// A mac-only subnet (underlay without CIDR, BYO-DHCP / external DHCP) has no IP
-	// ranges. Register a lightweight entry so MAC allocations are tracked and the GC
-	// does not treat the subnet's IP/LSP resources as orphaned.
 	if cidrStr == "" {
 		ipam.mutex.Lock()
 		defer ipam.mutex.Unlock()
 		if subnet, ok := ipam.Subnets[name]; ok {
-			// Refuse to strip the CIDR from a subnet that already has one - that is an
-			// invalid transition. Re-registering an existing mac-only subnet is a no-op.
 			if subnet.V4CIDR != nil || subnet.V6CIDR != nil {
 				klog.Errorf("subnet %s already has a cidr, cannot convert it to mac-only", name)
 				return ErrInvalidCIDR
@@ -291,7 +279,6 @@ func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []strin
 		return ErrInvalidCIDR
 	}
 
-	// subnet.Spec.ExcludeIps contains both v4 and v6 addresses
 	v4ExcludeIps, v6ExcludeIps := util.SplitIpsByProtocol(excludeIps)
 
 	if subnet, ok := ipam.Subnets[name]; ok {
@@ -457,7 +444,6 @@ func (ipam *IPAM) GetPodAddress(podName string) []*SubnetAddress {
 }
 
 func (ipam *IPAM) ContainAddress(address string) bool {
-	// check if pod is using the address in any subnet of ipam
 	ipam.mutex.RLock()
 	defer ipam.mutex.RUnlock()
 	ip, err := NewIP(address)
@@ -490,7 +476,6 @@ func (ipam *IPAM) GetSubnetIPRangeString(subnetName string, excludeIps []string)
 	ipam.mutex.RLock()
 	defer ipam.mutex.RUnlock()
 
-	// subnet.Spec.ExcludeIps contains both v4 and v6 addresses
 	v4ExcludeIps, v6ExcludeIps := util.SplitIpsByProtocol(excludeIps)
 
 	var v4UsingIPStr, v6UsingIPStr, v4AvailableIPStr, v6AvailableIPStr string
@@ -498,7 +483,6 @@ func (ipam *IPAM) GetSubnetIPRangeString(subnetName string, excludeIps []string)
 		v4Reserved, _ := NewIPRangeListFrom(v4ExcludeIps...)
 		v6Reserved, _ := NewIPRangeListFrom(v6ExcludeIps...)
 
-		// do not count ips in excludeIPs as available and using IPs
 		v4AvailableIPStr = subnet.V4Available.Separate(v4Reserved).String()
 		v6AvailableIPStr = subnet.V6Available.Separate(v6Reserved).String()
 		v4UsingIPStr = subnet.V4Using.Separate(v4Reserved).String()

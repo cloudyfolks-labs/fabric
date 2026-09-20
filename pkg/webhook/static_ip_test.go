@@ -60,7 +60,6 @@ func TestCheckIPAddressFamilyUniqueness(t *testing.T) {
 			wantErr:   `multiple IPv6 addresses in ip_address annotation "10.0.0.1,fd00::1,fd00::2"`,
 		},
 		{
-			// Defer reporting to checkIPConflict for consistent error wording.
 			name:      "invalid IP is left for checkIPConflict",
 			ipAddress: "10.0.0.1,not-an-ip",
 		},

@@ -55,7 +55,6 @@ func NamedUUID() string {
 	return fmt.Sprintf("u%010d", atomic.AddUint32(&namedUUIDCounter, 1))
 }
 
-// NewOvsDbClient creates a new ovsdb client
 func NewOvsDbClient(
 	db string,
 	addr string,
@@ -76,10 +75,8 @@ func NewOvsDbClient(
 	}
 	var backOff backoff.BackOff
 	if len(options) > 1 {
-		// multiple endpoints, use zero backoff to try next endpoint immediately
 		backOff = &backoff.ZeroBackOff{}
 	} else {
-		// single endpoint, use exponential backoff for reconnects
 		bo := backoff.NewExponentialBackOff()
 		bo.InitialInterval = 1 * time.Second
 		bo.MaxInterval = 10 * time.Second
@@ -99,10 +96,6 @@ func NewOvsDbClient(
 	inactivityTimeout := time.Duration(ovsDbInactivityTimeout) * time.Second
 	options = append(options, client.WithLeaderOnly(true), client.WithLogger(&dbLogger))
 	if inactivityTimeout > 0 {
-		// Reading and parsing the DB after reconnect at scale can (unsurprisingly)
-		// take longer than a normal ovsdb operation. Give it a bit more time so
-		// we don't time out and enter a reconnect loop. In addition it also enables
-		// inactivity check on the ovsdb connection.
 		options = append(options, client.WithInactivityCheck(inactivityTimeout, connectTimeout, backOff))
 	} else {
 		options = append(options, client.WithReconnect(connectTimeout, backOff))

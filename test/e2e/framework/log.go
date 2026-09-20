@@ -31,13 +31,10 @@ func log(level, format string, args ...any) {
 	fmt.Fprintf(ginkgo.GinkgoWriter, nowStamp()+": "+level+": "+format+"\n", args...)
 }
 
-// Logf logs the info.
 func Logf(format string, args ...any) {
 	log("INFO", format, args...)
 }
 
-// Failf logs the fail info, including a stack trace starts with its direct caller
-// (for example, for call chain f -> g -> Failf("foo", ...) error would be logged for "g").
 func Failf(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	skip := 1
@@ -46,8 +43,6 @@ func Failf(format string, args ...any) {
 	panic("unreachable")
 }
 
-// Fail is a replacement for ginkgo.Fail which logs the problem as it occurs
-// together with a stack trace and then calls ginkgowrapper.Fail.
 func Fail(msg string, callerSkip ...int) {
 	skip := 1
 	if len(callerSkip) > 0 {
@@ -73,22 +68,17 @@ var codeFilterRE = regexp.MustCompile(`/github.com/onsi/ginkgo/v2/`)
 func PrunedStack(skip int) []byte {
 	fullStackTrace := debug.Stack()
 	stack := bytes.Split(fullStackTrace, []byte("\n"))
-	// Ensure that the even entries are the method names and
-	// the odd entries the source code information.
+
 	if len(stack) > 0 && bytes.HasPrefix(stack[0], []byte("goroutine ")) {
-		// Ignore "goroutine 29 [running]:" line.
 		stack = stack[1:]
 	}
-	// The "+2" is for skipping over:
-	// - runtime/debug.Stack()
-	// - PrunedStack()
+
 	skip += 2
 	if len(stack) > 2*skip {
 		stack = stack[2*skip:]
 	}
 	n := 0
 	for i := range len(stack) / 2 {
-		// We filter out based on the source code file name.
 		if !codeFilterRE.Match(stack[i*2+1]) {
 			stack[n] = stack[i*2]
 			stack[n+1] = stack[i*2+1]

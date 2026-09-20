@@ -22,7 +22,6 @@ const (
 	DaemonSetOvsOvn = "ovs-ovn"
 )
 
-// RandomSuffix provides a random sequence to append to resources.
 func RandomSuffix() string {
 	return fmt.Sprintf("%d%04d%04d", ginkgo.GinkgoParallelProcess(), rand.IntN(10000), rand.IntN(10000))
 }
@@ -114,7 +113,6 @@ func sortIPs(ips []string) {
 	})
 }
 
-// ipv4/ipv6 only
 func RandomExcludeIPs(cidr string, count int) []string {
 	ginkgo.GinkgoHelper()
 
@@ -145,7 +143,6 @@ func RandomExcludeIPs(cidr string, count int) []string {
 	return ret
 }
 
-// ipv4/ipv6 only
 func randomSortedIPs(cidr string, count int, sort bool) []string {
 	ginkgo.GinkgoHelper()
 
@@ -193,7 +190,6 @@ func RandomIPs(cidr, sep string, count int) string {
 	return strings.Join(dual, sep)
 }
 
-// ipv4/ipv6 only
 func randomPool(cidr string, count int) []string {
 	ginkgo.GinkgoHelper()
 
@@ -226,8 +222,8 @@ func randomPool(cidr string, count int) []string {
 	}
 
 	count -= s.Len()
-	m := count / 3 // <IP1>..<IP2>
-	n := count - m // <IP>
+	m := count / 3
+	n := count - m
 	ips := make([]ipam.IP, 0, m*2+n)
 	ipSet := set.New[string]()
 	for len(ips) != cap(ips) {
@@ -268,10 +264,6 @@ func randomPool(cidr string, count int) []string {
 	return s.UnsortedList()
 }
 
-// RandomIPPool generates random IP addresses from the given CIDR.
-// WARNING: If cidr contains both IPv4 and IPv6 (dual-stack), this function
-// will return a mix of both IP families. For use cases requiring single IP family
-// (e.g., OVN address sets), split the CIDR first using util.SplitStringIP().
 func RandomIPPool(cidr string, count int) []string {
 	ginkgo.GinkgoHelper()
 

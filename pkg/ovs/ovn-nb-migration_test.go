@@ -11,11 +11,9 @@ import (
 	"github.com/cloudyfolks-labs/fabric/versions"
 )
 
-// ensureNbGlobalExists creates NBGlobal if it doesn't exist (needed for migration tests)
 func ensureNbGlobalExists(t *testing.T, nbClient *OVNNbClient) {
 	_, err := nbClient.GetNbGlobal()
 	if err != nil {
-		// NBGlobal doesn't exist, create it
 		nbGlobal := &ovnnb.NBGlobal{
 			Options: map[string]string{},
 		}
@@ -26,21 +24,17 @@ func ensureNbGlobalExists(t *testing.T, nbClient *OVNNbClient) {
 
 func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 	t := suite.T()
-	// Note: Cannot run in parallel as these tests modify shared NBGlobal state
 
 	nbClient := suite.ovnNBClient
 	lrName := "test-migrate-lr"
 	lsName := "test-migrate-ls"
 
-	// Clean up NBGlobal after test to avoid affecting other tests
 	t.Cleanup(func() {
 		_ = nbClient.DeleteNbGlobal()
 	})
 
-	// Ensure NBGlobal exists for test
 	ensureNbGlobalExists(t, nbClient)
 
-	// Clear any existing version to simulate upgrade from old version
 	nbGlobal, err := nbClient.GetNbGlobal()
 	require.NoError(t, err)
 	if nbGlobal.ExternalIDs != nil {
@@ -49,17 +43,12 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 		require.NoError(t, err)
 	}
 
-	// Create a logical router with vendor tag (this simulates existing fabric router)
 	err = nbClient.CreateLogicalRouter(lrName)
 	require.NoError(t, err)
 
-	// Create a logical switch with vendor tag
 	err = nbClient.CreateBareLogicalSwitch(lsName)
 	require.NoError(t, err)
 
-	// Create test resources without vendor tags to simulate pre-v1.15.0 resources
-
-	// 1. Create LRP without vendor tag but with 'lr' externalID
 	lrpName := lrName + "-" + lsName
 	lrp := &ovnnb.LogicalRouterPort{
 		UUID:     ovsclient.NamedUUID(),
@@ -67,8 +56,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 		MAC:      util.GenerateMac(),
 		Networks: []string{"10.0.0.1/24"},
 		ExternalIDs: map[string]string{
-			logicalRouterKey: lrName, // This identifies it as fabric resource
-			// vendor tag intentionally missing
+			logicalRouterKey: lrName,
 		},
 	}
 	ops, err := nbClient.CreateLogicalRouterPortOp(lrp, lrName)
@@ -76,15 +64,12 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 	err = nbClient.Transact("test-lrp-add", ops)
 	require.NoError(t, err)
 
-	// 2. Create port group without vendor tag using low-level OVSDB operation
-	// to simulate pre-v1.15.0 resources (high-level CreatePortGroup auto-adds vendor tag)
 	sgPgName := "ovn.sg.test.security.group"
 	pg := &ovnnb.PortGroup{
 		UUID: ovsclient.NamedUUID(),
 		Name: sgPgName,
 		ExternalIDs: map[string]string{
 			sgKey: "test-sg",
-			// vendor tag intentionally missing
 		},
 	}
 	ops, err = nbClient.Create(pg)
@@ -92,14 +77,12 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 	err = nbClient.Transact("test-pg-add", ops)
 	require.NoError(t, err)
 
-	// 3. Create address set without vendor tag using low-level OVSDB operation
 	asName := "ovn.sg.test.sg.associated.v4"
 	as := &ovnnb.AddressSet{
 		UUID: ovsclient.NamedUUID(),
 		Name: asName,
 		ExternalIDs: map[string]string{
 			sgKey: "test-sg",
-			// vendor tag intentionally missing
 		},
 	}
 	ops, err = nbClient.Create(as)
@@ -107,39 +90,32 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 	err = nbClient.Transact("test-as-add", ops)
 	require.NoError(t, err)
 
-	// 4. Create load balancer without vendor tag using low-level OVSDB operation
 	lbName := "cluster-tcp-loadbalancer"
 	lb := &ovnnb.LoadBalancer{
 		UUID:     ovsclient.NamedUUID(),
 		Name:     lbName,
 		Protocol: &[]string{"tcp"}[0],
-		// vendor tag intentionally missing (ExternalIDs is nil)
 	}
 	ops, err = nbClient.Create(lb)
 	require.NoError(t, err)
 	err = nbClient.Transact("test-lb-add", ops)
 	require.NoError(t, err)
 
-	// Run migration (should run because no version is stored)
 	err = nbClient.MigrateVendorExternalIDs()
 	require.NoError(t, err)
 
-	// Verify LRP has vendor tag
 	migratedLrp, err := nbClient.GetLogicalRouterPort(lrpName, false)
 	require.NoError(t, err)
 	require.Equal(t, util.VendorTag, migratedLrp.ExternalIDs["vendor"])
 
-	// Verify port group has vendor tag
 	migratedPg, err := nbClient.GetPortGroup(sgPgName, false)
 	require.NoError(t, err)
 	require.Equal(t, util.VendorTag, migratedPg.ExternalIDs["vendor"])
 
-	// Verify load balancer has vendor tag
 	migratedLb, err := nbClient.GetLoadBalancer(lbName, false)
 	require.NoError(t, err)
 	require.Equal(t, util.VendorTag, migratedLb.ExternalIDs["vendor"])
 
-	// Verify version was stored
 	storedVersion, err := nbClient.GetFabricVersion()
 	require.NoError(t, err)
 	require.Equal(t, versions.VERSION, storedVersion)
@@ -147,24 +123,19 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 
 func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsIdempotent() {
 	t := suite.T()
-	// Note: Cannot run in parallel as these tests modify shared NBGlobal state
 
 	nbClient := suite.ovnNBClient
 	lrName := "test-migrate-idempotent-lr"
 
-	// Clean up NBGlobal after test to avoid affecting other tests
 	t.Cleanup(func() {
 		_ = nbClient.DeleteNbGlobal()
 	})
 
-	// Ensure NBGlobal exists for test
 	ensureNbGlobalExists(t, nbClient)
 
-	// Create a logical router with vendor tag
 	err := nbClient.CreateLogicalRouter(lrName)
 	require.NoError(t, err)
 
-	// Clear version to trigger first migration
 	nbGlobal, err := nbClient.GetNbGlobal()
 	require.NoError(t, err)
 	if nbGlobal.ExternalIDs != nil {
@@ -173,22 +144,18 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsIdempotent() {
 		require.NoError(t, err)
 	}
 
-	// First migration should run
 	err = nbClient.MigrateVendorExternalIDs()
 	require.NoError(t, err)
 
-	// Verify version was stored
 	storedVersion, err := nbClient.GetFabricVersion()
 	require.NoError(t, err)
 	require.Equal(t, versions.VERSION, storedVersion)
 
-	// Subsequent calls should skip migration but not fail
 	for range 3 {
 		err = nbClient.MigrateVendorExternalIDs()
 		require.NoError(t, err)
 	}
 
-	// Version should still be set
 	storedVersion, err = nbClient.GetFabricVersion()
 	require.NoError(t, err)
 	require.Equal(t, versions.VERSION, storedVersion)
@@ -196,23 +163,18 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsIdempotent() {
 
 func (suite *OvnClientTestSuite) testMigrateSkipsWhenVersionSet() {
 	t := suite.T()
-	// Note: Cannot run in parallel as these tests modify shared NBGlobal state
 
 	nbClient := suite.ovnNBClient
 
-	// Clean up NBGlobal after test to avoid affecting other tests
 	t.Cleanup(func() {
 		_ = nbClient.DeleteNbGlobal()
 	})
 
-	// Ensure NBGlobal exists for test
 	ensureNbGlobalExists(t, nbClient)
 
-	// Set version to current (simulating already-migrated system)
 	err := nbClient.SetFabricVersion(versions.VERSION)
 	require.NoError(t, err)
 
-	// Check that migration is not needed
 	needsMigration, err := nbClient.needsVendorMigration()
 	require.NoError(t, err)
 	require.False(t, needsMigration, "migration should not be needed when current version is set")
@@ -220,23 +182,18 @@ func (suite *OvnClientTestSuite) testMigrateSkipsWhenVersionSet() {
 
 func (suite *OvnClientTestSuite) testMigrateRunsWhenOldVersion() {
 	t := suite.T()
-	// Note: Cannot run in parallel as these tests modify shared NBGlobal state
 
 	nbClient := suite.ovnNBClient
 
-	// Clean up NBGlobal after test to avoid affecting other tests
 	t.Cleanup(func() {
 		_ = nbClient.DeleteNbGlobal()
 	})
 
-	// Ensure NBGlobal exists for test
 	ensureNbGlobalExists(t, nbClient)
 
-	// Set version to old version (before vendor tagging was introduced)
 	err := nbClient.SetFabricVersion("v1.14.0")
 	require.NoError(t, err)
 
-	// Check that migration IS needed
 	needsMigration, err := nbClient.needsVendorMigration()
 	require.NoError(t, err)
 	require.True(t, needsMigration, "migration should be needed when old version is stored")
@@ -244,21 +201,15 @@ func (suite *OvnClientTestSuite) testMigrateRunsWhenOldVersion() {
 
 func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsSkipsNonFabric() {
 	t := suite.T()
-	// Note: Cannot run in parallel as these tests modify shared NBGlobal state
 
 	nbClient := suite.ovnNBClient
 
-	// Clean up NBGlobal after test to avoid affecting other tests
 	t.Cleanup(func() {
 		_ = nbClient.DeleteNbGlobal()
 	})
 
-	// Ensure NBGlobal exists for test
 	ensureNbGlobalExists(t, nbClient)
 
-	// Create resources that should NOT be tagged (simulating external resources)
-
-	// 1. Port group with neutron-like naming (should be skipped)
 	neutronPgName := "neutron.security.group.123"
 	pg := &ovnnb.PortGroup{
 		UUID: ovsclient.NamedUUID(),
@@ -272,21 +223,18 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsSkipsNonFabric() {
 	err = nbClient.Transact("test-neutron-pg", ops)
 	require.NoError(t, err)
 
-	// Run migration
 	err = nbClient.MigrateVendorExternalIDs()
 	require.NoError(t, err)
 
-	// Verify neutron resource was NOT tagged
 	migratedPg, err := nbClient.GetPortGroup(neutronPgName, false)
 	require.NoError(t, err)
-	// Should not have vendor tag
+
 	require.NotEqual(t, util.VendorTag, migratedPg.ExternalIDs["vendor"])
 }
 
 func TestSecurityGroupPatterns(t *testing.T) {
 	t.Parallel()
 
-	// Test security group port group pattern
 	testCases := []struct {
 		name     string
 		expected bool
@@ -294,7 +242,7 @@ func TestSecurityGroupPatterns(t *testing.T) {
 		{"ovn.sg.default", true},
 		{"ovn.sg.my.security.group", true},
 		{"ovn.sg.test.with.many.dots", true},
-		{"ovn.sg.", false}, // empty sg name
+		{"ovn.sg.", false},
 		{"ovn.other.thing", false},
 		{"neutron.sg.something", false},
 	}

@@ -34,7 +34,6 @@ func writeProfileToTemp(pattern string, writeFn func(*os.File) error) {
 	}
 }
 
-// DumpProfile starts a goroutine that handles SIGUSR1 (CPU profile) and SIGUSR2 (heap profile).
 func DumpProfile() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGUSR1, syscall.SIGUSR2)

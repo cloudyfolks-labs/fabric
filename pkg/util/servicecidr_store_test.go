@@ -32,10 +32,6 @@ func TestServiceCIDRStoreUpsertAndDelete(t *testing.T) {
 		done <- struct{}{}
 	})
 
-	// First API entry is identical to the flag — the merged set's content is
-	// unchanged, so UpsertFromAPI returns false even though the source has
-	// shifted from fallback to API. A second, distinct entry is what brings
-	// the set to two CIDRs.
 	if s.UpsertFromAPI("primary", []string{"10.96.0.0/12"}) {
 		t.Fatal("expected no change when API entry equals flag content")
 	}
@@ -49,7 +45,7 @@ func TestServiceCIDRStoreUpsertAndDelete(t *testing.T) {
 	}
 
 	waitFor(t, done, 1)
-	time.Sleep(2 * s.debounceInterval) // ensure first fire's debounce window ended
+	time.Sleep(2 * s.debounceInterval)
 
 	if !s.DeleteFromAPI("extra") {
 		t.Fatal("expected change on delete")
@@ -76,9 +72,6 @@ func TestServiceCIDRStoreDedup(t *testing.T) {
 }
 
 func TestServiceCIDRStoreFlagYieldsToAPI(t *testing.T) {
-	// flag is the initial bootstrap value; it must yield as soon as the API
-	// observes any valid ServiceCIDR, otherwise deletions/migrations cannot
-	// shrink the effective set.
 	s := NewServiceCIDRStore("10.96.0.0/12")
 	if got := s.AllCIDRs(); len(got) != 1 || got[0] != "10.96.0.0/12" {
 		t.Fatalf("flag should be live before any API entry: %v", got)
@@ -90,8 +83,6 @@ func TestServiceCIDRStoreFlagYieldsToAPI(t *testing.T) {
 		t.Fatalf("flag should yield to API entries: %v", got)
 	}
 
-	// All API entries removed → fallback re-engages so the data plane keeps a
-	// usable set.
 	s.DeleteFromAPI("kubernetes")
 	got = s.AllCIDRs()
 	if len(got) != 1 || got[0] != "10.96.0.0/12" {
@@ -100,9 +91,6 @@ func TestServiceCIDRStoreFlagYieldsToAPI(t *testing.T) {
 }
 
 func TestServiceCIDRStoreNonReadyDoesNotShadowFlag(t *testing.T) {
-	// readyServiceCIDRs returns nil for non-Ready objects; UpsertFromAPI then
-	// stores an empty slice. The merged set must still fall back to the flag
-	// so the data plane keeps the baseline programmed.
 	s := NewServiceCIDRStore("10.96.0.0/12")
 	s.UpsertFromAPI("pending", nil)
 	got := s.AllCIDRs()

@@ -76,7 +76,6 @@ func (c *DeploymentClient) GetAllPods(deploy *appsv1.Deployment) (*corev1.PodLis
 	return c.clientSet.CoreV1().Pods(deploy.Namespace).List(context.TODO(), podListOptions)
 }
 
-// Create creates a new deployment according to the framework specifications
 func (c *DeploymentClient) Create(deploy *appsv1.Deployment) *appsv1.Deployment {
 	ginkgo.GinkgoHelper()
 	d, err := c.DeploymentInterface.Create(context.TODO(), deploy, metav1.CreateOptions{})
@@ -84,14 +83,13 @@ func (c *DeploymentClient) Create(deploy *appsv1.Deployment) *appsv1.Deployment 
 	return d.DeepCopy()
 }
 
-// CreateSync creates a new deployment according to the framework specifications, and waits for it to complete.
 func (c *DeploymentClient) CreateSync(deploy *appsv1.Deployment) *appsv1.Deployment {
 	ginkgo.GinkgoHelper()
 
 	d := c.Create(deploy)
 	err := c.WaitToComplete(d)
 	ExpectNoError(err, "deployment failed to complete")
-	// Get the newest deployment
+
 	return c.Get(d.Name).DeepCopy()
 }
 
@@ -156,7 +154,6 @@ func (c *DeploymentClient) PatchSync(original, modified *appsv1.Deployment) *app
 	return c.RolloutStatus(deploy.Name)
 }
 
-// Restart restarts the deployment as kubectl does
 func (c *DeploymentClient) Restart(deploy *appsv1.Deployment) *appsv1.Deployment {
 	ginkgo.GinkgoHelper()
 
@@ -187,7 +184,6 @@ func (c *DeploymentClient) Restart(deploy *appsv1.Deployment) *appsv1.Deployment
 	return result.DeepCopy()
 }
 
-// RestartSync restarts the deployment and wait it to be ready
 func (c *DeploymentClient) RestartSync(deploy *appsv1.Deployment) *appsv1.Deployment {
 	ginkgo.GinkgoHelper()
 	_ = c.Restart(deploy)
@@ -209,7 +205,6 @@ func (c *DeploymentClient) SetScale(deployment string, replicas int32) {
 	framework.ExpectNoError(err)
 }
 
-// Delete deletes a deployment if the deployment exists
 func (c *DeploymentClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.DeploymentInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -218,8 +213,6 @@ func (c *DeploymentClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the deployment and waits for the deployment to disappear for `timeout`.
-// If the deployment doesn't disappear before the timeout, it will fail the test.
 func (c *DeploymentClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
@@ -230,7 +223,6 @@ func (c *DeploymentClient) WaitToComplete(deploy *appsv1.Deployment) error {
 	return testutils.WaitForDeploymentComplete(c.clientSet, deploy, Logf, poll, timeout)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified deployment to disappear.
 func (c *DeploymentClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*appsv1.Deployment, error) {
 		deploy, err := c.DeploymentInterface.Get(ctx, name, metav1.GetOptions{})

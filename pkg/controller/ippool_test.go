@@ -15,8 +15,6 @@ func TestIPPoolAddressSetName(t *testing.T) {
 	require.Equal(t, "123pool", util.IPPoolAddressSetName("123pool"))
 }
 
-// Additional comprehensive tests for IPPool utilities
-
 func TestNormalizeAddressSetEntries(t *testing.T) {
 	t.Run("Standard OVN format", func(t *testing.T) {
 		result := util.NormalizeAddressSetEntries(`"10.0.0.1/32" "10.0.0.2/32"`)
@@ -96,7 +94,6 @@ func TestNormalizeIP(t *testing.T) {
 }
 
 func TestExpandIPPoolAddressesForOVNIntegration(t *testing.T) {
-	// These tests use ExpandIPPoolAddressesForOVN which enforces OVN address set limitation
 	t.Run("Mixed IPv4 and IPv6 - should fail", func(t *testing.T) {
 		_, err := util.ExpandIPPoolAddressesForOVN([]string{
 			"10.0.0.1",
@@ -113,11 +110,11 @@ func TestExpandIPPoolAddressesForOVNIntegration(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, addresses)
-		// Verify all are IPv4
+
 		for _, addr := range addresses {
 			require.NotContains(t, addr, ":")
 		}
-		// CIDR should be preserved
+
 		require.Contains(t, addresses, "192.168.1.0/30")
 	})
 
@@ -128,11 +125,11 @@ func TestExpandIPPoolAddressesForOVNIntegration(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, addresses)
-		// Verify all are IPv6
+
 		for _, addr := range addresses {
 			require.Contains(t, addr, ":")
 		}
-		// CIDR should be preserved
+
 		require.Contains(t, addresses, "2001:db8::/126")
 	})
 
@@ -143,7 +140,7 @@ func TestExpandIPPoolAddressesForOVNIntegration(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Len(t, addresses, 2)
-		// Should not have /32 suffix
+
 		require.Contains(t, addresses, "10.0.0.1")
 		require.Contains(t, addresses, "10.0.0.2")
 		require.NotContains(t, addresses, "10.0.0.1/32")
@@ -169,9 +166,8 @@ func TestExpandIPPoolAddressesForOVNIntegration(t *testing.T) {
 	})
 
 	t.Run("Range expansion with simplification", func(t *testing.T) {
-		// Range that expands to /32 should be simplified
 		addresses, err := util.ExpandIPPoolAddressesForOVN([]string{
-			"10.0.0.1..10.0.0.1", // Single IP range
+			"10.0.0.1..10.0.0.1",
 		})
 		require.NoError(t, err)
 		require.Len(t, addresses, 1)
@@ -185,10 +181,10 @@ func TestExpandIPPoolAddressesForOVNIntegration(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, addresses)
-		// Should contain simplified /32 and non-simplified /31
-		require.Contains(t, addresses, "10.0.0.1")    // Simplified from /32
-		require.Contains(t, addresses, "10.0.0.2/31") // Not /32, keep as-is
-		require.Contains(t, addresses, "10.0.0.4/31") // Not /32, keep as-is
+
+		require.Contains(t, addresses, "10.0.0.1")
+		require.Contains(t, addresses, "10.0.0.2/31")
+		require.Contains(t, addresses, "10.0.0.4/31")
 	})
 
 	t.Run("Empty input", func(t *testing.T) {

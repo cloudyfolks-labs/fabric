@@ -268,7 +268,7 @@ func Test_enqueueServiceGatedByEnableLb(t *testing.T) {
 		enqueueAll(c)
 		require.Equal(t, 1, c.deleteServiceQueue.Len())
 		require.Equal(t, 1, c.updateServiceQueue.Len())
-		// the same service key from the service/endpointSlice events is deduplicated
+
 		require.Equal(t, 1, c.addOrUpdateEndpointSliceQueue.Len())
 	})
 }
@@ -513,8 +513,8 @@ func Test_checkServiceLBIPBelongToSubnet(t *testing.T) {
 		name        string
 		svc         *v1.Service
 		wantUpdate  bool
-		wantSubnet  string // expected annotation value after reconcile when wantPresent is true
-		wantPresent bool   // whether the annotation key should exist after reconcile
+		wantSubnet  string
+		wantPresent bool
 	}{
 		{
 			name:        "external IP belongs to subnet sets annotation",

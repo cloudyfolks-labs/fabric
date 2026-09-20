@@ -37,7 +37,6 @@ const (
 )
 
 const (
-	// poll is how often to Poll resources.
 	poll = time.Second
 
 	timeout = 2 * time.Minute
@@ -64,16 +63,16 @@ type Framework struct {
 	ExtClientSet      *extClientSet.Clientset
 	AnpClientSet      anpclient.Interface
 	FabricVersion     *versionutil.Version
-	// master/release-1.10/...
+
 	ClusterVersion string
-	// 999.999 for master
+
 	ClusterVersionMajor uint
 	ClusterVersionMinor uint
-	// ipv4/ipv6/dual
+
 	ClusterIPFamily string
-	// overlay/underlay/underlay-hairpin
+
 	ClusterNetworkMode string
-	// image info
+
 	FabricImage       string
 	FabricImageDomain string
 	FabricImageRepo   string
@@ -190,7 +189,6 @@ func (f *Framework) IsUnderlay() bool {
 	return f.ClusterNetworkMode == Underlay
 }
 
-// BeforeEach gets a fabric client
 func (f *Framework) BeforeEach() {
 	ginkgo.By("Setting kubernetes context")
 	ExpectNoError(f.useContext())
@@ -279,12 +277,10 @@ func (f *Framework) BeforeEach() {
 	framework.TestContext.Host = ""
 }
 
-// VersionPriorTo returns true if the fabric version is prior to the specified version.
 func (f *Framework) VersionPriorTo(major, minor uint) bool {
 	return f.FabricVersion.LessThan(versionutil.MustParseMajorMinor(fmt.Sprintf("%d.%d", major, minor)))
 }
 
-// SkipVersionPriorTo skips the test if the fabric version is prior to the specified version.
 func (f *Framework) SkipVersionPriorTo(major, minor uint, reason string) {
 	ginkgo.GinkgoHelper()
 
@@ -293,7 +289,6 @@ func (f *Framework) SkipVersionPriorTo(major, minor uint, reason string) {
 	}
 }
 
-// Image returns the image reference with the specified name.
 func (f *Framework) Image(name string) string {
 	repo := path.Clean(path.Join(path.Dir(f.FabricImageRepo), name))
 	return fmt.Sprintf("%s/%s:%s", f.FabricImageDomain, repo, f.FabricImageTag)

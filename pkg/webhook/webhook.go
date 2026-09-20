@@ -32,7 +32,6 @@ func NewValidatingHook(client client.Client, scheme *runtime.Scheme, cache cache
 		cache:   cache,
 	}
 
-	// initialize hook handlers mapping
 	createHooks[deploymentGVK] = v.DeploymentCreateHook
 	createHooks[statefulSetGVK] = v.StatefulSetCreateHook
 	createHooks[daemonSetGVK] = v.DaemonSetCreateHook

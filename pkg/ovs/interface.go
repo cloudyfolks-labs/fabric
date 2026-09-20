@@ -108,9 +108,9 @@ type LogicalSwitchPort interface {
 	CreateBareLogicalSwitchPort(lsName, lspName, ip, mac string) error
 	CreateLocalnetLogicalSwitchPort(lsName, lspName, provider, cidrBlock string, vlanID int) error
 	CreateVirtualLogicalSwitchPorts(lsName string, ips ...string) error
-	// create virtual type logical switch port for allowed-address-pair
+
 	CreateVirtualLogicalSwitchPort(lspName, lsName, ip string) error
-	// update virtual type logical switch port virtual-parents for allowed-address-pair
+
 	SetVirtualLogicalSwitchPortVirtualParents(lsName, parents string) error
 	SetLogicalSwitchPortDHCPOptions(portName string, dhcpOptions *DHCPOptionsUUIDs) error
 	ReconcilePortDHCPOptions(lsName, portName string, subnetDHCP *DHCPOptionsUUIDs, cidrBlock, gateway, v4Options, v6Options string, mtu int) (*DHCPOptionsUUIDs, bool, error)
@@ -131,7 +131,7 @@ type LogicalSwitchPort interface {
 	GetLogicalSwitchPort(lspName string, ignoreNotFound bool) (*ovnnb.LogicalSwitchPort, error)
 	LogicalSwitchPortExists(name string) (bool, error)
 	SetLogicalSwitchPortActivationStrategy(lspName, chassis string) error
-	// vm live migrate
+
 	SetLogicalSwitchPortMigrateOptions(lspName, srcNodeName, targetNodeName string) error
 	ResetLogicalSwitchPortMigrateOptions(lspName, srcNodeName, targetNodeName string, migratedFail bool) error
 	CleanLogicalSwitchPortMigrateOptions(lspName string) error

@@ -239,7 +239,6 @@ var (
 		},
 	)
 
-	// OVS basic info
 	metricOvsHealthyStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -305,7 +304,6 @@ var (
 		},
 	)
 
-	// OVS datapath metrics
 	metricOvsDp = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -441,7 +439,6 @@ var (
 		},
 	)
 
-	// OVS Interface basic info metrics
 	interfaceMain = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -528,7 +525,6 @@ var (
 		},
 	)
 
-	// OVS Interface Statistics: Successful transmit and receive counters
 	interfaceStatTxPackets = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -585,7 +581,6 @@ var (
 		},
 	)
 
-	// OVS Interface Statistics: Receive errors
 	interfaceStatRxCrcError = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -670,7 +665,6 @@ var (
 		},
 	)
 
-	// OVS Interface Statistics: Transmit errors
 	interfaceStatTxDropped = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -752,14 +746,12 @@ func InitPingerMetrics() {
 	metrics.Registry.MustRegister(externalPingLatencyHistogram)
 	metrics.Registry.MustRegister(externalPingLostCounter)
 
-	// ovs status metrics
 	metrics.Registry.MustRegister(metricOvsHealthyStatus)
 	metrics.Registry.MustRegister(metricOvsInfo)
 	metrics.Registry.MustRegister(metricRequestErrorNums)
 	metrics.Registry.MustRegister(metricLogFileSize)
 	metrics.Registry.MustRegister(metricDbFileSize)
 
-	// ovs datapath metrics
 	metrics.Registry.MustRegister(metricOvsDp)
 	metrics.Registry.MustRegister(metricOvsDpTotal)
 	metrics.Registry.MustRegister(metricOvsDpIf)
@@ -772,7 +764,6 @@ func InitPingerMetrics() {
 	metrics.Registry.MustRegister(metricOvsDpMasksTotal)
 	metrics.Registry.MustRegister(metricOvsDpMasksHitRatio)
 
-	// ovs Interface basic info metrics
 	metrics.Registry.MustRegister(interfaceMain)
 	metrics.Registry.MustRegister(interfaceAdminState)
 	metrics.Registry.MustRegister(interfaceLinkState)
@@ -781,7 +772,6 @@ func InitPingerMetrics() {
 	metrics.Registry.MustRegister(interfaceOfPort)
 	metrics.Registry.MustRegister(interfaceIfIndex)
 
-	// ovs Interface statistics metrics
 	metrics.Registry.MustRegister(interfaceStatTxPackets)
 	metrics.Registry.MustRegister(interfaceStatTxBytes)
 	metrics.Registry.MustRegister(interfaceStatRxPackets)

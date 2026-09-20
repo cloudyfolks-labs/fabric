@@ -85,8 +85,6 @@ func vmTemplate(networks []kubevirtv1.Network, annotations map[string]string) *k
 	}
 }
 
-// mockKubevirtList wires a MockKubevirtClient so that a cluster-wide
-// VirtualMachine(NamespaceAll).List returns the given list/error exactly once.
 func mockKubevirtList(t *testing.T, list *kubevirtv1.VirtualMachineList, listErr error) kubecli.KubevirtClient {
 	t.Helper()
 	ctrl := gomock.NewController(t)
@@ -101,8 +99,6 @@ func TestGetVMLsps(t *testing.T) {
 	t.Parallel()
 
 	t.Run("disabled keeps no vm lsp and never lists", func(t *testing.T) {
-		// KubevirtClient is intentionally a mock with no expectations: if getVMLsps
-		// touched the apiserver while disabled, gomock would fail the test.
 		ctrl := gomock.NewController(t)
 		c := &Controller{config: &Configuration{
 			EnableKeepVMIP: false,
@@ -142,8 +138,6 @@ func TestGetVMLsps(t *testing.T) {
 				Spec:       kubevirtv1.VirtualMachineSpec{Template: vmTemplate(nil, nil)},
 			},
 			{
-				// Default multus network: primary lsp is skipped, but the attachment
-				// network derived from NetworkName must still be kept.
 				ObjectMeta: metav1.ObjectMeta{Name: "vm-default-multus", Namespace: "ns2"},
 				Spec: kubevirtv1.VirtualMachineSpec{Template: vmTemplate([]kubevirtv1.Network{{
 					Name: "secondary",
@@ -153,7 +147,6 @@ func TestGetVMLsps(t *testing.T) {
 				}}, nil)},
 			},
 			{
-				// NAD annotation contributes an attachment lsp on top of the primary one.
 				ObjectMeta: metav1.ObjectMeta{Name: "vm-nad", Namespace: "ns3"},
 				Spec:       kubevirtv1.VirtualMachineSpec{Template: vmTemplate(nil, map[string]string{nadv1.NetworkAttachmentAnnot: "netx"})},
 			},

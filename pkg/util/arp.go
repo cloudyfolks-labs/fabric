@@ -24,7 +24,6 @@ func ArpResolve(nic, dstIP string, timeout time.Duration, maxRetry int, done cha
 			select {
 			case done <- struct{}{}:
 			default:
-				// do nothing
 			}
 		}()
 	}
@@ -104,13 +103,13 @@ func macEqual(a, b net.HardwareAddr) bool {
 // returns MAC of the host if the ip address is in use
 func ArpDetectIPConflict(nic, ip string, mac net.HardwareAddr) (net.HardwareAddr, error) {
 	const (
-		probeWait        = 1 * time.Second // initial random delay
-		probeNum         = 3               // number of probe packets
-		probeMinimum     = 1 * time.Second // minimum delay until repeated probe
-		probeMaximum     = 2 * time.Second // maximum delay until repeated probe
-		announceWait     = 2 * time.Second // delay before announcing
-		announceNum      = 2               // number of Announcement packets
-		announceInterval = 2 * time.Second // time between Announcement packets
+		probeWait        = 1 * time.Second
+		probeNum         = 3
+		probeMinimum     = 1 * time.Second
+		probeMaximum     = 2 * time.Second
+		announceWait     = 2 * time.Second
+		announceNum      = 2
+		announceInterval = 2 * time.Second
 	)
 
 	tpa, err := netip.ParseAddr(ip)
@@ -143,13 +142,10 @@ func ArpDetectIPConflict(nic, ip string, mac net.HardwareAddr) (net.HardwareAddr
 
 	deadline := time.Now()
 	durations := make([]time.Duration, probeNum)
-	// wait for a random time interval selected uniformly in the range zero to
-	// PROBE_WAIT seconds
+
 	durations[0] = time.Duration(rand.Int64N(int64(probeWait))) // #nosec G404
 	deadline = deadline.Add(durations[0])
 	for i := 1; i < probeNum; i++ {
-		// send PROBE_NUM probe packets, each of these probe packets spaced
-		// randomly and uniformly, PROBE_MIN to PROBE_MAX seconds apart
 		durations[i] = probeMinimum + time.Duration(rand.Int64N(int64(probeMaximum-probeMinimum))) // #nosec G404
 		deadline = deadline.Add(durations[i])
 	}
@@ -168,7 +164,6 @@ func ArpDetectIPConflict(nic, ip string, mac net.HardwareAddr) (net.HardwareAddr
 			if err != nil {
 				if opErr, ok := err.(*net.OpError); ok {
 					if netErr, ok := opErr.Err.(net.Error); ok && netErr.Timeout() {
-						// read timeout, ignore
 						return
 					}
 				}
@@ -188,8 +183,6 @@ func ArpDetectIPConflict(nic, ip string, mac net.HardwareAddr) (net.HardwareAddr
 				macEqual(pkt.TargetHardwareAddr, tha) &&
 				pkt.TargetIP.String() == ip &&
 				!macEqual(pkt.SenderHardwareAddr, mac) {
-				// received probe from another host
-				// treat this as an address conflict
 				klog.Infof("received IPv4 address probe for %s from host %s", ip, pkt.SenderHardwareAddr.String())
 				ch <- pkt.SenderHardwareAddr
 				return
@@ -203,7 +196,7 @@ func ArpDetectIPConflict(nic, ip string, mac net.HardwareAddr) (net.HardwareAddr
 
 		select {
 		case mac := <-ch:
-			// the IPv4 address is in use by another host
+
 			return mac, nil
 		default:
 		}
@@ -225,11 +218,6 @@ func ArpDetectIPConflict(nic, ip string, mac net.HardwareAddr) (net.HardwareAddr
 		return nil, readErr
 	}
 
-	// The address may be used safely. Broadcast ANNOUNCE_NUM ARP
-	// Announcements, spaced ANNOUNCE_INTERVAL seconds apart. An ARP
-	// Announcement is identical to the ARP Probe described above,
-	// except that now the sender and target IP addresses are both
-	// set to the host's newly selected IPv4 address.
 	if err = AnnounceArpAddress(nic, ip, mac, announceNum, announceInterval); err != nil {
 		klog.Error(err)
 		return nil, err
@@ -277,7 +265,6 @@ func AnnounceArpAddress(nic, ip string, mac net.HardwareAddr, announceNum int, a
 			return err
 		}
 		if i == announceNum-1 {
-			// the last one, no need to wait
 			c.Stop()
 		} else {
 			<-c.C

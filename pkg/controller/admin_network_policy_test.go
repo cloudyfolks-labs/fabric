@@ -339,8 +339,6 @@ func newTestAnp(ingressRuleName, egressRuleName string, peerLabels map[string]st
 	}
 }
 
-// A renamed rule must be handled by the add queue: the rule name is part of the acl name and of the
-// address set name referenced by the acl match, so only recreating the acls keeps them consistent.
 func TestEnqueueUpdateAnpRuleRename(t *testing.T) {
 	t.Parallel()
 

@@ -13,25 +13,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Listener describes a TCP Listener
-// with the Linux IP_TRANSPARENT option defined
-// on the listening socket
 type Listener struct {
 	base net.Listener
 }
 
-// Accept waits for and returns
-// the next connection to the listener.
-//
-// This command wraps the AcceptTProxy
-// method of the Listener
 func (listener *Listener) Accept() (net.Conn, error) {
 	return listener.AcceptTProxy()
 }
 
-// AcceptTProxy will accept a TCP connection
-// and wrap it to a TProxy connection to provide
-// TProxy functionality
 func (listener *Listener) AcceptTProxy() (*Conn, error) {
 	tcpConn, err := listener.base.(*net.TCPListener).AcceptTCP()
 	if err != nil {
@@ -42,23 +31,14 @@ func (listener *Listener) AcceptTProxy() (*Conn, error) {
 	return &Conn{TCPConn: tcpConn}, nil
 }
 
-// Addr returns the network address
-// the listener is accepting connections
-// from
 func (listener *Listener) Addr() net.Addr {
 	return listener.base.Addr()
 }
 
-// Close will close the listener from accepting
-// any more connections. Any blocked connections
-// will unblock and close
 func (listener *Listener) Close() error {
 	return listener.base.Close()
 }
 
-// ListenTCP will construct a new TCP listener
-// socket with the Linux IP_TRANSPARENT option
-// set on the underlying socket
 func ListenTCP(network string, laddr *net.TCPAddr) (net.Listener, error) {
 	return listenTCP("", network, laddr)
 }
@@ -95,18 +75,10 @@ func listenTCP(device, network string, laddr *net.TCPAddr) (net.Listener, error)
 	return &Listener{listener}, nil
 }
 
-// Conn describes a connection
-// accepted by the TProxy listener.
-//
-// It is simply a TCP connection with
-// the ability to dial a connection to
-// the original destination while assuming
-// the IP address of the client
 type Conn struct {
 	*net.TCPConn
 }
 
-// tcpAddrToSocketAddr converts a TCPAddr into a Sockaddr for connecting and binding sockets.
 func tcpAddrToSocketAddr(addr *net.TCPAddr) (syscall.Sockaddr, error) {
 	switch {
 	case addr.IP.To4() != nil:
@@ -123,9 +95,6 @@ func tcpAddrToSocketAddr(addr *net.TCPAddr) (syscall.Sockaddr, error) {
 	}
 }
 
-// tcpAddrFamily will attempt to work
-// out the address family based on the
-// network and TCP addresses
 func tcpAddrFamily(net string, laddr, raddr *net.TCPAddr) int {
 	switch net[len(net)-1] {
 	case '4':
@@ -141,9 +110,6 @@ func tcpAddrFamily(net string, laddr, raddr *net.TCPAddr) int {
 	return syscall.AF_INET6
 }
 
-// DialTCP will open a
-// TCP connection to the specified destination
-// with the specified local address.
 func DialTCP(laddr, raddr *net.TCPAddr, isnonblocking bool) (*net.TCPConn, error) {
 	return dialTCP("", laddr, raddr, false, isnonblocking)
 }

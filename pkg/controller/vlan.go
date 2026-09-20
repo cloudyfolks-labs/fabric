@@ -122,7 +122,7 @@ func (c *Controller) handleAddVlan(key string) error {
 
 	if err = c.checkVlanConflict(vlan); err != nil {
 		klog.Errorf("failed to check vlan %s: %v", vlan.Name, err)
-		// re-enqueue subnets so they can see the conflict status and reject
+
 		for _, subnet := range subnets {
 			if subnet.Spec.Vlan == vlan.Name {
 				c.addOrUpdateSubnetQueue.Add(subnet.Name)
@@ -141,8 +141,6 @@ func (c *Controller) handleAddVlan(key string) error {
 		}
 	}
 
-	// re-enqueue subnets that reference this vlan, so they can proceed
-	// now that the vlan is fully processed
 	for _, subnet := range subnets {
 		if subnet.Spec.Vlan == vlan.Name {
 			c.addOrUpdateSubnetQueue.Add(subnet.Name)
@@ -154,20 +152,18 @@ func (c *Controller) handleAddVlan(key string) error {
 
 func (c *Controller) checkVlanConflict(vlan *fabricv1.Vlan) error {
 	if vlan.Spec.ID == 0 {
-		// no conflict if vlan id is 0
 		return nil
 	}
-	// todo: check if vlan conflict in webhook
+
 	vlans, err := c.vlansLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("failed to list vlans: %v", err)
 		return err
 	}
-	// check if new vlan conflict with old vlan
+
 	var conflict bool
 	var conflictErr error
 	for _, v := range vlans {
-		// different provider allow to have same vlan
 		if vlan.Spec.Provider == v.Spec.Provider && vlan.Spec.ID == v.Spec.ID && vlan.Name != v.Name {
 			conflictErr = fmt.Errorf("provider %s new vlan %s conflict with old vlan %s", vlan.Spec.Provider, vlan.Name, v.Name)
 			klog.Error(conflictErr)
@@ -213,10 +209,6 @@ func (c *Controller) handleUpdateVlan(key string) error {
 		return err
 	}
 
-	// ensure the vlan is registered in the provider network's Status.Vlans,
-	// which is used by validateSubnetVlan as a "vlan ready" signal.
-	// This is especially important after a provider change, where the vlan
-	// needs to appear in the new provider network's Vlans list.
 	pn, err := c.providerNetworksLister.Get(vlan.Spec.Provider)
 	if err != nil {
 		klog.Errorf("failed to get provider network %s: %v", vlan.Spec.Provider, err)

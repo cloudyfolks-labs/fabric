@@ -79,7 +79,6 @@ func (v *ValidatingHook) ValidateVip(ctx context.Context, vip *ovnv1.Vip) error 
 	}
 
 	if vip.Spec.V6ip != "" {
-		// v6 ip address can not use upper case
 		if util.ContainsUppercase(vip.Spec.V6ip) {
 			err := fmt.Errorf("vip %s v6 ip address %s can not contain upper case", vip.Name, vip.Spec.V6ip)
 			return err

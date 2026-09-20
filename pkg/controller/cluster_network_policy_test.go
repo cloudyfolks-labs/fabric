@@ -170,8 +170,6 @@ func TestGetCnpAddressSetsToUpdate(t *testing.T) {
 			egress:  false,
 		},
 		{
-			// A renamed rule is handled by recreating the ACLs (see shouldRecreateCnpACLs),
-			// not by the address set update path.
 			name: "changed ingress name",
 			oldCnp: &v1alpha2.ClusterNetworkPolicy{
 				Spec: v1alpha2.ClusterNetworkPolicySpec{
@@ -254,8 +252,6 @@ func TestGetCnpAddressSetsToUpdate(t *testing.T) {
 			egress:  true,
 		},
 		{
-			// A renamed rule is handled by recreating the ACLs (see shouldRecreateCnpACLs),
-			// not by the address set update path.
 			name: "changed egress name",
 			oldCnp: &v1alpha2.ClusterNetworkPolicy{
 				Spec: v1alpha2.ClusterNetworkPolicySpec{
@@ -494,8 +490,6 @@ func TestShouldRecreateCnpACLs(t *testing.T) {
 			result: true,
 		},
 		{
-			// The rule name is part of the acl name and of the address set name referenced by
-			// the acl match, so a renamed rule must recreate the acls.
 			name: "ingress rule renamed",
 			oldCnp: &v1alpha2.ClusterNetworkPolicy{
 				Spec: v1alpha2.ClusterNetworkPolicySpec{
@@ -891,8 +885,8 @@ func TestValidateCnpConfig(t *testing.T) {
 				Spec: v1alpha2.ClusterNetworkPolicySpec{
 					Tier:     v1alpha2.BaselineTier,
 					Priority: 99,
-					Ingress:  tooBigIngressList[:util.CnpMaxRules], // We have one too much, remove it
-					Egress:   tooBigEgressList[:util.CnpMaxRules],  // We have one too much, remove it
+					Ingress:  tooBigIngressList[:util.CnpMaxRules],
+					Egress:   tooBigEgressList[:util.CnpMaxRules],
 				},
 			},
 			error: false,
@@ -1355,11 +1349,10 @@ func TestUpdateCnpPriorityMapEntries(t *testing.T) {
 
 		err := ctrl.updateCnpPriorityMapEntries(cnp)
 		require.NoError(t, err)
-		// CNP gone from admin maps
+
 		require.Equal(t, "", ctrl.anpPrioNameMap[1002])
 		require.Equal(t, int32(0), ctrl.anpNamePrioMap[cnp.Name])
 
-		// CNP present in base maps
 		require.Equal(t, "test2", ctrl.bnpPrioNameMap[1002])
 		require.Equal(t, int32(1002), ctrl.bnpNamePrioMap[cnp.Name])
 	})
@@ -1377,11 +1370,10 @@ func TestUpdateCnpPriorityMapEntries(t *testing.T) {
 
 		err := ctrl.updateCnpPriorityMapEntries(cnp)
 		require.NoError(t, err)
-		// CNP gone from admin maps
+
 		require.Equal(t, "", ctrl.anpPrioNameMap[1003])
 		require.Equal(t, int32(0), ctrl.anpNamePrioMap[cnp.Name])
 
-		// CNP present in base maps
 		require.Equal(t, "test3", ctrl.bnpPrioNameMap[1004])
 		require.Equal(t, int32(1004), ctrl.bnpNamePrioMap[cnp.Name])
 	})

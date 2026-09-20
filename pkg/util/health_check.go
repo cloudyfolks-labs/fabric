@@ -11,10 +11,6 @@ type livenessProbe func() error
 
 var livezProbe atomic.Pointer[livenessProbe]
 
-// RegisterLivezProbe installs a custom liveness probe consulted by
-// LivezHandler. A non-nil error returned by the probe causes the
-// /livez endpoint to respond with HTTP 503. Passing nil clears any
-// previously registered probe. Safe to call concurrently.
 func RegisterLivezProbe(p func() error) {
 	if p == nil {
 		livezProbe.Store(nil)
@@ -30,13 +26,6 @@ func DefaultHealthCheckHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// LivezHandler responds to /livez requests. When a probe has been
-// installed via RegisterLivezProbe it is invoked on every request; a
-// non-nil error becomes an HTTP 503 with a generic body, and the
-// detailed error is logged. Otherwise the behaviour matches
-// DefaultHealthCheckHandler. The generic body avoids leaking internal
-// details (e.g. filesystem paths) to unauthenticated callers, since
-// /livez is exempt from the metrics-server auth filter.
 func LivezHandler(w http.ResponseWriter, r *http.Request) {
 	if p := livezProbe.Load(); p != nil {
 		if err := (*p)(); err != nil {

@@ -46,17 +46,12 @@ type newSharedInformer func() cache.SharedIndexInformer
 type SharedInformerOption func(*kubeInformerFactory) *kubeInformerFactory
 
 type KubeVirtInformerFactory interface {
-	// Starts any informers that have not been started yet
-	// This function is thread safe and idempotent
 	Start(stopCh <-chan struct{})
 
-	// Waits for all informers to sync
 	WaitForCacheSync(stopCh <-chan struct{})
 
-	// VirtualMachine handles the VMIs that are stopped or not running
 	VirtualMachine() cache.SharedIndexInformer
 
-	// Watches VirtualMachineInstanceMigration objects
 	VirtualMachineInstanceMigration() cache.SharedIndexInformer
 }
 
@@ -71,7 +66,6 @@ type kubeInformerFactory struct {
 	startedInformers map[string]bool
 }
 
-// WithTransform sets a transform on all informers.
 func WithTransform(transform cache.TransformFunc) SharedInformerOption {
 	return func(factory *kubeInformerFactory) *kubeInformerFactory {
 		factory.transform = transform
@@ -83,13 +77,12 @@ func NewKubeVirtInformerFactoryWithOptions(restClient *rest.RESTClient, clientSe
 	factory := &kubeInformerFactory{
 		restClient: restClient,
 		clientSet:  clientSet,
-		// Resulting resync period will be between 12 and 24 hours, like the default for k8s
+
 		defaultResync:    ResyncPeriod(12 * time.Hour),
 		informers:        make(map[string]cache.SharedIndexInformer),
 		startedInformers: make(map[string]bool),
 	}
 
-	// Apply all options
 	for _, opt := range options {
 		factory = opt(factory)
 	}
@@ -97,16 +90,12 @@ func NewKubeVirtInformerFactoryWithOptions(restClient *rest.RESTClient, clientSe
 	return factory
 }
 
-// Start can be called from multiple controllers in different go routines safely.
-// Only informers that have not started are triggered by this function.
-// Multiple calls to this function are idempotent.
 func (f *kubeInformerFactory) Start(stopCh <-chan struct{}) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
 	for name, informer := range f.informers {
 		if f.startedInformers[name] {
-			// skip informers that have already started.
 			log.Log.Infof("SKIPPING informer %s", name)
 			continue
 		}
@@ -129,9 +118,6 @@ func (f *kubeInformerFactory) WaitForCacheSync(stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, syncs...)
 }
 
-// internal function used to retrieve an already created informer
-// or create a new informer if one does not already exist.
-// Thread safe
 func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer) cache.SharedIndexInformer {
 	f.lock.Lock()
 	defer f.lock.Unlock()
@@ -239,7 +225,6 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 	})
 }
 
-// ResyncPeriod computes the time interval a shared informer waits before resyncing with the api server
 func ResyncPeriod(minResyncPeriod time.Duration) time.Duration {
 	// #nosec no need for better randomness
 	factor := rand.Float64() + 1

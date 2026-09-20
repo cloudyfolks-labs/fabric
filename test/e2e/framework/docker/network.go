@@ -155,9 +155,6 @@ func NetworkRemove(networkID string) error {
 	}
 	defer cli.Close()
 
-	// Removing a network right after disconnecting its endpoints can fail with
-	// "has active endpoints" while docker asynchronously releases them. Retry
-	// to absorb that convergence window.
 	var lastErr error
 	if err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, time.Minute, true,
 		func(context.Context) (bool, error) {

@@ -393,11 +393,6 @@ func (c *Controller) checkPoolAnnouncePath(pool *fabricv1.LoadBalancerPool, vpcN
 }
 
 func (c *Controller) checkEipAnnouncePath(eip *fabricv1.OvnEip, vpcName string) string {
-	// A VPC that redistributes lb advertises its OVN load balancer VIPs
-	// through its own subnet LRPs (see docs/dynamic-routing.md), so the
-	// VIP reaches the fabric over BGP with no pool LRP on the router.
-	// This path does not depend on the ovn-lb-svc feature or on any
-	// LoadBalancerPool object.
 	if vpc, err := c.vpcsLister.Get(vpcName); err == nil && vpcAdvertisesLoadBalancerVips(vpc) {
 		return ""
 	}

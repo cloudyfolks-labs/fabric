@@ -79,12 +79,10 @@ func TestIsVMLauncherPodAlive(t *testing.T) {
 						Name:      "virt-launcher-long-vm-abc",
 						Namespace: "default",
 						Labels: map[string]string{
-							// Hashed label value doesn't match the full VMI name
 							kubevirtv1.VirtualMachineInstanceIDLabel:     "this-is-a-very-long-vmi-name-that-exceeds-63-chars-so-it-abc123",
 							kubevirtv1.DeprecatedVirtualMachineNameLabel: "this-is-a-very-long-vmi-name-that-exceeds-63-chars-so-it-abc123",
 						},
 						Annotations: map[string]string{
-							// Domain annotation always has the full VMI name
 							kubevirtv1.DomainAnnotation: "this-is-a-very-long-vmi-name-that-exceeds-63-characters-and-gets-hashed-in-the-label",
 						},
 					},
@@ -133,8 +131,6 @@ func TestIsVMLauncherPodAlive(t *testing.T) {
 	}
 }
 
-// parsePatchLabels extracts the metadata.labels map from a merge-patch JSON.
-// Each key maps to a *string (nil means the label is being removed).
 func parsePatchLabels(t *testing.T, patchBytes []byte) map[string]*string {
 	t.Helper()
 	var raw struct {
@@ -171,8 +167,6 @@ func TestCleanProviderNetworkPatchIncludesVlanIntLabel(t *testing.T) {
 		Spec:       fabricv1.ProviderNetworkSpec{DefaultInterface: "eth0"},
 	}
 
-	// PatchLabels is called before ovsCleanProviderNetwork, so the patch is
-	// captured even when ovsCleanProviderNetwork fails in a test environment.
 	_ = c.cleanProviderNetwork(pn, node)
 
 	vlanIntKey := fmt.Sprintf(util.ProviderNetworkVlanIntTemplate, pnName)
@@ -198,8 +192,6 @@ func TestCleanProviderNetworkLabelConsistency(t *testing.T) {
 
 	pnName := "test-pn"
 
-	// All labels that handleDeleteProviderNetwork cleans (except ExcludeTemplate
-	// which is set to "true" in cleanProviderNetwork instead of nil).
 	expectedCleanedLabels := []string{
 		fmt.Sprintf(util.ProviderNetworkReadyTemplate, pnName),
 		fmt.Sprintf(util.ProviderNetworkInterfaceTemplate, pnName),

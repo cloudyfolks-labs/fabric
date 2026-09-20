@@ -224,7 +224,6 @@ func (r *IPRangeList) Equal(x *IPRangeList) bool {
 	return true
 }
 
-// Separate returns a new list which contains items which are in `r` but not in `x`
 func (r *IPRangeList) Separate(x *IPRangeList) *IPRangeList {
 	if r.Len() == 0 {
 		return NewEmptyIPRangeList()
@@ -297,7 +296,6 @@ func (r *IPRangeList) Merge(x *IPRangeList) *IPRangeList {
 		}
 	}
 
-	// ret is freshly allocated with cloned ranges, so no extra copy is needed
 	return ret
 }
 
@@ -305,7 +303,6 @@ func (r *IPRangeList) MergeRange(x *IPRange) *IPRangeList {
 	return r.Merge(&IPRangeList{ranges: []*IPRange{x}})
 }
 
-// Intersect returns a new list which contains items which are in both `r` and `x`
 func (r *IPRangeList) Intersect(x *IPRangeList) *IPRangeList {
 	r1, r2 := r.Separate(x), x.Separate(r)
 	return r.Merge(x).Separate(r1).Separate(r2)

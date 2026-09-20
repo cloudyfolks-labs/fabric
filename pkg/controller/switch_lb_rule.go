@@ -149,7 +149,6 @@ func (c *Controller) handleAddOrUpdateSwitchLBRule(key string) error {
 		svc *corev1.Service
 	)
 
-	// user-defined endpoints used to work with the case of static ips which could not get by selector
 	if len(slr.Spec.Endpoints) > 0 {
 		eps = generateEndpoints(slr, oldEps)
 		if needToCreateEps {
@@ -165,7 +164,7 @@ func (c *Controller) handleAddOrUpdateSwitchLBRule(key string) error {
 				return err
 			}
 		}
-		// avoid conflicts between selectors and user-defined endpoints
+
 		slr.Spec.Selector = nil
 	}
 
@@ -218,24 +217,17 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 	)
 
 	name = generateSvcName(info.Name)
-	// Read the subnet annotation before deleting the service, so we can use it as a
-	// fallback to clean up the health-check VIP when no LBHC is found (e.g. the LBHC
-	// was already removed because the service was deleted before the SLR).
+
 	subnetForVip := ""
 	vpcForSlr := ""
 	if svc, e := c.servicesLister.Services(info.Namespace).Get(name); e == nil {
 		subnetForVip = svc.Annotations[util.LogicalSwitchAnnotation]
-		// Prefer VpcAnnotation (set by the endpoint_slice controller) but fall
-		// back to LogicalRouterAnnotation (set synchronously by the SLR
-		// controller) if the former hasn't been populated yet.
+
 		if vpcForSlr = svc.Annotations[util.VpcAnnotation]; vpcForSlr == "" {
 			vpcForSlr = svc.Annotations[util.LogicalRouterAnnotation]
 		}
 	}
-	// Fall back to the SLR's own annotations snapshotted at enqueue time. This keeps
-	// the VIP cleanup path robust when a concurrent service-delete event races ahead
-	// of the SLR delete worker and removes the service from the lister before we can
-	// read its annotations.
+
 	if subnetForVip == "" {
 		subnetForVip = info.Subnet
 	}
@@ -249,10 +241,6 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 		}
 	}
 
-	// Collect the set of LB names belonging to this SLR's VPC so that we only
-	// touch LBHCs associated with LBs in the correct VPC.  When the VPC is
-	// unknown (e.g. the service was already deleted), vpcLBNames stays nil and
-	// we fall back to the original (unscoped) behaviour.
 	var vpcLBNames set.Set[string]
 	if vpcForSlr != "" {
 		vpc, e := c.vpcsLister.Get(vpcForSlr)
@@ -299,10 +287,6 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 		belongsToThisVpc := false
 		referencedByOtherVpc := false
 		if len(lbs) == 0 && vpcLBNames != nil && subnetForVip != "" {
-			// Orphaned LBHC: no LB references it anymore (e.g. the service
-			// handler already removed the LB→LBHC reference during concurrent
-			// deletion). Only claim ownership when the LBHC's subnet matches
-			// the SLR's own subnet, preventing cross-VPC mis-deletion.
 			if lbhcSubnet := lbhc.ExternalIDs[util.SwitchLBRuleSubnet]; lbhcSubnet == subnetForVip {
 				belongsToThisVpc = true
 			}
@@ -310,7 +294,7 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 		for _, lb := range lbs {
 			if vpcLBNames != nil && !vpcLBNames.Has(lb.Name) {
 				referencedByOtherVpc = true
-				continue // skip LBs belonging to other VPCs
+				continue
 			}
 			belongsToThisVpc = true
 
@@ -327,9 +311,6 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 			}
 		}
 
-		// Only mark the LBHC for deletion if it is no longer referenced by
-		// any LB.  When other VPCs still reference the same LBHC, we must
-		// keep it alive.
 		if (belongsToThisVpc || vpcLBNames == nil) && !referencedByOtherVpc {
 			lbhcUUIDsToDelete.Insert(lbhc.UUID)
 		}
@@ -340,9 +321,6 @@ func (c *Controller) handleDelSwitchLBRule(info *SwitchLBRuleInfo) error {
 		}
 	}
 
-	// Fallback: if no VIP was discovered via LBHC (e.g. LBHC was already deleted
-	// because the backing service was removed before the SLR), use the subnet that
-	// was read from the service annotation before deletion.
 	if len(vips) == 0 && subnetForVip != "" {
 		klog.Infof("handleDelSwitchLBRule %s: no LBHC found for vips %v, falling back to subnet %s from service annotation", info.Name, info.Vips, subnetForVip)
 		vips[subnetForVip] = struct{}{}
@@ -428,9 +406,6 @@ func generateHeadlessService(slr *fabricv1.SwitchLBRule, oldSvc *corev1.Service)
 
 	name = generateSvcName(slr.Name)
 
-	// We need to set the correct IPFamilies and IPFamilyPolicy on the service
-	// If the VIP is an IPv4, the Service needs to be configured in IPv4, and the opposite for an IPv6
-	// If the VIP has a mix of IPv4s and IPv6s, the Service must be DualStack, with both families set
 	families, policy := getIPFamilies(slr.Spec.Vip)
 
 	if oldSvc != nil {
@@ -465,16 +440,13 @@ func generateHeadlessService(slr *fabricv1.SwitchLBRule, oldSvc *corev1.Service)
 		}
 	}
 
-	// If the user supplies a VPC/subnet for the SLR, propagate it to the service
 	setUserDefinedNetwork(newSvc, slr)
 
-	// Set healthcheck annotation on the service if the setting is provided by the user
 	setHealthCheckAnnotation(newSvc, slr)
 
 	return newSvc
 }
 
-// setUserDefinedNetwork propagates user-defined VPC/subnet from the SLR to the Service
 func setUserDefinedNetwork(service *corev1.Service, slr *fabricv1.SwitchLBRule) {
 	if service == nil || slr == nil || slr.Annotations == nil {
 		return
@@ -493,8 +465,6 @@ func setUserDefinedNetwork(service *corev1.Service, slr *fabricv1.SwitchLBRule) 
 	}
 }
 
-// setHealthCheckAnnotation propagates the healthcheck toggle from the SLR to the Service
-// Users can choose to disable health checks on their services using this annotation
 func setHealthCheckAnnotation(service *corev1.Service, slr *fabricv1.SwitchLBRule) {
 	if service == nil || slr == nil || slr.Annotations == nil {
 		return
@@ -566,11 +536,7 @@ func generateEndpoints(slr *fabricv1.SwitchLBRule, oldEps *corev1.Endpoints) *co
 	return newEps
 }
 
-// getIPFamilies returns the IP families (IPv6/IPv4) for a set of IPs within a VIP
-// This function is used to correctly construct the Service of a SwitchLBRule
-// It also returns the corresponding IPFamilyPolicy to set in the Service
 func getIPFamilies(vip string) (families []corev1.IPFamily, policy corev1.IPFamilyPolicy) {
-	// Check every IP in the VIP, assess if it is an IPv6 or an IPv4
 	ipFamilies := set.New[corev1.IPFamily]()
 	for ip := range strings.SplitSeq(vip, ",") {
 		switch util.CheckProtocol(ip) {

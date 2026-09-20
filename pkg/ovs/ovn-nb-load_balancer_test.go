@@ -35,7 +35,6 @@ func (suite *OvnClientTestSuite) testCreateLoadBalancer() {
 	require.Equal(t, "tcp", *lb.Protocol)
 	require.ElementsMatch(t, []string{"ip_dst"}, lb.SelectionFields)
 
-	// should no err create lb repeatedly
 	err = nbClient.CreateLoadBalancer(lbName, "tcp", "ip_dst")
 	require.NoError(t, err)
 }
@@ -292,7 +291,7 @@ func (suite *OvnClientTestSuite) testDeleteLoadBalancerOp() {
 		t.Parallel()
 
 		lbName := "test-delete-lb-op-duplicate"
-		// create load balancer
+
 		lb1 := &ovnnb.LoadBalancer{
 			UUID:     ovsclient.NamedUUID(),
 			Name:     lbName,
@@ -364,7 +363,7 @@ func (suite *OvnClientTestSuite) testSetLoadBalancerAffinityTimeout() {
 	t.Run("set loadbalancer affinity timeout when multiple load balancer exist",
 		func(t *testing.T) {
 			lbName := "test-set-lb-affinity"
-			// create load balancer
+
 			lb1 := &ovnnb.LoadBalancer{
 				UUID:     ovsclient.NamedUUID(),
 				Name:     lbName,
@@ -634,7 +633,7 @@ func (suite *OvnClientTestSuite) testLoadBalancerAddHealthCheck() {
 				"10.107.43.241:8080":      "10.244.0.15:8080,10.244.0.16:8080,10.244.0.17:8080",
 				"[fd00:10:96::e86f]:8080": "[fc00::af4:a]:8080,[fc00::af4:b]:8080,[fc00::af4:c]:8080",
 			}
-			// create load balancer
+
 			err := nbClient.CreateLoadBalancer(lbName, "tcp")
 			require.NoError(t, err)
 			for vip, backends := range vips {
@@ -663,7 +662,7 @@ func (suite *OvnClientTestSuite) testLoadBalancerAddHealthCheck() {
 	t.Run("create load balancer when multiple load balancer exist",
 		func(t *testing.T) {
 			lbName := "test-create-lb-duplicate"
-			// create load balancer
+
 			lb1 := &ovnnb.LoadBalancer{
 				UUID:     ovsclient.NamedUUID(),
 				Name:     lbName,
@@ -728,7 +727,7 @@ func (suite *OvnClientTestSuite) testLoadBalancerDeleteVip() {
 	deletedVips = []string{
 		markedVIP,
 		"[fd00:10:96::e84f]:8080",
-		"10.96.0.100:1443", // non-existent vip
+		"10.96.0.100:1443",
 	}
 
 	for _, vip := range deletedVips {
@@ -748,11 +747,9 @@ func (suite *OvnClientTestSuite) testLoadBalancerDeleteVip() {
 	err = nbClient.LoadBalancerDeleteVip(lbName, "10.107.43.239:8080", false)
 	require.NoError(t, err)
 
-	// delete vip when lb.Vips is empty
 	err = nbClient.LoadBalancerDeleteVip(lbName, "10.107.43.239:8080", false)
 	require.NoError(t, err)
 
-	// delete vip when multiple load balancer exist
 	lbName = "test-delete-lb-vip"
 	lb1 := &ovnnb.LoadBalancer{
 		UUID:     ovsclient.NamedUUID(),
@@ -1187,18 +1184,15 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 		},
 	)
 
-	// Test updating ip port mappings when LSPs change (e.g., pods/VMs cycled with same IPs)
 	t.Run("update ip port mappings when LSPs change for same IPs",
 		func(t *testing.T) {
 			vipTest := "10.96.0.7:8080"
 			backend1 := "192.168.30.10:8080"
 			backend2 := "192.168.30.11:8080"
 
-			// Add VIP with backends
 			err = nbClient.LoadBalancerAddVip(lbName, vipTest, backend1, backend2)
 			require.NoError(t, err)
 
-			// Initial ip_port_mappings with LSP names
 			host1, _, err := net.SplitHostPort(backend1)
 			require.NoError(t, err)
 			host2, _, err := net.SplitHostPort(backend2)
@@ -1217,22 +1211,19 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			require.Equal(t, initialMappings[host1], lb.IPPortMappings[host1])
 			require.Equal(t, initialMappings[host2], lb.IPPortMappings[host2])
 
-			// Now simulate backends being cycled: same IPs but different LSPs
 			updatedMappings := map[string]string{
-				host1: "pod1-new.ns1.ovn:169.254.169.5", // Different LSP name
-				host2: "pod2-new.ns1.ovn:169.254.169.5", // Different LSP name
+				host1: "pod1-new.ns1.ovn:169.254.169.5",
+				host2: "pod2-new.ns1.ovn:169.254.169.5",
 			}
 
 			err = nbClient.LoadBalancerUpdateIPPortMapping(lbName, vipTest, updatedMappings)
 			require.NoError(t, err)
 
-			// Verify that the old LSP references are gone and new ones are present
 			lb, err = nbClient.GetLoadBalancer(lbName, false)
 			require.NoError(t, err)
 			require.Equal(t, updatedMappings[host1], lb.IPPortMappings[host1], "LSP should be updated for host1")
 			require.Equal(t, updatedMappings[host2], lb.IPPortMappings[host2], "LSP should be updated for host2")
 
-			// Ensure old LSP values are not present anywhere in the mappings
 			for _, value := range lb.IPPortMappings {
 				require.NotEqual(t, initialMappings[host1], value, "Old LSP value for host1 should not be present")
 				require.NotEqual(t, initialMappings[host2], value, "Old LSP value for host2 should not be present")
@@ -1240,7 +1231,6 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 		},
 	)
 
-	// Test updating when some mappings stay the same and some change
 	t.Run("update ip port mappings with partial changes",
 		func(t *testing.T) {
 			vipTest := "10.96.0.8:9090"
@@ -1248,7 +1238,6 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			backend2 := "192.168.40.11:9090"
 			backend3 := "192.168.40.12:9090"
 
-			// Add VIP with backends
 			err = nbClient.LoadBalancerAddVip(lbName, vipTest, backend1, backend2, backend3)
 			require.NoError(t, err)
 
@@ -1259,7 +1248,6 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			host3, _, err := net.SplitHostPort(backend3)
 			require.NoError(t, err)
 
-			// Initial mappings
 			initialMappings := map[string]string{
 				host1: "vm1.ns2.ovn:169.254.169.5",
 				host2: "vm2.ns2.ovn:169.254.169.5",
@@ -1269,11 +1257,10 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			err = nbClient.LoadBalancerUpdateIPPortMapping(lbName, vipTest, initialMappings)
 			require.NoError(t, err)
 
-			// Update: host1 and host3 change LSPs, host2 stays the same
 			partialUpdateMappings := map[string]string{
-				host1: "vm1-new.ns2.ovn:169.254.169.5", // Changed
-				host2: "vm2.ns2.ovn:169.254.169.5",     // Same
-				host3: "vm3-new.ns2.ovn:169.254.169.5", // Changed
+				host1: "vm1-new.ns2.ovn:169.254.169.5",
+				host2: "vm2.ns2.ovn:169.254.169.5",
+				host3: "vm3-new.ns2.ovn:169.254.169.5",
 			}
 
 			err = nbClient.LoadBalancerUpdateIPPortMapping(lbName, vipTest, partialUpdateMappings)
@@ -1282,17 +1269,14 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			lb, err = nbClient.GetLoadBalancer(lbName, false)
 			require.NoError(t, err)
 
-			// Verify all mappings are correct
 			require.Equal(t, partialUpdateMappings[host1], lb.IPPortMappings[host1])
 			require.Equal(t, partialUpdateMappings[host2], lb.IPPortMappings[host2])
 			require.Equal(t, partialUpdateMappings[host3], lb.IPPortMappings[host3])
 		},
 	)
 
-	// Test removing backends (simulating pod deletion)
 	t.Run("update ip port mappings when backends are removed",
 		func(t *testing.T) {
-			// Create a dedicated load balancer for this test to avoid interference
 			testLbName := "test-lb-orphan-cleanup"
 			err := nbClient.CreateLoadBalancer(testLbName, "tcp")
 			require.NoError(t, err)
@@ -1306,7 +1290,6 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			backend2 := "192.168.50.11:3000"
 			backend3 := "192.168.50.12:3000"
 
-			// Add VIP with 3 backends
 			err = nbClient.LoadBalancerAddVip(testLbName, vipTest, backend1, backend2, backend3)
 			require.NoError(t, err)
 
@@ -1317,7 +1300,6 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			host3, _, err := net.SplitHostPort(backend3)
 			require.NoError(t, err)
 
-			// Initial mappings for all 3 backends
 			initialMappings := map[string]string{
 				host1: "pod1.ns3.ovn:169.254.169.5",
 				host2: "pod2.ns3.ovn:169.254.169.5",
@@ -1329,26 +1311,22 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 
 			lb, err := nbClient.GetLoadBalancer(testLbName, false)
 			require.NoError(t, err)
-			// Verify initial mappings are present
+
 			require.Contains(t, lb.IPPortMappings, host1)
 			require.Contains(t, lb.IPPortMappings, host2)
 			require.Contains(t, lb.IPPortMappings, host3)
 
-			// Simulate backend2 (pod2) being deleted - update VIP with only 2 backends
 			err = nbClient.LoadBalancerAddVip(testLbName, vipTest, backend1, backend3)
 			require.NoError(t, err)
 
-			// Update mappings - only include remaining backends
 			updatedMappings := map[string]string{
 				host1: "pod1.ns3.ovn:169.254.169.5",
 				host3: "pod3.ns3.ovn:169.254.169.5",
-				// host2 is intentionally omitted (pod deleted)
 			}
 
 			err = nbClient.LoadBalancerUpdateIPPortMapping(testLbName, vipTest, updatedMappings)
 			require.NoError(t, err)
 
-			// Verify that host2's mapping was removed (orphan cleanup)
 			lb, err = nbClient.GetLoadBalancer(testLbName, false)
 			require.NoError(t, err)
 			require.Contains(t, lb.IPPortMappings, host1, "host1 should still be present")
@@ -1357,7 +1335,6 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 		},
 	)
 
-	// Test that shared backends across multiple VIPs are not removed
 	t.Run("update ip port mappings does not remove shared backends",
 		func(t *testing.T) {
 			vipTest1 := "10.96.0.10:4000"
@@ -1366,11 +1343,9 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			backend2 := "192.168.60.11:4000"
 			sharedBackend := "192.168.60.12:4000"
 
-			// Add VIP1 with backends 1 and shared
 			err = nbClient.LoadBalancerAddVip(lbName, vipTest1, backend1, sharedBackend)
 			require.NoError(t, err)
 
-			// Add VIP2 with backends 2 and shared (shared backend used by both VIPs)
 			err = nbClient.LoadBalancerAddVip(lbName, vipTest2, backend2, sharedBackend)
 			require.NoError(t, err)
 
@@ -1381,7 +1356,6 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			hostShared, _, err := net.SplitHostPort(sharedBackend)
 			require.NoError(t, err)
 
-			// Set up initial mappings for all backends
 			allMappings := map[string]string{
 				host1:      "pod1.ns4.ovn:169.254.169.5",
 				host2:      "pod2.ns4.ovn:169.254.169.5",
@@ -1391,20 +1365,16 @@ func (suite *OvnClientTestSuite) testLoadBalancerWithHealthCheck() {
 			err = nbClient.LoadBalancerUpdateIPPortMapping(lbName, vipTest1, allMappings)
 			require.NoError(t, err)
 
-			// Now remove shared backend from VIP1 (simulate scaling down)
 			err = nbClient.LoadBalancerAddVip(lbName, vipTest1, backend1)
 			require.NoError(t, err)
 
-			// Update mappings for VIP1 - only include backend1
 			vip1Mappings := map[string]string{
 				host1: "pod1.ns4.ovn:169.254.169.5",
-				// hostShared intentionally omitted from VIP1
 			}
 
 			err = nbClient.LoadBalancerUpdateIPPortMapping(lbName, vipTest1, vip1Mappings)
 			require.NoError(t, err)
 
-			// Verify that shared backend mapping is NOT removed (still used by VIP2)
 			lb, err = nbClient.GetLoadBalancer(lbName, false)
 			require.NoError(t, err)
 			require.Contains(t, lb.IPPortMappings, host1, "host1 should be present")

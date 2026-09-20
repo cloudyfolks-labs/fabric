@@ -14,8 +14,6 @@ const (
 	snapshotMaxAge     = 30 * time.Second
 )
 
-// BgpPeer is the session state of one neighbour of the ipv4 unicast
-// address family as reported by "show bgp summary json".
 type BgpPeer struct {
 	Established  bool
 	PrefixesSent int
@@ -30,8 +28,6 @@ type bgpSummary struct {
 	} `json:"ipv4Unicast"`
 }
 
-// ParseBgpSummary reads the peers of the ipv4 unicast address family from
-// the output of "show bgp summary json", keyed by neighbour address.
 func ParseBgpSummary(data []byte) (map[string]BgpPeer, error) {
 	var summary bgpSummary
 	if err := json.Unmarshal(data, &summary); err != nil {
@@ -55,8 +51,6 @@ type bgpRoutes struct {
 	} `json:"routes"`
 }
 
-// CountPrefixesByNextHop counts, per next hop address, the prefixes of
-// "show bgp ipv4 unicast json" that carry at least one path through it.
 func CountPrefixesByNextHop(data []byte) (map[string]int, error) {
 	var rib bgpRoutes
 	if err := json.Unmarshal(data, &rib); err != nil {

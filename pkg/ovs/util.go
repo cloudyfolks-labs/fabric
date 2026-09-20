@@ -18,7 +18,6 @@ import (
 
 var addressSetNameRegex = regexp.MustCompile(`^[a-zA-Z_.][a-zA-Z_.0-9]*$`)
 
-// PodNameToPortName return the ovn port name for a given pod
 func PodNameToPortName(pod, namespace, provider string) string {
 	if provider == util.OvnProvider {
 		return fmt.Sprintf("%s.%s", pod, namespace)
@@ -53,11 +52,7 @@ func GetSgV6AssociatedName(sgName string) string {
 	return strings.ReplaceAll(fmt.Sprintf("ovn.sg.%s.associated.v6", sgName), "-", ".")
 }
 
-// parseIpv6RaConfigs parses the ipv6 ra config,
-// return default Ipv6RaConfigs when raw="",
-// the raw config's format is: address_mode=dhcpv6_stateful,max_interval=30,min_interval=5,send_periodic=true
 func parseIpv6RaConfigs(raw string) map[string]string {
-	// return default Ipv6RaConfigs
 	if len(raw) == 0 {
 		return map[string]string{
 			"address_mode":  "dhcpv6_stateful",
@@ -69,12 +64,11 @@ func parseIpv6RaConfigs(raw string) map[string]string {
 
 	Ipv6RaConfigs := make(map[string]string)
 
-	// trim blank
 	raw = strings.ReplaceAll(raw, " ", "")
 	options := strings.SplitSeq(raw, ",")
 	for option := range options {
 		kv := strings.Split(option, "=")
-		// TODO: ignore invalidate option, maybe need further validation
+
 		if len(kv) != 2 || len(kv[0]) == 0 || len(kv[1]) == 0 {
 			continue
 		}
@@ -84,7 +78,6 @@ func parseIpv6RaConfigs(raw string) map[string]string {
 	return Ipv6RaConfigs
 }
 
-// getIpv6Prefix get ipv6 prefix from networks
 func getIpv6Prefix(networks []string) []string {
 	ipv6Prefix := make([]string, 0, len(networks))
 	for _, network := range networks {
@@ -96,7 +89,6 @@ func getIpv6Prefix(networks []string) []string {
 	return ipv6Prefix
 }
 
-// buildDHCPv4Options constructs the DHCP options string for ipv4
 func buildDHCPv4Options(options, gateway, mac string, mtu int, necessaryOptions []string) map[string]string {
 	if len(options) == 0 {
 		return map[string]string{
@@ -129,7 +121,6 @@ func buildDHCPv4Options(options, gateway, mac string, mtu int, necessaryOptions 
 	return parsedOptions
 }
 
-// buildDHCPv6Options constructs the DHCP options string for ipv6
 func buildDHCPv6Options(options, mac string, necessaryOptions []string) map[string]string {
 	if len(options) == 0 {
 		return map[string]string{
@@ -149,8 +140,6 @@ func buildDHCPv6Options(options, mac string, necessaryOptions []string) map[stri
 	return parsedOptions
 }
 
-// formatDHCPOptions converts the parsed options map into a string format
-// e.g. dns_server="{8.8.8.8,8.8.4.4}", lease_time="3600", mtu="1500", router="192.168.80.1", server_id="169.254.0.254", server_mac="5e:4e:e7:48:3d:7d"
 func formatDHCPOptions(options map[string]string) string {
 	var sb strings.Builder
 	for k, v := range options {
@@ -165,22 +154,18 @@ func formatDHCPOptions(options map[string]string) string {
 	return sb.String()
 }
 
-// parseDHCPOptions parses dhcp options,
-// the raw option's format is: server_id=192.168.123.50,server_mac=00:00:00:08:0a:11
 func parseDHCPOptions(raw string) map[string]string {
-	// return default Ipv6RaConfigs
 	if len(raw) == 0 {
 		return nil
 	}
 
 	dhcpOpt := make(map[string]string)
 
-	// trim blank
 	raw = strings.ReplaceAll(raw, " ", "")
 	options := strings.SplitSeq(raw, ",")
 	for option := range options {
 		kv := strings.Split(option, "=")
-		// TODO: ignore invalidate option, maybe need further validation
+
 		if len(kv) != 2 || len(kv[0]) == 0 || len(kv[1]) == 0 {
 			continue
 		}
@@ -212,7 +197,6 @@ func NewAndACLMatch(matches ...ACLMatch) ACLMatch {
 	}
 }
 
-// Rule generate acl match like 'ip4.src == $test.allow.as && ip4.src != $test.except.as && 12345 <= tcp.dst <= 12500 && outport == @ovn.sg.test_sg && ip'
 func (m AndACLMatch) Match() (string, error) {
 	var matches []string
 	for _, r := range m.matches {
@@ -243,7 +227,6 @@ func NewOrACLMatch(matches ...ACLMatch) ACLMatch {
 	}
 }
 
-// Match generate acl match like '(ip4.src==10.250.0.0/16 && ip4.dst==10.244.0.0/16) || (ip4.src==10.244.0.0/16 && ip4.dst==10.250.0.0/16)'
 func (m OrACLMatch) Match() (string, error) {
 	var matches []string
 	for _, specification := range m.matches {
@@ -253,7 +236,6 @@ func (m OrACLMatch) Match() (string, error) {
 			return "", fmt.Errorf("generate match %s: %w", match, err)
 		}
 
-		// has more than one rule
 		if strings.Contains(match, "&&") || strings.Contains(match, "||") {
 			match = "(" + match + ")"
 		}
@@ -285,29 +267,19 @@ func NewACLMatch(key, effect, value, maxValue string) ACLMatch {
 	}
 }
 
-// Match generate acl match like
-// 'ip4.src == $test.allow.as'
-// or 'ip4.src != $test.except.as'
-// or '12345 <= tcp.dst <= 12500'
-// or 'tcp.dst == 13500'
-// or 'outport == @ovn.sg.test_sg && ip'
 func (m aclMatch) Match() (string, error) {
-	// key must exist at least
 	if len(m.key) == 0 {
 		return "", errors.New("acl rule key is required")
 	}
 
-	// like 'ip'
 	if len(m.effect) == 0 || len(m.value) == 0 {
 		return m.key, nil
 	}
 
-	// like 'tcp.dst == 13500' or 'ip4.src == $test.allow.as'
 	if len(m.maxValue) == 0 {
 		return fmt.Sprintf("%s %s %s", m.key, m.effect, m.value), nil
 	}
 
-	// like '12345 <= tcp.dst <= 12500'
 	return fmt.Sprintf("%s %s %s %s %s", m.value, m.effect, m.key, m.effect, m.maxValue), nil
 }
 

@@ -13,9 +13,6 @@ import (
 	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
-// ReadyServiceCIDRs returns Spec.CIDRs when the ServiceCIDR object's Ready
-// condition is True. Objects still being initialized or already terminating
-// are skipped, matching the apiserver allocator's own behavior.
 func ReadyServiceCIDRs(sc *networkingv1.ServiceCIDR) []string {
 	if sc == nil {
 		return nil
@@ -31,14 +28,6 @@ func ReadyServiceCIDRs(sc *networkingv1.ServiceCIDR) []string {
 	return nil
 }
 
-// ServiceCIDRStore is the merged source of truth for Service CIDRs known to
-// fabric. It combines the values from --service-cluster-ip-range (fallback)
-// with the CIDRs found in networking.k8s.io/v1 ServiceCIDR objects, when the
-// API is available.
-//
-// The store dedupes by string equality, filters by IP family, and notifies
-// registered handlers when the merged set actually changes (debounced 1s to
-// coalesce informer initial-list bursts).
 type ServiceCIDRStore struct {
 	mu       sync.RWMutex
 	fallback []string
@@ -50,8 +39,6 @@ type ServiceCIDRStore struct {
 	debounceInterval time.Duration
 }
 
-// NewServiceCIDRStore parses the --service-cluster-ip-range flag value and
-// returns a store seeded with those CIDRs as the permanent fallback set.
 func NewServiceCIDRStore(flagValue string) *ServiceCIDRStore {
 	v4, v6 := SplitStringIP(flagValue)
 	fallback := make([]string, 0, 2)
@@ -70,14 +57,6 @@ func NewServiceCIDRStore(flagValue string) *ServiceCIDRStore {
 	return s
 }
 
-// merged returns the deduped + sorted set of effective Service CIDRs. The
-// flag-derived fallback is used only when no ServiceCIDR object has supplied a
-// valid CIDR — the moment the API takes over (e.g. the default `kubernetes`
-// ServiceCIDR is observed) the flag steps aside so that deletions/migrations
-// of ServiceCIDR objects can shrink the live set. If the API set later becomes
-// empty (no Ready objects), the fallback re-engages so the data plane keeps a
-// usable baseline.
-// Caller must hold s.mu.
 func (s *ServiceCIDRStore) merged() []string {
 	seen := make(map[string]struct{}, len(s.fallback)+len(s.fromAPI)*2)
 	out := make([]string, 0, len(s.fallback)+len(s.fromAPI)*2)
@@ -109,7 +88,6 @@ func (s *ServiceCIDRStore) merged() []string {
 	return out
 }
 
-// AllCIDRs returns the merged set in sorted order.
 func (s *ServiceCIDRStore) AllCIDRs() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -118,10 +96,8 @@ func (s *ServiceCIDRStore) AllCIDRs() []string {
 	return out
 }
 
-// V4CIDRs returns the IPv4 subset of the merged set.
 func (s *ServiceCIDRStore) V4CIDRs() []string { return s.byProtocol(fabricv1.ProtocolIPv4) }
 
-// V6CIDRs returns the IPv6 subset of the merged set.
 func (s *ServiceCIDRStore) V6CIDRs() []string { return s.byProtocol(fabricv1.ProtocolIPv6) }
 
 func (s *ServiceCIDRStore) byProtocol(proto string) []string {
@@ -136,8 +112,6 @@ func (s *ServiceCIDRStore) byProtocol(proto string) []string {
 	return out
 }
 
-// UpsertFromAPI sets the CIDRs for a given ServiceCIDR object name. Returns
-// true if the merged set changed (handlers will fire after debounce).
 func (s *ServiceCIDRStore) UpsertFromAPI(name string, cidrs []string) bool {
 	s.mu.Lock()
 	cleaned := make([]string, 0, len(cidrs))
@@ -160,7 +134,6 @@ func (s *ServiceCIDRStore) UpsertFromAPI(name string, cidrs []string) bool {
 	return changed
 }
 
-// DeleteFromAPI removes a ServiceCIDR object from the store.
 func (s *ServiceCIDRStore) DeleteFromAPI(name string) bool {
 	s.mu.Lock()
 	if _, ok := s.fromAPI[name]; !ok {
@@ -176,8 +149,6 @@ func (s *ServiceCIDRStore) DeleteFromAPI(name string) bool {
 	return changed
 }
 
-// recomputeLocked refreshes s.cached. Caller must hold s.mu (write).
-// Returns true if the slice content changed.
 func (s *ServiceCIDRStore) recomputeLocked() bool {
 	next := s.merged()
 	if slices.Equal(s.cached, next) {
@@ -187,16 +158,12 @@ func (s *ServiceCIDRStore) recomputeLocked() bool {
 	return true
 }
 
-// OnChange registers a handler called (off the lock, in a goroutine) whenever
-// the merged set changes. Multiple handlers are supported.
 func (s *ServiceCIDRStore) OnChange(h func()) {
 	s.mu.Lock()
 	s.handlers = append(s.handlers, h)
 	s.mu.Unlock()
 }
 
-// scheduleFire coalesces bursts of updates into a single round of handler
-// invocations after debounceInterval.
 func (s *ServiceCIDRStore) scheduleFire() {
 	s.mu.Lock()
 	if s.debounce != nil {

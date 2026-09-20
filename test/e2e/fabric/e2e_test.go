@@ -11,7 +11,6 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
-	// Import tests.
 	_ "github.com/cloudyfolks-labs/fabric/test/e2e/fabric/crd"
 	_ "github.com/cloudyfolks-labs/fabric/test/e2e/fabric/dns_zone"
 	_ "github.com/cloudyfolks-labs/fabric/test/e2e/fabric/ipam"
@@ -31,7 +30,6 @@ import (
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)

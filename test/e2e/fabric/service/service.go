@@ -44,7 +44,6 @@ var _ = framework.Describe("[group:service]", func() {
 		cidr = framework.RandomCIDR(f.ClusterIPFamily)
 	})
 	ginkgo.AfterEach(func() {
-		// Level 1: Delete all independent resources in parallel
 		ginkgo.By("Deleting service " + serviceName + ", pods " + podName + " and " + hostPodName)
 		serviceClient.Delete(serviceName)
 		podClient.DeleteGracefully(podName)
@@ -54,7 +53,6 @@ var _ = framework.Describe("[group:service]", func() {
 		podClient.WaitForNotFound(podName)
 		podClient.WaitForNotFound(hostPodName)
 
-		// Level 2: Subnet (needs pods deleted first)
 		ginkgo.By("Deleting subnet " + subnetName)
 		subnetClient.DeleteSync(subnetName)
 	})

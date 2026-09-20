@@ -154,7 +154,6 @@ func (c *DaemonSetClient) RolloutStatus(name string) *appsv1.DaemonSet {
 	return daemonSet
 }
 
-// Restart restarts the daemonset as kubectl does
 func (c *DaemonSetClient) Restart(ds *appsv1.DaemonSet) *appsv1.DaemonSet {
 	ginkgo.GinkgoHelper()
 
@@ -185,7 +184,6 @@ func (c *DaemonSetClient) Restart(ds *appsv1.DaemonSet) *appsv1.DaemonSet {
 	return result.DeepCopy()
 }
 
-// RestartSync restarts the DaemonSet and wait it to be ready
 func (c *DaemonSetClient) RestartSync(ds *appsv1.DaemonSet) *appsv1.DaemonSet {
 	ginkgo.GinkgoHelper()
 	_ = c.Restart(ds)

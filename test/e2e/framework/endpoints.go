@@ -20,7 +20,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// EndpointsClient is a struct for endpoint client.
 type EndpointsClient struct {
 	f *Framework
 	v1core.EndpointsInterface
@@ -46,7 +45,6 @@ func (c *EndpointsClient) Get(name string) *corev1.Endpoints {
 	return endpoints
 }
 
-// Create creates a new endpoints according to the framework specifications
 func (c *EndpointsClient) Create(endpoints *corev1.Endpoints) *corev1.Endpoints {
 	ginkgo.GinkgoHelper()
 	e, err := c.EndpointsInterface.Create(context.TODO(), endpoints, metav1.CreateOptions{})
@@ -54,14 +52,12 @@ func (c *EndpointsClient) Create(endpoints *corev1.Endpoints) *corev1.Endpoints 
 	return e.DeepCopy()
 }
 
-// CreateSync creates a new endpoints according to the framework specifications, and waits for it to be updated.
 func (c *EndpointsClient) CreateSync(endpoints *corev1.Endpoints, cond func(s *corev1.Endpoints) (bool, error), condDesc string) *corev1.Endpoints {
 	ginkgo.GinkgoHelper()
 	_ = c.Create(endpoints)
 	return c.WaitUntil(endpoints.Name, cond, condDesc, poll, timeout)
 }
 
-// Patch patches the endpoints
 func (c *EndpointsClient) Patch(original, modified *corev1.Endpoints) *corev1.Endpoints {
 	ginkgo.GinkgoHelper()
 
@@ -89,14 +85,12 @@ func (c *EndpointsClient) Patch(original, modified *corev1.Endpoints) *corev1.En
 	return nil
 }
 
-// PatchSync patches the endpoints and waits the endpoints to meet the condition
 func (c *EndpointsClient) PatchSync(original, modified *corev1.Endpoints, cond func(s *corev1.Endpoints) (bool, error), condDesc string) *corev1.Endpoints {
 	ginkgo.GinkgoHelper()
 	_ = c.Patch(original, modified)
 	return c.WaitUntil(original.Name, cond, condDesc, poll, timeout)
 }
 
-// Delete deletes an Endpoints resource if it exists
 func (c *EndpointsClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.EndpointsInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -105,15 +99,12 @@ func (c *EndpointsClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the endpoints and waits for the endpoints to disappear for `timeout`.
-// If the endpoints doesn't disappear before the timeout, it will fail the test.
 func (c *EndpointsClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for endpoints %q to disappear", name)
 }
 
-// WaitUntil waits the given timeout duration for the specified condition to be met.
 func (c *EndpointsClient) WaitUntil(name string, cond func(s *corev1.Endpoints) (bool, error), condDesc string, _, timeout time.Duration) *corev1.Endpoints {
 	ginkgo.GinkgoHelper()
 
@@ -144,7 +135,6 @@ func (c *EndpointsClient) WaitUntil(name string, cond func(s *corev1.Endpoints) 
 	return nil
 }
 
-// WaitToDisappear waits the given timeout duration for the specified endpoints to disappear.
 func (c *EndpointsClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*corev1.Endpoints, error) {
 		svc, err := c.EndpointsInterface.Get(ctx, name, metav1.GetOptions{})

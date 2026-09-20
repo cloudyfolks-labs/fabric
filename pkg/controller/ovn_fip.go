@@ -24,7 +24,7 @@ import (
 func (c *Controller) enqueueAddOvnFip(obj any) {
 	fip := obj.(*fabricv1.OvnFip)
 	key := cache.MetaObjectToName(fip).String()
-	// A terminating object reconciles via the update queue for cleanup (handleAdd skips it; resync=0).
+
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnFipQueue, key, "ovn fip", fip.DeletionTimestamp, fip.GetFinalizers()) {
 		return
 	}
@@ -40,7 +40,6 @@ func (c *Controller) enqueueUpdateOvnFip(oldObj, newObj any) {
 	}
 	oldFip := oldObj.(*fabricv1.OvnFip)
 	if oldFip.Spec.OvnEip != newFip.Spec.OvnEip {
-		// enqueue to reset eip to be clean
 		klog.Infof("enqueue reset old ovn eip %s", oldFip.Spec.OvnEip)
 		c.resetOvnEipQueue.Add(oldFip.Spec.OvnEip)
 	}
@@ -75,7 +74,6 @@ func (c *Controller) enqueueDelOvnFip(obj any) {
 }
 
 func (c *Controller) isOvnFipDuplicated(fipName, eipV4IP string) error {
-	// check if has another fip using this eip already
 	selector := labels.SelectorFromSet(labels.Set{util.EipV4IpLabel: eipV4IP})
 	usingFips, err := c.ovnFipsLister.List(selector)
 	if err != nil {
@@ -105,7 +103,7 @@ func (c *Controller) handleAddOvnFip(key string) error {
 		return c.convergeOvnFipGatewayPort(cachedFip)
 	}
 	klog.Infof("handle add fip %s", key)
-	// check eip
+
 	eipName := cachedFip.Spec.OvnEip
 	if eipName == "" {
 		err := errors.New("failed to create fip rule, should set eip")
@@ -118,7 +116,6 @@ func (c *Controller) handleAddOvnFip(key string) error {
 		return err
 	}
 	if cachedEip.Spec.Type == util.OvnEipTypeLSP {
-		// eip is used by ecmp nexthop lsp, nat can not use
 		err = fmt.Errorf("ovn nat %s can not use type %s eip %s", key, util.OvnEipTypeLSP, eipName)
 		klog.Error(err)
 		return err
@@ -147,9 +144,6 @@ func (c *Controller) handleAddOvnFip(key string) error {
 			v4IP = internalVip.Status.V4ip
 			v6IP = internalVip.Status.V6ip
 			subnetName = internalVip.Spec.Subnet
-			// though vip lsp has its mac, vip always use its parent lsp nic mac
-			// and vip could float to different parent lsp nic
-			// all vip its parent lsp acl should allow the vip ip
 		} else {
 			internalIP, err := c.ipsLister.Get(ipName)
 			if err != nil {
@@ -160,8 +154,6 @@ func (c *Controller) handleAddOvnFip(key string) error {
 			v6IP = internalIP.Spec.V6IPAddress
 			subnetName = internalIP.Spec.Subnet
 			mac = internalIP.Spec.MacAddress
-			// mac is necessary while using distributed router fip, fip use lsp its mac
-			// centralized router fip not need lsp mac, fip use lrp mac
 		}
 		subnet, err := c.subnetsLister.Get(subnetName)
 		if err != nil {
@@ -190,7 +182,7 @@ func (c *Controller) handleAddOvnFip(key string) error {
 		klog.Error(err)
 		return err
 	}
-	// ovn add fip
+
 	stateless := cachedFip.Spec.Type == fabricv1.GWDistributedType
 	options := map[string]string{"stateless": strconv.FormatBool(stateless)}
 	gatewayPort, err := c.natGatewayPort(vpcName, cachedEip.Spec.ExternalSubnet)
@@ -211,7 +203,6 @@ func (c *Controller) handleAddOvnFip(key string) error {
 		return err
 	}
 
-	// patch fip eip relationship
 	if err = c.natLabelAndAnnoOvnEip(eipName, cachedFip.Name, vpcName); err != nil {
 		klog.Errorf("failed to label fip '%s' in eip %s, %v", cachedFip.Name, eipName, err)
 		return err
@@ -241,11 +232,9 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 		return err
 	}
 
-	// Handle deletion first (for FIPs with finalizers)
 	if !cachedFip.DeletionTimestamp.IsZero() {
 		klog.Infof("handle deleting ovn fip %s", key)
 		if cachedFip.Status.Vpc == "" {
-			// Already cleaned, just remove finalizer
 			if err = c.handleDelOvnFipFinalizer(cachedFip); err != nil {
 				klog.Errorf("failed to remove finalizer for ovn fip %s, %v", cachedFip.Name, err)
 				return err
@@ -253,7 +242,6 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 			return nil
 		}
 
-		// ovn delete fip nat
 		if cachedFip.Status.V4Eip != "" && cachedFip.Status.V4Ip != "" {
 			if err = c.OVNNbClient.DeleteNat(cachedFip.Status.Vpc, ovnnb.NATTypeDNATAndSNAT, cachedFip.Status.V4Eip, cachedFip.Status.V4Ip); err != nil {
 				klog.Errorf("failed to delete v4 fip %s, %v", key, err)
@@ -267,13 +255,11 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 			}
 		}
 
-		// Remove finalizer
 		if err = c.handleDelOvnFipFinalizer(cachedFip); err != nil {
 			klog.Errorf("failed to remove finalizer for ovn fip %s, %v", cachedFip.Name, err)
 			return err
 		}
 
-		// Reset eip
 		if cachedFip.Spec.OvnEip != "" {
 			c.resetOvnEipQueue.Add(cachedFip.Spec.OvnEip)
 		}
@@ -281,12 +267,11 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 	}
 
 	if !cachedFip.Status.Ready {
-		// create fip only in add process, just check to error out here
 		klog.Infof("wait ovn fip %s to be ready only in the handle add process", cachedFip.Name)
 		return nil
 	}
 	klog.Infof("handle update fip %s", key)
-	// check eip
+
 	eipName := cachedFip.Spec.OvnEip
 	if eipName == "" {
 		err := errors.New("failed to create fip rule, should set eip")
@@ -299,7 +284,6 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 		return err
 	}
 	if cachedEip.Spec.Type == util.OvnEipTypeLSP {
-		// eip is used by ecmp nexthop lsp, nat can not use
 		err = fmt.Errorf("ovn nat %s can not use type %s eip %s", key, util.OvnEipTypeLSP, eipName)
 		klog.Error(err)
 		return err
@@ -328,9 +312,6 @@ func (c *Controller) handleUpdateOvnFip(key string) error {
 			v4IP = internalVip.Status.V4ip
 			v6IP = internalVip.Status.V6ip
 			subnetName = internalVip.Spec.Subnet
-			// vip lsp has its mac, but vip always use its parent lsp nic mac
-			// vip could float to different parent lsp nic
-			// all vip its parent lsp acl should allow the vip ip
 		} else {
 			internalIP, err := c.ipsLister.Get(ipName)
 			if err != nil {
@@ -402,9 +383,6 @@ type ovnFipNat struct {
 	logicalIP  string
 }
 
-// ovnFipNats returns the dnat_and_snat pairs of a fip: one per address
-// family that has both an external and an internal address, or the single
-// cross-family pair when each side has only one family.
 func ovnFipNats(v4Eip, v6Eip, v4IP, v6IP string) []ovnFipNat {
 	var nats []ovnFipNat
 	if v4IP != "" && v4Eip != "" {
@@ -435,7 +413,7 @@ func (c *Controller) handleDelOvnFip(key string) error {
 	if cachedFip.Status.Vpc == "" {
 		return nil
 	}
-	// ovn delete fip nat
+
 	if cachedFip.Status.V4Eip != "" && cachedFip.Status.V4Ip != "" {
 		if err = c.OVNNbClient.DeleteNat(cachedFip.Status.Vpc, ovnnb.NATTypeDNATAndSNAT, cachedFip.Status.V4Eip, cachedFip.Status.V4Ip); err != nil {
 			klog.Errorf("failed to delete v4 fip %s, %v", key, err)
@@ -452,7 +430,7 @@ func (c *Controller) handleDelOvnFip(key string) error {
 		klog.Errorf("failed to remove finalizer for ovn fip %s, %v", cachedFip.Name, err)
 		return err
 	}
-	//  reset eip
+
 	if cachedFip.Spec.OvnEip != "" {
 		c.resetOvnEipQueue.Add(cachedFip.Spec.OvnEip)
 	}
@@ -561,9 +539,6 @@ func (c *Controller) patchOvnFipStatus(key, vpcName, v4Eip, podIP string, ready 
 	return nil
 }
 
-// convergeOvnFipGatewayPort mirrors convergeOvnSnatGatewayPort for fip
-// rules: a Ready rule replayed as an add on controller start gets its
-// gateway_port re-derived instead of being skipped.
 func (c *Controller) convergeOvnFipGatewayPort(cachedFip *fabricv1.OvnFip) error {
 	if cachedFip.Status.Vpc == "" {
 		return nil
@@ -602,7 +577,6 @@ func (c *Controller) GetOvnEip(eipName string) (*fabricv1.OvnEip, error) {
 }
 
 func (c *Controller) syncOvnFipFinalizer(cl client.Client) error {
-	// migrate deprecated finalizer to new finalizer
 	fips := &fabricv1.OvnFipList{}
 	return migrateFinalizers(cl, fips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(fips.Items) {
@@ -659,7 +633,6 @@ func (c *Controller) handleDelOvnFipFinalizer(cachedFip *fabricv1.OvnFip) error 
 		return err
 	}
 
-	// Trigger associated EIP to recheck if it can be deleted now
 	if cachedFip.Spec.OvnEip != "" {
 		klog.Infof("triggering eip %s update after fip %s deletion", cachedFip.Spec.OvnEip, cachedFip.Name)
 		c.updateOvnEipQueue.Add(cachedFip.Spec.OvnEip)

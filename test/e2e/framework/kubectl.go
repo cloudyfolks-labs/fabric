@@ -27,12 +27,10 @@ func ovnExecSvc(db string, cmd ...string) (stdout, stderr []byte, err error) {
 	return []byte(outStr), []byte(errStr), nil
 }
 
-// NBExec executes the command in svc/ovn-nb and returns the result
 func NBExec(cmd ...string) (stdout, stderr []byte, err error) {
 	return ovnExecSvc("nb", cmd...)
 }
 
-// SBExec executes the command in svc/ovn-sb and returns the result
 func SBExec(cmd ...string) (stdout, stderr []byte, err error) {
 	return ovnExecSvc("sb", cmd...)
 }

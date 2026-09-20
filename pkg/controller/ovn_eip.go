@@ -25,7 +25,7 @@ func (c *Controller) enqueueAddOvnEip(obj any) {
 	key := cache.MetaObjectToName(eip).String()
 	c.requeueRouterLBRulesForEip(eip.Name, false)
 	c.requeueOvnLbSvcForEip(eip)
-	// A terminating object reconciles via the update queue for cleanup (handleAdd skips it; resync=0).
+
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnEipQueue, key, "ovn eip", eip.DeletionTimestamp, eip.GetFinalizers()) {
 		return
 	}
@@ -92,7 +92,6 @@ func (c *Controller) handleAddOvnEip(key string) error {
 		return err
 	}
 	if cachedEip.Status.MacAddress != "" {
-		// already ok
 		return nil
 	}
 	klog.Infof("handle add ovn eip %s", cachedEip.Name)
@@ -108,7 +107,7 @@ func (c *Controller) handleAddOvnEip(key string) error {
 		klog.Errorf("failed to get external subnet, %v", err)
 		return err
 	}
-	// v6 ip address can not use upper case
+
 	if util.ContainsUppercase(cachedEip.Spec.V6Ip) {
 		err := fmt.Errorf("eip %s v6 ip address %s can not contain upper case", cachedEip.Name, cachedEip.Spec.V6Ip)
 		klog.Error(err)
@@ -118,7 +117,6 @@ func (c *Controller) handleAddOvnEip(key string) error {
 	if cachedEip.Spec.V4Ip != "" {
 		v4ip, v6ip, mac, err = c.acquireStaticIPAddress(subnet.Name, cachedEip.Name, portName, cachedEip.Spec.V4Ip, nil)
 	} else {
-		// random allocate
 		v4ip, v6ip, mac, err = c.acquireIPAddress(subnet.Name, cachedEip.Name, portName)
 	}
 	if err != nil {
@@ -136,7 +134,6 @@ func (c *Controller) handleAddOvnEip(key string) error {
 		}
 	}
 	if cachedEip.Spec.Type == "" {
-		// the eip only used by nat: fip, dnat, snat
 		usageType = util.OvnEipTypeNAT
 	}
 
@@ -145,15 +142,12 @@ func (c *Controller) handleAddOvnEip(key string) error {
 		return err
 	}
 	if cachedEip.Spec.Type != util.OvnEipTypeLSP {
-		// node ext gw use lsp eip, has a nic on gw node, so left node to make it ready
 		if err = c.patchOvnEipStatus(key, true); err != nil {
 			klog.Errorf("failed to patch ovn eip %s: %v", key, err)
 			return err
 		}
 	}
 
-	// Trigger subnet status update after all operations complete
-	// At this point: IPAM allocated, OvnEip CR created with labels+status+finalizer
 	c.updateSubnetStatusQueue.Add(subnet.Name)
 	return nil
 }
@@ -168,12 +162,9 @@ func (c *Controller) handleUpdateOvnEip(key string) error {
 		return err
 	}
 
-	// Handle deletion first
 	if !cachedEip.DeletionTimestamp.IsZero() {
 		klog.Infof("handle deleting ovn eip %s", key)
 
-		// Check if EIP is still being used by any NAT rules (FIP/DNAT/SNAT) BEFORE cleanup
-		// Only proceed with cleanup and finalizer removal when no NAT rules are using it
 		nat, err := c.getOvnEipNat(cachedEip.Spec.V4Ip, cachedEip.Spec.V6Ip)
 		if err != nil {
 			klog.Errorf("failed to get ovn eip %s nat rules, %v", key, err)
@@ -185,7 +176,6 @@ func (c *Controller) handleUpdateOvnEip(key string) error {
 			return err
 		}
 
-		// Clean up resources before removing finalizer
 		if cachedEip.Spec.Type == util.OvnEipTypeLSP {
 			if err := c.OVNNbClient.DeleteLogicalSwitchPort(cachedEip.Name); err != nil {
 				klog.Errorf("failed to delete lsp %s, %v", cachedEip.Name, err)
@@ -199,10 +189,8 @@ func (c *Controller) handleUpdateOvnEip(key string) error {
 			}
 		}
 
-		// Release IP from IPAM before removing finalizer
 		c.ipam.ReleaseAddressByPod(cachedEip.Name, cachedEip.Spec.ExternalSubnet)
 
-		// Now remove finalizer, which will trigger subnet status update
 		if err = c.handleDelOvnEipFinalizer(cachedEip); err != nil {
 			klog.Errorf("failed to handle remove ovn eip finalizer , %v", err)
 			return err
@@ -210,25 +198,23 @@ func (c *Controller) handleUpdateOvnEip(key string) error {
 		return nil
 	}
 
-	// Always ensure finalizer is added regardless of Status
 	if err = c.handleAddOrUpdateOvnEipFinalizer(cachedEip); err != nil {
 		klog.Errorf("failed to handle add or update finalizer for ovn eip %s: %v", key, err)
 		return err
 	}
 
 	if !cachedEip.Status.Ready {
-		// create eip only in add process, just check to error out here
 		klog.Infof("wait ovn eip %s to be ready only in the handle add process", cachedEip.Name)
 		return nil
 	}
 	klog.Infof("handle update ovn eip %s", cachedEip.Name)
-	// not support change
+
 	if cachedEip.Status.V4Ip != cachedEip.Spec.V4Ip {
 		err := fmt.Errorf("not support change v4 ip for ovn eip %s", cachedEip.Name)
 		klog.Error(err)
 		return err
 	}
-	// v6 ip address can not use upper case
+
 	if util.ContainsUppercase(cachedEip.Spec.V6Ip) {
 		err := fmt.Errorf("eip %s v6 ip address %s can not contain upper case", cachedEip.Name, cachedEip.Spec.V6Ip)
 		klog.Error(err)
@@ -273,11 +259,8 @@ func (c *Controller) handleResetOvnEip(key string) error {
 }
 
 func (c *Controller) handleDelOvnEip(eip *fabricv1.OvnEip) error {
-	// This handles deletion of EIPs without finalizers (race condition or direct deletion)
-	// EIPs with finalizers are handled in handleUpdateOvnEip
 	klog.Infof("handle del ovn eip %s (without finalizer)", eip.Name)
 
-	// Clean up resources if they still exist
 	if eip.Spec.Type == util.OvnEipTypeLSP {
 		if err := c.OVNNbClient.DeleteLogicalSwitchPort(eip.Name); err != nil {
 			klog.Errorf("failed to delete lsp %s, %v", eip.Name, err)
@@ -291,10 +274,8 @@ func (c *Controller) handleDelOvnEip(eip *fabricv1.OvnEip) error {
 		}
 	}
 
-	// Release IP from IPAM
 	c.ipam.ReleaseAddressByPod(eip.Name, eip.Spec.ExternalSubnet)
 
-	// Ensure subnet status is updated
 	if eip.Spec.ExternalSubnet != "" {
 		c.updateSubnetStatusQueue.Add(eip.Spec.ExternalSubnet)
 	}
@@ -306,7 +287,6 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 	cachedEip, err := c.ovnEipsLister.Get(key)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Create CR with finalizer, labels and status all at once
 			_, err := c.config.FabricClient.FabricV1().OvnEips().Create(context.Background(), &fabricv1.OvnEip{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       key,
@@ -339,7 +319,7 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 				klog.Error(err)
 				return err
 			}
-			// wait local cache ready
+
 			time.Sleep(1 * time.Second)
 		} else {
 			klog.Error(err)
@@ -348,7 +328,6 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 	} else {
 		ovnEip := cachedEip.DeepCopy()
 
-		// Ensure labels are set correctly before any update
 		if ovnEip.Labels == nil {
 			ovnEip.Labels = make(map[string]string)
 		}
@@ -375,7 +354,6 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 			needUpdate = true
 		}
 		if needUpdate {
-			// Update with labels and spec in one call
 			if _, err := c.config.FabricClient.FabricV1().OvnEips().Update(context.Background(), ovnEip, metav1.UpdateOptions{}); err != nil {
 				errMsg := fmt.Errorf("failed to update ovn eip '%s', %w", key, err)
 				klog.Error(errMsg)
@@ -415,7 +393,7 @@ func (c *Controller) createOrUpdateOvnEipCR(key, subnet, v4ip, v6ip, mac, usageT
 			}
 		}
 	}
-	// Trigger subnet status update after CR creation or update
+
 	c.updateSubnetStatusQueue.AddAfter(subnet, 300*time.Millisecond)
 	return nil
 }
@@ -438,7 +416,6 @@ func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
 		}
 	}
 	if ovnEip.Status.MacAddress == "" {
-		// not support change ip
 		ovnEip.Status.V4Ip = cachedOvnEip.Spec.V4Ip
 		ovnEip.Status.V6Ip = cachedOvnEip.Spec.V6Ip
 		ovnEip.Status.MacAddress = cachedOvnEip.Spec.MacAddress
@@ -454,7 +431,7 @@ func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
 		klog.Error(err)
 		return err
 	}
-	// nat record all kinds of nat rules using this eip
+
 	klog.V(3).Infof("nat of ovn eip %s is %s", ovnEip.Name, nat)
 	if ovnEip.Status.Nat != nat {
 		ovnEip.Status.Nat = nat
@@ -475,15 +452,6 @@ func (c *Controller) patchOvnEipStatus(key string, markEIPAsReady bool) error {
 	return nil
 }
 
-// natGatewayPort returns the UUID of the logical router port that the nat
-// rules of the VPC name as gateway_port, or an empty string when northd picks
-// the port itself. A VPC with dynamic routing and dynamicRouting.externalSubnet
-// carries one distributed gateway port per external subnet, and a nat rule
-// only applies to traffic leaving through its gateway_port — so a rule whose
-// external IP belongs to a subnet with an LRP on the router names that LRP.
-// northd cannot resolve the port of an external IP that lies outside every
-// port network (the L2 public pools), so those rules fall back to the port of
-// the subnet whose LRP is the BGP next hop.
 func (c *Controller) natGatewayPort(vpcName, externalSubnet string) (string, error) {
 	vpc, err := c.vpcsLister.Get(vpcName)
 	if err != nil {
@@ -575,7 +543,6 @@ func (c *Controller) natLabelAndAnnoOvnEip(eipName, natName, vpcName string) err
 }
 
 func (c *Controller) syncOvnEipFinalizer(cl client.Client) error {
-	// migrate deprecated finalizer to new finalizer
 	eips := &fabricv1.OvnEipList{}
 	return migrateFinalizers(cl, eips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(eips.Items) {
@@ -607,9 +574,6 @@ func (c *Controller) handleAddOrUpdateOvnEipFinalizer(cachedEip *fabricv1.OvnEip
 		return err
 	}
 
-	// Trigger subnet status update after finalizer is processed as a fallback
-	// This handles cases where finalizer was not added during creation
-	// AddFinalizer is idempotent, so this is safe even if finalizer already exists
 	c.updateSubnetStatusQueue.Add(cachedEip.Spec.ExternalSubnet)
 	return nil
 }
@@ -648,9 +612,6 @@ func (c *Controller) handleDelOvnEipFinalizer(cachedEip *fabricv1.OvnEip) error 
 		return err
 	}
 
-	// Trigger subnet status update after finalizer is removed
-	// This ensures subnet status reflects the IP release
-	// Add delay to ensure API server completes the finalizer removal
 	c.updateSubnetStatusQueue.AddAfter(cachedEip.Spec.ExternalSubnet, 300*time.Millisecond)
 	return nil
 }
@@ -685,10 +646,6 @@ func (c *Controller) getOvnEipNat(eipV4IP, eipV6IP string) (string, error) {
 		return nil
 	}
 
-	// Match NAT rules by the EIP's actual IP family. An empty label value must
-	// never be used as a selector: NAT rules always carry eip_v4_ip, so a
-	// pure-IPv6 EIP (V4Ip="") would otherwise match every IPv6-only rule whose
-	// eip_v4_ip is empty and could never be deleted.
 	if eipV4IP != "" {
 		if err := check(labels.SelectorFromSet(labels.Set{util.EipV4IpLabel: eipV4IP})); err != nil {
 			return "", err

@@ -20,14 +20,8 @@ import (
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
-// ServiceCIDR (KEP-1880) became GA in K8s 1.33. The fabric integration ships
-// in v1.17 — older releases either lack the controller wiring or the daemon
-// store, so the test is gated on both fronts.
 const skipVersionMajor, skipVersionMinor uint = 1, 17
 
-// extraCIDRs sit well outside the kind defaults (10.96.0.0/12 / fd00:10:96::/112)
-// and the per-family pools used by RandomCIDR for subnet tests, so they never
-// collide with parallel cases.
 const (
 	extraCIDRv4 = "10.250.0.0/24"
 	extraCIDRv6 = "fd99:cafe::/108"
@@ -55,9 +49,6 @@ var _ = framework.Describe("[group:service-cidr]", func() {
 		f.SkipVersionPriorTo(skipVersionMajor, skipVersionMinor, "ServiceCIDR support landed in v1.17")
 		skipIfNoServiceCIDRAPI(cs)
 
-		// One CIDR per cluster family. Daemon only manages an ipset for a
-		// family when that family is enabled on the node, so probing the
-		// "wrong" family on a single-stack cluster would deadlock the wait.
 		var cidrs []string
 		if f.HasIPv4() {
 			cidrs = append(cidrs, extraCIDRv4)
@@ -112,10 +103,6 @@ var _ = framework.Describe("[group:service-cidr]", func() {
 	})
 })
 
-// skipIfNoServiceCIDRAPI marks the spec as skipped on clusters where the
-// networking.k8s.io/v1 ServiceCIDR API is unavailable (K8s <1.31 or 1.31/1.32
-// with the MultiCIDRServiceAllocator feature gate disabled). The fabric
-// fallback path is still exercised by every other test on those clusters.
 func skipIfNoServiceCIDRAPI(cs clientset.Interface) {
 	ginkgo.GinkgoHelper()
 
@@ -134,8 +121,6 @@ func skipIfNoServiceCIDRAPI(cs clientset.Interface) {
 	ginkgo.Skip("networking.k8s.io/v1 ServiceCIDR API is not present in this cluster")
 }
 
-// ipsetForCIDR picks the fabric services ipset that matches the given CIDR's
-// IP family. v4 CIDRs land in ovn40services, v6 in ovn60services.
 func ipsetForCIDR(cidr string) string {
 	if strings.Contains(cidr, ":") {
 		return "ovn60services"
@@ -143,10 +128,6 @@ func ipsetForCIDR(cidr string) string {
 	return "ovn40services"
 }
 
-// expectIPSetContains polls the ovs-ovn pod on the given node and verifies
-// the membership of cidr in the family-appropriate services ipset. The
-// 3-second daemon reconcile loop means the assertion needs a generous window;
-// 30s comfortably covers it.
 func expectIPSetContains(f *framework.Framework, node corev1.Node, cidr string, want bool) {
 	ginkgo.GinkgoHelper()
 

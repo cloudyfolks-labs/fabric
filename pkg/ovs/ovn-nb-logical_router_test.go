@@ -16,7 +16,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// createLogicalRouter delete logical router in ovn
 func createLogicalRouter(c *OVNNbClient, lr *ovnnb.LogicalRouter) error {
 	op, err := c.Create(lr)
 	if err != nil {
@@ -198,14 +197,13 @@ func (suite *OvnClientTestSuite) testListLogicalRouter() {
 	namePrefix := "test-list-lr"
 
 	i := 0
-	// create three logical router
+
 	for ; i < 3; i++ {
 		name := fmt.Sprintf("%s-%d", namePrefix, i)
 		err := nbClient.CreateLogicalRouter(name)
 		require.NoError(t, err)
 	}
 
-	// create two logical router which vendor is others
 	for ; i < 5; i++ {
 		name := fmt.Sprintf("%s-%d", namePrefix, i)
 		lr := &ovnnb.LogicalRouter{
@@ -217,7 +215,6 @@ func (suite *OvnClientTestSuite) testListLogicalRouter() {
 		require.NoError(t, err)
 	}
 
-	// create two logical router without vendor
 	for ; i < 7; i++ {
 		name := fmt.Sprintf("%s-%d", namePrefix, i)
 		lr := &ovnnb.LogicalRouter{
@@ -319,13 +316,11 @@ func (suite *OvnClientTestSuite) testLogicalRouterUpdateLoadBalancers() {
 	})
 
 	t.Run("should no err when add non-existent lbs to logical router", func(t *testing.T) {
-		// add a non-existent lb
 		err = nbClient.LogicalSwitchUpdateLoadBalancers(lrName, ovsdb.MutateOperationInsert, "test-add-lb-non-existent")
 		require.NoError(t, err)
 	})
 
 	t.Run("del lbs from logical router", func(t *testing.T) {
-		// delete the first two lbs from logical switch
 		err = nbClient.LogicalRouterUpdateLoadBalancers(lrName, ovsdb.MutateOperationDelete, lbNames[0:2]...)
 		require.NoError(t, err)
 
@@ -336,7 +331,6 @@ func (suite *OvnClientTestSuite) testLogicalRouterUpdateLoadBalancers() {
 			lb, err := nbClient.GetLoadBalancer(lbName, false)
 			require.NoError(t, err)
 
-			// logical switch contains the last lb
 			if i == 2 {
 				require.Contains(t, ls.LoadBalancer, lb.UUID)
 				continue

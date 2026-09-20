@@ -22,7 +22,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// ServiceClient is a struct for service client.
 type ServiceClient struct {
 	v1core.ServiceInterface
 	namespace string
@@ -53,7 +52,6 @@ func (c *ServiceClient) Get(name string) *corev1.Service {
 	return service
 }
 
-// Create creates a new service according to the framework specifications
 func (c *ServiceClient) Create(service *corev1.Service) *corev1.Service {
 	ginkgo.GinkgoHelper()
 	s, err := c.ServiceInterface.Create(context.TODO(), service, metav1.CreateOptions{})
@@ -61,14 +59,12 @@ func (c *ServiceClient) Create(service *corev1.Service) *corev1.Service {
 	return s.DeepCopy()
 }
 
-// CreateSync creates a new service according to the framework specifications, and waits for it to be updated.
 func (c *ServiceClient) CreateSync(service *corev1.Service, cond func(s *corev1.Service) (bool, error), condDesc string) *corev1.Service {
 	ginkgo.GinkgoHelper()
 	_ = c.Create(service)
 	return c.WaitUntil(service.Name, cond, condDesc, poll, timeout)
 }
 
-// Patch patches the service
 func (c *ServiceClient) Patch(original, modified *corev1.Service) *corev1.Service {
 	ginkgo.GinkgoHelper()
 
@@ -96,14 +92,12 @@ func (c *ServiceClient) Patch(original, modified *corev1.Service) *corev1.Servic
 	return nil
 }
 
-// PatchSync patches the service and waits the service to meet the condition
 func (c *ServiceClient) PatchSync(original, modified *corev1.Service, cond func(s *corev1.Service) (bool, error), condDesc string) *corev1.Service {
 	ginkgo.GinkgoHelper()
 	_ = c.Patch(original, modified)
 	return c.WaitUntil(original.Name, cond, condDesc, poll, timeout)
 }
 
-// Delete deletes a service if the service exists
 func (c *ServiceClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.ServiceInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -112,15 +106,12 @@ func (c *ServiceClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the service and waits for the service to disappear for `timeout`.
-// If the service doesn't disappear before the timeout, it will fail the test.
 func (c *ServiceClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for service %q to disappear", name)
 }
 
-// WaitUntil waits the given timeout duration for the specified condition to be met.
 func (c *ServiceClient) WaitUntil(name string, cond func(s *corev1.Service) (bool, error), condDesc string, interval, timeout time.Duration) *corev1.Service {
 	var service *corev1.Service
 	err := wait.PollUntilContextTimeout(context.Background(), interval, timeout, false, func(_ context.Context) (bool, error) {
@@ -149,7 +140,6 @@ func (c *ServiceClient) WaitUntil(name string, cond func(s *corev1.Service) (boo
 	return nil
 }
 
-// WaitToDisappear waits the given timeout duration for the specified service to disappear.
 func (c *ServiceClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*corev1.Service, error) {
 		svc, err := c.ServiceInterface.Get(ctx, name, metav1.GetOptions{})

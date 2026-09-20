@@ -29,14 +29,12 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// Configuration is the daemon conf
 type Configuration struct {
 	InstallCNIConfig bool
 	CniConfDir       string
 	CniConfFile      string
 	CniConfName      string
 
-	// interface being used for tunnel
 	tunnelIface               string
 	Iface                     string
 	HostTunnelSrc             bool
@@ -81,19 +79,15 @@ type Configuration struct {
 	LogPerm                   string
 	EnableNonPrimaryCNI       bool
 
-	// TLS configuration for secure serving
 	TLSMinVersion   string
 	TLSMaxVersion   string
 	TLSCipherSuites []string
 
-	// NodeNetworks stores the mapping of network name to encap IP from node annotation
 	NodeNetworks      map[string]string
 	nodeNetworksMutex sync.RWMutex
 	DefaultEncapIP    string
 }
 
-// ParseFlags will parse cmd args then init kubeClient and configuration
-// TODO: validate configuration
 func ParseFlags() *Configuration {
 	var (
 		argInstallCNIConfig = pflag.Bool("install-cni-config", false, "Install CNI config")
@@ -141,13 +135,11 @@ func ParseFlags() *Configuration {
 		argNonPrimaryCNI   = pflag.Bool("non-primary-cni-mode", false, "Use fabric in non primary cni mode. When true, skip setting NetworkUnavailable node condition")
 	)
 
-	// mute info log for ipset lib
 	logrus.SetLevel(logrus.WarnLevel)
 
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 
-	// Sync the glog and klog flags.
 	pflag.CommandLine.VisitAll(func(f1 *pflag.Flag) {
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {
@@ -238,7 +230,6 @@ func (config *Configuration) Init(nicBridgeMappings map[string]string) error {
 }
 
 func (config *Configuration) initNicConfig(nicBridgeMappings map[string]string) error {
-	// Support to specify node network card separately
 	node, err := config.KubeClient.CoreV1().Nodes().Get(context.Background(), config.NodeName, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("Failed to find node info, err: %v", err)
@@ -289,13 +280,12 @@ func (config *Configuration) initNicConfig(nicBridgeMappings map[string]string) 
 				klog.Errorf("Failed to parse CIDR address %s: %v, skipping", addr.String(), err)
 				continue
 			}
-			// exclude the vip as encap ip unless host-tunnel-src is true
+
 			if ones, bits := ipCidr.Mask.Size(); ones == bits && !config.HostTunnelSrc {
 				klog.Infof("Skip address %s", ipCidr.String())
 				continue
 			}
 
-			// exclude link-local and loopback addresses
 			ipStr, _, _ := strings.Cut(addr.String(), "/")
 			if ip := net.ParseIP(ipStr); ip == nil || ip.IsLinkLocalUnicast() || ip.IsLoopback() {
 				continue
@@ -326,17 +316,10 @@ func (config *Configuration) initNicConfig(nicBridgeMappings map[string]string) 
 			return fmt.Errorf("invalid network type: %s", config.NetworkType)
 		}
 		if encapIsIPv6 {
-			// IPv6 header size is 40
 			config.MTU -= 20
 		}
-		// Warn but do not raise: the path MTU is dictated by the underlying
-		// link, and forcing the value above it would replace silent IPv6
-		// drops with silent IPv4 fragmentation/blackholing.
+
 		if encapIsIPv6 && config.MTU < util.IPv6MinMTU {
-			// tunnelIface is only set when the user pinned config.Iface and
-			// the resolved nic may differ (bridge mapping); fall back to
-			// config.Iface for the auto-discovery path where tunnelIface is
-			// empty.
 			ifaceName := config.tunnelIface
 			if ifaceName == "" {
 				ifaceName = config.Iface
@@ -420,7 +403,6 @@ func (config *Configuration) initKubeClient() error {
 		}
 	}
 
-	// try to connect to apiserver's tcp port
 	if err = util.DialAPIServer(cfg.Host, 3*time.Second, 10); err != nil {
 		klog.Errorf("failed to dial apiserver: %v", err)
 		return err
@@ -517,8 +499,6 @@ func (config *Configuration) setEncapIPs() error {
 	return nil
 }
 
-// SetDefaultEncapIP updates the default encap IP under the node networks lock,
-// as setEncapIPs/GetEncapIPByNetwork read it concurrently from other goroutines
 func (config *Configuration) SetDefaultEncapIP(ip string) {
 	config.nodeNetworksMutex.Lock()
 	config.DefaultEncapIP = ip

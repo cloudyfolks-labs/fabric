@@ -77,7 +77,6 @@ func (c *Controller) handleAddVirtualIP(key string) error {
 		return err
 	}
 	if cachedVip.Status.Mac != "" {
-		// already ok
 		return nil
 	}
 	klog.V(3).Infof("handle add vip %s", key)
@@ -96,7 +95,7 @@ func (c *Controller) handleAddVirtualIP(key string) error {
 	portName := ovs.PodNameToPortName(vip.Name, vip.Spec.Namespace, subnet.Spec.Provider)
 	sourceV4Ip = vip.Spec.V4ip
 	sourceV6Ip = vip.Spec.V6ip
-	// v6 ip address can not use upper case
+
 	if util.ContainsUppercase(vip.Spec.V6ip) {
 		err := fmt.Errorf("vip %s v6 ip address %s can not contain upper case", vip.Name, vip.Spec.V6ip)
 		klog.Error(err)
@@ -110,7 +109,6 @@ func (c *Controller) handleAddVirtualIP(key string) error {
 		}
 		v4ip, v6ip, mac, err = c.acquireStaticIPAddress(subnet.Name, vip.Name, portName, ipStr, macPointer)
 	} else {
-		// Random allocate
 		v4ip, v6ip, mac, err = c.acquireIPAddress(subnet.Name, vip.Name, portName)
 	}
 	if err != nil {
@@ -118,7 +116,6 @@ func (c *Controller) handleAddVirtualIP(key string) error {
 		return err
 	}
 	if vip.Spec.Type == util.SwitchLBRuleVip {
-		// create a lsp use subnet gw mac, and set it option as arp_proxy
 		lrpName := fmt.Sprintf("%s-%s", subnet.Spec.Vpc, subnet.Name)
 		klog.Infof("get logical router port %s", lrpName)
 		lrp, err := c.OVNNbClient.GetLogicalRouterPort(lrpName, false)
@@ -146,7 +143,6 @@ func (c *Controller) handleAddVirtualIP(key string) error {
 	}
 
 	if vip.Spec.Type == util.KubeHostVMVip {
-		// k8s host network pod vm use vip for its nic ip
 		klog.Infof("create lsp for host network pod vm nic ip %s", vip.Name)
 		ipStr := util.GetStringIP(v4ip, v6ip)
 		if err := c.OVNNbClient.CreateLogicalSwitchPort(subnet.Name, portName, ipStr, mac, vip.Name, vip.Spec.Namespace, false, "", "", false, nil, subnet.Spec.Vpc); err != nil {
@@ -160,7 +156,6 @@ func (c *Controller) handleAddVirtualIP(key string) error {
 		return err
 	}
 	if vip.Spec.Type == util.KubeHostVMVip {
-		// vm use the vip as its real ip
 		klog.Infof("created host network pod vm ip %s", key)
 		return nil
 	}
@@ -170,8 +165,6 @@ func (c *Controller) handleAddVirtualIP(key string) error {
 		return err
 	}
 
-	// Trigger subnet status update after all operations complete
-	// At this point: IPAM allocated, VIP CR created with labels+status+finalizer
 	c.updateSubnetStatusQueue.Add(subnetName)
 	return nil
 }
@@ -186,10 +179,10 @@ func (c *Controller) handleUpdateVirtualIP(key string) error {
 		return err
 	}
 	vip := cachedVip.DeepCopy()
-	// should delete
+
 	if !vip.DeletionTimestamp.IsZero() {
 		klog.Infof("handle deleting vip %s", vip.Name)
-		// Clean up resources before removing finalizer
+
 		if vip.Spec.Type != "" {
 			subnet, err := c.subnetsLister.Get(vip.Spec.Subnet)
 			if err != nil {
@@ -204,28 +197,27 @@ func (c *Controller) handleUpdateVirtualIP(key string) error {
 				return err
 			}
 		}
-		// delete virtual ports
+
 		if err := c.OVNNbClient.DeleteLogicalSwitchPort(vip.Name); err != nil {
 			klog.Errorf("delete virtual logical switch port %s from logical switch %s: %v", vip.Name, vip.Spec.Subnet, err)
 			return err
 		}
-		// Release IP from IPAM before removing finalizer
+
 		c.ipam.ReleaseAddressByPod(vip.Name, vip.Spec.Subnet)
 
-		// Now remove finalizer, which will trigger subnet status update
 		if err = c.handleDelVipFinalizer(key); err != nil {
 			klog.Errorf("failed to handle vip finalizer %v", err)
 			return err
 		}
 		return nil
 	}
-	// v6 ip address can not use upper case
+
 	if util.ContainsUppercase(vip.Spec.V6ip) {
 		err := fmt.Errorf("vip %s v6 ip address %s can not contain upper case", vip.Name, vip.Spec.V6ip)
 		klog.Error(err)
 		return err
 	}
-	// not support change
+
 	if vip.Status.Mac != "" && vip.Status.Mac != vip.Spec.MacAddress {
 		err = errors.New("not support change mac of vip")
 		klog.Errorf("%v", err)
@@ -241,7 +233,7 @@ func (c *Controller) handleUpdateVirtualIP(key string) error {
 		klog.Errorf("%v", err)
 		return err
 	}
-	// should update
+
 	if vip.Status.Mac == "" {
 		if err = c.createOrUpdateVipCR(key, vip.Spec.Namespace, vip.Spec.Subnet,
 			vip.Spec.V4ip, vip.Spec.V6ip, vip.Spec.MacAddress); err != nil {
@@ -249,7 +241,7 @@ func (c *Controller) handleUpdateVirtualIP(key string) error {
 			return err
 		}
 	}
-	// Always ensure finalizer is added regardless of Status
+
 	if err = c.handleAddOrUpdateVipFinalizer(key); err != nil {
 		klog.Errorf("failed to handle vip finalizer %v", err)
 		return err
@@ -258,12 +250,8 @@ func (c *Controller) handleUpdateVirtualIP(key string) error {
 }
 
 func (c *Controller) handleDelVirtualIP(vip *fabricv1.Vip) error {
-	// Cleanup is now handled in handleUpdateVirtualIP before finalizer removal
-	// This function is kept for compatibility with the delete queue
 	klog.V(3).Infof("vip %s cleanup already done in update handler", vip.Name)
 
-	// For VIPs deleted without finalizer (race condition or direct deletion),
-	// we need to ensure subnet status is updated as a safety net.
 	if vip.Spec.Subnet != "" {
 		c.updateSubnetStatusQueue.Add(vip.Spec.Subnet)
 	}
@@ -281,29 +269,24 @@ func (c *Controller) handleUpdateVirtualParents(key string) error {
 		return err
 	}
 	if cachedVip.Spec.Type == util.KubeHostVMVip {
-		// vm use the vip as its real ip
 		klog.Infof("created host network pod vm ip %s", key)
 		return nil
 	}
-	// only pods in the same namespace as vip are allowed to use aap
+
 	if (cachedVip.Status.V4ip == "" && cachedVip.Status.V6ip == "") || cachedVip.Spec.Namespace == "" {
 		return nil
 	}
 
-	// add new virtual port if not exist
 	ipStr := util.GetStringIP(cachedVip.Status.V4ip, cachedVip.Status.V6ip)
 	if err = c.OVNNbClient.CreateVirtualLogicalSwitchPort(cachedVip.Name, cachedVip.Spec.Subnet, ipStr); err != nil {
 		klog.Errorf("create virtual port with vip %s from logical switch %s: %v", cachedVip.Name, cachedVip.Spec.Subnet, err)
 		return err
 	}
 
-	// update virtual parents
 	if cachedVip.Spec.Type == util.SwitchLBRuleVip {
-		// switch lb rule vip no need to have virtual parents
 		return nil
 	}
 
-	// vip cloud use selector to select pods as its virtual parents
 	matchLabels := make(map[string]string)
 	for _, v := range cachedVip.Spec.Selector {
 		parts := strings.Split(strings.TrimSpace(v), ":")
@@ -326,7 +309,6 @@ func (c *Controller) handleUpdateVirtualParents(key string) error {
 	var virtualParents []string
 	for _, pod := range pods {
 		if pod.Annotations == nil {
-			// pod has no annotations
 			continue
 		}
 		if aaps := strings.Split(pod.Annotations[util.AAPsAnnotation], ","); !slices.Contains(aaps, cachedVip.Name) {
@@ -338,7 +320,6 @@ func (c *Controller) handleUpdateVirtualParents(key string) error {
 			klog.Errorf("failed to get pod nets %v", err)
 		}
 		for _, podNet := range podNets {
-			// Skip non-OVN subnets that don't create OVN logical switch ports
 			if !isOvnSubnet(podNet.Subnet) {
 				continue
 			}
@@ -367,7 +348,6 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 	vipCR, err := c.virtualIpsLister.Get(key)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			// Create CR with finalizer, labels and status all at once
 			if _, err := c.config.FabricClient.FabricV1().Vips().Create(context.Background(), &fabricv1.Vip{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       key,
@@ -403,7 +383,6 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 	} else {
 		vip := vipCR.DeepCopy()
 
-		// Ensure labels are set correctly
 		if vip.Labels == nil {
 			vip.Labels = make(map[string]string)
 		}
@@ -413,8 +392,6 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 		if vip.Status.Mac == "" && mac != "" ||
 			vip.Status.V4ip == "" && v4ip != "" ||
 			vip.Status.V6ip == "" && v6ip != "" {
-			// vip spec mac or ip not support to update
-			// only set once during creation
 			vip.Spec.Namespace = ns
 			vip.Spec.V4ip = v4ip
 			vip.Spec.V6ip = v6ip
@@ -425,14 +402,10 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 			vip.Status.Mac = mac
 			vip.Status.Type = vip.Spec.Type
 
-			// Ensure finalizer is added atomically with status initialization,
-			// preventing a race where WaitToBeReady returns (V4ip is set) before
-			// handleUpdateVirtualIP has a chance to add the finalizer.
 			controllerutil.RemoveFinalizer(vip, util.DeprecatedFinalizerName)
 			controllerutil.RemoveFinalizer(vip, util.LegacyControllerFinalizer)
 			controllerutil.AddFinalizer(vip, util.FabricControllerFinalizer)
 
-			// Update with labels, spec, status, and finalizer in one call
 			if _, err := c.config.FabricClient.FabricV1().Vips().Update(context.Background(), vip, metav1.UpdateOptions{}); err != nil {
 				err := fmt.Errorf("failed to update vip '%s', %w", key, err)
 				klog.Error(err)
@@ -440,13 +413,12 @@ func (c *Controller) createOrUpdateVipCR(key, ns, subnet, v4ip, v6ip, mac string
 			}
 		}
 	}
-	// Trigger subnet status update after CR creation or update
+
 	c.updateSubnetStatusQueue.AddAfter(subnet, 300*time.Millisecond)
 	return nil
 }
 
 func (c *Controller) podReuseVip(vipName, portName string, keepVIP bool) error {
-	// when pod use static vip, label vip reserved for pod
 	oriVip, err := c.virtualIpsLister.Get(vipName)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -481,7 +453,6 @@ func (c *Controller) podReuseVip(vipName, portName string, keepVIP bool) error {
 }
 
 func (c *Controller) releaseVip(key string) error {
-	// clean vip label when pod delete
 	oriVip, err := c.virtualIpsLister.Get(key)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -550,9 +521,6 @@ func (c *Controller) handleAddOrUpdateVipFinalizer(key string) error {
 		return err
 	}
 
-	// Trigger subnet status update after finalizer is processed as a fallback
-	// This handles cases where finalizer was not added during creation
-	// AddFinalizer is idempotent, so this is safe even if finalizer already exists
 	c.updateSubnetStatusQueue.Add(cachedVip.Spec.Subnet)
 	return nil
 }
@@ -587,15 +555,11 @@ func (c *Controller) handleDelVipFinalizer(key string) error {
 		return err
 	}
 
-	// Trigger subnet status update after finalizer is removed
-	// This ensures subnet status reflects the IP release
-	// Add delay to ensure API server completes the finalizer removal
 	c.updateSubnetStatusQueue.AddAfter(cachedVip.Spec.Subnet, 300*time.Millisecond)
 	return nil
 }
 
 func (c *Controller) syncVipFinalizer(cl client.Client) error {
-	// migrate deprecated finalizer to new finalizer
 	vips := &fabricv1.VipList{}
 	return migrateFinalizers(cl, vips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(vips.Items) {

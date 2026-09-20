@@ -72,7 +72,6 @@ func (c *Controller) setDNSSearchMetric() {
 	found := false
 	for _, domain := range domains {
 		if domain == "." {
-			// Ignore the root domain
 			continue
 		}
 

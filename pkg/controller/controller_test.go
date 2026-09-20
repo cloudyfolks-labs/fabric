@@ -1,18 +1,5 @@
 package controller
 
-// Unified Fake Controller for Testing
-//
-// This file provides a unified approach to creating fake controllers for testing.
-// The main function is newFakeControllerWithOptions() which accepts optional parameters
-// for subnets, NADs (Network Attachment Definitions), pods, and namespaces.
-//
-// The fake controller properly initializes:
-// - Kubernetes fake client with pods and namespaces
-// - NAD fake client with network attachment definitions (populated via API)
-// - Fabric fake client with subnets (populated via API)
-// - All necessary informers with proper synchronization
-// - Mock OVN client for OVN operations
-
 import (
 	"context"
 	"fmt"
@@ -43,9 +30,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// Disable WatchListClient feature gate because the NAD fake client doesn't
-	// implement IsWatchListSemanticsUnSupported(), causing informer reflectors
-	// to hang with WatchList (enabled by default since k8s 1.35).
 	if err := os.Setenv("KUBE_FEATURE_WatchListClient", "false"); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to set KUBE_FEATURE_WatchListClient: %v\n", err)
 		os.Exit(1)
@@ -73,7 +57,6 @@ type fakeController struct {
 
 func alwaysReady() bool { return true }
 
-// FakeControllerOptions holds optional parameters for creating a fake controller
 type FakeControllerOptions struct {
 	Subnets            []*fabricv1.Subnet
 	IPPools            []*fabricv1.IPPool
@@ -96,7 +79,6 @@ type FakeControllerOptions struct {
 	DNSZones           []*fabricv1.DNSZone
 }
 
-// newFakeControllerWithOptions creates a fake controller with optional pre-populated objects
 func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*fakeController, error) {
 	if opts == nil {
 		opts = &FakeControllerOptions{}
@@ -104,7 +86,6 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 
 	namespaces := opts.Namespaces
 	if len(namespaces) == 0 {
-		// Create default namespace if none provided
 		namespaces = []*corev1.Namespace{{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: metav1.NamespaceDefault,
@@ -115,7 +96,6 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		}}
 	}
 
-	// Create fake Kubernetes client with namespaces, pods, nodes, and services
 	kubeObjects := make([]runtime.Object, 0, len(namespaces)+len(opts.Pods)+len(opts.Nodes)+len(opts.Services))
 	for _, ns := range namespaces {
 		kubeObjects = append(kubeObjects, ns)
@@ -131,7 +111,6 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	}
 	kubeClient := fake.NewSimpleClientset(kubeObjects...)
 
-	// Create fake NAD client
 	nadClient := nadfake.NewSimpleClientset()
 	for _, nad := range opts.NetworkAttachments {
 		_, err := nadClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions(nad.Namespace).Create(
@@ -142,7 +121,6 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		}
 	}
 
-	// Create fake Fabric client
 	fabricClient := fabricfake.NewSimpleClientset()
 	for _, subnet := range opts.Subnets {
 		_, err := fabricClient.FabricV1().Subnets().Create(
@@ -257,7 +235,6 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		}
 	}
 
-	// Create informer factories
 	kubeInformerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClient, 0,
 		informers.WithTransform(util.TrimManagedFields),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
@@ -313,12 +290,10 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		podInformer:       podInformer,
 	}
 
-	// Create mock OVN clients
 	mockCtrl := gomock.NewController(t)
 	mockOvnClient := mockovs.NewMockNbClient(mockCtrl)
 	mockOvnSbClient := mockovs.NewMockSbClient(mockCtrl)
 
-	// Create controller with all informers
 	ctrl := &Controller{
 		servicesLister:          serviceInformer.Lister(),
 		namespacesLister:        namespaceInformer.Lister(),
@@ -384,7 +359,6 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 		return nil, err
 	}
 
-	// Start informers and wait for sync
 	stopCh := make(chan struct{})
 	t.Cleanup(func() { close(stopCh) })
 
@@ -404,7 +378,6 @@ func newFakeControllerWithOptions(t *testing.T, opts *FakeControllerOptions) (*f
 	}, nil
 }
 
-// newFakeController creates a basic fake controller
 func newFakeController(t *testing.T) *fakeController {
 	controller, err := newFakeControllerWithOptions(t, nil)
 	require.NoError(t, err)
@@ -443,9 +416,7 @@ func Test_allSubnetReady(t *testing.T) {
 	})
 }
 
-// TestFakeControllerWithOptions demonstrates usage of the unified fake controller
 func TestFakeControllerWithOptions(t *testing.T) {
-	// Example: creating a fake controller with NADs, subnets, and pods
 	opts := &FakeControllerOptions{
 		Subnets: []*fabricv1.Subnet{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1-subnet"},
@@ -475,19 +446,16 @@ func TestFakeControllerWithOptions(t *testing.T) {
 	require.NoError(t, err)
 	ctrl := fakeCtrl.fakeController
 
-	// Verify that the fake controller was created successfully
 	require.NotNil(t, ctrl)
 	require.NotNil(t, ctrl.config)
 	require.NotNil(t, ctrl.config.AttachNetClient)
 	require.NotNil(t, ctrl.config.FabricClient)
 
-	// Verify that NADs can be retrieved
 	nadClient := ctrl.config.AttachNetClient.K8sCniCncfIoV1().NetworkAttachmentDefinitions(metav1.NamespaceDefault)
 	retrievedNAD, err := nadClient.Get(context.Background(), "net1", metav1.GetOptions{})
 	require.NoError(t, err)
 	require.Equal(t, "net1", retrievedNAD.Name)
 
-	// Verify that subnets can be retrieved
 	subnetClient := ctrl.config.FabricClient.FabricV1().Subnets()
 	retrievedSubnet, err := subnetClient.Get(context.Background(), "net1-subnet", metav1.GetOptions{})
 	require.NoError(t, err)

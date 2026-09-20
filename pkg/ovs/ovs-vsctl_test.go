@@ -18,7 +18,7 @@ func (suite *OvnClientTestSuite) testOvsExec() {
 	t.Parallel()
 
 	ret, err := Exec(suite.ovsSocket, "show")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -33,7 +33,7 @@ func (suite *OvnClientTestSuite) testOvsCreate() {
 	qosCommandValues = append(qosCommandValues, fmt.Sprintf("other_config:limit=%d", 10))
 	qosCommandValues = append(qosCommandValues, fmt.Sprintf("other_config:loss=%v", 10))
 	ret, err := ovsCreate("qos", qosCommandValues...)
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -43,7 +43,7 @@ func (suite *OvnClientTestSuite) testOvsDestroy() {
 	t.Parallel()
 
 	err := ovsDestroy("qos", "qos-uuid")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -52,7 +52,7 @@ func (suite *OvnClientTestSuite) testOvsSet() {
 	t.Parallel()
 
 	err := Set("port", "port-name", "qos=qos-uuid")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -61,7 +61,7 @@ func (suite *OvnClientTestSuite) testOvsAdd() {
 	t.Parallel()
 
 	err := ovsAdd("port", "port-name", "qos=qos-uuid")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -70,7 +70,7 @@ func (suite *OvnClientTestSuite) testOvsFind() {
 	t.Parallel()
 
 	ret, err := ovsFind("port", "name", "qos=qos-uuid")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -91,7 +91,7 @@ func (suite *OvnClientTestSuite) testOvsRemove() {
 	t.Parallel()
 
 	err := Remove("port", "port-name", "qos", "qos-uuid")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -100,7 +100,7 @@ func (suite *OvnClientTestSuite) testOvsClear() {
 	t.Parallel()
 
 	err := ovsClear("port", "port-name", "qos")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -109,15 +109,15 @@ func (suite *OvnClientTestSuite) testOvsGet() {
 	t.Parallel()
 
 	ret, err := Get("port", "port-name", "qos", "qos-uuid", false)
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 	ret, err = Get("port", "port-name", "qos", "", false)
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 	ret, err = Get("port", "port-name", "qos", "qos-uuid", true)
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -127,7 +127,7 @@ func (suite *OvnClientTestSuite) testOvsFindBridges() {
 	t.Parallel()
 
 	ret, err := Bridges()
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -137,7 +137,7 @@ func (suite *OvnClientTestSuite) testOvsBridgeExists() {
 	t.Parallel()
 
 	ret, err := BridgeExists("bridge-name")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.False(t, ret)
 }
@@ -147,7 +147,7 @@ func (suite *OvnClientTestSuite) testOvsPortExists() {
 	t.Parallel()
 
 	ret, err := PortExists("port-name")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.False(t, ret)
 }
@@ -157,12 +157,12 @@ func (suite *OvnClientTestSuite) testGetOvsQosList() {
 	t.Parallel()
 
 	ret, err := GetQosList("pod-name", "pod-namespace", "iface-id")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 
 	ret, err = GetQosList("pod-name", "pod-namespace", "")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -172,7 +172,7 @@ func (suite *OvnClientTestSuite) testOvsClearPodBandwidth() {
 	t.Parallel()
 
 	err := ClearPodBandwidth("pod-name", "pod-namespace", "iface-id")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -188,7 +188,7 @@ func (suite *OvnClientTestSuite) testValidatePortVendor() {
 	t.Parallel()
 
 	ok, err := ValidatePortVendor("port-name")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.False(t, ok)
 }
@@ -198,7 +198,7 @@ func (suite *OvnClientTestSuite) testGetInterfacePodNs() {
 	t.Parallel()
 
 	ret, err := GetInterfacePodNs("iface-id")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -208,11 +208,11 @@ func (suite *OvnClientTestSuite) testConfigInterfaceMirror() {
 	t.Parallel()
 
 	err := ConfigInterfaceMirror(true, "open", "iface-id")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Nil(t, err)
 
 	err = ConfigInterfaceMirror(false, "close", "iface-id")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -221,7 +221,7 @@ func (suite *OvnClientTestSuite) testClearPortQosBinding() {
 	t.Parallel()
 
 	err := ClearPortQosBinding("iface-id")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 }
 
@@ -230,7 +230,7 @@ func (suite *OvnClientTestSuite) testOvsListExternalIDs() {
 	t.Parallel()
 
 	ret, err := ListExternalIDs("port")
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }
@@ -240,7 +240,7 @@ func (suite *OvnClientTestSuite) testListQosQueueIDs() {
 	t.Parallel()
 
 	ret, err := ListQosQueueIDs()
-	// ovs-vsctl cmd is not available in the test environment
+
 	require.Error(t, err)
 	require.Empty(t, ret)
 }

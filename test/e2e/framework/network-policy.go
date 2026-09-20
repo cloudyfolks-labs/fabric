@@ -15,7 +15,6 @@ import (
 	"github.com/onsi/gomega"
 )
 
-// NetworkPolicyClient is a struct for network policy client.
 type NetworkPolicyClient struct {
 	f *Framework
 	v1net.NetworkPolicyInterface
@@ -41,7 +40,6 @@ func (c *NetworkPolicyClient) Get(name string) *netv1.NetworkPolicy {
 	return np
 }
 
-// Create creates a new network policy according to the framework specifications
 func (c *NetworkPolicyClient) Create(netpol *netv1.NetworkPolicy) *netv1.NetworkPolicy {
 	ginkgo.GinkgoHelper()
 	np, err := c.NetworkPolicyInterface.Create(context.TODO(), netpol, metav1.CreateOptions{})
@@ -49,7 +47,6 @@ func (c *NetworkPolicyClient) Create(netpol *netv1.NetworkPolicy) *netv1.Network
 	return np.DeepCopy()
 }
 
-// Delete deletes a network policy if the network policy exists
 func (c *NetworkPolicyClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.NetworkPolicyInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -58,15 +55,12 @@ func (c *NetworkPolicyClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the network policy and waits for the network policy to disappear for `timeout`.
-// If the network policy doesn't disappear before the timeout, it will fail the test.
 func (c *NetworkPolicyClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for network policy %q to disappear", name)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified network policy to disappear.
 func (c *NetworkPolicyClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*netv1.NetworkPolicy, error) {
 		policy, err := c.NetworkPolicyInterface.Get(ctx, name, metav1.GetOptions{})

@@ -10,9 +10,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
 
-// A Ready rule is replayed as an add on every controller start, which is
-// the only path that can converge gateway_port for rules created before
-// the per-subnet derivation existed.
 func TestHandleAddOvnSnatRule_ConvergesGatewayPortWhenReady(t *testing.T) {
 	vpc := &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: "vpc-h"},

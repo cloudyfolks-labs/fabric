@@ -38,10 +38,10 @@ func TestExpandIPPoolAddressesForOVN(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
-		// Single IP should not have /32 suffix
+
 		require.Contains(t, result, "10.0.0.1")
 		require.NotContains(t, result, "10.0.0.1/32")
-		// CIDR should be preserved
+
 		require.Contains(t, result, "192.168.1.0/24")
 	})
 
@@ -53,10 +53,10 @@ func TestExpandIPPoolAddressesForOVN(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
-		// Single IP should not have /128 suffix
+
 		require.Contains(t, result, "2001:db8::1")
 		require.NotContains(t, result, "2001:db8::1/128")
-		// CIDR should be preserved
+
 		require.Contains(t, result, "2001:db8::/64")
 	})
 
@@ -68,18 +68,17 @@ func TestExpandIPPoolAddressesForOVN(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Len(t, result, 3)
-		// All should be simple IPs without /32
+
 		require.Contains(t, result, "10.0.0.1")
 		require.Contains(t, result, "10.0.0.2")
 		require.Contains(t, result, "192.168.1.1")
-		// None should have /32
+
 		for _, addr := range result {
 			require.NotContains(t, addr, "/32")
 		}
 	})
 
 	t.Run("Mixed in single range", func(t *testing.T) {
-		// This is caught earlier in expandIPRange
 		_, err := ExpandIPPoolAddressesForOVN([]string{"10.0.0.1..2001:db8::1"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "mixes IPv4 and IPv6")
@@ -345,13 +344,13 @@ func TestCountTrailingZeros(t *testing.T) {
 	})
 
 	t.Run("Even number", func(t *testing.T) {
-		value := big.NewInt(8) // binary 1000
+		value := big.NewInt(8)
 		zeros := countTrailingZeros(value, 32)
 		require.Equal(t, 3, zeros)
 	})
 
 	t.Run("Large power of 2", func(t *testing.T) {
-		value := big.NewInt(256) // binary 100000000
+		value := big.NewInt(256)
 		zeros := countTrailingZeros(value, 32)
 		require.Equal(t, 8, zeros)
 	})

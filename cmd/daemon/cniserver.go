@@ -108,12 +108,6 @@ func main() {
 		util.LogFatalAndExit(err, "failed to create controller")
 	}
 
-	// Create all listen sockets BEFORE starting the controller.
-	// The controller's configProviderNic() transfers IP addresses from
-	// the physical NIC to an OVS bridge.  Any listener that binds to a
-	// node IP must complete its bind() call before that transfer starts,
-	// otherwise the address disappears mid-bind and the listener fails
-	// with "cannot assign requested address", crashing the daemon.
 	addrs := util.GetDefaultListenAddr()
 	if config.EnableVerboseConnCheck {
 		for _, addr := range addrs {
@@ -128,9 +122,6 @@ func main() {
 		}
 	}
 
-	// Bind the CNI unix socket synchronously before the health server
-	// starts so that the liveness probe (registered below) cannot
-	// produce a false negative during startup.
 	cniListener, cniCleanup, err := daemon.NewCNIListener(config)
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to listen on %s", config.BindSocket)
@@ -152,12 +143,6 @@ func main() {
 	<-stopCh
 }
 
-// cniSocketProbe returns a liveness probe that dials the CNI unix
-// socket with a short timeout. It catches the failure mode reported
-// in issue #6775: the socket file disappearing (bash EXIT trap or
-// external cleanup of /run/openvswitch) while the daemon process
-// keeps a stale listener fd. A connect+close also detects a hung
-// accept queue, which a simple os.Stat would not.
 func cniSocketProbe(socket string) func() error {
 	return func() error {
 		conn, err := net.DialTimeout("unix", socket, cniLivezDialTimeout)
@@ -171,7 +156,6 @@ func cniSocketProbe(socket string) func() error {
 func mvCNIConf(configDir, configFile, confName string) error {
 	cniConfPath := filepath.Join(configDir, confName)
 	if info, err := os.Stat(cniConfPath); err == nil {
-		// File exists, check permissions.
 		if info.Mode().Perm() == 0o600 {
 			klog.Infof("CNI config file %q already exists with correct permissions, skipping.", cniConfPath)
 			return nil
@@ -186,7 +170,6 @@ func mvCNIConf(configDir, configFile, confName string) error {
 		return err
 	}
 
-	// Clean up temp files left over from a previous interrupted install.
 	if leftovers, _ := filepath.Glob(cniConfPath + ".tmp.*"); len(leftovers) > 0 {
 		for _, f := range leftovers {
 			if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
@@ -222,7 +205,6 @@ func initChassisAnno(cfg *daemon.Configuration) error {
 
 	chassisName := strings.TrimSpace(string(chassisID))
 	if chassisName == "" {
-		// not ready yet
 		err = errors.New("chassis id is empty")
 		klog.Error(err)
 		return err

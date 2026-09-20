@@ -20,7 +20,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// RouterLBRuleClient is a struct for router-lb-rule client.
 type RouterLBRuleClient struct {
 	f *Framework
 	v1.RouterLBRuleInterface
@@ -40,7 +39,6 @@ func (c *RouterLBRuleClient) Get(name string) *apiv1.RouterLBRule {
 	return rule.DeepCopy()
 }
 
-// Create creates a new router-lb-rule.
 func (c *RouterLBRuleClient) Create(rule *apiv1.RouterLBRule) *apiv1.RouterLBRule {
 	ginkgo.GinkgoHelper()
 	r, err := c.RouterLBRuleInterface.Create(context.TODO(), rule, metav1.CreateOptions{})
@@ -48,14 +46,12 @@ func (c *RouterLBRuleClient) Create(rule *apiv1.RouterLBRule) *apiv1.RouterLBRul
 	return r.DeepCopy()
 }
 
-// CreateSync creates a new router-lb-rule and waits until Status.Service is set.
 func (c *RouterLBRuleClient) CreateSync(rule *apiv1.RouterLBRule, cond func(r *apiv1.RouterLBRule) (bool, error), condDesc string) *apiv1.RouterLBRule {
 	ginkgo.GinkgoHelper()
 	_ = c.Create(rule)
 	return c.WaitUntil(rule.Name, cond, condDesc, poll, timeout)
 }
 
-// Patch patches the router-lb-rule.
 func (c *RouterLBRuleClient) Patch(original, modified *apiv1.RouterLBRule) *apiv1.RouterLBRule {
 	ginkgo.GinkgoHelper()
 
@@ -83,14 +79,12 @@ func (c *RouterLBRuleClient) Patch(original, modified *apiv1.RouterLBRule) *apiv
 	return nil
 }
 
-// PatchSync patches the router-lb-rule and waits for the condition.
 func (c *RouterLBRuleClient) PatchSync(original, modified *apiv1.RouterLBRule, cond func(r *apiv1.RouterLBRule) (bool, error), condDesc string) *apiv1.RouterLBRule {
 	ginkgo.GinkgoHelper()
 	_ = c.Patch(original, modified)
 	return c.WaitUntil(original.Name, cond, condDesc, poll, timeout)
 }
 
-// Delete deletes a router-lb-rule if it exists.
 func (c *RouterLBRuleClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.RouterLBRuleInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -99,14 +93,12 @@ func (c *RouterLBRuleClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the router-lb-rule and waits for it to disappear.
 func (c *RouterLBRuleClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for router-lb-rule %q to disappear", name)
 }
 
-// WaitUntil waits for the given condition to be met.
 func (c *RouterLBRuleClient) WaitUntil(name string, cond func(r *apiv1.RouterLBRule) (bool, error), condDesc string, _, timeout time.Duration) *apiv1.RouterLBRule {
 	ginkgo.GinkgoHelper()
 
@@ -135,7 +127,6 @@ func (c *RouterLBRuleClient) WaitUntil(name string, cond func(r *apiv1.RouterLBR
 	return nil
 }
 
-// WaitToDisappear waits for the router-lb-rule to be deleted.
 func (c *RouterLBRuleClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.RouterLBRule, error) {
 		rule, err := c.RouterLBRuleInterface.Get(ctx, name, metav1.GetOptions{})
@@ -150,7 +141,6 @@ func (c *RouterLBRuleClient) WaitToDisappear(name string, _, timeout time.Durati
 	return nil
 }
 
-// IsReady returns a condition func that checks Status.Service is set (reconciliation succeeded).
 func RouterLBRuleIsReady(r *apiv1.RouterLBRule) (bool, error) {
 	return r.Status.Service != "", nil
 }

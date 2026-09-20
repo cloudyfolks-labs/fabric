@@ -8,7 +8,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-// SetLinkUp sets a link up
 func SetLinkUp(name string) error {
 	link, err := netlink.LinkByName(name)
 	if err != nil {

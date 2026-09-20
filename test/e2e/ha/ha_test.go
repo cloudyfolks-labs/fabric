@@ -31,7 +31,6 @@ import (
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)
@@ -72,33 +71,9 @@ type clusterStatus struct {
 	ClusterID string
 	ServerID  string
 	Address   string
-	Servers   map[string]string // sid -> address
+	Servers   map[string]string
 }
 
-// parseClusterStatus parses the output of `ovn-appctl cluster/status` command.
-// Example output:
-//
-//	3e81
-//	Name: OVN_Northbound
-//	Cluster ID: 6be2 (6be21888-7f5e-48c9-b1d6-3a30571d6a02)
-//	Server ID: 3e81 (3e816124-8972-4046-a267-517b9fe7443c)
-//	Address: tcp:[172.18.0.2]:6643
-//	Status: cluster member
-//	Role: follower
-//	Term: 3
-//	Leader: 68d9
-//	Vote: 68d9
-//
-//	Election timer: 5000
-//	Log: [2, 141]
-//	Entries not yet committed: 0
-//	Entries not yet applied: 0
-//	Connections: ->0000 ->0000 <-68d9 <-007f
-//	Disconnections: 963
-//	Servers:
-//	    3e81 (3e81 at tcp:[172.18.0.2]:6643) (self)
-//	    68d9 (68d9 at tcp:[172.18.0.4]:6643) last msg 1543 ms ago
-//	    007f (007f at tcp:[172.18.0.3]:6643) last msg 4959739 ms ago
 func parseClusterStatus(s string) *clusterStatus {
 	ginkgo.GinkgoHelper()
 
@@ -375,10 +350,9 @@ var _ = framework.SerialDescribe("[group:ha]", func() {
 			dbFile := dbFilePath(db)
 			dbFileHost := dbFileHostPath(db)
 			testcases := map[string]bool{
-				// Truncate the db file to a larger size or a smaller size
 				fmt.Sprintf(`truncate --no-create --size=+$((5+$RANDOM%%5)) "%s"`, dbFileHost): true,
 				fmt.Sprintf(`truncate --no-create --size=-$((5+$RANDOM%%5)) "%s"`, dbFileHost): true,
-				// The following two corruption methods only work for OVN >= 1.14
+
 				fmt.Sprintf(`: > "%s"`, dbFileHost):   !f.VersionPriorTo(1, 14),
 				fmt.Sprintf(`rm -f "%s"`, dbFileHost): !f.VersionPriorTo(1, 14),
 			}

@@ -33,10 +33,6 @@ func TestE2E(t *testing.T) {
 	e2e.RunE2ETests(t)
 }
 
-// isSingleReplicaMode reports whether the cluster was installed with
-// OVN_CENTRAL_MODE=single. The ovn-nb Service has its `ovn-nb-leader: "true"`
-// selector dropped in single mode, which is a reliable, install-method-agnostic
-// signal.
 func isSingleReplicaMode(f *framework.Framework) bool {
 	ginkgo.GinkgoHelper()
 
@@ -95,8 +91,7 @@ var _ = framework.Describe("[group:single-replica]", func() {
 				Get(context.TODO(), name, metav1.GetOptions{})
 			framework.ExpectNoError(err)
 			gomega.Expect(svc.Spec.Selector).To(gomega.HaveKeyWithValue("app", "ovn-central"))
-			// In single-replica mode the leader-label selectors are dropped so
-			// the single pod is always the Service's endpoint.
+
 			gomega.Expect(svc.Spec.Selector).NotTo(gomega.HaveKey("ovn-nb-leader"))
 			gomega.Expect(svc.Spec.Selector).NotTo(gomega.HaveKey("ovn-sb-leader"))
 			gomega.Expect(svc.Spec.Selector).NotTo(gomega.HaveKey("ovn-northd-leader"))

@@ -81,13 +81,6 @@ func TestHasAllocatedAnnotation(t *testing.T) {
 	}
 }
 
-// TestBuildVpcLBStatusPatch_PreservesInitDefaultVpcFields is the regression
-// guard for the bootstrap deadlock fix: initLoadBalancer's status patch must
-// only set the six LB-name fields, and must never carry Standby/Default/
-// Router/DefaultLogicalSwitch. If someone reintroduces a whole-VpcStatus
-// serialization here, the merge-patch body would overwrite fields that
-// InitDefaultVpc wrote moments earlier, reproducing the race that bricked
-// fresh-install HA E2E runs.
 func TestBuildVpcLBStatusPatch_PreservesInitDefaultVpcFields(t *testing.T) {
 	t.Parallel()
 
@@ -103,10 +96,6 @@ func TestBuildVpcLBStatusPatch_PreservesInitDefaultVpcFields(t *testing.T) {
 	body, err := buildVpcLBStatusPatch(vpcLb)
 	require.NoError(t, err)
 
-	// The patch body must not reference any non-LB field. A regression that
-	// reintroduces vpc.Status.Bytes() would immediately trip these asserts
-	// because VpcStatus has non-omitempty booleans/strings that always get
-	// serialized.
 	var raw struct {
 		Status map[string]json.RawMessage `json:"status"`
 	}
@@ -120,9 +109,6 @@ func TestBuildVpcLBStatusPatch_PreservesInitDefaultVpcFields(t *testing.T) {
 		keysOf(raw.Status),
 	)
 
-	// Simulate the etcd state right after InitDefaultVpc UpdateStatus and
-	// verify the merge patch keeps Standby/Default/Router/DefaultLogicalSwitch
-	// intact while writing the six LB fields.
 	target, err := json.Marshal(map[string]any{
 		"metadata": map[string]any{"name": "ovn-cluster"},
 		"status": map[string]any{
@@ -163,14 +149,6 @@ func keysOf(m map[string]json.RawMessage) []string {
 	return keys
 }
 
-// TestInitLB_SkipsCtFlushForSessionAffinityUDP is the regression guard for a
-// cross-namespace UDP session-affinity breakage. ct_flush wipes all conntrack
-// entries on the LB's datapath whenever any vip is mutated. Since the session
-// UDP LB (UDPSessLoadBalancer) is shared by every service in the VPC, enabling
-// ct_flush on it lets an unrelated service's backend change invalidate the
-// affinity state of any concurrently running session-affinity service, landing
-// subsequent packets on a different backend. initLB must therefore only set
-// ct_flush=true on the non-session UDP LB.
 func TestInitLB_SkipsCtFlushForSessionAffinityUDP(t *testing.T) {
 	tests := []struct {
 		name              string
