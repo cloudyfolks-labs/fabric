@@ -99,7 +99,8 @@ This release renders:
 - the `ovn-central` headless Service and the `ovn-nb`, `ovn-sb` and
   `ovn-northd` Services of type `central.hcp.service.type`
 - the `ovn-central` ServiceAccount and its RBAC
-- the `fabric-tls` Secret in `kube-system` when SSL is on
+- the `fabric-tls` Secret in `kube-system` and, when `central.hcp.namespace`
+  differs, a copy in `central.hcp.namespace` when SSL is on
 - the fabric CRDs, unless you set `crds.enabled: false`
 
 It renders no agents and no controller.
@@ -107,12 +108,13 @@ It renders no agents and no controller.
 With `service.type: LoadBalancer`, read the assigned address after the
 install and put it into `nbAddress` and `sbAddress` of both releases.
 
-The chart renders the `fabric-tls` Secret into `namespace`.
-`ovn-central` mounts it from `central.hcp.namespace`. When the two
-differ, copy the Secret into `central.hcp.namespace` before the
-`ovn-central` pods start. When SSL is on, also copy the Secret out of
-the management cluster. The tenant cluster needs the same certificate
-material.
+The chart renders the `fabric-tls` Secret into `namespace` and, when
+`central.hcp.namespace` differs, a copy with the same data into
+`central.hcp.namespace` for `ovn-central`. `fabric-controller` renews
+only the copy in `namespace`; a `helm upgrade` syncs the renewed data
+into `central.hcp.namespace`. When SSL is on, also copy the Secret out
+of the management cluster. The tenant cluster needs the same
+certificate material.
 
 ```bash
 kubectl --context=mgmt -n kube-system get secret fabric-tls -o yaml > fabric-tls.yaml
