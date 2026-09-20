@@ -26,8 +26,8 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovnlister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabriclister "github.com/cloudyfolks-labs/fabric/pkg/client/listers/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 	"github.com/cloudyfolks-labs/fabric/pkg/ipam"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
@@ -35,12 +35,12 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
+func TestGetPodFabricNetsNonPrimaryCNI(t *testing.T) {
 	tests := []struct {
 		name                string
 		pod                 *corev1.Pod
 		networkAttachments  []*nadv1.NetworkAttachmentDefinition
-		subnets             []*kubeovnv1.Subnet
+		subnets             []*fabricv1.Subnet
 		enableNonPrimaryCNI bool
 		expectedNetCount    int
 		expectError         bool
@@ -54,7 +54,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					Namespace: "default",
 					Annotations: map[string]string{
 						nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
-						// Kube-OVN annotations for net1 provider
+						// fabric annotations for net1 provider
 						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 						fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 						fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
@@ -78,12 +78,12 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "net1-subnet",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
 						Provider:  "net1.default.fabric",
 					},
@@ -127,12 +127,12 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "net1-subnet",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "192.168.1.0/24",
 						Provider:  "net1.default.fabric",
 					},
@@ -141,7 +141,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ovn-default",
 					},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.244.0.0/24",
 						Provider:  util.OvnProvider,
 						Default:   true,
@@ -170,7 +170,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 			controller.config.EnableNonPrimaryCNI = tt.enableNonPrimaryCNI
 
 			// Call the method under test
-			nets, err := controller.getPodKubeovnNets(tt.pod)
+			nets, err := controller.getPodFabricNets(tt.pod)
 
 			// Check for errors
 			if tt.expectError {
@@ -185,7 +185,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 			// For the comparison test, also test non-primary mode
 			if tt.name == "Primary CNI mode vs Non-primary CNI behavior" {
 				controller.config.EnableNonPrimaryCNI = true
-				netsNonPrimary, err := controller.getPodKubeovnNets(tt.pod)
+				netsNonPrimary, err := controller.getPodFabricNets(tt.pod)
 				require.NoError(t, err, "Unexpected error in non-primary mode")
 				assert.Equal(t, 1, len(netsNonPrimary), "Non-primary mode should return only network attachments")
 			}
@@ -193,7 +193,7 @@ func TestGetPodKubeovnNetsNonPrimaryCNI(t *testing.T) {
 	}
 }
 
-func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testing.T) {
+func TestGetPodFabricNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
@@ -218,10 +218,10 @@ func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testi
 			}`,
 		},
 	}
-	subnets := []*kubeovnv1.Subnet{
+	subnets := []*fabricv1.Subnet{
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: util.DefaultSubnet},
-			Spec: kubeovnv1.SubnetSpec{
+			Spec: fabricv1.SubnetSpec{
 				CIDRBlock: "10.3.0.0/16",
 				Provider:  util.OvnProvider,
 				Default:   true,
@@ -229,7 +229,7 @@ func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testi
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "mismatch-subnet"},
-			Spec: kubeovnv1.SubnetSpec{
+			Spec: fabricv1.SubnetSpec{
 				CIDRBlock: "10.244.0.0/24",
 				Provider:  "attachnet-b.default.fabric",
 			},
@@ -243,7 +243,7 @@ func TestGetPodKubeovnNetsReturnsErrorWhenAttachmentProviderHasNoSubnet(t *testi
 	})
 	require.NoError(t, err)
 
-	nets, err := fakeController.fakeController.getPodKubeovnNets(pod)
+	nets, err := fakeController.fakeController.getPodFabricNets(pod)
 
 	require.Error(t, err)
 	require.Nil(t, nets)
@@ -255,7 +255,7 @@ func TestAcquireAddressWithSpecifiedSubnet(t *testing.T) {
 		name           string
 		pod            *corev1.Pod
 		namespaces     []*corev1.Namespace
-		subnets        []*kubeovnv1.Subnet
+		subnets        []*fabricv1.Subnet
 		setupIPAM      func(*Controller)
 		expectError    bool
 		expectedSubnet string
@@ -283,24 +283,24 @@ func TestAcquireAddressWithSpecifiedSubnet(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "subnet1"},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.0.1.0/24",
-						Protocol:  kubeovnv1.ProtocolIPv4,
+						Protocol:  fabricv1.ProtocolIPv4,
 						Provider:  util.OvnProvider,
 					},
-					Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
+					Status: fabricv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "subnet2"},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.0.1.0/24",
-						Protocol:  kubeovnv1.ProtocolIPv4,
+						Protocol:  fabricv1.ProtocolIPv4,
 						Provider:  util.OvnProvider,
 					},
-					Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
+					Status: fabricv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
 				},
 			},
 			expectError:    false,
@@ -329,24 +329,24 @@ func TestAcquireAddressWithSpecifiedSubnet(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "subnet1"},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.0.1.0/24",
-						Protocol:  kubeovnv1.ProtocolIPv4,
+						Protocol:  fabricv1.ProtocolIPv4,
 						Provider:  util.OvnProvider,
 					},
-					Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
+					Status: fabricv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "subnet2"},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.0.1.0/24",
-						Protocol:  kubeovnv1.ProtocolIPv4,
+						Protocol:  fabricv1.ProtocolIPv4,
 						Provider:  util.OvnProvider,
 					},
-					Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
+					Status: fabricv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
 				},
 			},
 			setupIPAM: func(c *Controller) {
@@ -376,24 +376,24 @@ func TestAcquireAddressWithSpecifiedSubnet(t *testing.T) {
 					},
 				},
 			},
-			subnets: []*kubeovnv1.Subnet{
+			subnets: []*fabricv1.Subnet{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "subnet1"},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.0.1.0/24",
-						Protocol:  kubeovnv1.ProtocolIPv4,
+						Protocol:  fabricv1.ProtocolIPv4,
 						Provider:  util.OvnProvider,
 					},
-					Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
+					Status: fabricv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "subnet2"},
-					Spec: kubeovnv1.SubnetSpec{
+					Spec: fabricv1.SubnetSpec{
 						CIDRBlock: "10.0.2.0/24",
-						Protocol:  kubeovnv1.ProtocolIPv4,
+						Protocol:  fabricv1.ProtocolIPv4,
 						Provider:  util.OvnProvider,
 					},
-					Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
+					Status: fabricv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(100)},
 				},
 			},
 			expectError:    false,
@@ -417,7 +417,7 @@ func TestAcquireAddressWithSpecifiedSubnet(t *testing.T) {
 				tt.setupIPAM(controller)
 			}
 
-			podNets, err := controller.getPodKubeovnNets(tt.pod)
+			podNets, err := controller.getPodFabricNets(tt.pod)
 			require.NoError(t, err)
 			require.Greater(t, len(podNets), 0)
 
@@ -443,11 +443,11 @@ func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
 	// will fail to find and release the IP, causing an IP leak.
 
 	subnetName := "test-subnet"
-	testSubnet := &kubeovnv1.Subnet{
+	testSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			CIDRBlock:  "10.0.0.0/24",
-			Protocol:   kubeovnv1.ProtocolIPv4,
+			Protocol:   fabricv1.ProtocolIPv4,
 			ExcludeIps: []string{"10.0.0.1"},
 		},
 	}
@@ -468,7 +468,7 @@ func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
 		},
 	}
 
-	podNet := &kubeovnNet{
+	podNet := &fabricNet{
 		Subnet:        testSubnet,
 		ProviderName:  nadName + "." + nadNamespace + ".fabric",
 		NadName:       nadName,
@@ -476,17 +476,17 @@ func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
 		InterfaceName: ifaceName,
 	}
 
-	nsNets := []*kubeovnNet{podNet}
+	nsNets := []*fabricNet{podNet}
 	podKey := "default/test-pod"
 	portName := podKey
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		Subnets: []*kubeovnv1.Subnet{testSubnet},
+		Subnets: []*fabricv1.Subnet{testSubnet},
 		Pods:    []*corev1.Pod{pod},
 	})
 	require.NoError(t, err)
 	ctrl := fakeCtrl.fakeController
-	ctrl.ipam = newIPAMForTest([]*kubeovnv1.Subnet{testSubnet})
+	ctrl.ipam = newIPAMForTest([]*fabricv1.Subnet{testSubnet})
 
 	// Allocate static IP via the per-interface path
 	v4IP, _, _, subnet, err := ctrl.acquireStaticAddressHelper(pod, podNet, portName, nil, "", nsNets, false, podKey, "")
@@ -517,14 +517,14 @@ func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
 }
 
 func TestAcquireAddressWithIPFamily(t *testing.T) {
-	dualSubnet := &kubeovnv1.Subnet{
+	dualSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "dual-subnet"},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			CIDRBlock: "10.0.0.0/24,2001:db8::/64",
-			Protocol:  kubeovnv1.ProtocolDual,
+			Protocol:  fabricv1.ProtocolDual,
 			Provider:  util.OvnProvider,
 		},
-		Status: kubeovnv1.SubnetStatus{
+		Status: fabricv1.SubnetStatus{
 			V4AvailableIPs: internal.NewBigInt(100),
 			V6AvailableIPs: internal.NewBigInt(100),
 		},
@@ -543,14 +543,14 @@ func TestAcquireAddressWithIPFamily(t *testing.T) {
 		}
 
 		fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Subnets: []*kubeovnv1.Subnet{dualSubnet},
+			Subnets: []*fabricv1.Subnet{dualSubnet},
 			Pods:    []*corev1.Pod{pod},
 		})
 		require.NoError(t, err)
 		ctrl := fakeCtrl.fakeController
-		ctrl.ipam = newIPAMForTest([]*kubeovnv1.Subnet{dualSubnet})
+		ctrl.ipam = newIPAMForTest([]*fabricv1.Subnet{dualSubnet})
 
-		podNets, err := ctrl.getPodKubeovnNets(pod)
+		podNets, err := ctrl.getPodFabricNets(pod)
 		require.NoError(t, err)
 		require.Len(t, podNets, 1)
 
@@ -575,19 +575,19 @@ func TestAcquireAddressWithIPFamily(t *testing.T) {
 				},
 			},
 		}
-		podNet := &kubeovnNet{
+		podNet := &fabricNet{
 			Type:         providerTypeOriginal,
 			ProviderName: provider,
 			Subnet:       dualSubnet,
 		}
 
 		fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Subnets: []*kubeovnv1.Subnet{dualSubnet},
+			Subnets: []*fabricv1.Subnet{dualSubnet},
 			Pods:    []*corev1.Pod{pod},
 		})
 		require.NoError(t, err)
 		ctrl := fakeCtrl.fakeController
-		ctrl.ipam = newIPAMForTest([]*kubeovnv1.Subnet{dualSubnet})
+		ctrl.ipam = newIPAMForTest([]*fabricv1.Subnet{dualSubnet})
 
 		v4, v6, _, subnet, err := ctrl.acquireAddress(pod, podNet)
 		require.NoError(t, err)
@@ -611,29 +611,29 @@ func TestAcquireAddressWithIPFamily(t *testing.T) {
 				},
 			},
 		}
-		ippool := &kubeovnv1.IPPool{
+		ippool := &fabricv1.IPPool{
 			ObjectMeta: metav1.ObjectMeta{Name: poolName},
-			Spec: kubeovnv1.IPPoolSpec{
+			Spec: fabricv1.IPPoolSpec{
 				Subnet: "dual-subnet",
 				IPs:    []string{"10.0.0.50", "2001:db8::50"},
 			},
-			Status: kubeovnv1.IPPoolStatus{
+			Status: fabricv1.IPPoolStatus{
 				V4AvailableIPs: internal.NewBigInt(1),
 				V6AvailableIPs: internal.NewBigInt(1),
 			},
 		}
 
 		fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Subnets: []*kubeovnv1.Subnet{dualSubnet},
-			IPPools: []*kubeovnv1.IPPool{ippool},
+			Subnets: []*fabricv1.Subnet{dualSubnet},
+			IPPools: []*fabricv1.IPPool{ippool},
 			Pods:    []*corev1.Pod{pod},
 		})
 		require.NoError(t, err)
 		ctrl := fakeCtrl.fakeController
-		ctrl.ipam = newIPAMForTest([]*kubeovnv1.Subnet{dualSubnet})
+		ctrl.ipam = newIPAMForTest([]*fabricv1.Subnet{dualSubnet})
 		require.NoError(t, ctrl.ipam.AddOrUpdateIPPool("dual-subnet", poolName, ippool.Spec.IPs))
 
-		podNets, err := ctrl.getPodKubeovnNets(pod)
+		podNets, err := ctrl.getPodFabricNets(pod)
 		require.NoError(t, err)
 		require.Len(t, podNets, 1)
 
@@ -663,19 +663,19 @@ func TestAcquireAddressWithIPFamily(t *testing.T) {
 		}
 
 		fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Subnets: []*kubeovnv1.Subnet{dualSubnet},
+			Subnets: []*fabricv1.Subnet{dualSubnet},
 			Pods:    []*corev1.Pod{pod},
 		})
 		require.NoError(t, err)
 		ctrl := fakeCtrl.fakeController
-		ctrl.ipam = newIPAMForTest([]*kubeovnv1.Subnet{dualSubnet})
+		ctrl.ipam = newIPAMForTest([]*fabricv1.Subnet{dualSubnet})
 
-		v4, v6, _, _, err := ctrl.acquireAddress(pod, &kubeovnNet{Type: providerTypeOriginal, ProviderName: provider1, Subnet: dualSubnet})
+		v4, v6, _, _, err := ctrl.acquireAddress(pod, &fabricNet{Type: providerTypeOriginal, ProviderName: provider1, Subnet: dualSubnet})
 		require.NoError(t, err)
 		assert.Equal(t, "10.0.0.1", v4)
 		assert.Empty(t, v6)
 
-		v4, v6, _, _, err = ctrl.acquireAddress(pod, &kubeovnNet{Type: providerTypeOriginal, ProviderName: provider2, Subnet: dualSubnet})
+		v4, v6, _, _, err = ctrl.acquireAddress(pod, &fabricNet{Type: providerTypeOriginal, ProviderName: provider2, Subnet: dualSubnet})
 		require.NoError(t, err)
 		assert.Empty(t, v4)
 		assert.Equal(t, "2001:db8::1", v6)
@@ -683,16 +683,16 @@ func TestAcquireAddressWithIPFamily(t *testing.T) {
 }
 
 func TestIPPoolHasAvailableIPFamily(t *testing.T) {
-	ippool := &kubeovnv1.IPPool{
-		Status: kubeovnv1.IPPoolStatus{
+	ippool := &fabricv1.IPPool{
+		Status: fabricv1.IPPoolStatus{
 			V4AvailableIPs: internal.NewBigInt(1),
 			V6AvailableIPs: internal.NewBigInt(0),
 		},
 	}
 
-	assert.True(t, ippoolHasAvailableIPFamily(ippool, kubeovnv1.ProtocolDual, kubeovnv1.ProtocolIPv4))
-	assert.False(t, ippoolHasAvailableIPFamily(ippool, kubeovnv1.ProtocolDual, kubeovnv1.ProtocolIPv6))
-	assert.False(t, ippoolHasAvailableIPFamily(ippool, kubeovnv1.ProtocolDual, ""))
+	assert.True(t, ippoolHasAvailableIPFamily(ippool, fabricv1.ProtocolDual, fabricv1.ProtocolIPv4))
+	assert.False(t, ippoolHasAvailableIPFamily(ippool, fabricv1.ProtocolDual, fabricv1.ProtocolIPv6))
+	assert.False(t, ippoolHasAvailableIPFamily(ippool, fabricv1.ProtocolDual, ""))
 }
 
 func TestGetPodDefaultSubnetUsesNamedIPPoolSubnet(t *testing.T) {
@@ -712,13 +712,13 @@ func TestGetPodDefaultSubnetUsesNamedIPPoolSubnet(t *testing.T) {
 				},
 			},
 		}},
-		Subnets: []*kubeovnv1.Subnet{
+		Subnets: []*fabricv1.Subnet{
 			{ObjectMeta: metav1.ObjectMeta{Name: namespaceSubnet}},
 			{ObjectMeta: metav1.ObjectMeta{Name: poolSubnet}},
 		},
-		IPPools: []*kubeovnv1.IPPool{{
+		IPPools: []*fabricv1.IPPool{{
 			ObjectMeta: metav1.ObjectMeta{Name: poolName},
-			Spec:       kubeovnv1.IPPoolSpec{Subnet: poolSubnet},
+			Spec:       fabricv1.IPPoolSpec{Subnet: poolSubnet},
 		}},
 	})
 	require.NoError(t, err)
@@ -789,12 +789,12 @@ func TestDHCPOptionsForPodIPFamily(t *testing.T) {
 func TestAcquireStaticAddressHelperReturnsConflictForGatewayLiteralIPPool(t *testing.T) {
 	subnetName := "test-subnet"
 	staticIP := "10.0.0.2"
-	testSubnet := &kubeovnv1.Subnet{
+	testSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			CIDRBlock:  "10.0.0.0/30",
 			Gateway:    staticIP,
-			Protocol:   kubeovnv1.ProtocolIPv4,
+			Protocol:   fabricv1.ProtocolIPv4,
 			Provider:   util.OvnProvider,
 			ExcludeIps: []string{staticIP},
 		},
@@ -808,18 +808,18 @@ func TestAcquireStaticAddressHelperReturnsConflictForGatewayLiteralIPPool(t *tes
 			},
 		},
 	}
-	podNet := &kubeovnNet{
+	podNet := &fabricNet{
 		Subnet:       testSubnet,
 		ProviderName: util.OvnProvider,
 	}
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		Subnets: []*kubeovnv1.Subnet{testSubnet},
+		Subnets: []*fabricv1.Subnet{testSubnet},
 		Pods:    []*corev1.Pod{pod},
 	})
 	require.NoError(t, err)
 	ctrl := fakeCtrl.fakeController
-	ctrl.ipam = newIPAMForTest([]*kubeovnv1.Subnet{testSubnet})
+	ctrl.ipam = newIPAMForTest([]*fabricv1.Subnet{testSubnet})
 	ctrl.ipam.Subnets[subnetName].V4Gw = staticIP
 
 	_, _, _, _, err = ctrl.acquireStaticAddressHelper(
@@ -828,7 +828,7 @@ func TestAcquireStaticAddressHelperReturnsConflictForGatewayLiteralIPPool(t *tes
 		"default.test-pod",
 		nil,
 		staticIP,
-		[]*kubeovnNet{podNet},
+		[]*fabricNet{podNet},
 		false,
 		"default/test-pod",
 		"",
@@ -836,7 +836,7 @@ func TestAcquireStaticAddressHelperReturnsConflictForGatewayLiteralIPPool(t *tes
 	require.ErrorIs(t, err, ipam.ErrConflict)
 }
 
-func newIPAMForTest(subnets []*kubeovnv1.Subnet) *ipam.IPAM {
+func newIPAMForTest(subnets []*fabricv1.Subnet) *ipam.IPAM {
 	ipamInstance := ipam.NewIPAM()
 	for _, subnet := range subnets {
 		excludeIPs := subnet.Spec.ExcludeIps
@@ -1096,10 +1096,10 @@ func TestGetPodAttachmentNetIPAMOnlyNADGone(t *testing.T) {
 
 	fakeController, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		// NAD intentionally absent: it was deleted before the pod.
-		Subnets: []*kubeovnv1.Subnet{
+		Subnets: []*fabricv1.Subnet{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "ipam-net1"},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					CIDRBlock: "10.1.0.0/16",
 					// IPAM-only provider: no ".fabric" suffix
 					Provider: "net1.default",
@@ -1123,12 +1123,12 @@ func TestHandleAddOrUpdatePodRecordsIPAMSubnetMissingEvent(t *testing.T) {
 	err := controller.handleAddOrUpdatePod("default/test-pod")
 	require.Error(t, err)
 
-	assertPodEvent(t, controller, "Warning PodNetworkUpdateFailed", "stage=getPodKubeovnNets", "provider net1.default is not bound to any subnet")
+	assertPodEvent(t, controller, "Warning PodNetworkUpdateFailed", "stage=getPodFabricNets", "provider net1.default is not bound to any subnet")
 }
 
 func TestHandleAddOrUpdatePodSyncFailureRecordsOriginalPod(t *testing.T) {
 	pod, subnet := podEventFixture()
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	injectedErr := errors.New("list ports failed")
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return(nil, injectedErr)
@@ -1137,7 +1137,7 @@ func TestHandleAddOrUpdatePodSyncFailureRecordsOriginalPod(t *testing.T) {
 	err = fc.fakeController.handleAddOrUpdatePod("default/test-pod")
 
 	require.ErrorIs(t, err, injectedErr)
-	assertRecordedPodEvent(t, events, pod, "PodNetworkUpdateFailed", "stage=syncKubeOvnNet")
+	assertRecordedPodEvent(t, events, pod, "PodNetworkUpdateFailed", "stage=syncFabricNet")
 }
 
 func TestEnqueueUpdatePodRecordsIPAMSubnetMissingEvent(t *testing.T) {
@@ -1157,7 +1157,7 @@ func TestEnqueueUpdatePodRecordsIPAMSubnetMissingEvent(t *testing.T) {
 
 	controller.enqueueUpdatePod(oldPod, newPod)
 
-	assertPodEvent(t, controller, "Warning PodNetworkUpdateFailed", "stage=getPodKubeovnNets", "provider net1.default is not bound to any subnet")
+	assertPodEvent(t, controller, "Warning PodNetworkUpdateFailed", "stage=getPodFabricNets", "provider net1.default is not bound to any subnet")
 }
 
 func TestHandleUpdatePodSecurityRecordsIPAMSubnetMissingEvent(t *testing.T) {
@@ -1166,7 +1166,7 @@ func TestHandleUpdatePodSecurityRecordsIPAMSubnetMissingEvent(t *testing.T) {
 	err := controller.handleUpdatePodSecurity("default/test-pod")
 	require.Error(t, err)
 
-	assertPodEvent(t, controller, "Warning PodSecurityUpdateFailed", "stage=getPodKubeovnNets", "provider net1.default is not bound to any subnet")
+	assertPodEvent(t, controller, "Warning PodSecurityUpdateFailed", "stage=getPodFabricNets", "provider net1.default is not bound to any subnet")
 }
 
 func TestPodNetworkEventDetailsIncludesMultipleNetworks(t *testing.T) {
@@ -1181,9 +1181,9 @@ func TestPodNetworkEventDetailsIncludesMultipleNetworks(t *testing.T) {
 		},
 	}}
 	controller := newFakeController(t).fakeController
-	nets := []*kubeovnNet{
-		{ProviderName: util.OvnProvider, Subnet: &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}}},
-		{ProviderName: "net1.default.fabric", Subnet: &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}}},
+	nets := []*fabricNet{
+		{ProviderName: util.OvnProvider, Subnet: &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}}},
+		{ProviderName: "net1.default.fabric", Subnet: &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}}},
 	}
 
 	details := controller.podNetworkEventDetails(pod, nets)
@@ -1197,16 +1197,16 @@ func TestPodNetworkEventDetailsIncludesMultipleNetworks(t *testing.T) {
 	}
 }
 
-func TestSyncKubeOvnNetReportsAnnotationChange(t *testing.T) {
+func TestSyncFabricNetReportsAnnotationChange(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: metav1.NamespaceDefault, Annotations: map[string]string{}}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}})
 	require.NoError(t, err)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return(nil, nil)
 
-	updatedPod, details, err := fc.fakeController.syncKubeOvnNet(pod, []*kubeovnNet{{
+	updatedPod, details, err := fc.fakeController.syncFabricNet(pod, []*fabricNet{{
 		ProviderName: util.OvnProvider,
 		IPRequest:    "10.0.0.2",
-		Subnet:       &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}},
+		Subnet:       &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}},
 	}})
 
 	require.NoError(t, err)
@@ -1214,7 +1214,7 @@ func TestSyncKubeOvnNetReportsAnnotationChange(t *testing.T) {
 	assert.Equal(t, "10.0.0.2", updatedPod.Annotations[util.IPAddressAnnotation])
 }
 
-func TestSyncKubeOvnNetReportsNoChange(t *testing.T) {
+func TestSyncFabricNetReportsNoChange(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:        "test-pod",
 		Namespace:   metav1.NamespaceDefault,
@@ -1224,7 +1224,7 @@ func TestSyncKubeOvnNetReportsNoChange(t *testing.T) {
 	require.NoError(t, err)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return(nil, nil)
 
-	_, details, err := fc.fakeController.syncKubeOvnNet(pod, []*kubeovnNet{{
+	_, details, err := fc.fakeController.syncFabricNet(pod, []*fabricNet{{
 		ProviderName: util.OvnProvider,
 		IPRequest:    "10.0.0.2",
 	}})
@@ -1234,7 +1234,7 @@ func TestSyncKubeOvnNetReportsNoChange(t *testing.T) {
 	assertNoPodEvent(t, fc.fakeController)
 }
 
-func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
+func TestSyncFabricNetParsesStalePortProviders(t *testing.T) {
 	const (
 		provider = "net1.default.fabric"
 		keepKey  = "example.com/keep"
@@ -1251,7 +1251,7 @@ func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
 		fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return([]ovnnb.LogicalSwitchPort{{Name: portName}}, nil)
 		fc.mockOvnClient.EXPECT().DeleteLogicalSwitchPort(portName).Return(nil)
 
-		updatedPod, details, err := fc.fakeController.syncKubeOvnNet(pod, nil)
+		updatedPod, details, err := fc.fakeController.syncFabricNet(pod, nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, "true", updatedPod.Annotations[util.AllocatedAnnotation])
@@ -1272,7 +1272,7 @@ func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
 		fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return([]ovnnb.LogicalSwitchPort{{Name: portName}}, nil)
 		fc.mockOvnClient.EXPECT().DeleteLogicalSwitchPort(portName).Return(nil)
 
-		updatedPod, details, err := fc.fakeController.syncKubeOvnNet(pod, nil)
+		updatedPod, details, err := fc.fakeController.syncFabricNet(pod, nil)
 
 		require.NoError(t, err)
 		assert.NotContains(t, updatedPod.Annotations, providerKey)
@@ -1297,7 +1297,7 @@ func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
 		fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return([]ovnnb.LogicalSwitchPort{{Name: portName}}, nil)
 		fc.mockOvnClient.EXPECT().DeleteLogicalSwitchPort(portName).Return(nil)
 
-		updatedPod, details, err := fc.fakeController.syncKubeOvnNet(pod, nil)
+		updatedPod, details, err := fc.fakeController.syncFabricNet(pod, nil)
 
 		require.NoError(t, err)
 		assert.NotContains(t, updatedPod.Annotations, providerKey)
@@ -1314,9 +1314,9 @@ func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
 		}}
 		_, subnet := podEventFixture()
 		portName := "legacy-port-name"
-		ipCR := &kubeovnv1.IP{ObjectMeta: metav1.ObjectMeta{Name: portName}, Spec: kubeovnv1.IPSpec{Subnet: subnet.Name}}
+		ipCR := &fabricv1.IP{ObjectMeta: metav1.ObjectMeta{Name: portName}, Spec: fabricv1.IPSpec{Subnet: subnet.Name}}
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}, IPs: []*kubeovnv1.IP{ipCR},
+			Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}, IPs: []*fabricv1.IP{ipCR},
 		})
 		require.NoError(t, err)
 		fc.fakeController.config.EnableNonPrimaryCNI = true
@@ -1339,7 +1339,7 @@ func TestSyncKubeOvnNetParsesStalePortProviders(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "true", updatedPod.Annotations[providerKey])
 		assert.Equal(t, "true", updatedPod.Annotations[keepKey])
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
 		assert.True(t, k8serrors.IsNotFound(err))
 		assert.Empty(t, fc.fakeController.ipam.GetPodAddress("default/test-pod"))
 		event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkUpdated", "provider=unknown", "subnet="+subnet.Name, "logicalSwitchPort="+portName)
@@ -1354,7 +1354,7 @@ func TestHandleUpdatePodSecurityRecordsSuccess(t *testing.T) {
 	pod.Annotations[util.AllocatedAnnotation] = "true"
 	pod.Annotations[util.IPAddressAnnotation] = "10.0.0.2"
 	pod.Annotations[util.MacAddressAnnotation] = "00:00:00:00:00:01"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	portName := ovs.PodNameToPortName(pod.Name, pod.Namespace, util.OvnProvider)
 	fc.mockOvnClient.EXPECT().SetLogicalSwitchPortSecurity(false, portName, "00:00:00:00:00:01", "10.0.0.2", "").Return(nil)
@@ -1370,7 +1370,7 @@ func TestHandleUpdatePodSecurityRecordsSuccess(t *testing.T) {
 func TestHandleUpdatePodSecurityRecordsFailure(t *testing.T) {
 	pod, subnet := podEventFixture()
 	pod.Annotations[util.AllocatedAnnotation] = "true"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	portName := ovs.PodNameToPortName(pod.Name, pod.Namespace, util.OvnProvider)
 	fc.mockOvnClient.EXPECT().SetLogicalSwitchPortSecurity(false, portName, "", "", "").Return(errors.New("set security failed"))
@@ -1399,12 +1399,12 @@ func TestHandleUpdatePodSecurityReportsOnlyProcessedOVNNetworks(t *testing.T) {
 	pod.Annotations[nadv1.NetworkAttachmentAnnot] = `[{"name":"net1"}]`
 	pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, ipamProvider)] = "true"
 	pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, ipamProvider)] = "10.1.0.2"
-	ipamSubnet := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "ipam-subnet"}, Spec: kubeovnv1.SubnetSpec{
-		CIDRBlock: "10.1.0.0/24", Protocol: kubeovnv1.ProtocolIPv4, Provider: ipamProvider,
+	ipamSubnet := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "ipam-subnet"}, Spec: fabricv1.SubnetSpec{
+		CIDRBlock: "10.1.0.0/24", Protocol: fabricv1.ProtocolIPv4, Provider: ipamProvider,
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Pods:    []*corev1.Pod{pod},
-		Subnets: []*kubeovnv1.Subnet{ovnSubnet, ipamSubnet},
+		Subnets: []*fabricv1.Subnet{ovnSubnet, ipamSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
 			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: ipamNADConfig(util.CniTypeName)},
@@ -1426,7 +1426,7 @@ func TestHandleUpdatePodSecurityReportsOnlyProcessedOVNNetworks(t *testing.T) {
 
 func TestHandleDeletePodRecordsReleasedPort(t *testing.T) {
 	pod, subnet := podEventFixture()
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	portName := ovs.PodNameToPortName(pod.Name, pod.Namespace, util.OvnProvider)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, map[string]string{"pod": "default/test-pod"}).Return([]ovnnb.LogicalSwitchPort{{Name: portName}}, nil)
@@ -1441,7 +1441,7 @@ func TestHandleDeletePodRecordsReleasedPort(t *testing.T) {
 
 func TestHandleDeletePodRecordsFailure(t *testing.T) {
 	pod, subnet := podEventFixture()
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	portName := ovs.PodNameToPortName(pod.Name, pod.Namespace, util.OvnProvider)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, map[string]string{"pod": "default/test-pod"}).Return([]ovnnb.LogicalSwitchPort{{Name: portName}}, nil)
@@ -1464,11 +1464,11 @@ func TestHandleDeletePodRetriesOrphanedVMPortIPLookupFailure(t *testing.T) {
 		Name:       "test-vm",
 	}}
 	portName := ovs.PodNameToPortName("test-vm", pod.Namespace, "old.default.fabric")
-	ipCR := &kubeovnv1.IP{ObjectMeta: metav1.ObjectMeta{Name: portName}, Spec: kubeovnv1.IPSpec{
+	ipCR := &fabricv1.IP{ObjectMeta: metav1.ObjectMeta{Name: portName}, Spec: fabricv1.IPSpec{
 		PodName: "test-vm", Namespace: pod.Namespace, Subnet: subnet.Name,
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}, IPs: []*kubeovnv1.IP{ipCR},
+		Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}, IPs: []*fabricv1.IP{ipCR},
 	})
 	require.NoError(t, err)
 	fc.fakeController.config.EnableKeepVMIP = true
@@ -1512,7 +1512,7 @@ func TestHandleDeletePodRetriesOrphanedVMPortIPLookupFailure(t *testing.T) {
 	assertPodEvent(t, fc.fakeController, "Warning PodNetworkReleaseFailed", "stage=getIPCR", "get ip failed")
 	assertNoPodEvent(t, fc.fakeController)
 	assert.Zero(t, deleteCalls)
-	_, err = fc.fakeController.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
+	_, err = fc.fakeController.config.FabricClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.NotEmpty(t, fc.fakeController.ipam.GetPodAddress("default/test-vm"))
 
@@ -1520,7 +1520,7 @@ func TestHandleDeletePodRetriesOrphanedVMPortIPLookupFailure(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, deleteCalls)
-	_, err = fc.fakeController.config.KubeOvnClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
+	_, err = fc.fakeController.config.FabricClient.FabricV1().IPs().Get(context.Background(), portName, metav1.GetOptions{})
 	assert.True(t, k8serrors.IsNotFound(err))
 	assert.Empty(t, fc.fakeController.ipam.GetPodAddress("default/test-vm"))
 	event := assertPodEvent(t, fc.fakeController, "Normal PodNetworkReleased", "logicalSwitchPort="+portName, "ipCR="+portName, "ipam="+portName)
@@ -1539,7 +1539,7 @@ func TestHandleDeletePodReportsStatefulSetOwnerCheckStage(t *testing.T) {
 		Name:       "test-sts",
 		UID:        "sts-uid",
 	}}
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	fc.fakeController.config.KubeClient.(*k8sfake.Clientset).PrependReactor("get", "statefulsets", func(k8stesting.Action) (bool, runtime.Object, error) {
 		return true, nil, errors.New("get statefulset failed")
@@ -1554,7 +1554,7 @@ func TestHandleDeletePodReportsStatefulSetOwnerCheckStage(t *testing.T) {
 
 func TestHandleDeletePodWithoutResourcesDoesNotRecordSuccess(t *testing.T) {
 	pod, subnet := podEventFixture()
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, map[string]string{"pod": "default/test-pod"}).Return(nil, nil)
 	storeDeletingPod(fc.fakeController, pod)
@@ -1569,7 +1569,7 @@ func TestHandleDeletePodWithReplacementDoesNotRecordSuccess(t *testing.T) {
 	deletedPod, subnet := podEventFixture()
 	livePod := deletedPod.DeepCopy()
 	livePod.UID = "replacement-uid"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{livePod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{livePod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	storeDeletingPod(fc.fakeController, deletedPod)
 
@@ -1582,7 +1582,7 @@ func TestHandleDeletePodWithReplacementDoesNotRecordSuccess(t *testing.T) {
 func TestHandleAddOrUpdatePodRecordsAllocationSuccess(t *testing.T) {
 	pod, subnet := podEventFixture()
 	pod.Annotations[util.MacAddressAnnotation] = "00:00:00:00:00:01"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	require.NoError(t, fc.fakeController.ipam.AddOrUpdateSubnet(subnet.Name, subnet.Spec.CIDRBlock, subnet.Spec.Gateway, nil))
 	portName := ovs.PodNameToPortName(pod.Name, pod.Namespace, util.OvnProvider)
@@ -1604,12 +1604,12 @@ func TestHandleAddOrUpdatePodReportsOnlyAllocatedNetworks(t *testing.T) {
 	pod.Annotations[util.IPAddressAnnotation] = "10.0.0.2"
 	pod.Annotations[nadv1.NetworkAttachmentAnnot] = `[{"name":"net1"}]`
 	pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, provider)] = "subnet-b"
-	attachmentSubnet := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: kubeovnv1.SubnetSpec{
-		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: kubeovnv1.ProtocolIPv4, Provider: provider, Vpc: util.DefaultVpc,
+	attachmentSubnet := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: fabricv1.SubnetSpec{
+		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: fabricv1.ProtocolIPv4, Provider: provider, Vpc: util.DefaultVpc,
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Pods:    []*corev1.Pod{pod},
-		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
+		Subnets: []*fabricv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
 			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
@@ -1644,12 +1644,12 @@ func TestHandleAddOrUpdatePodCombinesAllocatedAndRemovedNetworks(t *testing.T) {
 	pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, allocatedProvider)] = "subnet-b"
 	pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, removedProvider)] = "true"
 	pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, removedProvider)] = "subnet-old"
-	attachmentSubnet := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: kubeovnv1.SubnetSpec{
-		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: kubeovnv1.ProtocolIPv4, Provider: allocatedProvider, Vpc: util.DefaultVpc,
+	attachmentSubnet := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: fabricv1.SubnetSpec{
+		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: fabricv1.ProtocolIPv4, Provider: allocatedProvider, Vpc: util.DefaultVpc,
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Pods:    []*corev1.Pod{pod},
-		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
+		Subnets: []*fabricv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
 			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
@@ -1693,13 +1693,13 @@ func TestHandleAddOrUpdatePodReportsOnlyRoutedNetworks(t *testing.T) {
 	pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, provider)] = "true"
 	pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, provider)] = "subnet-b"
 	pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, provider)] = "10.1.0.2"
-	attachmentSubnet := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: kubeovnv1.SubnetSpec{
-		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: kubeovnv1.ProtocolIPv4, Provider: provider, Vpc: "other-vpc",
+	attachmentSubnet := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: fabricv1.SubnetSpec{
+		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: fabricv1.ProtocolIPv4, Provider: provider, Vpc: "other-vpc",
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Pods:    []*corev1.Pod{pod},
 		Nodes:   []*corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: pod.Spec.NodeName}}},
-		Subnets: []*kubeovnv1.Subnet{defaultSubnet, attachmentSubnet},
+		Subnets: []*fabricv1.Subnet{defaultSubnet, attachmentSubnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
 			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
@@ -1722,7 +1722,7 @@ func TestHandleAddOrUpdatePodReportsOnlyRoutedNetworks(t *testing.T) {
 
 func TestHandleAddOrUpdatePodRecordsAllocationDHCPFailureOnce(t *testing.T) {
 	pod, subnet := podEventFixture()
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	require.NoError(t, fc.fakeController.ipam.AddOrUpdateSubnet(subnet.Name, subnet.Spec.CIDRBlock, subnet.Spec.Gateway, nil))
 	portName := ovs.PodNameToPortName(pod.Name, pod.Namespace, util.OvnProvider)
@@ -1739,10 +1739,10 @@ func TestHandleAddOrUpdatePodRecordsAllocationDHCPFailureOnce(t *testing.T) {
 func TestReconcileAllocateSubnetsSpecificFailureEventsIncludeStage(t *testing.T) {
 	t.Run("acquire address", func(t *testing.T) {
 		pod, subnet := podEventFixture()
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*kubeovnNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
+		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*fabricNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
 
 		require.Error(t, err)
 		assertPodEvent(t, fc.fakeController, "Warning AcquireAddressFailed", "stage=acquireAddress", err.Error())
@@ -1751,20 +1751,20 @@ func TestReconcileAllocateSubnetsSpecificFailureEventsIncludeStage(t *testing.T)
 	t.Run("validate network broadcast", func(t *testing.T) {
 		pod, subnet := podEventFixture()
 		pod.Annotations[util.VipAnnotation] = "broadcast-vip"
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 		require.NoError(t, err)
-		vip := &kubeovnv1.Vip{
+		vip := &fabricv1.Vip{
 			ObjectMeta: metav1.ObjectMeta{Name: "broadcast-vip", Labels: map[string]string{}},
-			Spec:       kubeovnv1.VipSpec{Subnet: subnet.Name},
-			Status:     kubeovnv1.VipStatus{V4ip: "10.0.0.0", Mac: "00:00:00:00:00:01"},
+			Spec:       fabricv1.VipSpec{Subnet: subnet.Name},
+			Status:     fabricv1.VipStatus{V4ip: "10.0.0.0", Mac: "00:00:00:00:00:01"},
 		}
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
 		require.NoError(t, err)
 		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 		require.NoError(t, indexer.Add(vip))
-		fc.fakeController.virtualIpsLister = kubeovnlister.NewVipLister(indexer)
+		fc.fakeController.virtualIpsLister = fabriclister.NewVipLister(indexer)
 
-		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*kubeovnNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
+		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*fabricNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
 
 		require.Error(t, err)
 		assertPodEvent(t, fc.fakeController, "Warning ValidatePodNetworkFailed", "stage=validateNetworkBroadcast", err.Error())
@@ -1773,11 +1773,11 @@ func TestReconcileAllocateSubnetsSpecificFailureEventsIncludeStage(t *testing.T)
 	t.Run("get vlan info", func(t *testing.T) {
 		pod, subnet := podEventFixture()
 		subnet.Spec.Vlan = "missing-vlan"
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 		require.NoError(t, err)
 		require.NoError(t, fc.fakeController.ipam.AddOrUpdateSubnet(subnet.Name, subnet.Spec.CIDRBlock, subnet.Spec.Gateway, nil))
 
-		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*kubeovnNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
+		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*fabricNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
 
 		require.Error(t, err)
 		assertPodEvent(t, fc.fakeController, "Warning GetVlanInfoFailed", "stage=getVlanInfo", err.Error())
@@ -1785,13 +1785,13 @@ func TestReconcileAllocateSubnetsSpecificFailureEventsIncludeStage(t *testing.T)
 
 	t.Run("create logical switch port", func(t *testing.T) {
 		pod, subnet := podEventFixture()
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 		require.NoError(t, err)
 		require.NoError(t, fc.fakeController.ipam.AddOrUpdateSubnet(subnet.Name, subnet.Spec.CIDRBlock, subnet.Spec.Gateway, nil))
 		fc.mockOvnClient.EXPECT().ReconcilePortDHCPOptions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&ovs.DHCPOptionsUUIDs{}, false, nil)
 		fc.mockOvnClient.EXPECT().CreateLogicalSwitchPort(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("create port failed"))
 
-		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*kubeovnNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
+		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*fabricNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
 
 		require.EqualError(t, err, "create port failed")
 		assertPodEvent(t, fc.fakeController, "Warning CreateOVNPortFailed", "stage=createLogicalSwitchPort", err.Error())
@@ -1800,14 +1800,14 @@ func TestReconcileAllocateSubnetsSpecificFailureEventsIncludeStage(t *testing.T)
 	t.Run("set logical switch port layer2 forward", func(t *testing.T) {
 		pod, subnet := podEventFixture()
 		pod.Annotations[fmt.Sprintf(util.Layer2ForwardAnnotationTemplate, util.OvnProvider)] = "true"
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 		require.NoError(t, err)
 		require.NoError(t, fc.fakeController.ipam.AddOrUpdateSubnet(subnet.Name, subnet.Spec.CIDRBlock, subnet.Spec.Gateway, nil))
 		fc.mockOvnClient.EXPECT().ReconcilePortDHCPOptions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&ovs.DHCPOptionsUUIDs{}, false, nil)
 		fc.mockOvnClient.EXPECT().CreateLogicalSwitchPort(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		fc.mockOvnClient.EXPECT().EnablePortLayer2forward(gomock.Any()).Return(errors.New("enable layer2 forward failed"))
 
-		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*kubeovnNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
+		_, err = fc.fakeController.reconcileAllocateSubnets(pod, []*fabricNet{{Type: providerTypeOriginal, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true}})
 
 		require.EqualError(t, err, "enable layer2 forward failed")
 		assertPodEvent(t, fc.fakeController, "Warning SetOVNPortL2ForwardFailed", "stage=setLogicalSwitchPortLayer2Forward", err.Error())
@@ -1816,7 +1816,7 @@ func TestReconcileAllocateSubnetsSpecificFailureEventsIncludeStage(t *testing.T)
 
 func TestReconcileAllocateSubnetsRefetchFailureRecordsOriginalPod(t *testing.T) {
 	pod, subnet := podEventFixture()
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	require.NoError(t, fc.fakeController.ipam.AddOrUpdateSubnet(subnet.Name, subnet.Spec.CIDRBlock, subnet.Spec.Gateway, nil))
 	injectedErr := errors.New("get patched pod failed")
@@ -1825,7 +1825,7 @@ func TestReconcileAllocateSubnetsRefetchFailureRecordsOriginalPod(t *testing.T) 
 	})
 	events := useRealPodEventRecorder(t, fc.fakeController)
 
-	updatedPod, err := fc.fakeController.reconcileAllocateSubnets(pod, []*kubeovnNet{{
+	updatedPod, err := fc.fakeController.reconcileAllocateSubnets(pod, []*fabricNet{{
 		Type: providerTypeIPAM, ProviderName: util.OvnProvider, Subnet: subnet, IsDefault: true,
 	}})
 
@@ -1853,7 +1853,7 @@ func TestHandleAddOrUpdatePodReportsActualAllocatedSubnet(t *testing.T) {
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Pods:       []*corev1.Pod{pod},
-		Subnets:    []*kubeovnv1.Subnet{subnetA, subnetB},
+		Subnets:    []*fabricv1.Subnet{subnetA, subnetB},
 		Namespaces: []*corev1.Namespace{namespace},
 	})
 	require.NoError(t, err)
@@ -1883,12 +1883,12 @@ func TestHandleAddOrUpdatePodRecordsHotplugUpdate(t *testing.T) {
 			fmt.Sprintf(util.RoutedAnnotationTemplate, provider):        "true",
 		},
 	}}
-	subnet := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: kubeovnv1.SubnetSpec{
-		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: kubeovnv1.ProtocolIPv4, Provider: provider, Vpc: util.DefaultVpc,
+	subnet := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: fabricv1.SubnetSpec{
+		CIDRBlock: "10.1.0.0/24", Gateway: "10.1.0.1", Protocol: fabricv1.ProtocolIPv4, Provider: provider, Vpc: util.DefaultVpc,
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Pods:    []*corev1.Pod{pod},
-		Subnets: []*kubeovnv1.Subnet{subnet},
+		Subnets: []*fabricv1.Subnet{subnet},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
 			Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: `{"cniVersion":"0.3.1","name":"net1","type":"fabric","provider":"net1.default.fabric"}`},
@@ -1917,7 +1917,7 @@ func TestHandleAddOrUpdatePodReportsRemovedHotplugNetwork(t *testing.T) {
 	pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, removedProvider)] = "subnet-old"
 	pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, removedProvider)] = "10.2.0.2"
 	pod.Annotations[fmt.Sprintf(util.MacAddressAnnotationTemplate, removedProvider)] = "00:00:00:00:00:03"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	defaultPort := ovs.PodNameToPortName(pod.Name, pod.Namespace, util.OvnProvider)
 	removedPort := ovs.PodNameToPortName(pod.Name, pod.Namespace, removedProvider)
@@ -1939,7 +1939,7 @@ func TestHandleAddOrUpdatePodRecordsDHCPUpdateFailure(t *testing.T) {
 	pod, subnet := podEventFixture()
 	pod.Annotations[util.AllocatedAnnotation] = "true"
 	pod.Annotations[util.RoutedAnnotation] = "true"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return(nil, nil)
 	fc.mockOvnClient.EXPECT().ReconcilePortDHCPOptions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, false, errors.New("update dhcp failed"))
@@ -1954,7 +1954,7 @@ func TestHandleAddOrUpdatePodRecordsRouteFailure(t *testing.T) {
 	pod, subnet := podEventFixture()
 	pod.Spec.NodeName = "missing-node"
 	pod.Annotations[util.AllocatedAnnotation] = "true"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return(nil, nil)
 	fc.mockOvnClient.EXPECT().ReconcilePortDHCPOptions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&ovs.DHCPOptionsUUIDs{}, false, nil)
@@ -1970,7 +1970,7 @@ func TestHandleAddOrUpdatePodWithoutWorkDoesNotRecordSuccess(t *testing.T) {
 	pod, subnet := podEventFixture()
 	pod.Annotations[util.AllocatedAnnotation] = "true"
 	pod.Annotations[util.RoutedAnnotation] = "true"
-	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*kubeovnv1.Subnet{subnet}})
+	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Pods: []*corev1.Pod{pod}, Subnets: []*fabricv1.Subnet{subnet}})
 	require.NoError(t, err)
 	fc.mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return(nil, nil)
 	fc.mockOvnClient.EXPECT().ReconcilePortDHCPOptions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&ovs.DHCPOptionsUUIDs{}, false, nil)
@@ -1981,23 +1981,25 @@ func TestHandleAddOrUpdatePodWithoutWorkDoesNotRecordSuccess(t *testing.T) {
 	assertNoPodEvent(t, fc.fakeController)
 }
 
-func podEventFixture() (*corev1.Pod, *kubeovnv1.Subnet) {
-	return &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: metav1.NamespaceDefault, UID: "pod-uid", Annotations: map[string]string{
-				util.LogicalSwitchAnnotation: "subnet-a",
-			}},
-		}, &kubeovnv1.Subnet{
-			ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"},
-			Spec: kubeovnv1.SubnetSpec{
-				CIDRBlock: "10.0.0.0/24",
-				Gateway:   "10.0.0.1",
-				Protocol:  kubeovnv1.ProtocolIPv4,
-				Provider:  util.OvnProvider,
-				Vpc:       util.DefaultVpc,
-				Default:   true,
-			},
-			Status: kubeovnv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(253)},
-		}
+func podEventFixture() (*corev1.Pod, *fabricv1.Subnet) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: metav1.NamespaceDefault, UID: "pod-uid", Annotations: map[string]string{
+			util.LogicalSwitchAnnotation: "subnet-a",
+		}},
+	}
+	subnet := &fabricv1.Subnet{
+		ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"},
+		Spec: fabricv1.SubnetSpec{
+			CIDRBlock: "10.0.0.0/24",
+			Gateway:   "10.0.0.1",
+			Protocol:  fabricv1.ProtocolIPv4,
+			Provider:  util.OvnProvider,
+			Vpc:       util.DefaultVpc,
+			Default:   true,
+		},
+		Status: fabricv1.SubnetStatus{V4AvailableIPs: internal.NewBigInt(253)},
+	}
+	return pod, subnet
 }
 
 func storeDeletingPod(controller *Controller, pod *corev1.Pod) {
@@ -2006,16 +2008,16 @@ func storeDeletingPod(controller *Controller, pod *corev1.Pod) {
 }
 
 type errorOnceIPLister struct {
-	ip    *kubeovnv1.IP
+	ip    *fabricv1.IP
 	err   error
 	calls int
 }
 
-func (l *errorOnceIPLister) List(labels.Selector) ([]*kubeovnv1.IP, error) {
-	return []*kubeovnv1.IP{l.ip}, nil
+func (l *errorOnceIPLister) List(labels.Selector) ([]*fabricv1.IP, error) {
+	return []*fabricv1.IP{l.ip}, nil
 }
 
-func (l *errorOnceIPLister) Get(string) (*kubeovnv1.IP, error) {
+func (l *errorOnceIPLister) Get(string) (*fabricv1.IP, error) {
 	l.calls++
 	if l.calls == 1 {
 		return nil, l.err
@@ -2034,8 +2036,8 @@ func newIPAMNetworkController(t *testing.T) *Controller {
 	}}
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 		Pods: []*corev1.Pod{pod},
-		Subnets: []*kubeovnv1.Subnet{{ObjectMeta: metav1.ObjectMeta{Name: "ipam-subnet"}, Spec: kubeovnv1.SubnetSpec{
-			CIDRBlock: "10.1.0.0/24", Provider: "net1.default", Protocol: kubeovnv1.ProtocolIPv4,
+		Subnets: []*fabricv1.Subnet{{ObjectMeta: metav1.ObjectMeta{Name: "ipam-subnet"}, Spec: fabricv1.SubnetSpec{
+			CIDRBlock: "10.1.0.0/24", Provider: "net1.default", Protocol: fabricv1.ProtocolIPv4,
 		}}},
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{{
 			ObjectMeta: metav1.ObjectMeta{Name: "net1", Namespace: metav1.NamespaceDefault},
@@ -2047,7 +2049,7 @@ func newIPAMNetworkController(t *testing.T) *Controller {
 	return fc.fakeController
 }
 
-func TestGetPodAttachmentNetIgnoresNonKubeOVNIPAMWithoutSubnet(t *testing.T) {
+func TestGetPodAttachmentNetIgnoresNonFabricIPAMWithoutSubnet(t *testing.T) {
 	controller := newIPAMSubnetMissingController(t, ipamNADConfig("host-local"))
 	pod, err := controller.podsLister.Pods(metav1.NamespaceDefault).Get("test-pod")
 	require.NoError(t, err)
@@ -2064,12 +2066,12 @@ func TestGetPodAttachmentNetIPAMConflistWithoutSubnet(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "Kube-OVN IPAM returns an error",
+			name:    "fabric IPAM returns an error",
 			config:  `{"cniVersion":"0.3.1","name":"net1","plugins":[{"type":"macvlan","ipam":{"type":"fabric"}}]}`,
 			wantErr: true,
 		},
 		{
-			name:   "non-Kube-OVN IPAM is ignored",
+			name:   "non-fabric IPAM is ignored",
 			config: `{"cniVersion":"0.3.1","name":"net1","plugins":[{"type":"macvlan","ipam":{"type":"host-local"}}]}`,
 		},
 	}
@@ -2091,7 +2093,7 @@ func TestGetPodAttachmentNetIPAMConflistWithoutSubnet(t *testing.T) {
 	}
 }
 
-func TestGetPodAttachmentNetIgnoresMissingKubeOVNIPAMSubnetForDeletingPod(t *testing.T) {
+func TestGetPodAttachmentNetIgnoresMissingFabricIPAMSubnetForDeletingPod(t *testing.T) {
 	controller := newIPAMSubnetMissingController(t, ipamNADConfig(util.CniTypeName))
 	pod, err := controller.podsLister.Pods(metav1.NamespaceDefault).Get("test-pod")
 	require.NoError(t, err)

@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestProtocolToFamily(t *testing.T) {
@@ -18,19 +18,19 @@ func TestProtocolToFamily(t *testing.T) {
 	}{
 		{
 			name: "correct",
-			prot: kubeovnv1.ProtocolIPv4,
+			prot: fabricv1.ProtocolIPv4,
 			want: unix.AF_INET,
 			err:  "",
 		},
 		{
 			name: "v6",
-			prot: kubeovnv1.ProtocolIPv6,
+			prot: fabricv1.ProtocolIPv6,
 			want: unix.AF_INET6,
 			err:  "",
 		},
 		{
 			name: "dual",
-			prot: kubeovnv1.ProtocolDual,
+			prot: fabricv1.ProtocolDual,
 			want: unix.AF_UNSPEC,
 			err:  "",
 		},

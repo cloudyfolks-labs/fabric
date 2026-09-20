@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	clientset "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -49,7 +49,7 @@ type Configuration struct {
 	OvsSocket                 string
 	KubeConfigFile            string
 	KubeClient                kubernetes.Interface
-	KubeOvnClient             clientset.Interface
+	FabricClient              clientset.Interface
 	CertManagerClient         certmanagerclientset.Interface
 	PodName                   string
 	PodNamespace              string
@@ -138,7 +138,7 @@ func ParseFlags() *Configuration {
 		argTLSMinVersion   = pflag.String("tls-min-version", "", "The minimum TLS version to use for secure serving. Supported values: TLS10, TLS11, TLS12, TLS13. If not set, the default is used based on the Go version.")
 		argTLSMaxVersion   = pflag.String("tls-max-version", "", "The maximum TLS version to use for secure serving. Supported values: TLS10, TLS11, TLS12, TLS13. If not set, the default is used based on the Go version.")
 		argTLSCipherSuites = pflag.StringSlice("tls-cipher-suites", nil, "Comma-separated list of TLS cipher suite names to use for secure serving (e.g., 'TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384'). Names must match Go's crypto/tls package. See Go documentation for available suites. If not set, defaults are used. Users are responsible for selecting secure cipher suites.")
-		argNonPrimaryCNI   = pflag.Bool("non-primary-cni-mode", false, "Use Kube-OVN in non primary cni mode. When true, skip setting NetworkUnavailable node condition")
+		argNonPrimaryCNI   = pflag.Bool("non-primary-cni-mode", false, "Use fabric in non primary cni mode. When true, skip setting NetworkUnavailable node condition")
 	)
 
 	// mute info log for ipset lib
@@ -314,7 +314,7 @@ func (config *Configuration) initNicConfig(nicBridgeMappings map[string]string) 
 		config.tunnelIface = iface.Name
 	}
 
-	encapIsIPv6 := util.CheckProtocol(encapIP) == kubeovnv1.ProtocolIPv6
+	encapIsIPv6 := util.CheckProtocol(encapIP) == fabricv1.ProtocolIPv6
 
 	if config.MTU == 0 {
 		switch config.NetworkType {
@@ -429,12 +429,12 @@ func (config *Configuration) initKubeClient() error {
 	cfg.QPS = 1000
 	cfg.Burst = 2000
 
-	kubeOvnClient, err := clientset.NewForConfig(cfg)
+	fabricClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
-		klog.Errorf("init kubeovn client failed %v", err)
+		klog.Errorf("init fabric client failed %v", err)
 		return err
 	}
-	config.KubeOvnClient = kubeOvnClient
+	config.FabricClient = fabricClient
 
 	cfg.ContentType = util.ContentTypeProtobuf
 	cfg.AcceptContentTypes = util.AcceptContentTypes

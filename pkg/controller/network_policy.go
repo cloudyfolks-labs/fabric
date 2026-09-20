@@ -19,7 +19,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -62,7 +62,7 @@ func (c *Controller) enqueueUpdateNp(oldObj, newObj any) {
 	oldNp := oldObj.(*netv1.NetworkPolicy)
 	newNp := newObj.(*netv1.NetworkPolicy)
 	if !reflect.DeepEqual(oldNp.Spec, newNp.Spec) ||
-		kubeOvnAnnotationsChanged(oldNp.Annotations, newNp.Annotations) {
+		fabricAnnotationsChanged(oldNp.Annotations, newNp.Annotations) {
 		key := cache.MetaObjectToName(newNp).String()
 		klog.V(3).Infof("enqueue update np %s", key)
 		c.updateNpQueue.Add(key)
@@ -158,8 +158,8 @@ func (c *Controller) handleUpdateNp(key string) error {
 			return err
 		}
 
-		if subnet.Spec.Protocol == kubeovnv1.ProtocolDual {
-			protocolSet.Add(kubeovnv1.ProtocolIPv4, kubeovnv1.ProtocolIPv6)
+		if subnet.Spec.Protocol == fabricv1.ProtocolDual {
+			protocolSet.Add(fabricv1.ProtocolIPv4, fabricv1.ProtocolIPv6)
 		} else {
 			protocolSet.Add(subnet.Spec.Protocol)
 		}
@@ -210,7 +210,7 @@ func (c *Controller) handleUpdateNp(key string) error {
 				var selectorAllows []string
 				var ipBlocks []netv1.IPBlock
 				if len(npr.From) == 0 {
-					if protocol == kubeovnv1.ProtocolIPv4 {
+					if protocol == fabricv1.ProtocolIPv4 {
 						selectorAllows = []string{"0.0.0.0/0"}
 					} else {
 						selectorAllows = []string{"::/0"}
@@ -373,7 +373,7 @@ func (c *Controller) handleUpdateNp(key string) error {
 				var selectorAllows []string
 				var ipBlocks []netv1.IPBlock
 				if len(npr.To) == 0 {
-					if protocol == kubeovnv1.ProtocolIPv4 {
+					if protocol == fabricv1.ProtocolIPv4 {
 						selectorAllows = []string{"0.0.0.0/0"}
 					} else {
 						selectorAllows = []string{"::/0"}
@@ -499,7 +499,7 @@ func (c *Controller) handleUpdateNp(key string) error {
 		}
 	}
 
-	if !enforcementLax && protocolSet.Has(kubeovnv1.ProtocolIPv6) {
+	if !enforcementLax && protocolSet.Has(fabricv1.ProtocolIPv6) {
 		if err = c.OVNNbClient.CreateGatewayACL("", pgName); err != nil {
 			klog.Errorf("create gateway acl: %v", err)
 			return err
@@ -621,7 +621,7 @@ func (c *Controller) fetchSelectedPorts(namespace string, selector *metav1.Label
 			continue
 		}
 		podName := c.getNameByPod(pod)
-		podNets, err := c.getPodKubeovnNets(pod)
+		podNets, err := c.getPodFabricNets(pod)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get pod networks, %w", err)
 		}
@@ -713,7 +713,7 @@ func (c *Controller) fetchPolicySelectedAddresses(namespace, protocol string, np
 			return nil, nil, fmt.Errorf("failed to list pod, %w", err)
 		}
 		for _, pod := range pods {
-			podNets, err := c.getPodKubeovnNets(pod)
+			podNets, err := c.getPodFabricNets(pod)
 			if err != nil {
 				klog.Errorf("failed to get pod nets %v", err)
 				return nil, nil, err

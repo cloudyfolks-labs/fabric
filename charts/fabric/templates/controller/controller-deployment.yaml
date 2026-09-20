@@ -224,7 +224,6 @@ spec:
               readOnly: true
             - mountPath: /var/log/fabric
               name: fabric-log
-            # ovn-ic log directory
             - mountPath: /var/log/ovn
               name: ovn-log
             - mountPath: /var/run/tls

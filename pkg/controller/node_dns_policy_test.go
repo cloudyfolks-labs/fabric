@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -51,7 +51,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 		UUID:     "uuid-v4-dns",
 		Priority: util.NodeRouterPolicyPriority,
 		Match:    matchV4,
-		Action:   string(kubeovnv1.PolicyRouteActionReroute),
+		Action:   string(fabricv1.PolicyRouteActionReroute),
 		Nexthops: []string{nodeIPv4},
 		ExternalIDs: map[string]string{
 			"vendor":          util.VendorTag,
@@ -65,7 +65,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackCrossDeletion(t *testing.
 		UUID:     "uuid-v6-dns",
 		Priority: util.NodeRouterPolicyPriority,
 		Match:    matchV6,
-		Action:   string(kubeovnv1.PolicyRouteActionReroute),
+		Action:   string(fabricv1.PolicyRouteActionReroute),
 		Nexthops: []string{nodeIPv6},
 		ExternalIDs: map[string]string{
 			"vendor":          util.VendorTag,
@@ -163,7 +163,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing
 				ctrl.config.ClusterRouter,
 				util.NodeRouterPolicyPriority,
 				matchV4,
-				string(kubeovnv1.PolicyRouteActionReroute),
+				string(fabricv1.PolicyRouteActionReroute),
 				[]string{nodeIPv4},
 				([]string)(nil),
 				externalIDsV4,
@@ -189,7 +189,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DualStackFullSimulation(t *testing
 				ctrl.config.ClusterRouter,
 				util.NodeRouterPolicyPriority,
 				matchV6,
-				string(kubeovnv1.PolicyRouteActionReroute),
+				string(fabricv1.PolicyRouteActionReroute),
 				[]string{nodeIPv6},
 				([]string)(nil),
 				externalIDsV6,
@@ -234,7 +234,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DeletesStalePolicy(t *testing.T) {
 		UUID:        "uuid-stale",
 		Priority:    util.NodeRouterPolicyPriority,
 		Match:       oldMatchV4,
-		Action:      string(kubeovnv1.PolicyRouteActionReroute),
+		Action:      string(fabricv1.PolicyRouteActionReroute),
 		Nexthops:    []string{nodeIPv4},
 		ExternalIDs: externalIDsV4,
 	}
@@ -255,7 +255,7 @@ func TestAddPolicyRouteForLocalDNSCacheOnNode_DeletesStalePolicy(t *testing.T) {
 			ctrl.config.ClusterRouter,
 			util.NodeRouterPolicyPriority,
 			newMatchV4,
-			string(kubeovnv1.PolicyRouteActionReroute),
+			string(fabricv1.PolicyRouteActionReroute),
 			[]string{nodeIPv4},
 			([]string)(nil),
 			externalIDsV4,

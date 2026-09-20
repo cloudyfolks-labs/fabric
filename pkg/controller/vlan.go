@@ -11,20 +11,20 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddVlan(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.Vlan)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.Vlan)).String()
 	klog.V(3).Infof("enqueue add vlan %s", key)
 	c.addVlanQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateVlan(oldObj, newObj any) {
-	oldVlan := oldObj.(*kubeovnv1.Vlan)
-	newVlan := newObj.(*kubeovnv1.Vlan)
+	oldVlan := oldObj.(*fabricv1.Vlan)
+	newVlan := newObj.(*fabricv1.Vlan)
 	key := cache.MetaObjectToName(newVlan).String()
 	klog.V(3).Infof("enqueue update vlan %s", key)
 	c.updateVlanQueue.Add(key)
@@ -48,12 +48,12 @@ func (c *Controller) enqueueUpdateVlan(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDelVlan(obj any) {
-	var vlan *kubeovnv1.Vlan
+	var vlan *fabricv1.Vlan
 	switch t := obj.(type) {
-	case *kubeovnv1.Vlan:
+	case *fabricv1.Vlan:
 		vlan = t
 	case cache.DeletedFinalStateUnknown:
-		v, ok := t.Obj.(*kubeovnv1.Vlan)
+		v, ok := t.Obj.(*fabricv1.Vlan)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -86,7 +86,7 @@ func (c *Controller) handleAddVlan(key string) error {
 	vlan := cachedVlan.DeepCopy()
 	if vlan.Spec.Provider == "" {
 		vlan.Spec.Provider = c.config.DefaultProviderName
-		if vlan, err = c.config.KubeOvnClient.FabricV1().Vlans().Update(context.Background(), vlan, metav1.UpdateOptions{}); err != nil {
+		if vlan, err = c.config.FabricClient.FabricV1().Vlans().Update(context.Background(), vlan, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update vlan %s, %v", vlan.Name, err)
 			return err
 		}
@@ -107,7 +107,7 @@ func (c *Controller) handleAddVlan(key string) error {
 	}
 
 	if needUpdate {
-		vlan, err = c.config.KubeOvnClient.FabricV1().Vlans().UpdateStatus(context.Background(), vlan, metav1.UpdateOptions{})
+		vlan, err = c.config.FabricClient.FabricV1().Vlans().UpdateStatus(context.Background(), vlan, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update status of vlan %s: %v", vlan.Name, err)
 			return err
@@ -134,7 +134,7 @@ func (c *Controller) handleAddVlan(key string) error {
 	if !slices.Contains(pn.Status.Vlans, vlan.Name) {
 		newPn := pn.DeepCopy()
 		newPn.Status.Vlans = append(newPn.Status.Vlans, vlan.Name)
-		_, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
+		_, err = c.config.FabricClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 			return err
@@ -152,7 +152,7 @@ func (c *Controller) handleAddVlan(key string) error {
 	return nil
 }
 
-func (c *Controller) checkVlanConflict(vlan *kubeovnv1.Vlan) error {
+func (c *Controller) checkVlanConflict(vlan *fabricv1.Vlan) error {
 	if vlan.Spec.ID == 0 {
 		// no conflict if vlan id is 0
 		return nil
@@ -176,7 +176,7 @@ func (c *Controller) checkVlanConflict(vlan *kubeovnv1.Vlan) error {
 	}
 	if vlan.Status.Conflict != conflict {
 		vlan.Status.Conflict = conflict
-		vlan, err = c.config.KubeOvnClient.FabricV1().Vlans().UpdateStatus(context.Background(), vlan, metav1.UpdateOptions{})
+		vlan, err = c.config.FabricClient.FabricV1().Vlans().UpdateStatus(context.Background(), vlan, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to update conflict status of vlan %s: %v", vlan.Name, err)
 			return err
@@ -202,7 +202,7 @@ func (c *Controller) handleUpdateVlan(key string) error {
 	if vlan.Spec.Provider == "" {
 		newVlan := vlan.DeepCopy()
 		newVlan.Spec.Provider = c.config.DefaultProviderName
-		if vlan, err = c.config.KubeOvnClient.FabricV1().Vlans().Update(context.Background(), newVlan, metav1.UpdateOptions{}); err != nil {
+		if vlan, err = c.config.FabricClient.FabricV1().Vlans().Update(context.Background(), newVlan, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update vlan %s: %v", vlan.Name, err)
 			return err
 		}
@@ -225,7 +225,7 @@ func (c *Controller) handleUpdateVlan(key string) error {
 	if !slices.Contains(pn.Status.Vlans, vlan.Name) {
 		newPn := pn.DeepCopy()
 		newPn.Status.Vlans = append(newPn.Status.Vlans, vlan.Name)
-		if _, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.FabricClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 			return err
 		}
@@ -282,14 +282,14 @@ func (c *Controller) handleDelVlan(key string) error {
 	return nil
 }
 
-func (c *Controller) updateProviderNetworkStatusForVlanDeletion(pn *kubeovnv1.ProviderNetwork, vlan string) error {
+func (c *Controller) updateProviderNetworkStatusForVlanDeletion(pn *fabricv1.ProviderNetwork, vlan string) error {
 	if !slices.Contains(pn.Status.Vlans, vlan) {
 		return nil
 	}
 
 	newPn := pn.DeepCopy()
 	newPn.Status.Vlans = util.RemoveString(newPn.Status.Vlans, vlan)
-	_, err := c.config.KubeOvnClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
+	_, err := c.config.FabricClient.FabricV1().ProviderNetworks().UpdateStatus(context.Background(), newPn, metav1.UpdateOptions{})
 	if err != nil {
 		klog.Errorf("failed to update status of provider network %s: %v", pn.Name, err)
 		return err

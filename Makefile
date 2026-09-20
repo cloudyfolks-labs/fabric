@@ -226,7 +226,7 @@ kubectl-ko-log:
 
 .PHONY: clean
 clean:
-	$(RM) dist/images/fabric dist/images/fabric-cmd dist/images/fabric-bfdd-supervisor
+	$(RM) dist/images/fabric dist/images/fabric-cmd
 	$(RM) yamls/kind.yaml
 	$(RM) ovn.yaml fabric.yaml fabric-crd.yaml
 	$(RM) ovn-ic-config.yaml ovn-ic-0.yaml ovn-ic-1.yaml
@@ -239,5 +239,5 @@ clean:
 .PHONY: local-dev
 local-dev:
 	@DEBUG=1 $(MAKE) build-go
-	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker -f dist/images/Dockerfile dist/images/
+	docker buildx build $(IMAGE_LABELS) --platform linux/amd64 -t $(REGISTRY)/fabric:$(RELEASE_TAG) --build-arg VERSION=$(RELEASE_TAG) -o type=docker --build-arg BASE_IMAGE=$(BASE_IMAGE) -f dist/images/Dockerfile dist/images/
 	@$(MAKE) kind-init kind-install

@@ -5,6 +5,25 @@ pushes the images to `ghcr.io/cloudyfolks-labs`, packages the Helm chart,
 pushes it to `oci://ghcr.io/cloudyfolks-labs/charts` and makes the GitHub
 release. Nothing is released from a workstation.
 
+## Base image
+
+`dist/images/Dockerfile` starts from `ghcr.io/cloudyfolks-labs/fabric-base`.
+The file `BASE_VERSION` holds the tag of that base image. The workflow
+builds the base image from `dist/images/Dockerfile.base` and
+`dist/images/Dockerfile.base-dpdk` when the registry has no image for the
+tag in `BASE_VERSION`. It pushes these tags:
+
+- `fabric-base:<BASE_VERSION>` for amd64 and arm64
+- `fabric-base:<BASE_VERSION>-debug` for amd64 and arm64
+- `fabric-base:<BASE_VERSION>-amd64-legacy`
+- `fabric-base:<BASE_VERSION>-dpdk`
+
+To ship a new base image, change `BASE_VERSION` in the same pull request as
+the change to the base Dockerfiles. The next tag push or `workflow_dispatch`
+run builds and pushes the new base tags before it builds the `fabric` image.
+Pull request CI builds the base image only when the base inputs change.
+Other CI runs pull the published tags with `make pull-base`.
+
 ## Cut a release
 
 1. Set the new version in `VERSION`, for example `v1.1.0`.

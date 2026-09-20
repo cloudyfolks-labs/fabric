@@ -14,7 +14,6 @@ import (
 	"time"
 
 	nadutils "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/utils"
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -25,9 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned/scheme"
 )
 
 // APIResourceExists checks if all specified kinds exist in the given group version.
@@ -187,48 +183,6 @@ func LabelSelectorNotEmpty(key string) (labels.Selector, error) {
 
 func GetTruncatedUID(uid string) string {
 	return uid[len(uid)-12:]
-}
-
-func SetOwnerReference(owner, object metav1.Object) error {
-	return controllerutil.SetOwnerReference(owner, object, scheme.Scheme)
-}
-
-func SetControllerReference(owner, object metav1.Object) error {
-	return controllerutil.SetControllerReference(owner, object, scheme.Scheme)
-}
-
-func DeploymentIsReady(deployment *appsv1.Deployment) bool {
-	if deployment.Generation > deployment.Status.ObservedGeneration {
-		return false
-	}
-
-	for _, condition := range deployment.Status.Conditions {
-		if condition.Type == appsv1.DeploymentProgressing {
-			// deployment exceeded its progress deadline
-			if condition.Reason == "ProgressDeadlineExceeded" {
-				return false
-			}
-			break
-		}
-	}
-	if (deployment.Spec.Replicas != nil && deployment.Status.UpdatedReplicas < *deployment.Spec.Replicas) ||
-		deployment.Status.Replicas > deployment.Status.UpdatedReplicas ||
-		deployment.Status.AvailableReplicas < deployment.Status.UpdatedReplicas {
-		return false
-	}
-	return true
-}
-
-func StatefulSetIsReady(sts *appsv1.StatefulSet) bool {
-	if sts.Generation > sts.Status.ObservedGeneration {
-		return false
-	}
-	if (sts.Spec.Replicas != nil && sts.Status.ReadyReplicas < *sts.Spec.Replicas) ||
-		sts.Status.CurrentReplicas > sts.Status.ReadyReplicas ||
-		sts.Status.UpdatedReplicas < sts.Status.ReadyReplicas {
-		return false
-	}
-	return true
 }
 
 func SetNodeNetworkUnavailableCondition(cs kubernetes.Interface, nodeName string, status v1.ConditionStatus, reason, message string) error {

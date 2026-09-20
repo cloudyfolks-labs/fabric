@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -307,7 +307,7 @@ func TestGetPolicyRouting(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		subnet        *kubeovnv1.Subnet
+		subnet        *fabricv1.Subnet
 		pods          []*v1.Pod
 		expectedRules int
 		expectedRtns  int
@@ -321,11 +321,11 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "subnet without ExternalEgressGateway returns nil",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:         clusterRouter,
-					GatewayType: kubeovnv1.GWDistributedType,
+					GatewayType: fabricv1.GWDistributedType,
 				},
 			},
 			expectedRules: 0,
@@ -333,12 +333,12 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "subnet with different VPC returns nil",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   "other-vpc",
 					ExternalEgressGateway: "10.0.0.1",
-					GatewayType:           kubeovnv1.GWDistributedType,
+					GatewayType:           fabricv1.GWDistributedType,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,
 				},
@@ -348,13 +348,13 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "distributed: single-stack IPv4 EGW + IPv4 Pod",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   clusterRouter,
 					CIDRBlock:             "10.16.0.0/24",
 					ExternalEgressGateway: "10.0.0.1",
-					GatewayType:           kubeovnv1.GWDistributedType,
+					GatewayType:           fabricv1.GWDistributedType,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,
 				},
@@ -374,13 +374,13 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "distributed: dual-stack EGW + dual-stack Pod",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   clusterRouter,
 					CIDRBlock:             "10.16.0.0/24,fd00::/120",
 					ExternalEgressGateway: "10.0.0.1,fd00::1",
-					GatewayType:           kubeovnv1.GWDistributedType,
+					GatewayType:           fabricv1.GWDistributedType,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,
 				},
@@ -405,13 +405,13 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "distributed: dual-stack EGW + IPv4-only Pod should skip IPv6 rule",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   clusterRouter,
 					CIDRBlock:             "10.16.0.0/24,fd00::/120",
 					ExternalEgressGateway: "10.0.0.1,fd00::1",
-					GatewayType:           kubeovnv1.GWDistributedType,
+					GatewayType:           fabricv1.GWDistributedType,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,
 				},
@@ -429,13 +429,13 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "distributed: dual-stack EGW + IPv6-only Pod should skip IPv4 rule",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   clusterRouter,
 					CIDRBlock:             "10.16.0.0/24,fd00::/120",
 					ExternalEgressGateway: "10.0.0.1,fd00::1",
-					GatewayType:           kubeovnv1.GWDistributedType,
+					GatewayType:           fabricv1.GWDistributedType,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,
 				},
@@ -455,13 +455,13 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "distributed: multiple pods with mixed stacks",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   clusterRouter,
 					CIDRBlock:             "10.16.0.0/24,fd00::/120",
 					ExternalEgressGateway: "10.0.0.1,fd00::1",
-					GatewayType:           kubeovnv1.GWDistributedType,
+					GatewayType:           fabricv1.GWDistributedType,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,
 				},
@@ -491,13 +491,13 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "centralized: dual-stack EGW + dual-stack CIDR",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   clusterRouter,
 					CIDRBlock:             "10.16.0.0/24,fd00::/120",
 					ExternalEgressGateway: "10.0.0.1,fd00::1",
-					GatewayType:           kubeovnv1.GWCentralizedType,
+					GatewayType:           fabricv1.GWCentralizedType,
 					GatewayNode:           nodeName,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,
@@ -517,13 +517,13 @@ func TestGetPolicyRouting(t *testing.T) {
 		},
 		{
 			name: "centralized: dual-stack EGW + single-stack CIDR skips missing protocol",
-			subnet: &kubeovnv1.Subnet{
+			subnet: &fabricv1.Subnet{
 				ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-				Spec: kubeovnv1.SubnetSpec{
+				Spec: fabricv1.SubnetSpec{
 					Vpc:                   clusterRouter,
 					CIDRBlock:             "10.16.0.0/24",
 					ExternalEgressGateway: "10.0.0.1,fd00::1",
-					GatewayType:           kubeovnv1.GWCentralizedType,
+					GatewayType:           fabricv1.GWCentralizedType,
 					GatewayNode:           nodeName,
 					PolicyRoutingTableID:  tableID,
 					PolicyRoutingPriority: priority,

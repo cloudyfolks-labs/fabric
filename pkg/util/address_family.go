@@ -6,17 +6,17 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 // ProtocolToFamily converts protocol string to netlink family
 func ProtocolToFamily(protocol string) (int, error) {
 	switch protocol {
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		return unix.AF_UNSPEC, nil
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		return unix.AF_INET, nil
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		return unix.AF_INET6, nil
 	default:
 		return -1, fmt.Errorf("invalid protocol: %s", protocol)
@@ -28,10 +28,10 @@ func ProtocolToFamily(protocol string) (int, error) {
 // working with the same protocol strings used by subnets and IPAM.
 func NormalizeIPFamily(ipFamily string) string {
 	switch ipFamily {
-	case strings.ToLower(kubeovnv1.ProtocolIPv4):
-		return kubeovnv1.ProtocolIPv4
-	case strings.ToLower(kubeovnv1.ProtocolIPv6):
-		return kubeovnv1.ProtocolIPv6
+	case strings.ToLower(fabricv1.ProtocolIPv4):
+		return fabricv1.ProtocolIPv4
+	case strings.ToLower(fabricv1.ProtocolIPv6):
+		return fabricv1.ProtocolIPv6
 	default:
 		return ipFamily
 	}

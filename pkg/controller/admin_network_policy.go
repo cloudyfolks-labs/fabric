@@ -16,7 +16,7 @@ import (
 	"k8s.io/klog/v2"
 	v1alpha1 "sigs.k8s.io/network-policy-api/apis/v1alpha1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -245,8 +245,8 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 		}
 
 		if len(v4Addrs) != 0 {
-			aclName := fmt.Sprintf("anp/%s/ingress/%s/%d", anpName, kubeovnv1.ProtocolIPv4, index)
-			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, ingressAsV4Name, kubeovnv1.ProtocolIPv4, aclName, aclPriority, aclAction, logActions, rulePorts, true, false)
+			aclName := fmt.Sprintf("anp/%s/ingress/%s/%d", anpName, fabricv1.ProtocolIPv4, index)
+			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, ingressAsV4Name, fabricv1.ProtocolIPv4, aclName, aclPriority, aclAction, logActions, rulePorts, true, false)
 			if err != nil {
 				klog.Errorf("failed to add v4 ingress acls for anp %s: %v", key, err)
 				return err
@@ -255,8 +255,8 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 		}
 
 		if len(v6Addrs) != 0 {
-			aclName := fmt.Sprintf("anp/%s/ingress/%s/%d", anpName, kubeovnv1.ProtocolIPv6, index)
-			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, ingressAsV6Name, kubeovnv1.ProtocolIPv6, aclName, aclPriority, aclAction, logActions, rulePorts, true, false)
+			aclName := fmt.Sprintf("anp/%s/ingress/%s/%d", anpName, fabricv1.ProtocolIPv6, index)
+			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, ingressAsV6Name, fabricv1.ProtocolIPv6, aclName, aclPriority, aclAction, logActions, rulePorts, true, false)
 			if err != nil {
 				klog.Errorf("failed to add v6 ingress acls for anp %s: %v", key, err)
 				return err
@@ -329,8 +329,8 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 		// Create ACL rules if we have IP addresses OR domain names
 		// Domain names may not be resolved initially but will be updated later
 		if len(v4Addrs) != 0 || hasDomainNames {
-			aclName := fmt.Sprintf("anp/%s/egress/%s/%d", anpName, kubeovnv1.ProtocolIPv4, index)
-			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, egressAsV4Name, kubeovnv1.ProtocolIPv4, aclName, aclPriority, aclAction, logActions, rulePorts, false, false)
+			aclName := fmt.Sprintf("anp/%s/egress/%s/%d", anpName, fabricv1.ProtocolIPv4, index)
+			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, egressAsV4Name, fabricv1.ProtocolIPv4, aclName, aclPriority, aclAction, logActions, rulePorts, false, false)
 			if err != nil {
 				klog.Errorf("failed to add v4 egress acls for anp %s: %v", key, err)
 				return err
@@ -339,8 +339,8 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 		}
 
 		if len(v6Addrs) != 0 || hasDomainNames {
-			aclName := fmt.Sprintf("anp/%s/egress/%s/%d", anpName, kubeovnv1.ProtocolIPv6, index)
-			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, egressAsV6Name, kubeovnv1.ProtocolIPv6, aclName, aclPriority, aclAction, logActions, rulePorts, false, false)
+			aclName := fmt.Sprintf("anp/%s/egress/%s/%d", anpName, fabricv1.ProtocolIPv6, index)
+			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, egressAsV6Name, fabricv1.ProtocolIPv6, aclName, aclPriority, aclAction, logActions, rulePorts, false, false)
 			if err != nil {
 				klog.Errorf("failed to add v6 egress acls for anp %s: %v", key, err)
 				return err
@@ -566,7 +566,7 @@ func (c *Controller) fetchPods(nsSelector, podSelector labels.Selector) ([]strin
 			}
 			podName := c.getNameByPod(pod)
 
-			podNets, err := c.getPodKubeovnNets(pod)
+			podNets, err := c.getPodFabricNets(pod)
 			if err != nil {
 				return nil, nil, nil, fmt.Errorf("failed to get pod networks, %w", err)
 			}
@@ -583,9 +583,9 @@ func (c *Controller) fetchPods(nsSelector, podSelector labels.Selector) ([]strin
 					podIPs := strings.SplitSeq(podIPAnnotation, ",")
 					for podIP := range podIPs {
 						switch util.CheckProtocol(podIP) {
-						case kubeovnv1.ProtocolIPv4:
+						case fabricv1.ProtocolIPv4:
 							v4Addresses = append(v4Addresses, podIP)
-						case kubeovnv1.ProtocolIPv6:
+						case fabricv1.ProtocolIPv6:
 							v6Addresses = append(v6Addresses, podIP)
 						}
 					}
@@ -1012,11 +1012,11 @@ func getAnpAddressSetName(pgName, ruleName string, index int, isIngress bool) (s
 	var asV4Name, asV6Name string
 	if isIngress {
 		// In case ruleName is omitted, add direction and index to distinguish address-set
-		asV4Name = strings.ReplaceAll(fmt.Sprintf("%s.ingress.%d.%s.%s", pgName, index, ruleName, kubeovnv1.ProtocolIPv4), "-", ".")
-		asV6Name = strings.ReplaceAll(fmt.Sprintf("%s.ingress.%d.%s.%s", pgName, index, ruleName, kubeovnv1.ProtocolIPv6), "-", ".")
+		asV4Name = strings.ReplaceAll(fmt.Sprintf("%s.ingress.%d.%s.%s", pgName, index, ruleName, fabricv1.ProtocolIPv4), "-", ".")
+		asV6Name = strings.ReplaceAll(fmt.Sprintf("%s.ingress.%d.%s.%s", pgName, index, ruleName, fabricv1.ProtocolIPv6), "-", ".")
 	} else {
-		asV4Name = strings.ReplaceAll(fmt.Sprintf("%s.egress.%d.%s.%s", pgName, index, ruleName, kubeovnv1.ProtocolIPv4), "-", ".")
-		asV6Name = strings.ReplaceAll(fmt.Sprintf("%s.egress.%d.%s.%s", pgName, index, ruleName, kubeovnv1.ProtocolIPv6), "-", ".")
+		asV4Name = strings.ReplaceAll(fmt.Sprintf("%s.egress.%d.%s.%s", pgName, index, ruleName, fabricv1.ProtocolIPv4), "-", ".")
+		asV6Name = strings.ReplaceAll(fmt.Sprintf("%s.egress.%d.%s.%s", pgName, index, ruleName, fabricv1.ProtocolIPv6), "-", ".")
 	}
 
 	return asV4Name, asV6Name
@@ -1076,9 +1076,9 @@ func fetchCIDRAddrs(networks []v1alpha1.CIDR) ([]string, []string) {
 			continue
 		}
 		switch util.CheckProtocol(string(network)) {
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			v4Addresses = append(v4Addresses, string(network))
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			v6Addresses = append(v6Addresses, string(network))
 		}
 	}

@@ -18,7 +18,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	goTProxy "github.com/cloudyfolks-labs/fabric/pkg/tproxy"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -32,7 +32,7 @@ var (
 func (c *Controller) StartTProxyForwarding() {
 	for _, addr := range util.GetDefaultListenAddr() {
 		protocol := "tcp"
-		if util.CheckProtocol(addr) == kubeovnv1.ProtocolIPv6 {
+		if util.CheckProtocol(addr) == fabricv1.ProtocolIPv6 {
 			protocol = "tcp6"
 		}
 
@@ -387,9 +387,9 @@ func probePortInNs(podIP string, probePort int32, isTProxyProbe bool, conn net.C
 
 func getProtocols(protocol string) []string {
 	var protocols []string
-	if protocol == kubeovnv1.ProtocolDual {
-		protocols = append(protocols, kubeovnv1.ProtocolIPv4)
-		protocols = append(protocols, kubeovnv1.ProtocolIPv6)
+	if protocol == fabricv1.ProtocolDual {
+		protocols = append(protocols, fabricv1.ProtocolIPv4)
+		protocols = append(protocols, fabricv1.ProtocolIPv6)
 	} else {
 		protocols = append(protocols, protocol)
 	}
@@ -399,12 +399,12 @@ func getProtocols(protocol string) []string {
 func GetDefaultRouteDst(protocol string) net.IPNet {
 	var dst net.IPNet
 	switch protocol {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		dst = net.IPNet{
 			IP:   net.IPv4zero,
 			Mask: net.CIDRMask(0, 0),
 		}
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		dst = net.IPNet{
 			IP:   net.IPv6zero,
 			Mask: net.CIDRMask(0, 0),

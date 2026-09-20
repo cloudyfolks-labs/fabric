@@ -12,10 +12,10 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
-func ValidateSubnet(subnet kubeovnv1.Subnet) error {
+func ValidateSubnet(subnet fabricv1.Subnet) error {
 	// Allow underlay subnets (with vlan) to be created without a CIDRBlock.
 	// Such subnets only allocate a MAC address and rely on an external DHCP
 	// server (BYO-DHCP) for IP assignment.
@@ -80,15 +80,15 @@ func ValidateSubnet(subnet kubeovnv1.Subnet) error {
 	}
 
 	gwType := subnet.Spec.GatewayType
-	if gwType != "" && gwType != kubeovnv1.GWDistributedType && gwType != kubeovnv1.GWCentralizedType {
+	if gwType != "" && gwType != fabricv1.GWDistributedType && gwType != fabricv1.GWCentralizedType {
 		return fmt.Errorf("%s is not a valid gateway type", gwType)
 	}
 
 	protocol := subnet.Spec.Protocol
-	if protocol != "" && protocol != kubeovnv1.ProtocolIPv4 &&
-		protocol != kubeovnv1.ProtocolIPv6 &&
-		protocol != kubeovnv1.ProtocolDual &&
-		protocol != kubeovnv1.ProtocolMac {
+	if protocol != "" && protocol != fabricv1.ProtocolIPv4 &&
+		protocol != fabricv1.ProtocolIPv6 &&
+		protocol != fabricv1.ProtocolDual &&
+		protocol != fabricv1.ProtocolMac {
 		return fmt.Errorf("%s is not a valid protocol type", protocol)
 	}
 
@@ -97,7 +97,7 @@ func ValidateSubnet(subnet kubeovnv1.Subnet) error {
 	// cannot tell apart a misconfiguration from a real network outage.
 	if subnet.Spec.Mtu > 0 && subnet.Spec.Mtu < IPv6MinMTU {
 		cidrProtocol := CheckProtocol(subnet.Spec.CIDRBlock)
-		if cidrProtocol == kubeovnv1.ProtocolIPv6 || cidrProtocol == kubeovnv1.ProtocolDual {
+		if cidrProtocol == fabricv1.ProtocolIPv6 || cidrProtocol == fabricv1.ProtocolDual {
 			return fmt.Errorf("subnet %s mtu %d is below the IPv6 minimum %d", subnet.Name, subnet.Spec.Mtu, IPv6MinMTU)
 		}
 	}
@@ -133,7 +133,7 @@ func ValidateSubnet(subnet kubeovnv1.Subnet) error {
 			}
 		}
 		egwProtocol, cidrProtocol := CheckProtocol(egw), CheckProtocol(subnet.Spec.CIDRBlock)
-		if !isUnderlayWithoutCIDR && egwProtocol != cidrProtocol && cidrProtocol != kubeovnv1.ProtocolDual {
+		if !isUnderlayWithoutCIDR && egwProtocol != cidrProtocol && cidrProtocol != fabricv1.ProtocolDual {
 			return errors.New("invalid external egress gateway configuration: address family is conflict with CIDR")
 		}
 	}
@@ -207,7 +207,7 @@ func ValidateSubnet(subnet kubeovnv1.Subnet) error {
 // validateMacOnlySubnet validates an underlay subnet created without a CIDRBlock
 // (BYO-DHCP / external DHCP). Such a subnet allocates only a MAC address per pod
 // NIC, so address fields that depend on a CIDR must be empty.
-func validateMacOnlySubnet(subnet kubeovnv1.Subnet) error {
+func validateMacOnlySubnet(subnet fabricv1.Subnet) error {
 	// For underlay subnets without CIDR, gateway must also be empty
 	if subnet.Spec.Gateway != "" {
 		return fmt.Errorf("gateway must be empty for underlay subnet %s without cidrBlock", subnet.Name)
@@ -221,7 +221,7 @@ func validateMacOnlySubnet(subnet kubeovnv1.Subnet) error {
 
 // validateSubnetCIDR validates the gateway and CIDRBlock format of a subnet that
 // has a CIDR.
-func validateSubnetCIDR(subnet kubeovnv1.Subnet) error {
+func validateSubnetCIDR(subnet fabricv1.Subnet) error {
 	if subnet.Spec.Gateway != "" {
 		// v6 ip address can not use upper case
 		if ContainsUppercase(subnet.Spec.Gateway) {
@@ -249,7 +249,7 @@ func validateSubnetCIDR(subnet kubeovnv1.Subnet) error {
 }
 
 // validateSubnetCIDRBlocks validates each CIDR block configured on the subnet.
-func validateSubnetCIDRBlocks(subnet kubeovnv1.Subnet) error {
+func validateSubnetCIDRBlocks(subnet fabricv1.Subnet) error {
 	for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
 		// v6 ip address can not use upper case
 		if ContainsUppercase(subnet.Spec.CIDRBlock) {
@@ -277,7 +277,7 @@ func validateSubnetCIDRBlocks(subnet kubeovnv1.Subnet) error {
 	return nil
 }
 
-func validateNatOutgoingPolicyRules(subnet kubeovnv1.Subnet) error {
+func validateNatOutgoingPolicyRules(subnet fabricv1.Subnet) error {
 	for _, rule := range subnet.Spec.NatOutgoingPolicyRules {
 		var srcProtocol, dstProtocol string
 		var err error
@@ -346,7 +346,7 @@ func ValidatePodNetwork(annotations map[string]string) error {
 		if !isIPFamilyAnnotationKey(key) || family == "" {
 			continue
 		}
-		if family != strings.ToLower(kubeovnv1.ProtocolIPv4) && family != strings.ToLower(kubeovnv1.ProtocolIPv6) {
+		if family != strings.ToLower(fabricv1.ProtocolIPv4) && family != strings.ToLower(fabricv1.ProtocolIPv6) {
 			errors = append(errors, fmt.Errorf("%s is not a valid %s", family, key))
 			continue
 		}
@@ -535,7 +535,7 @@ func ValidateNetworkBroadcast(cidr, ip string) error {
 			ipStr := IPToString(ipAddr)
 			// IPv6 has no broadcast address (RFC 4291), so the all-ones host
 			// address is a valid unicast IP and must not be rejected here.
-			if CheckProtocol(cidrBlock) == kubeovnv1.ProtocolIPv4 && SubnetBroadcast(cidrBlock) == ipStr {
+			if CheckProtocol(cidrBlock) == fabricv1.ProtocolIPv4 && SubnetBroadcast(cidrBlock) == ipStr {
 				return fmt.Errorf("%s is the broadcast ip in cidr %s", ipStr, cidrBlock)
 			}
 			if SubnetNumber(cidrBlock) == ipStr {
@@ -546,7 +546,7 @@ func ValidateNetworkBroadcast(cidr, ip string) error {
 	return nil
 }
 
-func ValidateCidrConflict(subnet kubeovnv1.Subnet, subnetList []kubeovnv1.Subnet) error {
+func ValidateCidrConflict(subnet fabricv1.Subnet, subnetList []fabricv1.Subnet) error {
 	for _, sub := range subnetList {
 		if sub.Spec.Vpc != subnet.Spec.Vpc || sub.Spec.Vlan != subnet.Spec.Vlan || sub.Name == subnet.Name {
 			continue
@@ -569,9 +569,9 @@ func ValidateCidrConflict(subnet kubeovnv1.Subnet, subnetList []kubeovnv1.Subnet
 	return nil
 }
 
-func ValidateVpc(vpc *kubeovnv1.Vpc) error {
+func ValidateVpc(vpc *fabricv1.Vpc) error {
 	for _, item := range vpc.Spec.StaticRoutes {
-		if item.Policy != "" && item.Policy != kubeovnv1.PolicyDst && item.Policy != kubeovnv1.PolicySrc {
+		if item.Policy != "" && item.Policy != fabricv1.PolicyDst && item.Policy != fabricv1.PolicySrc {
 			return fmt.Errorf("unknown policy type: %s", item.Policy)
 		}
 
@@ -590,13 +590,13 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 	}
 
 	for _, item := range vpc.Spec.PolicyRoutes {
-		if item.Action != kubeovnv1.PolicyRouteActionReroute &&
-			item.Action != kubeovnv1.PolicyRouteActionAllow &&
-			item.Action != kubeovnv1.PolicyRouteActionDrop {
+		if item.Action != fabricv1.PolicyRouteActionReroute &&
+			item.Action != fabricv1.PolicyRouteActionAllow &&
+			item.Action != fabricv1.PolicyRouteActionDrop {
 			return fmt.Errorf("unknown policy action: %s", item.Action)
 		}
 
-		if item.Action == kubeovnv1.PolicyRouteActionReroute {
+		if item.Action == fabricv1.PolicyRouteActionReroute {
 			// ecmp policy route may reroute to multiple next hop ips
 			for ipStr := range strings.SplitSeq(item.NextHopIP, ",") {
 				if ip := net.ParseIP(ipStr); ip == nil {
@@ -626,11 +626,11 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 		if len(dr.Redistribute) == 0 {
 			return errors.New("redistribute must be set explicitly when dynamic routing is enabled")
 		}
-		seen := make(map[kubeovnv1.RedistributeType]struct{}, len(dr.Redistribute))
+		seen := make(map[fabricv1.RedistributeType]struct{}, len(dr.Redistribute))
 		for _, t := range dr.Redistribute {
 			switch t {
-			case kubeovnv1.RedistributeConnected, kubeovnv1.RedistributeConnectedAsHost,
-				kubeovnv1.RedistributeStatic, kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB:
+			case fabricv1.RedistributeConnected, fabricv1.RedistributeConnectedAsHost,
+				fabricv1.RedistributeStatic, fabricv1.RedistributeNAT, fabricv1.RedistributeLB:
 			default:
 				return fmt.Errorf("unknown redistribute type: %s", t)
 			}
@@ -656,7 +656,7 @@ func ValidateVpc(vpc *kubeovnv1.Vpc) error {
 	return nil
 }
 
-func ValidateVpcVrfID(vpc *kubeovnv1.Vpc, vpcs []kubeovnv1.Vpc) error {
+func ValidateVpcVrfID(vpc *fabricv1.Vpc, vpcs []fabricv1.Vpc) error {
 	dr := vpc.Spec.DynamicRouting
 	if !dr.IsEnabled() {
 		return nil

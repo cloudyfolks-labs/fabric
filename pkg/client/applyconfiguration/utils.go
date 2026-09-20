@@ -19,9 +19,9 @@ limitations under the License.
 package applyconfiguration
 
 import (
-	v1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	v1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/client/applyconfiguration/fabric/v1"
 	internal "github.com/cloudyfolks-labs/fabric/pkg/client/applyconfiguration/internal"
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/client/applyconfiguration/kubeovn/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
@@ -33,155 +33,155 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
 	// Group=fabric.cloudyfolks.io, Version=v1
 	case v1.SchemeGroupVersion.WithKind("ACL"):
-		return &kubeovnv1.ACLApplyConfiguration{}
+		return &fabricv1.ACLApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BFDPort"):
-		return &kubeovnv1.BFDPortApplyConfiguration{}
+		return &fabricv1.BFDPortApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BFDPortStatus"):
-		return &kubeovnv1.BFDPortStatusApplyConfiguration{}
+		return &fabricv1.BFDPortStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BgpConf"):
-		return &kubeovnv1.BgpConfApplyConfiguration{}
+		return &fabricv1.BgpConfApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BgpConfSpec"):
-		return &kubeovnv1.BgpConfSpecApplyConfiguration{}
+		return &fabricv1.BgpConfSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BgpConfStatus"):
-		return &kubeovnv1.BgpConfStatusApplyConfiguration{}
+		return &fabricv1.BgpConfStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BgpNodeStatus"):
-		return &kubeovnv1.BgpNodeStatusApplyConfiguration{}
+		return &fabricv1.BgpNodeStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("BgpPeer"):
-		return &kubeovnv1.BgpPeerApplyConfiguration{}
+		return &fabricv1.BgpPeerApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Condition"):
-		return &kubeovnv1.ConditionApplyConfiguration{}
+		return &fabricv1.ConditionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("CustomInterface"):
-		return &kubeovnv1.CustomInterfaceApplyConfiguration{}
+		return &fabricv1.CustomInterfaceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DNSZone"):
-		return &kubeovnv1.DNSZoneApplyConfiguration{}
+		return &fabricv1.DNSZoneApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DNSZoneRecord"):
-		return &kubeovnv1.DNSZoneRecordApplyConfiguration{}
+		return &fabricv1.DNSZoneRecordApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DNSZoneSpec"):
-		return &kubeovnv1.DNSZoneSpecApplyConfiguration{}
+		return &fabricv1.DNSZoneSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("DNSZoneStatus"):
-		return &kubeovnv1.DNSZoneStatusApplyConfiguration{}
+		return &fabricv1.DNSZoneStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IP"):
-		return &kubeovnv1.IPApplyConfiguration{}
+		return &fabricv1.IPApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPPool"):
-		return &kubeovnv1.IPPoolApplyConfiguration{}
+		return &fabricv1.IPPoolApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPPoolSpec"):
-		return &kubeovnv1.IPPoolSpecApplyConfiguration{}
+		return &fabricv1.IPPoolSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPPoolStatus"):
-		return &kubeovnv1.IPPoolStatusApplyConfiguration{}
+		return &fabricv1.IPPoolStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("IPSpec"):
-		return &kubeovnv1.IPSpecApplyConfiguration{}
+		return &fabricv1.IPSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancer"):
-		return &kubeovnv1.LoadBalancerApplyConfiguration{}
+		return &fabricv1.LoadBalancerApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancerFrontend"):
-		return &kubeovnv1.LoadBalancerFrontendApplyConfiguration{}
+		return &fabricv1.LoadBalancerFrontendApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancerPool"):
-		return &kubeovnv1.LoadBalancerPoolApplyConfiguration{}
+		return &fabricv1.LoadBalancerPoolApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancerPoolSpec"):
-		return &kubeovnv1.LoadBalancerPoolSpecApplyConfiguration{}
+		return &fabricv1.LoadBalancerPoolSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancerPoolStatus"):
-		return &kubeovnv1.LoadBalancerPoolStatusApplyConfiguration{}
+		return &fabricv1.LoadBalancerPoolStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancerPort"):
-		return &kubeovnv1.LoadBalancerPortApplyConfiguration{}
+		return &fabricv1.LoadBalancerPortApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancerSpec"):
-		return &kubeovnv1.LoadBalancerSpecApplyConfiguration{}
+		return &fabricv1.LoadBalancerSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("LoadBalancerStatus"):
-		return &kubeovnv1.LoadBalancerStatusApplyConfiguration{}
+		return &fabricv1.LoadBalancerStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("NatOutGoingPolicyMatch"):
-		return &kubeovnv1.NatOutGoingPolicyMatchApplyConfiguration{}
+		return &fabricv1.NatOutGoingPolicyMatchApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("NatOutgoingPolicyRule"):
-		return &kubeovnv1.NatOutgoingPolicyRuleApplyConfiguration{}
+		return &fabricv1.NatOutgoingPolicyRuleApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("NatOutgoingPolicyRuleStatus"):
-		return &kubeovnv1.NatOutgoingPolicyRuleStatusApplyConfiguration{}
+		return &fabricv1.NatOutgoingPolicyRuleStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnDnatRule"):
-		return &kubeovnv1.OvnDnatRuleApplyConfiguration{}
+		return &fabricv1.OvnDnatRuleApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnDnatRuleSpec"):
-		return &kubeovnv1.OvnDnatRuleSpecApplyConfiguration{}
+		return &fabricv1.OvnDnatRuleSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnDnatRuleStatus"):
-		return &kubeovnv1.OvnDnatRuleStatusApplyConfiguration{}
+		return &fabricv1.OvnDnatRuleStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnEip"):
-		return &kubeovnv1.OvnEipApplyConfiguration{}
+		return &fabricv1.OvnEipApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnEipSpec"):
-		return &kubeovnv1.OvnEipSpecApplyConfiguration{}
+		return &fabricv1.OvnEipSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnEipStatus"):
-		return &kubeovnv1.OvnEipStatusApplyConfiguration{}
+		return &fabricv1.OvnEipStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnFip"):
-		return &kubeovnv1.OvnFipApplyConfiguration{}
+		return &fabricv1.OvnFipApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnFipSpec"):
-		return &kubeovnv1.OvnFipSpecApplyConfiguration{}
+		return &fabricv1.OvnFipSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnFipStatus"):
-		return &kubeovnv1.OvnFipStatusApplyConfiguration{}
+		return &fabricv1.OvnFipStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnSnatRule"):
-		return &kubeovnv1.OvnSnatRuleApplyConfiguration{}
+		return &fabricv1.OvnSnatRuleApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnSnatRuleSpec"):
-		return &kubeovnv1.OvnSnatRuleSpecApplyConfiguration{}
+		return &fabricv1.OvnSnatRuleSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("OvnSnatRuleStatus"):
-		return &kubeovnv1.OvnSnatRuleStatusApplyConfiguration{}
+		return &fabricv1.OvnSnatRuleStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("PolicyRoute"):
-		return &kubeovnv1.PolicyRouteApplyConfiguration{}
+		return &fabricv1.PolicyRouteApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ProviderNetwork"):
-		return &kubeovnv1.ProviderNetworkApplyConfiguration{}
+		return &fabricv1.ProviderNetworkApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ProviderNetworkCondition"):
-		return &kubeovnv1.ProviderNetworkConditionApplyConfiguration{}
+		return &fabricv1.ProviderNetworkConditionApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ProviderNetworkSpec"):
-		return &kubeovnv1.ProviderNetworkSpecApplyConfiguration{}
+		return &fabricv1.ProviderNetworkSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("ProviderNetworkStatus"):
-		return &kubeovnv1.ProviderNetworkStatusApplyConfiguration{}
+		return &fabricv1.ProviderNetworkStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RouterLBRule"):
-		return &kubeovnv1.RouterLBRuleApplyConfiguration{}
+		return &fabricv1.RouterLBRuleApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RouterLBRulePort"):
-		return &kubeovnv1.RouterLBRulePortApplyConfiguration{}
+		return &fabricv1.RouterLBRulePortApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RouterLBRuleSpec"):
-		return &kubeovnv1.RouterLBRuleSpecApplyConfiguration{}
+		return &fabricv1.RouterLBRuleSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("RouterLBRuleStatus"):
-		return &kubeovnv1.RouterLBRuleStatusApplyConfiguration{}
+		return &fabricv1.RouterLBRuleStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SecurityGroup"):
-		return &kubeovnv1.SecurityGroupApplyConfiguration{}
+		return &fabricv1.SecurityGroupApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SecurityGroupRule"):
-		return &kubeovnv1.SecurityGroupRuleApplyConfiguration{}
+		return &fabricv1.SecurityGroupRuleApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SecurityGroupSpec"):
-		return &kubeovnv1.SecurityGroupSpecApplyConfiguration{}
+		return &fabricv1.SecurityGroupSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SecurityGroupStatus"):
-		return &kubeovnv1.SecurityGroupStatusApplyConfiguration{}
+		return &fabricv1.SecurityGroupStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("StaticRoute"):
-		return &kubeovnv1.StaticRouteApplyConfiguration{}
+		return &fabricv1.StaticRouteApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Subnet"):
-		return &kubeovnv1.SubnetApplyConfiguration{}
+		return &fabricv1.SubnetApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SubnetSpec"):
-		return &kubeovnv1.SubnetSpecApplyConfiguration{}
+		return &fabricv1.SubnetSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SubnetStatus"):
-		return &kubeovnv1.SubnetStatusApplyConfiguration{}
+		return &fabricv1.SubnetStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SwitchLBRule"):
-		return &kubeovnv1.SwitchLBRuleApplyConfiguration{}
+		return &fabricv1.SwitchLBRuleApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SwitchLBRulePort"):
-		return &kubeovnv1.SwitchLBRulePortApplyConfiguration{}
+		return &fabricv1.SwitchLBRulePortApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SwitchLBRuleSpec"):
-		return &kubeovnv1.SwitchLBRuleSpecApplyConfiguration{}
+		return &fabricv1.SwitchLBRuleSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("SwitchLBRuleStatus"):
-		return &kubeovnv1.SwitchLBRuleStatusApplyConfiguration{}
+		return &fabricv1.SwitchLBRuleStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("U2OFeatures"):
-		return &kubeovnv1.U2OFeaturesApplyConfiguration{}
+		return &fabricv1.U2OFeaturesApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Vip"):
-		return &kubeovnv1.VipApplyConfiguration{}
+		return &fabricv1.VipApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VipSpec"):
-		return &kubeovnv1.VipSpecApplyConfiguration{}
+		return &fabricv1.VipSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VipStatus"):
-		return &kubeovnv1.VipStatusApplyConfiguration{}
+		return &fabricv1.VipStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Vlan"):
-		return &kubeovnv1.VlanApplyConfiguration{}
+		return &fabricv1.VlanApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VlanSpec"):
-		return &kubeovnv1.VlanSpecApplyConfiguration{}
+		return &fabricv1.VlanSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VlanStatus"):
-		return &kubeovnv1.VlanStatusApplyConfiguration{}
+		return &fabricv1.VlanStatusApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Vpc"):
-		return &kubeovnv1.VpcApplyConfiguration{}
+		return &fabricv1.VpcApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VpcDynamicRouting"):
-		return &kubeovnv1.VpcDynamicRoutingApplyConfiguration{}
+		return &fabricv1.VpcDynamicRoutingApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VpcPeering"):
-		return &kubeovnv1.VpcPeeringApplyConfiguration{}
+		return &fabricv1.VpcPeeringApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VpcSpec"):
-		return &kubeovnv1.VpcSpecApplyConfiguration{}
+		return &fabricv1.VpcSpecApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("VpcStatus"):
-		return &kubeovnv1.VpcStatusApplyConfiguration{}
+		return &fabricv1.VpcStatusApplyConfiguration{}
 
 	}
 	return nil

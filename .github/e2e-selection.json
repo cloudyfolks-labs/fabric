@@ -51,10 +51,10 @@
   ],
   "pathRules": [
     {
-      "patterns": ["test/e2e/kube-ovn/**"],
+      "patterns": ["test/e2e/fabric/**"],
       "groups": ["core", "service-lb-underlay"],
       "owner": "networking-e2e",
-      "reason": "Kube-OVN conformance and router load balancer suites"
+      "reason": "fabric conformance and router load balancer suites"
     },
     {
       "patterns": ["test/e2e/k8s-network/**"],
@@ -66,7 +66,7 @@
       "patterns": ["test/e2e/connectivity/**"],
       "groups": ["core"],
       "owner": "networking-e2e",
-      "reason": "core Kube-OVN connectivity suite"
+      "reason": "core fabric connectivity suite"
     },
     {
       "patterns": ["test/e2e/cnp-domain/**", "test/e2e/anp-domain/**", "test/e2e/cyclonus.yaml"],
@@ -93,13 +93,13 @@
       "reason": "multiple and chained CNI suites"
     },
     {
-      "patterns": ["test/e2e/kube-ovn/switch_lb_rule/**", "test/e2e/metallb/**"],
+      "patterns": ["test/e2e/fabric/switch_lb_rule/**", "test/e2e/metallb/**"],
       "groups": ["service-lb-underlay"],
       "owner": "networking-e2e",
       "reason": "service, load balancer, and underlay suites"
     },
     {
-      "patterns": ["pkg/controller/service.go", "pkg/controller/switch_lb_rule.go", "pkg/controller/vpc_dns.go"],
+      "patterns": ["pkg/controller/service.go", "pkg/controller/switch_lb_rule.go"],
       "groups": ["service-lb-underlay"],
       "owner": "networking-e2e",
       "reason": "service and load balancer reconciliation"

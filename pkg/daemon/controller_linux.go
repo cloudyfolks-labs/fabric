@@ -29,7 +29,7 @@ import (
 	k8sipset "k8s.io/kubernetes/pkg/proxy/ipvs/ipset"
 	k8siptables "k8s.io/kubernetes/pkg/util/iptables"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -119,13 +119,13 @@ func (c *Controller) initRuntime() error {
 	c.flowCache = make(map[string]map[string][]string)
 	c.flowChan = make(chan struct{}, 1)
 
-	if c.protocol == kubeovnv1.ProtocolIPv4 || c.protocol == kubeovnv1.ProtocolDual {
+	if c.protocol == fabricv1.ProtocolIPv4 || c.protocol == fabricv1.ProtocolDual {
 		ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
 		if err != nil {
 			klog.Error(err)
 			return err
 		}
-		c.iptables[kubeovnv1.ProtocolIPv4] = ipt
+		c.iptables[fabricv1.ProtocolIPv4] = ipt
 		if c.iptablesObsolete != nil {
 			ok, err := kernelModuleLoaded(kernelModuleIPTables)
 			if err != nil {
@@ -136,19 +136,19 @@ func (c *Controller) initRuntime() error {
 					klog.Error(err)
 					return err
 				}
-				c.iptablesObsolete[kubeovnv1.ProtocolIPv4] = ipt
+				c.iptablesObsolete[fabricv1.ProtocolIPv4] = ipt
 			}
 		}
-		c.ipsets[kubeovnv1.ProtocolIPv4] = ipsets.NewIPSets(ipsets.NewIPVersionConfig(ipsets.IPFamilyV4, IPSetPrefix, nil, nil))
-		c.k8siptables[kubeovnv1.ProtocolIPv4] = k8siptables.New(k8siptables.ProtocolIPv4)
+		c.ipsets[fabricv1.ProtocolIPv4] = ipsets.NewIPSets(ipsets.NewIPVersionConfig(ipsets.IPFamilyV4, IPSetPrefix, nil, nil))
+		c.k8siptables[fabricv1.ProtocolIPv4] = k8siptables.New(k8siptables.ProtocolIPv4)
 	}
-	if c.protocol == kubeovnv1.ProtocolIPv6 || c.protocol == kubeovnv1.ProtocolDual {
+	if c.protocol == fabricv1.ProtocolIPv6 || c.protocol == fabricv1.ProtocolDual {
 		ipt, err := iptables.NewWithProtocol(iptables.ProtocolIPv6)
 		if err != nil {
 			klog.Error(err)
 			return err
 		}
-		c.iptables[kubeovnv1.ProtocolIPv6] = ipt
+		c.iptables[fabricv1.ProtocolIPv6] = ipt
 		if c.iptablesObsolete != nil {
 			ok, err := kernelModuleLoaded(kernelModuleIP6Tables)
 			if err != nil {
@@ -159,11 +159,11 @@ func (c *Controller) initRuntime() error {
 					klog.Error(err)
 					return err
 				}
-				c.iptablesObsolete[kubeovnv1.ProtocolIPv6] = ipt
+				c.iptablesObsolete[fabricv1.ProtocolIPv6] = ipt
 			}
 		}
-		c.ipsets[kubeovnv1.ProtocolIPv6] = ipsets.NewIPSets(ipsets.NewIPVersionConfig(ipsets.IPFamilyV6, IPSetPrefix, nil, nil))
-		c.k8siptables[kubeovnv1.ProtocolIPv6] = k8siptables.New(k8siptables.ProtocolIPv6)
+		c.ipsets[fabricv1.ProtocolIPv6] = ipsets.NewIPSets(ipsets.NewIPVersionConfig(ipsets.IPFamilyV6, IPSetPrefix, nil, nil))
+		c.k8siptables[fabricv1.ProtocolIPv6] = k8siptables.New(k8siptables.ProtocolIPv6)
 	}
 
 	if err = ovs.ClearU2OFlows(c.ovsClient); err != nil {
@@ -176,7 +176,7 @@ func (c *Controller) initRuntime() error {
 	return nil
 }
 
-func (c *Controller) handleEnableExternalLBAddressChange(oldSubnet, newSubnet *kubeovnv1.Subnet) error {
+func (c *Controller) handleEnableExternalLBAddressChange(oldSubnet, newSubnet *fabricv1.Subnet) error {
 	var subnetName string
 	var action string
 
@@ -231,7 +231,7 @@ func (c *Controller) handleEnableExternalLBAddressChange(oldSubnet, newSubnet *k
 // When U2O (Underlay to Overlay) interconnection is enabled, the svc local flow's destination
 // MAC must point to the LRP (Logical Router Port) MAC. Otherwise, without U2O enabled (no LRP exists),
 // the flow would hit the rules created by build_lswitch_dnat_mod_dl_dst_rules instead.
-func (c *Controller) handleU2OInterconnectionMACChange(oldSubnet, newSubnet *kubeovnv1.Subnet) error {
+func (c *Controller) handleU2OInterconnectionMACChange(oldSubnet, newSubnet *fabricv1.Subnet) error {
 	if oldSubnet == nil || newSubnet == nil {
 		return nil
 	}
@@ -276,15 +276,15 @@ func (c *Controller) reconcileRouters(event *subnetEvent) error {
 
 	if event != nil {
 		var ok bool
-		var oldSubnet, newSubnet *kubeovnv1.Subnet
+		var oldSubnet, newSubnet *fabricv1.Subnet
 		if event.oldObj != nil {
-			if oldSubnet, ok = event.oldObj.(*kubeovnv1.Subnet); !ok {
+			if oldSubnet, ok = event.oldObj.(*fabricv1.Subnet); !ok {
 				klog.Errorf("expected old subnet in subnetEvent but got %#v", event.oldObj)
 				return nil
 			}
 		}
 		if event.newObj != nil {
-			if newSubnet, ok = event.newObj.(*kubeovnv1.Subnet); !ok {
+			if newSubnet, ok = event.newObj.(*fabricv1.Subnet); !ok {
 				klog.Errorf("expected new subnet in subnetEvent but got %#v", event.newObj)
 				return nil
 			}
@@ -588,7 +588,7 @@ func getNicExistRoutes(nic netlink.Link, gateway string) ([]netlink.Route, error
 	var routes, existRoutes []netlink.Route
 	var err error
 	for gw := range strings.SplitSeq(gateway, ",") {
-		if util.CheckProtocol(gw) == kubeovnv1.ProtocolIPv4 {
+		if util.CheckProtocol(gw) == fabricv1.ProtocolIPv4 {
 			routes, err = netlink.RouteList(nic, netlink.FAMILY_V4)
 		} else {
 			routes, err = netlink.RouteList(nic, netlink.FAMILY_V6)
@@ -635,9 +635,9 @@ func routeDiff(nodeNicRoutes, allRoutes []netlink.Route, cidrs, joinCIDR []strin
 	for _, c := range cidrs {
 		var src, gw net.IP
 		switch util.CheckProtocol(c) {
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			src, gw = srcIPv4, gwV4
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			src, gw = srcIPv6, gwV6
 		}
 
@@ -674,7 +674,7 @@ func routeDiff(nodeNicRoutes, allRoutes []netlink.Route, cidrs, joinCIDR []strin
 			scope := netlink.SCOPE_UNIVERSE
 			proto := netlink.RouteProtocol(syscall.RTPROT_STATIC)
 			if slices.Contains(joinCIDR, c) {
-				if util.CheckProtocol(c) == kubeovnv1.ProtocolIPv4 {
+				if util.CheckProtocol(c) == fabricv1.ProtocolIPv4 {
 					src = net.ParseIP(joinIPv4)
 				} else {
 					src, priority = nil, 256
@@ -737,7 +737,7 @@ func getRoutesToAdd(oldRoutes, newRoutes []netlink.Route) []netlink.Route {
 	return toAdd
 }
 
-func (c *Controller) diffPolicyRouting(oldSubnet, newSubnet *kubeovnv1.Subnet) (rulesToAdd, rulesToDel []netlink.Rule, routesToAdd, routesToDel []netlink.Route, err error) {
+func (c *Controller) diffPolicyRouting(oldSubnet, newSubnet *fabricv1.Subnet) (rulesToAdd, rulesToDel []netlink.Rule, routesToAdd, routesToDel []netlink.Route, err error) {
 	oldRules, oldRoutes, err := c.getPolicyRouting(oldSubnet)
 	if err != nil {
 		klog.Error(err)
@@ -757,11 +757,11 @@ func (c *Controller) diffPolicyRouting(oldSubnet, newSubnet *kubeovnv1.Subnet) (
 	return rulesToAdd, rulesToDel, routesToAdd, routesToDel, err
 }
 
-func (c *Controller) getPolicyRouting(subnet *kubeovnv1.Subnet) ([]netlink.Rule, []netlink.Route, error) {
+func (c *Controller) getPolicyRouting(subnet *fabricv1.Subnet) ([]netlink.Rule, []netlink.Route, error) {
 	if subnet == nil || subnet.Spec.ExternalEgressGateway == "" || subnet.Spec.Vpc != c.config.ClusterRouter {
 		return nil, nil, nil
 	}
-	if subnet.Spec.GatewayType == kubeovnv1.GWCentralizedType {
+	if subnet.Spec.GatewayType == fabricv1.GWCentralizedType {
 		node, err := c.nodesLister.Get(c.config.NodeName)
 		if err != nil {
 			klog.Errorf("failed to get node %s: %v", c.config.NodeName, err)
@@ -775,9 +775,9 @@ func (c *Controller) getPolicyRouting(subnet *kubeovnv1.Subnet) ([]netlink.Rule,
 	}
 
 	protocols := make([]string, 1, 2)
-	if protocol := util.CheckProtocol(subnet.Spec.ExternalEgressGateway); protocol == kubeovnv1.ProtocolDual {
-		protocols[0] = kubeovnv1.ProtocolIPv4
-		protocols = append(protocols, kubeovnv1.ProtocolIPv6)
+	if protocol := util.CheckProtocol(subnet.Spec.ExternalEgressGateway); protocol == fabricv1.ProtocolDual {
+		protocols[0] = fabricv1.ProtocolIPv4
+		protocols = append(protocols, fabricv1.ProtocolIPv6)
 	} else {
 		protocols[0] = protocol
 	}
@@ -793,7 +793,7 @@ func (c *Controller) getPolicyRouting(subnet *kubeovnv1.Subnet) ([]netlink.Rule,
 	rule := netlink.NewRule()
 	rule.Table = int(subnet.Spec.PolicyRoutingTableID)
 	rule.Priority = int(subnet.Spec.PolicyRoutingPriority)
-	if subnet.Spec.GatewayType == kubeovnv1.GWDistributedType {
+	if subnet.Spec.GatewayType == fabricv1.GWDistributedType {
 		pods, err := c.podsLister.List(labels.Everything())
 		if err != nil {
 			klog.Errorf("list pods failed, %+v", err)
@@ -811,7 +811,7 @@ func (c *Controller) getPolicyRouting(subnet *kubeovnv1.Subnet) ([]netlink.Rule,
 
 				var ip net.IP
 				var maskBits int
-				if len(pod.Status.PodIPs) == 2 && protocols[i] == kubeovnv1.ProtocolIPv6 {
+				if len(pod.Status.PodIPs) == 2 && protocols[i] == fabricv1.ProtocolIPv6 {
 					ip = net.ParseIP(pod.Status.PodIPs[1].IP)
 					maskBits = 128
 				} else if util.CheckProtocol(pod.Status.PodIP) == protocols[i] {
@@ -1058,7 +1058,7 @@ func rotateLog() {
 	if err != nil {
 		klog.Errorf("failed to rotate ovn log %q", output)
 	}
-	output, err = exec.Command("logrotate", "/etc/logrotate.d/kubeovn").CombinedOutput()
+	output, err = exec.Command("logrotate", "/etc/logrotate.d/fabric").CombinedOutput()
 	if err != nil {
 		klog.Errorf("failed to rotate fabric log %q", output)
 	}

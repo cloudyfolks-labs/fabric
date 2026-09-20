@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 
@@ -183,8 +183,8 @@ func (c *Controller) handleAddCnp(key string) (err error) {
 		}
 
 		if as4len != 0 {
-			aclName := getCnpACLName(cnpName, kubeovnv1.ProtocolIPv4, "ingress", index)
-			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v4AddressSetName, kubeovnv1.ProtocolIPv4, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, true, cnpACLTier)
+			aclName := getCnpACLName(cnpName, fabricv1.ProtocolIPv4, "ingress", index)
+			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v4AddressSetName, fabricv1.ProtocolIPv4, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, true, cnpACLTier)
 			if err != nil {
 				klog.Errorf("failed to add v4 ingress acls for cnp %s: %v", key, err)
 				return err
@@ -193,8 +193,8 @@ func (c *Controller) handleAddCnp(key string) (err error) {
 		}
 
 		if as6len != 0 {
-			aclName := getCnpACLName(cnpName, kubeovnv1.ProtocolIPv6, "ingress", index)
-			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v6AddressSetName, kubeovnv1.ProtocolIPv6, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, true, cnpACLTier)
+			aclName := getCnpACLName(cnpName, fabricv1.ProtocolIPv6, "ingress", index)
+			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v6AddressSetName, fabricv1.ProtocolIPv6, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, true, cnpACLTier)
 			if err != nil {
 				klog.Errorf("failed to add v6 ingress acls for cnp %s: %v", cnp.Name, err)
 				return err
@@ -241,8 +241,8 @@ func (c *Controller) handleAddCnp(key string) (err error) {
 		// Create ACL rules if we have IP addresses OR domain names.
 		// Domain names may not be resolved initially but will be updated later
 		if as4len != 0 || hasDomainNames {
-			aclName := getCnpACLName(cnpName, kubeovnv1.ProtocolIPv4, "egress", index)
-			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v4AddressSetName, kubeovnv1.ProtocolIPv4, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, false, cnpACLTier)
+			aclName := getCnpACLName(cnpName, fabricv1.ProtocolIPv4, "egress", index)
+			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v4AddressSetName, fabricv1.ProtocolIPv4, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, false, cnpACLTier)
 			if err != nil {
 				klog.Errorf("failed to add v4 egress acls for cnp %s: %v", key, err)
 				return err
@@ -251,8 +251,8 @@ func (c *Controller) handleAddCnp(key string) (err error) {
 		}
 
 		if as6len != 0 || hasDomainNames {
-			aclName := getCnpACLName(cnpName, kubeovnv1.ProtocolIPv6, "egress", index)
-			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v6AddressSetName, kubeovnv1.ProtocolIPv6, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, false, cnpACLTier)
+			aclName := getCnpACLName(cnpName, fabricv1.ProtocolIPv6, "egress", index)
+			ops, err := c.OVNNbClient.UpdateCnpRuleACLOps(pgName, v6AddressSetName, fabricv1.ProtocolIPv6, aclName, aclPriority, getCnpACLAction(rule.Action), logActions, rulePorts, false, cnpACLTier)
 			if err != nil {
 				klog.Errorf("failed to add v6 egress acls for cnp %s: %v", key, err)
 				return err
@@ -1017,9 +1017,9 @@ func fetchCnpCIDRAddresses(networks []v1alpha2.CIDR) ([]string, []string) {
 			continue
 		}
 		switch util.CheckProtocol(string(network)) {
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			v4Addresses = append(v4Addresses, string(network))
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			v6Addresses = append(v6Addresses, string(network))
 		}
 	}

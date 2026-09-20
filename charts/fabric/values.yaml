@@ -45,19 +45,18 @@ clusterDomain: cluster.local
 # If not specified, fallback to auto-identifying masters based on "masterNodesLabels"
 # @section -- Global parameters
 masterNodes: []
-# -- Label used to auto-identify masters.
-# Any node that has any of these labels will be considered a master node.
-# Note: This feature uses Helm "lookup" function, which is not compatible with tools such as ArgoCD.
+# -- Labels used to auto-identify masters.
+# Any node that has one of these labels is a master node, for example `node-role.kubernetes.io/control-plane: ""`.
+# Note: This feature uses the Helm "lookup" function, which is not compatible with tools such as ArgoCD.
 # @section -- Global parameters
 masterNodesLabels:
   fabric/role: master
-  # node-role.kubernetes.io/control-plane: ""
 
-# -- General configuration of the network created by Kube-OVN.
+# -- General configuration of the network created by fabric.
 # @section -- Network parameters of the CNI
 # @default -- "{}"
 networking:
-  # -- Protocol(s) used by Kube-OVN to allocate IPs to pods and services.
+  # -- Protocol(s) used by fabric to allocate IPs to pods and services.
   # Can be either IPv4, IPv6 or Dual.
   # @section -- Network parameters of the CNI
   stack: "IPv4"
@@ -188,26 +187,26 @@ networking:
     name: "ovn-vlan"
     id: "100"
 
-  # -- ""
+  # -- Exchange the link names of the OVS bridge and the provider NIC in the default provider network.
   # @section -- Network parameters of the CNI
   exchangeLinkName: false
-  # -- ""
+  # -- Enable ECMP routes for centralized subnets.
   # @section -- Network parameters of the CNI
   enableEcmp: false
-  # -- ""
+  # -- Enable periodic compaction of the OVN NB/SB databases.
   # @section -- Network parameters of the CNI
   enableCompact: false
 
-# -- Features of Kube-OVN we wish to enable/disable.
+# -- Features of fabric to enable or disable.
 # @section -- Opt-in/out Features
 features:
-  # -- Enable Kube-OVN loadbalancers
+  # -- Enable fabric load balancers
   # @section -- Opt-in/out Features
   enableLoadbalancer: true
   # -- Prefer the local chassis backend on OVN loadbalancers
   # @section -- Opt-in/out Features
   enableOvnLbPreferLocal: false
-  # -- Enable Kube-OVN network policies
+  # -- Enable fabric network policies
   # @section -- Opt-in/out Features
   enableNetworkPolicies: true
   # -- Enable hardware offloads
@@ -258,30 +257,30 @@ cni:
   # -- Location of the CNI configuration to be mounted inside the pod.
   # @section -- CNI configuration
   mountConfigDirectory: "/etc/cni/net.d"
-  # -- Location on the node where the agent will inject the Kube-OVN binary.
+  # -- Location on the node where the agent installs the fabric CNI binary.
   # @section -- CNI configuration
   binaryDirectory: "/opt/cni/bin"
   # -- Location of the CNI configuration inside the agent's pod.
   # @section -- CNI configuration
   localConfigFile: "/fabric/01-fabric.conflist"
-  # -- Location on the node where the CNI will install Kube-OVN's tooling.
+  # -- Location on the node where the CNI installs the fabric tooling.
   # @section -- CNI configuration
   toolingDirectory: "/usr/local/bin"
   # -- Whether to mount the node's tooling directory into the pod.
   # @section -- CNI configuration
   mountToolingDirectory: false
-  # -- Priority of Kube-OVN within the CNI configuration directory on the node.
+  # -- Priority of fabric within the CNI configuration directory on the node.
   # Should be a string representing a double-digit integer.
   # @section -- CNI configuration
   configPriority: "01"
-  # -- Whether to use Kube-OVN as non-primary CNI. When set to true, Kube-OVN will not allocate/handle primary network interfaces.
+  # -- Whether to use fabric as a non-primary CNI. When set to true, fabric does not allocate or handle primary network interfaces.
   # Interfaces are created using Network Attachment Definitions (NADs)
   # @section -- CNI configuration
   nonPrimaryCNI: false
 
 # -- Configuration of the validating webhook used to verify custom resources before they are pushed to Kubernetes.
 # Make sure cert-manager is installed for the generation of certificates for the webhook.
-# See https://kubeovn.github.io/docs/stable/en/guide/webhook/
+# See the upstream Kube-OVN documentation: https://kubeovn.github.io/docs/stable/en/guide/webhook/
 # @section -- Validating webhook configuration
 # @default -- "{}"
 validatingWebhook:
@@ -318,10 +317,8 @@ validatingWebhook:
   # -- Extra environment variables to be added to fabric-webhook pods.
   # @section -- Validating webhook configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
-# -- Configuration of the PrometheusRule shipping baseline Kube-OVN alerts.
+# -- Configuration of the PrometheusRule shipping baseline fabric alerts.
 # Requires prometheus-operator CRDs to be installed in the cluster.
 #
 # Prerequisite: most bundled rules query metrics exposed by the controller,
@@ -358,12 +355,6 @@ prometheusRule:
   # the PrometheusRule `spec.groups[]` schema.
   # @section -- PrometheusRule configuration
   additionalGroups: []
-  #  - name: custom.rules
-  #    rules:
-  #      - alert: CustomAlert
-  #        expr: vector(1)
-  #        labels:
-  #          severity: warning
 
 # -- Configuration of the Grafana dashboard ConfigMaps, automatically picked
 # up by the kube-prometheus-stack Grafana sidecar. One ConfigMap is emitted
@@ -402,11 +393,11 @@ networkPolicies:
   # -- Enforcement level of network policies when they get applied (can be: standard, lax).
   # Enforcement "standard" blocks everything except what is allowed by the network policies.
   # Enforcement "lax" is similar to "standard" with the exception that ARP/DHCPv4/DHCPv6/ICMPv4/ICMPv6
-  # is allowed by default. This mode is useful when using Kubevirt and VMs with IPs configured via Kube-OVN's DHCP.
+  # is allowed by default. This mode is useful when using Kubevirt and VMs with IPs configured through OVN DHCP.
   # @section -- Network Policies
   enforcement: "standard"
 
-# -- API NetworkAttachmentDefinition to give some pods (CoreDNS, NAT GW) in custom VPCs access to the K8S API.
+# -- API NetworkAttachmentDefinition to give some pods (for example CoreDNS) in custom VPCs access to the K8S API.
 # This requires Multus to be installed.
 # @section -- API Network Attachment Definition configuration
 # @default -- "{}"
@@ -476,8 +467,6 @@ ovsOvn:
   # -- Extra environment variables to be added to ovs-ovn pods.
   # @section -- OVS/OVN daemons configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
   # -- ovs-ovn resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -517,21 +506,26 @@ ovsOvn:
   # -- Upgrade logic for OVS/OVN.
   # @section -- OVS/OVN daemons configuration
   upgrade:
-    # -- Enable post-upgrade hooks to run upgrade logic of OVS/OVN.
+    # -- Enable the pre-upgrade and post-upgrade hooks that run the OVS/OVN upgrade logic.
+    # @section -- OVS/OVN daemons configuration
     enabled: true
-    # -- Value propagated to ovn-central to handle OVS/OVN compatibility with Kube-OVN.
+    # -- Value propagated to ovn-central to handle OVS/OVN compatibility with fabric.
     # This value must be updated for each new OVN version.
+    # @section -- OVS/OVN daemons configuration
     versionCompatibility: "25.03"
 
-  # @section -- OVS/OVN daemons configuration.
+  # -- Inactivity probe interval, in milliseconds, between ovn-controller and the OVN SB database (external-ids:ovn-remote-probe-interval).
+  # @section -- OVS/OVN daemons configuration
   ovnRemoteProbeInterval: 10000
-  # @section -- OVS/OVN daemons configuration.
+  # -- Inactivity probe interval, in seconds, between ovn-controller and OVS (external-ids:ovn-openflow-probe-interval).
+  # @section -- OVS/OVN daemons configuration
   ovnRemoteOpenflowInterval: 180
-  # @section -- OVS/OVN daemons configuration.
+  # -- Inactivity probe interval, in milliseconds, for OVN NB/SB database connections.
+  # @section -- OVS/OVN daemons configuration
   probeInterval: 180000
 
   # -- DPDK-hybrid support for OVS.
-  # ref: https://kubeovn.github.io/docs/v1.12.x/en/advance/dpdk/
+  # See the upstream Kube-OVN documentation: https://kubeovn.github.io/docs/v1.12.x/en/advance/dpdk/
   # @section -- OVS/OVN daemons configuration
   # @default -- "{}"
   dpdkHybrid:
@@ -671,8 +665,6 @@ pinger:
   # -- Extra environment variables to be added to fabric-pinger pods.
   # @section -- Ping daemon configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
   # -- fabric-pinger resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -702,7 +694,6 @@ pinger:
     # @section -- Ping daemon configuration
     enabled: false
 
-  # @section -- OVN monitoring daemon configuration
   # -- Remote targets used by the pinger daemon to determine if the CNI works and has external connectivity.
   # @section -- Ping daemon configuration
   # @default -- "{}"
@@ -764,8 +755,6 @@ monitor:
   # -- Extra environment variables to be added to fabric-monitor pods.
   # @section -- OVN monitoring daemon configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
   # -- fabric-monitor resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -780,26 +769,16 @@ monitor:
       ephemeral-storage: 1Gi
 
   # -- Node affinity configuration for fabric-monitor.
-  # -- More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+  # See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
   # @section -- OVN monitoring daemon configuration
   nodeAffinity:
-    # -- User-preferred node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- OVN monitoring daemon configuration
     preferredDuringSchedulingIgnoredDuringExecution: []
-    # -- User-required node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- OVN monitoring daemon configuration
     requiredDuringSchedulingIgnoredDuringExecution: []
 
   # -- fabric-monitor metrics configuration.
@@ -819,58 +798,56 @@ monitor:
     enabled: false
 
 # -- Configuration for fabric-controller, the controller responsible for syncing K8s with OVN.
-# @section -- Kube-OVN controller configuration
+# @section -- fabric-controller configuration
 # @default -- "{}"
 controller:
   # -- Leader election timing configuration.
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   leaderElection:
     # -- Duration non-leader candidates wait after observing a renewal before attempting to acquire leadership. Empty uses the controller default of 30s.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     leaseDuration: ""
     # -- Duration the acting leader retries refreshing leadership before giving up. Empty uses the controller default of 20s.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     renewDeadline: ""
     # -- Duration leader election clients wait between attempts. Empty uses the controller default of 6s.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     retryPeriod: ""
   # -- Override image settings for fabric-controller. Empty fields fall back to the global fabric image.
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   image:
     # -- Registry override for this component image. This becomes the rendered image address. Defaults to `.global.registry.address`.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     registry: ""
     # -- Repository override for this component image. Defaults to `.global.images.fabric.repository`.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     repository: ""
     # -- Tag override for this component image. Defaults to `.global.images.fabric.tag`.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     tag: ""
     # -- Pull policy override for this component image. Defaults to `.image.pullPolicy`.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     pullPolicy: ""
   # -- Annotations to be added to all top-level fabric-controller objects (resources under templates/controller)
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   annotations: {}
   # -- Labels to be added to all top-level fabric-controller objects (resources under templates/controller)
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   labels: {}
   # -- Annotations to be added to fabric-controller pods.
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   podAnnotations: {}
   # -- Labels to be added to fabric-controller pods.
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   podLabels: {}
 
   # -- Extra environment variables to be added to fabric-controller pods.
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
   # -- fabric-controller resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   resources:
     requests:
       cpu: "200m"
@@ -881,42 +858,32 @@ controller:
       ephemeral-storage: 1Gi
 
   # -- Node affinity configuration for fabric-controller.
-  # -- More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
-  # @section -- Kube-OVN controller configuration
+  # See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+  # @section -- fabric-controller configuration
   nodeAffinity:
-    # -- User-preferred node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- fabric-controller configuration
     preferredDuringSchedulingIgnoredDuringExecution: []
-    # -- User-required node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- fabric-controller configuration
     requiredDuringSchedulingIgnoredDuringExecution: []
 
   # -- Controller metrics configuration.
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   # @default -- "{}"
   metrics:
     # -- Configure the port on which the controller service will serve metrics.
-    # @section -- Kube-OVN controller configuration
+    # @section -- fabric-controller configuration
     port: 10660
 
   # -- Controller serviceMonitor configuration.
-  # @section -- Kube-OVN controller configuration
+  # @section -- fabric-controller configuration
   # @default -- "{}"
   serviceMonitor:
-    # -- Enable the deployment of the ServiceMonitor for the Kube-OVN controller.
-    # @section -- Kube-OVN controller configuration
+    # -- Enable the deployment of the ServiceMonitor for fabric-controller.
+    # @section -- fabric-controller configuration
     enabled: false
 
 # -- Configuration for ovn-central, the daemon containing the northbound/southbound DBs and northd.
@@ -953,8 +920,6 @@ central:
   # -- Extra environment variables to be added to ovn-central pods.
   # @section -- OVN-central daemon configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
   # -- Deploy ovn-central as a PVC-backed StatefulSet that can be exposed to workload clusters.
   # @section -- OVN-central daemon configuration
@@ -963,8 +928,10 @@ central:
     namespace: hcp
     replicas: 3
     # -- OVN NB address used by workload clusters, for example tcp:ovn-nb.example.com:6641.
+    # @section -- OVN-central daemon configuration
     nbAddress: ""
     # -- OVN SB address used by workload clusters, for example tcp:ovn-sb.example.com:6642.
+    # @section -- OVN-central daemon configuration
     sbAddress: ""
     service:
       type: NodePort
@@ -987,36 +954,26 @@ central:
       ephemeral-storage: 1Gi
 
   # -- Node affinity configuration for ovn-central.
-  # -- More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+  # See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
   # @section -- OVN-central daemon configuration
   nodeAffinity:
-    # -- User-preferred node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- OVN-central daemon configuration
     preferredDuringSchedulingIgnoredDuringExecution: []
-    # -- User-required node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- OVN-central daemon configuration
     requiredDuringSchedulingIgnoredDuringExecution: []
 
-  # -- ""
-  # @section -- OVN-central daemon configuration.
+  # -- Probe interval, in milliseconds, between ovn-northd and the OVN NB/SB databases (NB_Global options:northd_probe_interval).
+  # @section -- OVN-central daemon configuration
   ovnNorthdProbeInterval: 5000
-  # -- ""
-  # @section -- OVN-central daemon configuration.
+  # -- Number of ovn-northd worker threads.
+  # @section -- OVN-central daemon configuration
   ovnNorthdNThreads: 1
-  # -- ""
-  # @section -- OVN-central daemon configuration.
+  # -- Interval, in seconds, at which ovn-central checks the OVN database leader.
+  # @section -- OVN-central daemon configuration
   ovnLeaderProbeInterval: 5
 
 
@@ -1040,33 +997,21 @@ ic:
     # @section -- OVN IC controller configuration
     pullPolicy: ""
   # -- Node affinity configuration for the OVN IC controller.
-  # -- More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+  # See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
   # @section -- OVN IC controller configuration
   nodeAffinity:
-    # -- User-preferred node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- OVN IC controller configuration
     preferredDuringSchedulingIgnoredDuringExecution: []
-    # -- User-required node affinity matchExpressions. Each entry should be a series of match expressions to be AND'd together, and all entries will be OR'd together
-    # -- Each entry should look like the following:
-    # -- matchExpressions:
-    # --   - key: topology.kubernetes.io/zone
-    # --     operator: In
-    # --     values:
-    # --     - antarctica-east1
-    # --     - antarctica-west1
+    # -- Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR.
+    # Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.
+    # @section -- OVN IC controller configuration
     requiredDuringSchedulingIgnoredDuringExecution: []
 
   # -- Extra environment variables to be added to ovn-ic-controller pods.
   # @section -- OVN IC controller configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
 # -- Configuration for fabric-cni, the agent responsible for handling CNI requests from the CRI.
 # @section -- CNI agent configuration
@@ -1103,8 +1048,6 @@ agent:
   # -- Extra environment variables to be added to fabric-cni pods.
   # @section -- CNI agent configuration
   extraEnv: []
-  #  - name: CUSTOM_ENV_VAR
-  #    value: "custom-value"
 
   # -- Agent daemon resource limits & requests.
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -1135,7 +1078,7 @@ agent:
     enabled: false
 
   # -- Mirroring of the traffic for debug or analysis.
-  # https://kubeovn.github.io/docs/stable/en/guide/mirror/
+  # See the upstream Kube-OVN documentation: https://kubeovn.github.io/docs/stable/en/guide/mirror/
   # @section -- CNI agent configuration
   # @default -- "{}"
   mirroring:
@@ -1146,11 +1089,11 @@ agent:
     # @section -- CNI agent configuration
     interface: mirror0
 
-  # -- ""
-  # @section -- CNI agent configuration.
+  # -- Interface used for inter-host pod communication. A NIC name or comma-separated regular expressions. When empty, the interface that owns the pod IP or the node internal IP is used.
+  # @section -- CNI agent configuration
   interface: ""
-  # -- ""
-  # @section -- CNI agent configuration.
+  # -- Name of the DPDK tunnel interface.
+  # @section -- CNI agent configuration
   dpdkTunnelInterface: "br-phy"
 
 # -- Kubelet configuration.
@@ -1166,52 +1109,23 @@ kubelet:
 # @default -- "{}"
 logging:
   # -- Directory in which to write the logs.
-  # @section -- Kubelet configuration
+  # @section -- Logging configuration
   directory: "/var/log"
 
 # -- Performance tuning parameters.
 # @section -- Performance configuration
 # @default -- "{}"
 performance:
-  # -- ""
+  # -- Interval, in seconds, between garbage collection runs of fabric-controller. Set to 0 to disable garbage collection.
   # @section -- Performance configuration
   gcInterval: 360
-  # -- ""
+  # -- Interval, in seconds, between inspection runs of fabric-controller.
   # @section -- Performance configuration
   inspectInterval: 20
-  # -- ""
+  # -- Maximum number of concurrent ovs-vsctl calls made by the agent.
   # @section -- Performance configuration
   ovsVsctlConcurrency: 100
 
-# -- Array of extra K8s manifests to deploy.
-# Note: Supports use of custom Helm templates (Go templating)
+# -- Array of extra Kubernetes manifests to deploy. Each item can use Helm (Go) templating.
 # @section -- Extra objects
 extraObjects: []
-# - apiVersion: v1
-#   kind: ConfigMap
-#   metadata:
-#     name: cilium-chaining
-#   data:
-#     cni-config: |-
-#       {
-#         "name": "generic-veth",
-#         "cniVersion": "0.3.1",
-#         "plugins": [
-#           {
-#             "type": "fabric",
-#             "server_socket": "/run/openvswitch/fabric-daemon.sock",
-#             "ipam": {
-#               "type": "fabric",
-#               "server_socket": "/run/openvswitch/fabric-daemon.sock"
-#             }
-#           },
-#           {
-#             "type": "portmap",
-#             "snat": true,
-#             "capabilities": {"portMappings": true}
-#           },
-#           {
-#             "type": "cilium-cni"
-#           }
-#         ]
-#       }

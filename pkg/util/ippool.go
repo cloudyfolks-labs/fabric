@@ -12,25 +12,12 @@ import (
 	"k8s.io/utils/set"
 )
 
-// ExpandIPPoolAddresses expands a list of pool entries (IPs, ranges, CIDRs) into canonical CIDR strings without duplicates.
-// This function provides the same parsing logic as ipam.NewIPRangeListFrom but returns CIDR strings suitable for OVN address sets.
-//
-// IMPORTANT: This function does NOT merge overlapping IP ranges. Each input entry is processed independently.
-// For example, ["10.0.0.1..10.0.0.5", "10.0.0.3..10.0.0.10"] will generate CIDRs covering both ranges
-// without merging them first, which may result in overlapping CIDRs in the output.
-//
-// Alternative: ipam.NewIPRangeListFrom(...).ToCIDRs() merges overlapping ranges before converting to CIDRs,
-// producing a more compact result. However, it cannot be used here due to circular dependency (ipam -> util).
-func ExpandIPPoolAddresses(entries []string) ([]string, error) {
-	return expandIPPoolAddressesInternal(entries, false)
-}
-
 // ExpandIPPoolAddressesForOVN expands IP pool entries for OVN address sets.
 // OVN Limitation: OVN address sets only support either IPv4 or IPv6, not both.
 // This function will return an error if the input contains mixed IP families.
 // For simplicity, single IP addresses are returned without /32 or /128 suffix.
 func ExpandIPPoolAddressesForOVN(entries []string) ([]string, error) {
-	addresses, err := expandIPPoolAddressesInternal(entries, true)
+	addresses, err := expandSingleFamilyIPPoolAddresses(entries)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +29,7 @@ func ExpandIPPoolAddressesForOVN(entries []string) ([]string, error) {
 	return addresses, nil
 }
 
-func expandIPPoolAddressesInternal(entries []string, checkMixedIPFamily bool) ([]string, error) {
+func expandSingleFamilyIPPoolAddresses(entries []string) ([]string, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
@@ -54,13 +41,10 @@ func expandIPPoolAddressesInternal(entries []string, checkMixedIPFamily bool) ([
 	addUnique := func(cidr string) {
 		if _, exists := seen[cidr]; !exists {
 			seen[cidr] = struct{}{}
-			// Detect IP family if check is enabled
-			if checkMixedIPFamily {
-				if strings.Contains(cidr, ":") {
-					hasIPv6 = true
-				} else {
-					hasIPv4 = true
-				}
+			if strings.Contains(cidr, ":") {
+				hasIPv6 = true
+			} else {
+				hasIPv4 = true
 			}
 		}
 	}
@@ -95,8 +79,7 @@ func expandIPPoolAddressesInternal(entries []string, checkMixedIPFamily bool) ([
 		}
 	}
 
-	// Check for mixed IP families if enabled (OVN address set limitation)
-	if checkMixedIPFamily && hasIPv4 && hasIPv6 {
+	if hasIPv4 && hasIPv6 {
 		return nil, errors.New("mixed IPv4 and IPv6 addresses are not supported in OVN address set")
 	}
 
@@ -170,20 +153,6 @@ func simplifyOVNAddress(cidr string) string {
 		return before
 	}
 	return cidr
-}
-
-// CanonicalizeIPPoolEntries returns a set of canonical pool entries for comparison purposes.
-func CanonicalizeIPPoolEntries(entries []string) (map[string]bool, error) {
-	expanded, err := ExpandIPPoolAddresses(entries)
-	if err != nil {
-		return nil, err
-	}
-
-	set := make(map[string]bool, len(expanded))
-	for _, token := range expanded {
-		set[token] = true
-	}
-	return set, nil
 }
 
 // NormalizeAddressSetEntries normalizes an OVN address set string list into a lookup map.

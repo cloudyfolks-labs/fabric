@@ -254,23 +254,6 @@ func NewOvnSbClient(ovnSbAddr string, ovnSbTimeout, ovsDbConTimeout, ovsDbInacti
 
 // TODO: support ic-nb ic-sb client
 
-func ConstructWaitForNameNotExistsOperation(name, table string) ovsdb.Operation {
-	return ConstructWaitForUniqueOperation(table, "name", name)
-}
-
-func ConstructWaitForUniqueOperation(table, column string, value any) ovsdb.Operation {
-	timeout := OVSDBWaitTimeout
-	return ovsdb.Operation{
-		Op:      ovsdb.OperationWait,
-		Table:   table,
-		Timeout: &timeout,
-		Where:   []ovsdb.Condition{{Column: column, Function: ovsdb.ConditionEqual, Value: value}},
-		Columns: []string{column},
-		Until:   string(ovsdb.WaitConditionNotEqual),
-		Rows:    []ovsdb.Row{{column: value}},
-	}
-}
-
 func (c *ovsDbClient) Transact(method string, operations []ovsdb.Operation) error {
 	if len(operations) == 0 {
 		klog.V(6).Info("operations should not be empty")
@@ -282,7 +265,7 @@ func (c *ovsDbClient) Transact(method string, operations []ovsdb.Operation) erro
 
 	start := time.Now()
 	results, err := c.Client.Transact(ctx, operations...)
-	elapsed := float64((time.Since(start)) / time.Millisecond)
+	elapsed := float64(time.Since(start) / time.Millisecond)
 
 	var dbType string
 	switch c.Schema().Name {

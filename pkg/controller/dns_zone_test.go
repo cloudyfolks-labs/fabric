@@ -9,13 +9,13 @@ import (
 
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
-func makeDNSZone(name, vpc string, records []kubeovnv1.DNSZoneRecord) *kubeovnv1.DNSZone {
-	return &kubeovnv1.DNSZone{
+func makeDNSZone(name, vpc string, records []fabricv1.DNSZoneRecord) *fabricv1.DNSZone {
+	return &fabricv1.DNSZone{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: kubeovnv1.DNSZoneSpec{
+		Spec: fabricv1.DNSZoneSpec{
 			Vpc:     vpc,
 			Records: records,
 		},
@@ -25,7 +25,7 @@ func makeDNSZone(name, vpc string, records []kubeovnv1.DNSZoneRecord) *kubeovnv1
 func Test_dnsZoneRecords(t *testing.T) {
 	t.Parallel()
 
-	records, err := dnsZoneRecords(makeDNSZone("zone1", "vpc1", []kubeovnv1.DNSZoneRecord{
+	records, err := dnsZoneRecords(makeDNSZone("zone1", "vpc1", []fabricv1.DNSZoneRecord{
 		{Name: "Db.Internal.", IPs: []string{"10.0.0.5"}},
 		{Name: "api.internal", IPs: []string{"10.0.1.7", "fd00::7"}},
 	}))
@@ -35,7 +35,7 @@ func Test_dnsZoneRecords(t *testing.T) {
 		"api.internal": "10.0.1.7 fd00::7",
 	}, records)
 
-	_, err = dnsZoneRecords(makeDNSZone("zone1", "vpc1", []kubeovnv1.DNSZoneRecord{
+	_, err = dnsZoneRecords(makeDNSZone("zone1", "vpc1", []fabricv1.DNSZoneRecord{
 		{Name: "bad", IPs: []string{"not-an-ip"}},
 	}))
 	require.Error(t, err)
@@ -47,23 +47,23 @@ func Test_handleAddOrUpdateDNSZone(t *testing.T) {
 	t.Run("missing vpc requeues and reports condition", func(t *testing.T) {
 		zone := makeDNSZone("zone1", "missing-vpc", nil)
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			DNSZones: []*kubeovnv1.DNSZone{zone},
+			DNSZones: []*fabricv1.DNSZone{zone},
 		})
 		require.NoError(t, err)
 		assert.Error(t, fc.fakeController.handleAddOrUpdateDNSZone("zone1"))
 	})
 
 	t.Run("zone is programmed into every switch of the vpc", func(t *testing.T) {
-		zone := makeDNSZone("zone1", "vpc1", []kubeovnv1.DNSZoneRecord{
+		zone := makeDNSZone("zone1", "vpc1", []fabricv1.DNSZoneRecord{
 			{Name: "db.internal", IPs: []string{"10.0.0.5"}},
 		})
-		vpc := &kubeovnv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc1"}}
-		subnetA := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}, Spec: kubeovnv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.60.0.0/24"}}
-		subnetB := &kubeovnv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: kubeovnv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.60.1.0/24"}}
+		vpc := &fabricv1.Vpc{ObjectMeta: metav1.ObjectMeta{Name: "vpc1"}}
+		subnetA := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-a"}, Spec: fabricv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.60.0.0/24"}}
+		subnetB := &fabricv1.Subnet{ObjectMeta: metav1.ObjectMeta{Name: "subnet-b"}, Spec: fabricv1.SubnetSpec{Vpc: "vpc1", CIDRBlock: "10.60.1.0/24"}}
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			DNSZones: []*kubeovnv1.DNSZone{zone},
-			Vpcs:     []*kubeovnv1.Vpc{vpc},
-			Subnets:  []*kubeovnv1.Subnet{subnetA, subnetB},
+			DNSZones: []*fabricv1.DNSZone{zone},
+			Vpcs:     []*fabricv1.Vpc{vpc},
+			Subnets:  []*fabricv1.Subnet{subnetA, subnetB},
 		})
 		require.NoError(t, err)
 

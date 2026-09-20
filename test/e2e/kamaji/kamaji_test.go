@@ -41,7 +41,7 @@ func TestE2E(t *testing.T) {
 func controllerEnv(f *framework.Framework) map[string]string {
 	ginkgo.GinkgoHelper()
 
-	deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).
+	deploy, err := f.ClientSet.AppsV1().Deployments(framework.FabricNamespace).
 		Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
 	framework.ExpectNoError(err, "get fabric-controller deployment")
 	for _, c := range deploy.Spec.Template.Spec.Containers {
@@ -136,12 +136,12 @@ var _ = framework.Describe("[group:kamaji]", func() {
 	})
 
 	ginkgo.It("fabric-controller runs with replicas=1 in hosted OVN central dataPlaneOnly", func() {
-		deploy, err := f.ClientSet.AppsV1().Deployments(framework.KubeOvnNamespace).
+		deploy, err := f.ClientSet.AppsV1().Deployments(framework.FabricNamespace).
 			Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		framework.ExpectNotNil(deploy.Spec.Replicas)
 		gomega.Expect(*deploy.Spec.Replicas).To(gomega.BeEquivalentTo(1),
-			"hosted OVN central dataPlaneOnly should default fabric-controller to 1 replica via kubeovn.controllerReplicas")
+			"hosted OVN central dataPlaneOnly should default fabric-controller to 1 replica via fabric.controllerReplicas")
 	})
 
 	ginkgo.It("data-plane components use the hosted OVN DB addresses", func() {
@@ -159,7 +159,7 @@ var _ = framework.Describe("[group:kamaji]", func() {
 		host, port := hostAndPort(sbAddr)
 		framework.Logf("expecting ESTAB connections to %s from the tenant cluster", sbAddr)
 
-		pods, err := f.ClientSet.CoreV1().Pods(framework.KubeOvnNamespace).List(context.TODO(),
+		pods, err := f.ClientSet.CoreV1().Pods(framework.FabricNamespace).List(context.TODO(),
 			metav1.ListOptions{LabelSelector: "app=ovs"})
 		framework.ExpectNoError(err)
 		framework.ExpectNotEmpty(pods.Items, "no ovs-ovn pod found")
@@ -208,15 +208,15 @@ var _ = framework.Describe("[group:kamaji]", func() {
 	})
 
 	ginkgo.It("fabric-controller leader-election Lease lives in the tenant apiserver", func() {
-		_, err := f.ClientSet.CoordinationV1().Leases(framework.KubeOvnNamespace).
+		_, err := f.ClientSet.CoordinationV1().Leases(framework.FabricNamespace).
 			Get(context.TODO(), "fabric-controller", metav1.GetOptions{})
 		if err != nil {
-			leases, listErr := f.ClientSet.CoordinationV1().Leases(framework.KubeOvnNamespace).
+			leases, listErr := f.ClientSet.CoordinationV1().Leases(framework.FabricNamespace).
 				List(context.TODO(), metav1.ListOptions{})
 			framework.ExpectNoError(listErr)
 			gomega.Expect(leases.Items).NotTo(gomega.BeEmpty(),
 				"expected at least one Lease in %s (fabric-controller leader election)",
-				framework.KubeOvnNamespace)
+				framework.FabricNamespace)
 		}
 	})
 })

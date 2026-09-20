@@ -40,10 +40,6 @@ func (r *IPRange) End() IP {
 	return r.end
 }
 
-func (r *IPRange) SetStart(ip IP) {
-	r.start = ip
-}
-
 func (r *IPRange) SetEnd(ip IP) {
 	r.end = ip
 }

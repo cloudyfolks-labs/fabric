@@ -11,7 +11,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -92,13 +92,13 @@ func Test_setUserDefinedNetwork(t *testing.T) {
 	tests := []struct {
 		name    string
 		service *corev1.Service
-		slr     *kubeovnv1.SwitchLBRule
+		slr     *fabricv1.SwitchLBRule
 		result  *corev1.Service
 	}{
 		{
 			name:    "Propagate VPC",
 			service: &corev1.Service{},
-			slr: &kubeovnv1.SwitchLBRule{
+			slr: &fabricv1.SwitchLBRule{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						util.LogicalRouterAnnotation: "test",
@@ -116,7 +116,7 @@ func Test_setUserDefinedNetwork(t *testing.T) {
 		{
 			name:    "Propagate Subnet",
 			service: &corev1.Service{},
-			slr: &kubeovnv1.SwitchLBRule{
+			slr: &fabricv1.SwitchLBRule{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						util.LogicalSwitchAnnotation: "test",
@@ -134,7 +134,7 @@ func Test_setUserDefinedNetwork(t *testing.T) {
 		{
 			name:    "Propagate VPC/Subnet",
 			service: &corev1.Service{},
-			slr: &kubeovnv1.SwitchLBRule{
+			slr: &fabricv1.SwitchLBRule{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						util.LogicalRouterAnnotation: "test1",
@@ -154,7 +154,7 @@ func Test_setUserDefinedNetwork(t *testing.T) {
 		{
 			name:    "Propagate nothing",
 			service: &corev1.Service{},
-			slr:     &kubeovnv1.SwitchLBRule{},
+			slr:     &fabricv1.SwitchLBRule{},
 			result:  &corev1.Service{},
 		},
 	}
@@ -178,13 +178,13 @@ func setupHandleDelSLRTest(t *testing.T, vpcName, subnetName, slrName, namespace
 	fc := newFakeController(t)
 	ctrl := fc.fakeController
 
-	vpc := &kubeovnv1.Vpc{
+	vpc := &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: vpcName},
-		Status: kubeovnv1.VpcStatus{
+		Status: fabricv1.VpcStatus{
 			TCPLoadBalancer: tcpLBName,
 		},
 	}
-	_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+	_, err := ctrl.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 	require.NoError(t, err)
 	require.NoError(t, fc.fakeInformers.vpcInformer.Informer().GetStore().Add(vpc))
 
@@ -203,10 +203,10 @@ func setupHandleDelSLRTest(t *testing.T, vpcName, subnetName, slrName, namespace
 	require.NoError(t, err)
 	require.NoError(t, fc.fakeInformers.serviceInformer.Informer().GetStore().Add(svc))
 
-	vip := &kubeovnv1.Vip{
+	vip := &fabricv1.Vip{
 		ObjectMeta: metav1.ObjectMeta{Name: subnetName},
 	}
-	_, err = ctrl.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
+	_, err = ctrl.config.FabricClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	return fc
@@ -250,7 +250,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		require.NoError(t, err)
 
 		// VIP should have been deleted
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted", subnetName)
 	})
 
@@ -280,7 +280,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted", subnetName)
 	})
 
@@ -317,7 +317,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		require.NoError(t, err)
 
 		// VIP should still exist
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.NoError(t, err, "VIP %s should still exist (other VPC owns the LBHC)", subnetName)
 	})
 
@@ -333,7 +333,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted via fallback path", subnetName)
 	})
 
@@ -362,7 +362,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err = fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted via info.Subnet fallback", subnetName)
 	})
 
@@ -411,7 +411,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err = fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.NoError(t, err, "VIP %s should still exist (other VPC owns the LBHC)", subnetName)
 	})
 
@@ -437,7 +437,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		_, err = fc.fakeController.config.KubeOvnClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
+		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted", subnetName)
 	})
 }

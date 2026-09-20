@@ -18,7 +18,7 @@ import (
 	v1alpha1 "sigs.k8s.io/network-policy-api/apis/v1alpha1"
 	v1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -327,7 +327,7 @@ func (c *OVNNbClient) CreateNodeACL(pgName, nodeIPStr, joinIPStr string) error {
 	for _, nodeIP := range nodeIPs {
 		protocol := util.CheckProtocol(nodeIP)
 		ipSuffix := "ip4"
-		if protocol == kubeovnv1.ProtocolIPv6 {
+		if protocol == fabricv1.ProtocolIPv6 {
 			ipSuffix = "ip6"
 		}
 		pgAs := fmt.Sprintf("%s_%s", pgName, ipSuffix)
@@ -361,7 +361,7 @@ func (c *OVNNbClient) CreateNodeACL(pgName, nodeIPStr, joinIPStr string) error {
 
 		protocol := util.CheckProtocol(joinIP)
 		ipSuffix := "ip4"
-		if protocol == kubeovnv1.ProtocolIPv6 {
+		if protocol == fabricv1.ProtocolIPv6 {
 			ipSuffix = "ip6"
 		}
 
@@ -505,7 +505,7 @@ func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 	return nil
 }
 
-func (c *OVNNbClient) UpdateSgACL(sg *kubeovnv1.SecurityGroup, direction string) error {
+func (c *OVNNbClient) UpdateSgACL(sg *fabricv1.SecurityGroup, direction string) error {
 	pgName := GetSgPortGroupName(sg.Name)
 
 	// clear acl
@@ -565,7 +565,7 @@ func (c *OVNNbClient) UpdateSgACL(sg *kubeovnv1.SecurityGroup, direction string)
 	return nil
 }
 
-func (c *OVNNbClient) UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcls []kubeovnv1.ACL, allowEWTraffic bool) error {
+func (c *OVNNbClient) UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcls []fabricv1.ACL, allowEWTraffic bool) error {
 	if len(subnetAcls) == 0 {
 		if err := c.DeleteAcls(lsName, LogicalSwitchKey, "", map[string]string{"subnet": lsName}); err != nil {
 			klog.Error(err)
@@ -588,7 +588,7 @@ func (c *OVNNbClient) UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcl
 			protocol := util.CheckProtocol(cidr)
 
 			ipSuffix := "ip4"
-			if protocol == kubeovnv1.ProtocolIPv6 {
+			if protocol == fabricv1.ProtocolIPv6 {
 				ipSuffix = "ip6"
 			}
 
@@ -751,7 +751,7 @@ func (c *OVNNbClient) SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR 
 		protocol := util.CheckProtocol(cidr)
 
 		ipSuffix := "ip4"
-		if protocol == kubeovnv1.ProtocolIPv6 {
+		if protocol == fabricv1.ProtocolIPv6 {
 			ipSuffix = "ip6"
 		}
 
@@ -1064,7 +1064,7 @@ func (c *OVNNbClient) newACLWithoutCheck(parent, direction, priority, match, act
 }
 
 // createSgRuleACL create security group rule acl
-func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule kubeovnv1.SecurityGroupRule, tier int) (*ovnnb.ACL, error) {
+func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule fabricv1.SecurityGroupRule, tier int) (*ovnnb.ACL, error) {
 	ipSuffix := "ip4"
 	if rule.IPVersion == "ipv6" {
 		ipSuffix = "ip6"
@@ -1101,7 +1101,7 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule kubeovnv1.Secu
 	if rule.IPVersion == "ipv6" {
 		remotePgName = GetSgV6AssociatedName(rule.RemoteSecurityGroup)
 	}
-	if rule.RemoteType == kubeovnv1.SgRemoteTypeSg {
+	if rule.RemoteType == fabricv1.SgRemoteTypeSg {
 		allowedIPMatch = NewAndACLMatch(
 			allIPMatch,
 			NewACLMatch(remoteIPKey, "==", "$"+remotePgName, ""),
@@ -1121,7 +1121,7 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule kubeovnv1.Secu
 	match := allowedIPMatch
 
 	switch rule.Protocol {
-	case kubeovnv1.SgProtocolICMP:
+	case fabricv1.SgProtocolICMP:
 		match = NewAndACLMatch(
 			allowedIPMatch,
 			NewACLMatch("icmp4", "", "", ""),
@@ -1132,7 +1132,7 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule kubeovnv1.Secu
 				NewACLMatch("icmp6", "", "", ""),
 			)
 		}
-	case kubeovnv1.SgProtocolTCP, kubeovnv1.SgProtocolUDP:
+	case fabricv1.SgProtocolTCP, fabricv1.SgProtocolUDP:
 		match = NewAndACLMatch(
 			allowedIPMatch,
 			NewACLMatch(string(rule.Protocol)+".dst", "<=", strconv.Itoa(rule.PortRangeMin), strconv.Itoa(rule.PortRangeMax)),
@@ -1149,9 +1149,9 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule kubeovnv1.Secu
 
 	var action string
 	switch rule.Policy {
-	case kubeovnv1.SgPolicyAllow:
+	case fabricv1.SgPolicyAllow:
 		action = ovnnb.ACLActionAllowRelated
-	case kubeovnv1.SgPolicyPass:
+	case fabricv1.SgPolicyPass:
 		action = ovnnb.ACLActionPass
 	default:
 		action = ovnnb.ACLActionDrop
@@ -1170,7 +1170,7 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule kubeovnv1.Secu
 
 func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direction string, npp []netv1.NetworkPolicyPort, namedPortMap map[string]*util.NamedPortInfo) []string {
 	ipSuffix := "ip4"
-	if protocol == kubeovnv1.ProtocolIPv6 {
+	if protocol == fabricv1.ProtocolIPv6 {
 		ipSuffix = "ip6"
 	}
 
@@ -1270,7 +1270,7 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 // one ipBlock do not affect other peers in the same NetworkPolicy rule.
 func newIPBlockACLMatch(pgName, protocol, direction string, ipBlocks []netv1.IPBlock, npp []netv1.NetworkPolicyPort, namedPortMap map[string]*util.NamedPortInfo) []string {
 	ipSuffix := "ip4"
-	if protocol == kubeovnv1.ProtocolIPv6 {
+	if protocol == fabricv1.ProtocolIPv6 {
 		ipSuffix = "ip6"
 	}
 
@@ -1571,7 +1571,7 @@ func (c *OVNNbClient) DeleteAclsOps(parentName, parentType, direction string, ex
 }
 
 // sgRuleNoACL check if security group rule has acl in a tier
-func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule kubeovnv1.SecurityGroupRule, tier int) (bool, error) {
+func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.SecurityGroupRule, tier int) (bool, error) {
 	ipSuffix := "ip4"
 	if rule.IPVersion == "ipv6" {
 		ipSuffix = "ip6"
@@ -1608,7 +1608,7 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule kubeovnv1.Secur
 	if rule.IPVersion == "ipv6" {
 		remotePgName = GetSgV6AssociatedName(rule.RemoteSecurityGroup)
 	}
-	if rule.RemoteType == kubeovnv1.SgRemoteTypeSg {
+	if rule.RemoteType == fabricv1.SgRemoteTypeSg {
 		allowedIPMatch = NewAndACLMatch(
 			allIPMatch,
 			NewACLMatch(ipKey, "==", "$"+remotePgName, ""),
@@ -1628,7 +1628,7 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule kubeovnv1.Secur
 	match := allowedIPMatch
 
 	switch rule.Protocol {
-	case kubeovnv1.SgProtocolICMP:
+	case fabricv1.SgProtocolICMP:
 		match = NewAndACLMatch(
 			allowedIPMatch,
 			NewACLMatch("icmp4", "", "", ""),
@@ -1639,7 +1639,7 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule kubeovnv1.Secur
 				NewACLMatch("icmp6", "", "", ""),
 			)
 		}
-	case kubeovnv1.SgProtocolTCP, kubeovnv1.SgProtocolUDP:
+	case fabricv1.SgProtocolTCP, fabricv1.SgProtocolUDP:
 		match = NewAndACLMatch(
 			allowedIPMatch,
 			NewACLMatch(string(rule.Protocol)+".dst", "<=", strconv.Itoa(rule.PortRangeMin), strconv.Itoa(rule.PortRangeMax)),
@@ -1671,7 +1671,7 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule kubeovnv1.Secur
 }
 
 // SGLostACL check if security group lost an acl
-func (c *OVNNbClient) SGLostACL(sg *kubeovnv1.SecurityGroup) (bool, error) {
+func (c *OVNNbClient) SGLostACL(sg *fabricv1.SecurityGroup) (bool, error) {
 	ingressRules := sg.Spec.IngressRules
 	for _, rule := range ingressRules {
 		no, err := c.sgRuleNoACL(sg.Name, ovnnb.ACLDirectionToLport, rule, util.ConvertSGTierToOvnTier(sg.Spec.Tier))
@@ -1814,7 +1814,7 @@ func (c *OVNNbClient) UpdateCnpRuleACLOps(pgName, asName, protocol, aclName stri
 
 func newAnpACLMatch(pgName, asName, protocol, direction string, rulePorts []v1alpha1.AdminNetworkPolicyPort) []string {
 	ipSuffix := "ip4"
-	if protocol == kubeovnv1.ProtocolIPv6 {
+	if protocol == fabricv1.ProtocolIPv6 {
 		ipSuffix = "ip6"
 	}
 
@@ -1873,7 +1873,7 @@ func newAnpACLMatch(pgName, asName, protocol, direction string, rulePorts []v1al
 
 func newCnpACLMatch(pgName, asName, protocol, direction string, rulePorts []v1alpha2.ClusterNetworkPolicyPort) []string {
 	ipSuffix := "ip4"
-	if protocol == kubeovnv1.ProtocolIPv6 {
+	if protocol == fabricv1.ProtocolIPv6 {
 		ipSuffix = "ip6"
 	}
 

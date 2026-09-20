@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/request"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -330,7 +330,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 		ginkgo.By("Creating pod " + podName)
 		annotations := map[string]string{nadv1.NetworkAttachmentAnnot: fmt.Sprintf("%s/%s", nad.Namespace, nad.Name)}
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		pod = podClient.CreateSync(pod)
 
 		ginkgo.By("Validating pod annotations")
@@ -422,7 +422,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 				fmt.Sprintf(util.DefaultRouteAnnotationTemplate, provider): "true",
 			}
 			cmd := []string{"sleep", "infinity"}
-			pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+			pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 			pod = podClient.CreateSync(pod)
 
 			ginkgo.By("Validating pod annotations")
@@ -482,7 +482,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 			fmt.Sprintf(util.IPFamilyAnnotationTemplate, providerNet2): strings.ToLower(apiv1.ProtocolIPv6),
 		}
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		pod = podClient.CreateSync(pod)
 
 		ginkgo.By("Validating net1 IPv4-only allocation")
@@ -573,7 +573,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 		ginkgo.By("Creating pod " + podName)
 		annotations := map[string]string{nadv1.NetworkAttachmentAnnot: fmt.Sprintf("%s/%s", nad.Namespace, nad.Name)}
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		pod = podClient.CreateSync(pod)
 
 		ginkgo.By("Validating pod annotations")
@@ -665,7 +665,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 		ginkgo.By("Creating pod " + podName + " with MAC address " + mac)
 		annotations := map[string]string{nadv1.NetworkAttachmentAnnot: string(networksAnnotation)}
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		pod = podClient.CreateSync(pod)
 
 		ginkgo.By("Validating pod annotations")
@@ -800,7 +800,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 		ginkgo.By("Creating pod " + podName + " with MAC address " + mac)
 		annotations := map[string]string{nadv1.NetworkAttachmentAnnot: string(networksAnnotation)}
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		pod = podClient.CreateSync(pod)
 
 		ginkgo.By("Validating pod annotations")
@@ -918,7 +918,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 		ginkgo.By("Creating pod " + podName)
 		annotations := map[string]string{nadv1.NetworkAttachmentAnnot: string(networksAnnotation)}
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		pod = podClient.CreateSync(pod)
 
 		ginkgo.By("Validating pod annotations")
@@ -984,7 +984,7 @@ var _ = framework.SerialDescribe("[group:multus]", func() {
 		ginkgo.By("Creating pod " + podName)
 		annotations := map[string]string{nadv1.NetworkAttachmentAnnot: string(networksAnnotation)}
 		cmd := []string{"sleep", "infinity"}
-		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.KubeOVNImage, cmd, nil)
+		pod := framework.MakePrivilegedPod(namespaceName, podName, nil, annotations, f.FabricImage, cmd, nil)
 		pod = podClient.CreateSync(pod)
 
 		ginkgo.By("Validating pod annotations")

@@ -11,12 +11,11 @@ from pathlib import Path
 
 
 infrastructureJobs = {
-    "build-kube-ovn-base",
+    "build-fabric-base",
     "build-fabric-dpdk-base",
     "build-fabric",
     "build-fabric-dpdk",
     "lint-ut",
-    "build-vpc-nat-gateway",
     "build-e2e-binaries",
     "netpol-path-filter",
     "e2e-selection",
@@ -34,7 +33,7 @@ dynamicWorkflowMatrices = {
         "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]},
     },
     "fabric-conformance-e2e": {
-        "output": "kubeOvnConformanceMatrix",
+        "output": "fabricConformanceMatrix",
         "matrix": {"ip-family": ["ipv4", "ipv6", "dual"], "mode": ["overlay", "underlay"]},
     },
 }

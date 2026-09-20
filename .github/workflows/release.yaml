@@ -14,8 +14,177 @@ env:
   REGISTRY: ghcr.io/cloudyfolks-labs
 
 jobs:
+  base-amd64:
+    name: Build and push amd64 base images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set base tag
+        run: echo "BASE_TAG=$(cat BASE_VERSION)" >> "$GITHUB_ENV"
+
+      - name: Check the registry for the base images
+        id: check
+        run: |
+          build=0
+          for tag in "$BASE_TAG-amd64" "$BASE_TAG-amd64-legacy" "$BASE_TAG-debug-amd64"; do
+            if ! docker manifest inspect "$REGISTRY/fabric-base:$tag" >/dev/null 2>&1; then
+              build=1
+            fi
+          done
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - name: Free disk space
+        if: steps.check.outputs.build == 1
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.build == 1
+        with:
+          driver-opts: env.BUILDKIT_STEP_LOG_MAX_SIZE=50000000
+
+      - uses: actions/setup-go@v6
+        if: steps.check.outputs.build == 1
+        id: setup-go
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+
+      - name: Build and push amd64 base images
+        if: steps.check.outputs.build == 1
+        env:
+          GO_VERSION: ${{ steps.setup-go.outputs.go-version }}
+        run: |
+          make base-amd64 RELEASE_TAG="$BASE_TAG" DEBUG_TAG="$BASE_TAG-debug" LEGACY_TAG="$BASE_TAG-amd64-legacy"
+          docker push "$REGISTRY/fabric-base:$BASE_TAG-amd64"
+          docker push "$REGISTRY/fabric-base:$BASE_TAG-amd64-legacy"
+          docker push "$REGISTRY/fabric-base:$BASE_TAG-debug-amd64"
+
+  base-amd64-dpdk:
+    name: Build and push amd64 dpdk base image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set base tag
+        run: echo "BASE_TAG=$(cat BASE_VERSION)" >> "$GITHUB_ENV"
+
+      - name: Check the registry for the dpdk base image
+        id: check
+        run: |
+          if docker manifest inspect "$REGISTRY/fabric-base:$BASE_TAG-dpdk" >/dev/null 2>&1; then
+            echo "build=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Free disk space
+        if: steps.check.outputs.build == 1
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.build == 1
+
+      - name: Build and push amd64 dpdk base image
+        if: steps.check.outputs.build == 1
+        run: |
+          make base-amd64-dpdk RELEASE_TAG="$BASE_TAG"
+          docker tag "$REGISTRY/fabric-base:$BASE_TAG-amd64-dpdk" "$REGISTRY/fabric-base:$BASE_TAG-dpdk"
+          docker push "$REGISTRY/fabric-base:$BASE_TAG-dpdk"
+
+  base-arm64:
+    name: Build and push arm64 base images
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set base tag
+        run: echo "BASE_TAG=$(cat BASE_VERSION)" >> "$GITHUB_ENV"
+
+      - name: Check the registry for the base images
+        id: check
+        run: |
+          build=0
+          for tag in "$BASE_TAG-arm64" "$BASE_TAG-debug-arm64"; do
+            if ! docker manifest inspect "$REGISTRY/fabric-base:$tag" >/dev/null 2>&1; then
+              build=1
+            fi
+          done
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - name: Free disk space
+        if: steps.check.outputs.build == 1
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.check.outputs.build == 1
+        with:
+          driver-opts: env.BUILDKIT_STEP_LOG_MAX_SIZE=50000000
+
+      - uses: actions/setup-go@v6
+        if: steps.check.outputs.build == 1
+        id: setup-go
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: false
+
+      - name: Build and push arm64 base images
+        if: steps.check.outputs.build == 1
+        env:
+          GO_VERSION: ${{ steps.setup-go.outputs.go-version }}
+        run: |
+          make base-arm64 RELEASE_TAG="$BASE_TAG" DEBUG_TAG="$BASE_TAG-debug"
+          docker push "$REGISTRY/fabric-base:$BASE_TAG-arm64"
+          docker push "$REGISTRY/fabric-base:$BASE_TAG-debug-arm64"
+
+  base-manifests:
+    name: Publish multi-arch base manifests
+    needs:
+      - base-amd64
+      - base-arm64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set base tag
+        run: echo "BASE_TAG=$(cat BASE_VERSION)" >> "$GITHUB_ENV"
+
+      - name: Create multi-arch base manifests
+        run: |
+          docker buildx imagetools create -t "$REGISTRY/fabric-base:$BASE_TAG" \
+            "$REGISTRY/fabric-base:$BASE_TAG-amd64" "$REGISTRY/fabric-base:$BASE_TAG-arm64"
+          docker buildx imagetools create -t "$REGISTRY/fabric-base:$BASE_TAG-debug" \
+            "$REGISTRY/fabric-base:$BASE_TAG-debug-amd64" "$REGISTRY/fabric-base:$BASE_TAG-debug-arm64"
+
   build-images:
     name: Build and push images
+    needs: base-manifests
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -52,6 +221,7 @@ jobs:
           docker buildx build --platform linux/amd64 --push \
             -t "$REGISTRY/fabric:$TAG-amd64" \
             --build-arg VERSION="$TAG" --build-arg BASE_TAG="$BASE_TAG" \
+            --build-arg BASE_IMAGE="$REGISTRY/fabric-base" \
             -f dist/images/Dockerfile dist/images/
 
       - name: Build arm64 binaries
@@ -62,6 +232,7 @@ jobs:
           docker buildx build --platform linux/arm64 --push \
             -t "$REGISTRY/fabric:$TAG-arm64" \
             --build-arg VERSION="$TAG" --build-arg BASE_TAG="$BASE_TAG" \
+            --build-arg BASE_IMAGE="$REGISTRY/fabric-base" \
             -f dist/images/Dockerfile dist/images/
 
       - name: Create multi-arch manifest

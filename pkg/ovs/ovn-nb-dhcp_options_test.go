@@ -7,20 +7,20 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-func mockSubnet(name string, enableDHCP bool) *kubeovnv1.Subnet {
-	return &kubeovnv1.Subnet{
+func mockSubnet(name string, enableDHCP bool) *fabricv1.Subnet {
+	return &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			CIDRBlock:  "10.244.0.0/16,fc00::af4:0/112",
 			Gateway:    "10.244.0.1,fc00::0af4:01",
-			Protocol:   kubeovnv1.ProtocolDual,
+			Protocol:   fabricv1.ProtocolDual,
 			EnableDHCP: enableDHCP,
 		},
 	}
@@ -84,7 +84,7 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptions() {
 		subnet.Spec.U2OInterconnection = false
 		subnet.Spec.CIDRBlock = "10.244.0.0/16"
 		subnet.Spec.Gateway = "10.244.0.1"
-		subnet.Spec.Protocol = kubeovnv1.ProtocolIPv4
+		subnet.Spec.Protocol = fabricv1.ProtocolIPv4
 
 		uuid, err := nbClient.UpdateDHCPOptions(subnet, 1500)
 		require.NoError(t, err)
@@ -97,7 +97,7 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptions() {
 	t.Run("update ipv6 dhcp options", func(t *testing.T) {
 		subnet.Spec.CIDRBlock = "fc00::af4:0/112"
 		subnet.Spec.Gateway = "fc00::0af4:01"
-		subnet.Spec.Protocol = kubeovnv1.ProtocolIPv6
+		subnet.Spec.Protocol = fabricv1.ProtocolIPv6
 
 		uuid, err := nbClient.UpdateDHCPOptions(subnet, 1500)
 		require.NoError(t, err)
@@ -385,7 +385,7 @@ func (suite *OvnClientTestSuite) testDeleteDHCPOptions() {
 	t.Run("delete all protocol dhcp options", func(t *testing.T) {
 		prepare()
 
-		err := nbClient.DeleteDHCPOptions(lsName, kubeovnv1.ProtocolDual)
+		err := nbClient.DeleteDHCPOptions(lsName, fabricv1.ProtocolDual)
 		require.NoError(t, err)
 
 		out, err := nbClient.ListDHCPOptions(true, map[string]string{LogicalSwitchKey: lsName, "protocol": "IPv6"})
@@ -403,7 +403,7 @@ func (suite *OvnClientTestSuite) testGetDHCPOptions() {
 
 	t.Run("ipv4 dhcp options", func(t *testing.T) {
 		cidr := "192.168.30.0/24"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		err := nbClient.CreateDHCPOptions(lsName, cidr, "")
 		require.NoError(t, err)
 
@@ -413,7 +413,7 @@ func (suite *OvnClientTestSuite) testGetDHCPOptions() {
 		})
 
 		t.Run("protocol is different", func(t *testing.T) {
-			_, err := nbClient.GetDHCPOptions(lsName, kubeovnv1.ProtocolIPv6, false)
+			_, err := nbClient.GetDHCPOptions(lsName, fabricv1.ProtocolIPv6, false)
 			require.ErrorContains(t, err, "not found")
 		})
 
@@ -430,7 +430,7 @@ func (suite *OvnClientTestSuite) testGetDHCPOptions() {
 
 	t.Run("ipv6 dhcp options", func(t *testing.T) {
 		cidr := "fd00::c0a8:6901/120"
-		protocol := kubeovnv1.ProtocolIPv6
+		protocol := fabricv1.ProtocolIPv6
 		err := nbClient.CreateDHCPOptions(lsName, cidr, "")
 		require.NoError(t, err)
 
@@ -441,7 +441,7 @@ func (suite *OvnClientTestSuite) testGetDHCPOptions() {
 	})
 
 	t.Run("invalid protocol", func(t *testing.T) {
-		protocol := kubeovnv1.ProtocolDual
+		protocol := fabricv1.ProtocolDual
 		_, err := nbClient.GetDHCPOptions(lsName, protocol, false)
 		require.ErrorContains(t, err, "protocol must be IPv4 or IPv6")
 
@@ -458,11 +458,11 @@ func (suite *OvnClientTestSuite) testGetDHCPOptions() {
 		err = nbClient.CreateDHCPOptions(lsName, cidr, "")
 		require.NoError(t, err)
 
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		_, err = nbClient.GetDHCPOptions(lsName, protocol, false)
 		require.ErrorContains(t, err, "more than one IPv4 dhcp options in logical switch")
 
-		protocol = kubeovnv1.ProtocolIPv6
+		protocol = fabricv1.ProtocolIPv6
 		_, err = nbClient.GetDHCPOptions(lsName, protocol, false)
 		require.ErrorContains(t, err, "more than one IPv6 dhcp options in logical switch")
 	})
@@ -609,7 +609,7 @@ func (suite *OvnClientTestSuite) testCreateDHCPOptions() {
 		err := nbClient.CreateDHCPOptions(lsName, cidr, options)
 		require.NoError(t, err)
 
-		dhcpOpt, err := nbClient.GetDHCPOptions(lsName, kubeovnv1.ProtocolIPv4, false)
+		dhcpOpt, err := nbClient.GetDHCPOptions(lsName, fabricv1.ProtocolIPv4, false)
 		require.NoError(t, err)
 		require.Equal(t, cidr, dhcpOpt.Cidr)
 		require.Contains(t, dhcpOpt.Options, "router")
@@ -622,7 +622,7 @@ func (suite *OvnClientTestSuite) testCreateDHCPOptions() {
 		err := nbClient.CreateDHCPOptions(lsName, cidr, options)
 		require.NoError(t, err)
 
-		dhcpOpt, err := nbClient.GetDHCPOptions(lsName, kubeovnv1.ProtocolIPv6, false)
+		dhcpOpt, err := nbClient.GetDHCPOptions(lsName, fabricv1.ProtocolIPv6, false)
 		require.NoError(t, err)
 		require.Equal(t, cidr, dhcpOpt.Cidr)
 		require.Contains(t, dhcpOpt.Options, "server_id")
@@ -657,7 +657,7 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		require.NotEmpty(t, uuids.DHCPv4OptionsUUID)
 		require.Empty(t, uuids.DHCPv6OptionsUUID)
 
-		opt, err := nbClient.getDHCPOptionsEntry("", portName, kubeovnv1.ProtocolIPv4, false)
+		opt, err := nbClient.getDHCPOptionsEntry("", portName, fabricv1.ProtocolIPv4, false)
 		require.NoError(t, err)
 		require.Equal(t, uuids.DHCPv4OptionsUUID, opt.UUID)
 		require.Equal(t, cidr, opt.Cidr)
@@ -679,14 +679,14 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		// UUID must remain the same across updates.
 		require.Equal(t, uuids1.DHCPv4OptionsUUID, uuids2.DHCPv4OptionsUUID)
 
-		opt, err := nbClient.getDHCPOptionsEntry("", portName, kubeovnv1.ProtocolIPv4, false)
+		opt, err := nbClient.getDHCPOptionsEntry("", portName, fabricv1.ProtocolIPv4, false)
 		require.NoError(t, err)
 		require.Equal(t, "7200", opt.Options["lease_time"])
 	})
 
 	t.Run("per-port dhcp options not returned by GetDHCPOptions", func(t *testing.T) {
 		// GetDHCPOptions (subnet-level) must not return per-port entries.
-		opt, err := nbClient.GetDHCPOptions(lsName, kubeovnv1.ProtocolIPv4, true)
+		opt, err := nbClient.GetDHCPOptions(lsName, fabricv1.ProtocolIPv4, true)
 		require.NoError(t, err)
 		require.Nil(t, opt, "per-port DHCP entry must not be returned by subnet-level GetDHCPOptions")
 	})
@@ -701,11 +701,11 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		require.NotEmpty(t, uuids.DHCPv4OptionsUUID)
 		require.NotEmpty(t, uuids.DHCPv6OptionsUUID)
 
-		v4Opt, err := nbClient.getDHCPOptionsEntry("", dualPortName, kubeovnv1.ProtocolIPv4, false)
+		v4Opt, err := nbClient.getDHCPOptionsEntry("", dualPortName, fabricv1.ProtocolIPv4, false)
 		require.NoError(t, err)
 		require.Equal(t, uuids.DHCPv4OptionsUUID, v4Opt.UUID)
 
-		v6Opt, err := nbClient.getDHCPOptionsEntry("", dualPortName, kubeovnv1.ProtocolIPv6, false)
+		v6Opt, err := nbClient.getDHCPOptionsEntry("", dualPortName, fabricv1.ProtocolIPv6, false)
 		require.NoError(t, err)
 		require.Equal(t, uuids.DHCPv6OptionsUUID, v6Opt.UUID)
 	})
@@ -721,11 +721,11 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		require.NotEmpty(t, uuids.DHCPv4OptionsUUID, "per-port v4 entry must be created when v4 annotation is set")
 		require.Empty(t, uuids.DHCPv6OptionsUUID, "per-port v6 entry must NOT be created when v6 annotation is absent")
 
-		v4Opt, err := nbClient.getDHCPOptionsEntry("", v4OnlyPortName, kubeovnv1.ProtocolIPv4, false)
+		v4Opt, err := nbClient.getDHCPOptionsEntry("", v4OnlyPortName, fabricv1.ProtocolIPv4, false)
 		require.NoError(t, err)
 		require.Equal(t, uuids.DHCPv4OptionsUUID, v4Opt.UUID)
 
-		v6Opt, err := nbClient.getDHCPOptionsEntry("", v4OnlyPortName, kubeovnv1.ProtocolIPv6, true)
+		v6Opt, err := nbClient.getDHCPOptionsEntry("", v4OnlyPortName, fabricv1.ProtocolIPv6, true)
 		require.NoError(t, err)
 		require.Nil(t, v6Opt, "no per-port v6 DHCP_Options row should exist")
 	})
@@ -734,7 +734,7 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		err := nbClient.DeleteDHCPOptionsForPort(portName)
 		require.NoError(t, err)
 
-		opt, err := nbClient.getDHCPOptionsEntry("", portName, kubeovnv1.ProtocolIPv4, true)
+		opt, err := nbClient.getDHCPOptionsEntry("", portName, fabricv1.ProtocolIPv4, true)
 		require.NoError(t, err)
 		require.Nil(t, opt)
 	})
@@ -748,7 +748,7 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		subnet := mockSubnet("test-per-port-isolation-ls", true)
 		subnet.Spec.CIDRBlock = "10.35.0.0/24"
 		subnet.Spec.Gateway = "10.35.0.1"
-		subnet.Spec.Protocol = kubeovnv1.ProtocolIPv4
+		subnet.Spec.Protocol = fabricv1.ProtocolIPv4
 
 		_, err := nbClient.UpdateDHCPOptions(subnet, 1500)
 		require.NoError(t, err)
@@ -762,7 +762,7 @@ func (suite *OvnClientTestSuite) testUpdateDHCPOptionsForPort() {
 		require.NoError(t, err)
 
 		// Subnet-level entry must still exist.
-		opt, err := nbClient.GetDHCPOptions(subnet.Name, kubeovnv1.ProtocolIPv4, false)
+		opt, err := nbClient.GetDHCPOptions(subnet.Name, fabricv1.ProtocolIPv4, false)
 		require.NoError(t, err)
 		require.NotNil(t, opt)
 	})

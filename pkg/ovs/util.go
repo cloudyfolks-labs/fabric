@@ -12,7 +12,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -36,10 +36,6 @@ func trimCommandOutput(raw []byte) string {
 
 func LogicalRouterPortName(lr, ls string) string {
 	return fmt.Sprintf("%s-%s", lr, ls)
-}
-
-func LogicalSwitchPortName(lr, ls string) string {
-	return fmt.Sprintf("%s-%s", ls, lr)
 }
 
 func GetSgPortGroupName(sgName string) string {
@@ -92,7 +88,7 @@ func parseIpv6RaConfigs(raw string) map[string]string {
 func getIpv6Prefix(networks []string) []string {
 	ipv6Prefix := make([]string, 0, len(networks))
 	for _, network := range networks {
-		if kubeovnv1.ProtocolIPv6 == util.CheckProtocol(network) {
+		if fabricv1.ProtocolIPv6 == util.CheckProtocol(network) {
 			ipv6Prefix = append(ipv6Prefix, strings.Split(network, "/")[1])
 		}
 	}

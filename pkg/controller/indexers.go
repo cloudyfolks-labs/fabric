@@ -7,7 +7,7 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/client-go/tools/cache"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 const (
@@ -39,7 +39,7 @@ func indexEPSByService(obj any) ([]string, error) {
 }
 
 func indexVpcByBFDPort(obj any) ([]string, error) {
-	vpc, ok := obj.(*kubeovnv1.Vpc)
+	vpc, ok := obj.(*fabricv1.Vpc)
 	if !ok {
 		return nil, nil
 	}
@@ -54,7 +54,7 @@ func indexVpcByBFDPort(obj any) ([]string, error) {
 // add/update/delete. This lets calcSubnetStatusIP look up the IPs of a single
 // subnet in O(matched) instead of scanning the whole IP store.
 func indexIPBySubnet(obj any) ([]string, error) {
-	ip, ok := obj.(*kubeovnv1.IP)
+	ip, ok := obj.(*fabricv1.IP)
 	if !ok {
 		return nil, nil
 	}

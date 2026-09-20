@@ -1,5 +1,3 @@
-# Makefile for running unit tests
-
 .PHONY: ut
 ut:
 	go test -coverprofile=profile.cov $$(go list ./pkg/... | grep -vw '^github.com/cloudyfolks-labs/fabric/pkg/client')
@@ -9,7 +7,7 @@ ovs-sandbox: clean-ovs-sandbox
 	docker run -itd --name ut-ovs-sandbox \
 		--privileged \
 		-v /tmp:/tmp \
-		$(REGISTRY)/kube-ovn-base:$(RELEASE_TAG) ovs-sandbox -i
+		$(BASE_IMAGE):$(RELEASE_TAG) ovs-sandbox -i
 
 .PHONY: clean-ovs-sandbox
 clean-ovs-sandbox:

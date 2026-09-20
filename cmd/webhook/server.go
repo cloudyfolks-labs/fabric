@@ -14,7 +14,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	ctrlwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	ovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	ovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 	ovnwebhook "github.com/cloudyfolks-labs/fabric/pkg/webhook"
 	"github.com/cloudyfolks-labs/fabric/versions"

@@ -4,13 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -95,7 +94,7 @@ func (ipam *IPAM) GetStaticAddressWithFamily(podName, nicName, ip string, mac *s
 	// mac-only subnets have no CIDR, so there is no static IP to allocate. When the
 	// caller passes an empty IP (e.g. recovering a mac-only IP CR on init), register
 	// only the MAC so it is tracked in IPAM instead of failing the whole allocation.
-	if ip == "" && subnet.Protocol == kubeovnv1.ProtocolMac {
+	if ip == "" && subnet.Protocol == fabricv1.ProtocolMac {
 		_, _, macStr, err := subnet.GetRandomAddress("", podName, nicName, mac, nil, checkConflict)
 		if err != nil {
 			klog.Errorf("failed to register mac %v for %s from subnet %s: %v", mac, podName, subnetName, err)
@@ -145,18 +144,18 @@ func (ipam *IPAM) GetStaticAddressWithFamily(podName, nicName, ip string, mac *s
 	}
 
 	switch subnet.Protocol {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		klog.Infof("allocate v4 %s, mac %s for %s from subnet %s", ip, macStr, podName, subnetName)
 		return ip, "", macStr, err
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		klog.Infof("allocate v6 %s, mac %s for %s from subnet %s", ip, macStr, podName, subnetName)
 		return "", ip, macStr, err
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		for _, ip := range ips {
 			switch util.CheckProtocol(ip.String()) {
-			case kubeovnv1.ProtocolIPv4:
+			case fabricv1.ProtocolIPv4:
 				v4 = ip.String()
-			case kubeovnv1.ProtocolIPv6:
+			case fabricv1.ProtocolIPv6:
 				v6 = ip.String()
 			}
 		}
@@ -170,7 +169,7 @@ func (ipam *IPAM) GetStaticAddressWithFamily(podName, nicName, ip string, mac *s
 // compatibility is validated by callers that have subnet context.
 func validateRequestedIPFamily(ipFamily string) error {
 	ipFamily = util.NormalizeIPFamily(ipFamily)
-	if ipFamily == "" || ipFamily == kubeovnv1.ProtocolIPv4 || ipFamily == kubeovnv1.ProtocolIPv6 {
+	if ipFamily == "" || ipFamily == fabricv1.ProtocolIPv4 || ipFamily == fabricv1.ProtocolIPv6 {
 		return nil
 	}
 	return ErrInvalidIPFamily
@@ -178,18 +177,18 @@ func validateRequestedIPFamily(ipFamily string) error {
 
 func checkAndAppendIpsForDual(ips []IP, mac, podName, nicName string, subnet *Subnet, checkConflict bool) ([]IP, error) {
 	// IP Address for dual-stack should be format of 'IPv4,IPv6'
-	if subnet.Protocol != kubeovnv1.ProtocolDual || len(ips) == 2 {
+	if subnet.Protocol != fabricv1.ProtocolDual || len(ips) == 2 {
 		return ips, nil
 	}
 
 	var newIps []IP
 	var ipAddr IP
 	var err error
-	if util.CheckProtocol(ips[0].String()) == kubeovnv1.ProtocolIPv4 {
+	if util.CheckProtocol(ips[0].String()) == fabricv1.ProtocolIPv4 {
 		newIps = ips
 		_, ipAddr, _, err = subnet.getV6RandomAddress("", podName, nicName, &mac, nil, checkConflict)
 		newIps = append(newIps, ipAddr)
-	} else if util.CheckProtocol(ips[0].String()) == kubeovnv1.ProtocolIPv6 {
+	} else if util.CheckProtocol(ips[0].String()) == fabricv1.ProtocolIPv6 {
 		ipAddr, _, _, err = subnet.getV4RandomAddress("", podName, nicName, &mac, nil, checkConflict)
 		newIps = append(newIps, ipAddr)
 		newIps = append(newIps, ips...)
@@ -244,7 +243,7 @@ func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []strin
 				klog.Errorf("subnet %s already has a cidr, cannot convert it to mac-only", name)
 				return ErrInvalidCIDR
 			}
-			subnet.Protocol = kubeovnv1.ProtocolMac
+			subnet.Protocol = fabricv1.ProtocolMac
 			return nil
 		}
 		klog.Infof("adding new mac-only subnet %s", name)
@@ -269,7 +268,7 @@ func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []strin
 	}
 	protocol := util.CheckProtocol(cidrStr)
 	switch protocol {
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		v4cidrStr = cidrs[0].String()
 		v6cidrStr = cidrs[1].String()
 		gws := strings.Split(gw, ",")
@@ -281,10 +280,10 @@ func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []strin
 			klog.Error(err)
 			return err
 		}
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		v4cidrStr = cidrs[0].String()
 		v4Gw = gw
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		v6cidrStr = cidrs[0].String()
 		v6Gw = gw
 	case "":
@@ -307,7 +306,7 @@ func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []strin
 			klog.Errorf("failed to parse v6 exclude ips %v", v6ExcludeIps)
 			return err
 		}
-		if (protocol == kubeovnv1.ProtocolDual || protocol == kubeovnv1.ProtocolIPv4) &&
+		if (protocol == fabricv1.ProtocolDual || protocol == fabricv1.ProtocolIPv4) &&
 			(subnet.V4CIDR.String() != v4cidrStr || subnet.V4Gw != v4Gw || !subnet.V4Reserved.Equal(v4Reserved)) {
 			_, cidr, _ := net.ParseCIDR(v4cidrStr)
 			subnet.V4CIDR = cidr
@@ -356,7 +355,7 @@ func (ipam *IPAM) AddOrUpdateSubnet(name, cidrStr, gw string, excludeIps []strin
 				klog.Infof("already assigned ip %s to nic %s in subnet %s", ip, nicName, name)
 			}
 		}
-		if (protocol == kubeovnv1.ProtocolDual || protocol == kubeovnv1.ProtocolIPv6) &&
+		if (protocol == fabricv1.ProtocolDual || protocol == fabricv1.ProtocolIPv6) &&
 			(subnet.V6CIDR.String() != v6cidrStr || subnet.V6Gw != v6Gw || !subnet.V6Reserved.Equal(v6Reserved)) {
 			_, cidr, _ := net.ParseCIDR(v6cidrStr)
 			subnet.V6CIDR = cidr
@@ -443,11 +442,11 @@ func (ipam *IPAM) GetPodAddress(podName string) []*SubnetAddress {
 		for _, nicName := range subnet.PodToNicList[podName] {
 			v4IP, v6IP, mac, protocol := subnet.GetPodAddress(nicName)
 			switch protocol {
-			case kubeovnv1.ProtocolIPv4:
+			case fabricv1.ProtocolIPv4:
 				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v4IP.String(), Mac: mac})
-			case kubeovnv1.ProtocolIPv6:
+			case fabricv1.ProtocolIPv6:
 				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v6IP.String(), Mac: mac})
-			case kubeovnv1.ProtocolDual:
+			case fabricv1.ProtocolDual:
 				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v4IP.String(), Mac: mac})
 				addresses = append(addresses, &SubnetAddress{Subnet: subnet, IP: v6IP.String(), Mac: mac})
 			}
@@ -485,18 +484,6 @@ func (ipam *IPAM) IsIPAssignedToOtherPod(ip, subnetName, podName string) (string
 		return "", false
 	}
 	return subnet.isIPAssignedToOtherPod(ip, podName)
-}
-
-func (ipam *IPAM) GetSubnetV4Mask(subnetName string) (string, error) {
-	ipam.mutex.RLock()
-	defer ipam.mutex.RUnlock()
-
-	subnet, ok := ipam.Subnets[subnetName]
-	if ok {
-		mask, _ := subnet.V4CIDR.Mask.Size()
-		return strconv.Itoa(mask), nil
-	}
-	return "", ErrNoAvailable
 }
 
 func (ipam *IPAM) GetSubnetIPRangeString(subnetName string, excludeIps []string) (string, string, string, string) {

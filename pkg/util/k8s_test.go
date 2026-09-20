@@ -3,7 +3,6 @@ package util
 import (
 	"errors"
 	"fmt"
-	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestObjectMatchesLabelSelector(t *testing.T) {
@@ -414,54 +413,6 @@ func TestGetTruncatedUID(t *testing.T) {
 	require.Equal(t, "123456789012", GetTruncatedUID(uid))
 }
 
-func TestSetOwnerReference(t *testing.T) {
-	tests := []struct {
-		name    string
-		owner   metav1.Object
-		object  metav1.Object
-		wantErr bool
-	}{
-		{
-			name: "base",
-			owner: &kubeovnv1.Vpc{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("veg-%05d", rand.IntN(10000)),
-					UID:  uuid.NewUUID(),
-				},
-			},
-			object: &corev1.Pod{},
-		},
-		{
-			name: "not registered",
-			owner: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("veg-%05d", rand.IntN(10000)),
-					UID:  uuid.NewUUID(),
-				},
-			},
-			object:  &corev1.Pod{},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := SetOwnerReference(tt.owner, tt.object)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SetOwnerReference() error = %#v, wantErr = %v", err, tt.wantErr)
-			}
-			if err != nil {
-				return
-			}
-
-			refer := tt.object.GetOwnerReferences()
-			require.Len(t, refer, 1)
-			require.Equal(t, tt.owner.GetName(), refer[0].Name)
-			require.Equal(t, tt.owner.GetUID(), refer[0].UID)
-		})
-	}
-}
-
 func TestPodAttachmentIPs(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -568,251 +519,6 @@ func TestPodAttachmentIPs(t *testing.T) {
 	}
 }
 
-func TestDeploymentIsReady(t *testing.T) {
-	tests := []struct {
-		name   string
-		deploy *appsv1.Deployment
-		ready  bool
-	}{
-		{
-			name: "ready",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: ptr.To[int32](1),
-				},
-				Status: appsv1.DeploymentStatus{
-					ObservedGeneration: 2,
-					Replicas:           1,
-					UpdatedReplicas:    1,
-					AvailableReplicas:  1,
-				},
-			},
-			ready: true,
-		},
-		{
-			name: "generation mismatch",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Status: appsv1.DeploymentStatus{
-					ObservedGeneration: 1,
-				},
-			},
-			ready: false,
-		},
-		{
-			name: "condition Processing",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: ptr.To[int32](1),
-				},
-				Status: appsv1.DeploymentStatus{
-					ObservedGeneration: 2,
-					Replicas:           1,
-					UpdatedReplicas:    1,
-					AvailableReplicas:  1,
-					Conditions: []appsv1.DeploymentCondition{
-						{
-							Type: appsv1.DeploymentProgressing,
-						},
-					},
-				},
-			},
-			ready: true,
-		},
-		{
-			name: "ProgressDeadlineExceeded",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Status: appsv1.DeploymentStatus{
-					ObservedGeneration: 2,
-					Conditions: []appsv1.DeploymentCondition{
-						{
-							Type:   appsv1.DeploymentProgressing,
-							Reason: "ProgressDeadlineExceeded",
-						},
-					},
-				},
-			},
-			ready: false,
-		},
-		{
-			name: "updated replicas less than desired replicas",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: ptr.To[int32](2),
-				},
-				Status: appsv1.DeploymentStatus{
-					ObservedGeneration: 2,
-					Replicas:           2,
-					UpdatedReplicas:    1,
-					AvailableReplicas:  1,
-				},
-			},
-			ready: false,
-		},
-		{
-			name: "updated replicas less than current replicas",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: ptr.To[int32](1),
-				},
-				Status: appsv1.DeploymentStatus{
-					ObservedGeneration: 2,
-					Replicas:           2,
-					UpdatedReplicas:    1,
-					AvailableReplicas:  1,
-				},
-			},
-			ready: false,
-		},
-		{
-			name: "available replicas less than updated replicas",
-			deploy: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: ptr.To[int32](2),
-				},
-				Status: appsv1.DeploymentStatus{
-					ObservedGeneration: 2,
-					Replicas:           2,
-					UpdatedReplicas:    2,
-					AvailableReplicas:  1,
-				},
-			},
-			ready: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ready := DeploymentIsReady(tt.deploy)
-			require.Equal(t, tt.ready, ready)
-		})
-	}
-}
-
-func TestStatefulSetIsReady(t *testing.T) {
-	tests := []struct {
-		name string
-		sts  *appsv1.StatefulSet
-		want bool
-	}{
-		{
-			name: "ready",
-			sts: &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.StatefulSetSpec{
-					Replicas: ptr.To[int32](3),
-				},
-				Status: appsv1.StatefulSetStatus{
-					ObservedGeneration: 2,
-					Replicas:           3,
-					ReadyReplicas:      3,
-					CurrentReplicas:    3,
-					UpdatedReplicas:    3,
-				},
-			},
-			want: true,
-		},
-		{
-			name: "generation mismatch",
-			sts: &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Status: appsv1.StatefulSetStatus{
-					ObservedGeneration: 1,
-				},
-			},
-			want: false,
-		},
-		{
-			name: "ready replicas less than desired replicas",
-			sts: &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.StatefulSetSpec{
-					Replicas: ptr.To[int32](3),
-				},
-				Status: appsv1.StatefulSetStatus{
-					ObservedGeneration: 2,
-					Replicas:           3,
-					ReadyReplicas:      2,
-					CurrentReplicas:    2,
-					UpdatedReplicas:    2,
-				},
-			},
-			want: false,
-		},
-		{
-			name: "current replicas greater than ready replicas",
-			sts: &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.StatefulSetSpec{
-					Replicas: ptr.To[int32](3),
-				},
-				Status: appsv1.StatefulSetStatus{
-					ObservedGeneration: 2,
-					Replicas:           3,
-					ReadyReplicas:      2,
-					CurrentReplicas:    3,
-					UpdatedReplicas:    2,
-				},
-			},
-			want: false,
-		},
-		{
-			name: "updated replicas less than ready replicas",
-			sts: &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-				Spec: appsv1.StatefulSetSpec{
-					Replicas: ptr.To[int32](3),
-				},
-				Status: appsv1.StatefulSetStatus{
-					ObservedGeneration: 2,
-					Replicas:           3,
-					ReadyReplicas:      3,
-					CurrentReplicas:    3,
-					UpdatedReplicas:    2,
-				},
-			},
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := StatefulSetIsReady(tt.sts)
-			require.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestInjectedServiceVariables(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -880,7 +586,7 @@ func TestObjectKind(t *testing.T) {
 		},
 		{
 			name:     "Custom Resource object",
-			result:   ObjectKind[*kubeovnv1.Subnet](),
+			result:   ObjectKind[*fabricv1.Subnet](),
 			expected: "Subnet",
 		},
 	}
@@ -912,7 +618,7 @@ func TestTrimManagedFields(t *testing.T) {
 		},
 	}, {
 		name: "object without managed fields",
-		arg: &kubeovnv1.Subnet{
+		arg: &fabricv1.Subnet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-subnet-no-managed-fields",
 			},
@@ -1198,7 +904,7 @@ func reportRetainedBytesPerPod(b *testing.B, transform func(any) (any, error)) {
 }
 
 func TestTrimPodForControllerNonPod(t *testing.T) {
-	subnet := &kubeovnv1.Subnet{
+	subnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:          "s1",
 			ManagedFields: []metav1.ManagedFieldsEntry{{Manager: "ctrl"}},

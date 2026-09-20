@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/fileutil"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
@@ -569,7 +569,7 @@ func doOvnLeaderCheck(cfg *Configuration, podName, podNamespace string) {
 	// Determine the expected AddressType based on pod IP protocol
 	podIP := os.Getenv(util.EnvPodIP)
 	var expectedAddrType discoveryv1.AddressType
-	if util.CheckProtocol(podIP) == kubeovnv1.ProtocolIPv6 {
+	if util.CheckProtocol(podIP) == fabricv1.ProtocolIPv6 {
 		expectedAddrType = discoveryv1.AddressTypeIPv6
 	} else {
 		expectedAddrType = discoveryv1.AddressTypeIPv4
@@ -658,20 +658,20 @@ func getTSCidr(index int) (string, error) {
 	podIpsEnv := os.Getenv(util.EnvPodIPs)
 	podIps := strings.Split(podIpsEnv, ",")
 	if len(podIps) == 1 {
-		if util.CheckProtocol(podIps[0]) == kubeovnv1.ProtocolIPv6 {
-			proto = kubeovnv1.ProtocolIPv6
+		if util.CheckProtocol(podIps[0]) == fabricv1.ProtocolIPv6 {
+			proto = fabricv1.ProtocolIPv6
 		} else {
-			proto = kubeovnv1.ProtocolIPv4
+			proto = fabricv1.ProtocolIPv4
 		}
 	} else if len(podIps) == 2 {
-		proto = kubeovnv1.ProtocolDual
+		proto = fabricv1.ProtocolDual
 	}
 	switch proto {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		return fmt.Sprintf("169.254.%d.0/24", 100+index), nil
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		return fmt.Sprintf("fe80:a9fe:%02x::/112", 100+index), nil
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		return fmt.Sprintf("169.254.%d.0/24,fe80:a9fe:%02x::/112", 100+index, 100+index), nil
 	}
 	return "", fmt.Errorf("unsupported protocol %s", proto)

@@ -22,7 +22,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -76,8 +76,8 @@ type policyRouteMeta struct {
 
 func (c *Controller) setIPSet() error {
 	protocols := make([]string, 0, 2)
-	if c.protocol == kubeovnv1.ProtocolDual {
-		protocols = append(protocols, kubeovnv1.ProtocolIPv4, kubeovnv1.ProtocolIPv6)
+	if c.protocol == fabricv1.ProtocolDual {
+		protocols = append(protocols, fabricv1.ProtocolIPv4, fabricv1.ProtocolIPv6)
 	} else {
 		protocols = append(protocols, c.protocol)
 	}
@@ -139,8 +139,8 @@ func (c *Controller) setIPSet() error {
 
 func (c *Controller) gcIPSet() {
 	protocols := make([]string, 0, 2)
-	if c.protocol == kubeovnv1.ProtocolDual {
-		protocols = append(protocols, kubeovnv1.ProtocolIPv4, kubeovnv1.ProtocolIPv6)
+	if c.protocol == fabricv1.ProtocolDual {
+		protocols = append(protocols, fabricv1.ProtocolIPv4, fabricv1.ProtocolIPv6)
 	} else {
 		protocols = append(protocols, c.protocol)
 	}
@@ -153,7 +153,7 @@ func (c *Controller) gcIPSet() {
 	}
 }
 
-func (c *Controller) addNatOutGoingPolicyRuleIPset(rule kubeovnv1.NatOutgoingPolicyRuleStatus, protocol string) {
+func (c *Controller) addNatOutGoingPolicyRuleIPset(rule fabricv1.NatOutgoingPolicyRuleStatus, protocol string) {
 	if rule.Match.SrcIPs != "" {
 		ipsetName := getNatOutGoingPolicyRuleIPSetName(rule.RuleID, "src", "", false)
 		c.ipsets[protocol].AddOrReplaceIPSet(ipsets.IPSetMetadata{
@@ -189,7 +189,7 @@ func (c *Controller) removeNatOutGoingPolicyRuleIPset(protocol string, natPolicy
 	}
 }
 
-func (c *Controller) reconcileNatOutGoingPolicyIPset(allSubnets []*kubeovnv1.Subnet, protocol string) {
+func (c *Controller) reconcileNatOutGoingPolicyIPset(allSubnets []*fabricv1.Subnet, protocol string) {
 	subnets := c.getSubnetsNatOutGoingPolicy(allSubnets, protocol)
 	subnetCidrs := make([]string, 0, len(subnets))
 	natPolicyRuleIDs := strset.New()
@@ -223,8 +223,8 @@ func (c *Controller) reconcileNatOutGoingPolicyIPset(allSubnets []*kubeovnv1.Sub
 
 func (c *Controller) setPolicyRouting() error {
 	protocols := make([]string, 0, 2)
-	if c.protocol == kubeovnv1.ProtocolDual {
-		protocols = append(protocols, kubeovnv1.ProtocolIPv4, kubeovnv1.ProtocolIPv6)
+	if c.protocol == fabricv1.ProtocolDual {
+		protocols = append(protocols, fabricv1.ProtocolIPv4, fabricv1.ProtocolIPv6)
 	} else {
 		protocols = append(protocols, c.protocol)
 	}
@@ -280,7 +280,7 @@ func (c *Controller) addPodPolicyRouting(podProtocol, externalEgressGateway stri
 	prMetas := make([]policyRouteMeta, 0, 2)
 	if len(egw) == 1 {
 		family, _ := util.ProtocolToFamily(util.CheckProtocol(egw[0]))
-		if family == netlink.FAMILY_V4 || podProtocol != kubeovnv1.ProtocolDual {
+		if family == netlink.FAMILY_V4 || podProtocol != fabricv1.ProtocolDual {
 			prMetas = append(prMetas, policyRouteMeta{family: family, source: ips[0], gateway: egw[0]})
 		} else if len(ips) >= 2 {
 			prMetas = append(prMetas, policyRouteMeta{family: family, source: ips[1], gateway: egw[0]})
@@ -313,7 +313,7 @@ func (c *Controller) deletePodPolicyRouting(podProtocol, externalEgressGateway s
 	prMetas := make([]policyRouteMeta, 0, 2)
 	if len(egw) == 1 {
 		family, _ := util.ProtocolToFamily(util.CheckProtocol(egw[0]))
-		if family == netlink.FAMILY_V4 || podProtocol != kubeovnv1.ProtocolDual {
+		if family == netlink.FAMILY_V4 || podProtocol != fabricv1.ProtocolDual {
 			prMetas = append(prMetas, policyRouteMeta{family: family, source: ips[0], gateway: egw[0]})
 		} else if len(ips) >= 2 {
 			prMetas = append(prMetas, policyRouteMeta{family: family, source: ips[1], gateway: egw[0]})
@@ -643,8 +643,8 @@ func (c *Controller) setIptables() error {
 
 	nodeIPv4, nodeIPv6 := util.GetNodeInternalIP(*node)
 	nodeIPs := map[string]string{
-		kubeovnv1.ProtocolIPv4: nodeIPv4,
-		kubeovnv1.ProtocolIPv6: nodeIPv6,
+		fabricv1.ProtocolIPv4: nodeIPv4,
+		fabricv1.ProtocolIPv6: nodeIPv6,
 	}
 
 	allSubnets, err := c.subnetsLister.List(labels.Everything())
@@ -749,8 +749,8 @@ func (c *Controller) setIptables() error {
 		}
 	)
 	protocols := make([]string, 0, 2)
-	if c.protocol == kubeovnv1.ProtocolDual {
-		protocols = append(protocols, kubeovnv1.ProtocolIPv4, kubeovnv1.ProtocolIPv6)
+	if c.protocol == fabricv1.ProtocolDual {
+		protocols = append(protocols, fabricv1.ProtocolIPv4, fabricv1.ProtocolIPv6)
 	} else {
 		protocols = append(protocols, c.protocol)
 	}
@@ -774,7 +774,7 @@ func (c *Controller) setIptables() error {
 
 		var kubeProxyIpsetProtocol, matchset, svcMatchset, nodeMatchSet string
 		var obsoleteRules, iptablesRules []util.IPTableRule
-		if protocol == kubeovnv1.ProtocolIPv4 {
+		if protocol == fabricv1.ProtocolIPv4 {
 			iptablesRules = v4Rules
 			matchset, svcMatchset, nodeMatchSet = "ovn40subnets", "ovn40services", "ovn40"+OtherNodeSet
 		} else {
@@ -993,11 +993,11 @@ func (c *Controller) cleanupIptablesInNonPrimaryCNIMode() error {
 				continue
 			}
 
-			for _, rule := range getKubeOVNBaseIptablesRulesForCleanup(protocol) {
+			for _, rule := range getFabricBaseIptablesRulesForCleanup(protocol) {
 				bestEffortDeleteIptablesRule(ipt, rule)
 			}
 
-			for _, rule := range getKubeOVNJumpRulesForCleanup() {
+			for _, rule := range getFabricJumpRulesForCleanup() {
 				bestEffortDeleteIptablesRule(ipt, rule)
 			}
 
@@ -1043,12 +1043,12 @@ func (c *Controller) cleanupIptablesInNonPrimaryCNIMode() error {
 	return nil
 }
 
-func getKubeOVNBaseIptablesRulesForCleanup(protocol string) []util.IPTableRule {
+func getFabricBaseIptablesRulesForCleanup(protocol string) []util.IPTableRule {
 	matchset := "ovn40subnets"
 	svcMatchset := "ovn40services"
 	nodePortPrefix := ""
 	nodeMatchset := "ovn40" + OtherNodeSet
-	if protocol == kubeovnv1.ProtocolIPv6 {
+	if protocol == fabricv1.ProtocolIPv6 {
 		matchset = "ovn60subnets"
 		svcMatchset = "ovn60services"
 		nodePortPrefix = "6-"
@@ -1084,7 +1084,7 @@ func getKubeOVNBaseIptablesRulesForCleanup(protocol string) []util.IPTableRule {
 	return append(rules, nodePortRules...)
 }
 
-func getKubeOVNJumpRulesForCleanup() []util.IPTableRule {
+func getFabricJumpRulesForCleanup() []util.IPTableRule {
 	return []util.IPTableRule{
 		{Table: NAT, Chain: Prerouting, Rule: []string{"-m", "comment", "--comment", "fabric prerouting rules", "-j", OvnPrerouting}},
 		{Table: NAT, Chain: Postrouting, Rule: []string{"-m", "comment", "--comment", "fabric postrouting rules", "-j", OvnPostrouting}},
@@ -1171,7 +1171,7 @@ func (c *Controller) reconcileTProxyIPTableRules(allPods []*v1.Pod, protocol str
 		for _, probePort := range ports.SortedList() {
 			hostIP := c.config.NodeIPv4
 			prefixLen := 32
-			if protocol == kubeovnv1.ProtocolIPv6 {
+			if protocol == fabricv1.ProtocolIPv6 {
 				prefixLen = 128
 				hostIP = c.config.NodeIPv6
 			}
@@ -1206,7 +1206,7 @@ func (c *Controller) cleanTProxyIPTableRules(protocol string) {
 	}
 }
 
-func (c *Controller) reconcileNatOutgoingPolicyIptablesChain(allSubnets []*kubeovnv1.Subnet, protocol string) error {
+func (c *Controller) reconcileNatOutgoingPolicyIptablesChain(allSubnets []*fabricv1.Subnet, protocol string) error {
 	ipt := c.iptables[protocol]
 
 	natPolicySubnetIptables, natPolicyRuleIptablesMap, gcNatPolicySubnetChains, err := c.generateNatOutgoingPolicyChainRules(allSubnets, protocol)
@@ -1238,13 +1238,13 @@ func (c *Controller) reconcileNatOutgoingPolicyIptablesChain(allSubnets []*kubeo
 	return nil
 }
 
-func (c *Controller) generateNatOutgoingPolicyChainRules(allSubnets []*kubeovnv1.Subnet, protocol string) ([]util.IPTableRule, map[string][]util.IPTableRule, []string, error) {
+func (c *Controller) generateNatOutgoingPolicyChainRules(allSubnets []*fabricv1.Subnet, protocol string) ([]util.IPTableRule, map[string][]util.IPTableRule, []string, error) {
 	natPolicySubnetIptables := make([]util.IPTableRule, 0)
 	natPolicyRuleIptablesMap := make(map[string][]util.IPTableRule)
 	natPolicySubnetUIDs := strset.New()
 	gcNatPolicySubnetChains := make([]string, 0)
 	subnetNames := make([]string, 0)
-	subnetMap := make(map[string]*kubeovnv1.Subnet)
+	subnetMap := make(map[string]*fabricv1.Subnet)
 
 	subnets := c.getSubnetsNatOutGoingPolicy(allSubnets, protocol)
 	for _, subnet := range subnets {
@@ -1475,7 +1475,7 @@ func (c *Controller) cleanObsoleteIptablesRules(protocol string, rules []util.IP
 	)
 
 	var obsoleteRules []util.IPTableRule
-	if protocol == kubeovnv1.ProtocolIPv4 {
+	if protocol == fabricv1.ProtocolIPv4 {
 		obsoleteRules = v4ObsoleteRules
 	} else {
 		obsoleteRules = v6ObsoleteRules
@@ -1617,9 +1617,9 @@ func (c *Controller) setOvnSubnetGatewayMetric() {
 	}
 }
 
-func (c *Controller) addEgressConfig(subnet *kubeovnv1.Subnet, ip string) error {
+func (c *Controller) addEgressConfig(subnet *fabricv1.Subnet, ip string) error {
 	if (subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) ||
-		subnet.Spec.GatewayType != kubeovnv1.GWDistributedType ||
+		subnet.Spec.GatewayType != fabricv1.GWDistributedType ||
 		subnet.Spec.Vpc != c.config.ClusterRouter {
 		return nil
 	}
@@ -1647,7 +1647,7 @@ func (c *Controller) removeEgressConfig(subnet, ip string) error {
 	}
 
 	if (podSubnet.Spec.Vlan != "" && !podSubnet.Spec.LogicalGateway) ||
-		podSubnet.Spec.GatewayType != kubeovnv1.GWDistributedType ||
+		podSubnet.Spec.GatewayType != fabricv1.GWDistributedType ||
 		podSubnet.Spec.Vpc != c.config.ClusterRouter {
 		return nil
 	}
@@ -1679,7 +1679,7 @@ func (c *Controller) getLocalPodIPsNeedPR(pods []*v1.Pod, protocol string) map[p
 		if subnet.Spec.NatOutgoing ||
 			subnet.Spec.ExternalEgressGateway == "" ||
 			subnet.Spec.Vpc != c.config.ClusterRouter ||
-			subnet.Spec.GatewayType != kubeovnv1.GWDistributedType {
+			subnet.Spec.GatewayType != fabricv1.GWDistributedType {
 			continue
 		}
 		if subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway {
@@ -1688,17 +1688,17 @@ func (c *Controller) getLocalPodIPsNeedPR(pods []*v1.Pod, protocol string) map[p
 
 		ips := make([]string, 0, 2)
 		if len(pod.Status.PodIPs) != 0 {
-			if len(pod.Status.PodIPs) == 2 && protocol == kubeovnv1.ProtocolIPv6 {
+			if len(pod.Status.PodIPs) == 2 && protocol == fabricv1.ProtocolIPv6 {
 				ips = append(ips, pod.Status.PodIPs[1].IP)
 			} else if util.CheckProtocol(pod.Status.PodIP) == protocol {
 				ips = append(ips, pod.Status.PodIP)
 			}
 		} else {
 			ipv4, ipv6 := util.SplitStringIP(pod.Annotations[util.IPAddressAnnotation])
-			if ipv4 != "" && protocol == kubeovnv1.ProtocolIPv4 {
+			if ipv4 != "" && protocol == fabricv1.ProtocolIPv4 {
 				ips = append(ips, ipv4)
 			}
-			if ipv6 != "" && protocol == kubeovnv1.ProtocolIPv6 {
+			if ipv6 != "" && protocol == fabricv1.ProtocolIPv6 {
 				ips = append(ips, ipv6)
 			}
 		}
@@ -1730,7 +1730,7 @@ func (c *Controller) getLocalPodIPsNeedPR(pods []*v1.Pod, protocol string) map[p
 	return localPodIPs
 }
 
-func (c *Controller) getSubnetsNeedPR(subnets []*kubeovnv1.Subnet, protocol string) (map[policyRouteMeta]string, error) {
+func (c *Controller) getSubnetsNeedPR(subnets []*fabricv1.Subnet, protocol string) (map[policyRouteMeta]string, error) {
 	subnetsNeedPR := make(map[policyRouteMeta]string)
 	node, err := c.nodesLister.Get(c.config.NodeName)
 	if err != nil {
@@ -1743,9 +1743,9 @@ func (c *Controller) getSubnetsNeedPR(subnets []*kubeovnv1.Subnet, protocol stri
 			subnet.Spec.NatOutgoing ||
 			subnet.Spec.ExternalEgressGateway == "" ||
 			(subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) ||
-			subnet.Spec.GatewayType != kubeovnv1.GWCentralizedType ||
+			subnet.Spec.GatewayType != fabricv1.GWCentralizedType ||
 			subnet.Spec.Vpc != c.config.ClusterRouter ||
-			(subnet.Spec.Protocol != kubeovnv1.ProtocolDual && subnet.Spec.Protocol != protocol) {
+			(subnet.Spec.Protocol != fabricv1.ProtocolDual && subnet.Spec.Protocol != protocol) {
 			continue
 		}
 
@@ -1763,7 +1763,7 @@ func (c *Controller) getSubnetsNeedPR(subnets []*kubeovnv1.Subnet, protocol stri
 		if len(egw) == 0 {
 			continue
 		}
-		if util.CheckProtocol(subnet.Spec.CIDRBlock) == kubeovnv1.ProtocolDual && protocol == kubeovnv1.ProtocolIPv6 {
+		if util.CheckProtocol(subnet.Spec.CIDRBlock) == fabricv1.ProtocolDual && protocol == fabricv1.ProtocolIPv6 {
 			if len(egw) == 2 {
 				meta.gateway = egw[1]
 			} else if util.CheckProtocol(egw[0]) == protocol {
@@ -1812,7 +1812,7 @@ func getNatOutGoingPolicyRuleIPSetName(ruleID, srcOrDst, protocol string, hasPre
 
 	if hasPrefix {
 		prefix = "ovn40"
-		if protocol == kubeovnv1.ProtocolIPv6 {
+		if protocol == fabricv1.ProtocolIPv6 {
 			prefix = "ovn60"
 		}
 	}

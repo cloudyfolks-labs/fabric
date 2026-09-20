@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/keymutex"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -58,35 +58,35 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 		// Initialize mutexes
 		ctrl.vpcKeyMutex = keymutex.NewHashed(500)
 
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vpcName,
 			},
-			Spec: kubeovnv1.VpcSpec{
-				StaticRoutes: []*kubeovnv1.StaticRoute{
+			Spec: fabricv1.VpcSpec{
+				StaticRoutes: []*fabricv1.StaticRoute{
 					{
 						CIDR:       "192.168.0.0/24",
 						NextHopIP:  "10.0.0.1",
-						Policy:     kubeovnv1.PolicyDst,
+						Policy:     fabricv1.PolicyDst,
 						RouteTable: util.MainRouteTable,
 					},
 				},
 				EnableExternal: false,
 				PolicyRoutes:   nil,
 			},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				Subnets:        []string{},
 				EnableExternal: false,
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
 		require.NoError(t, err)
 
-		existingKubeOvnRoutes := []*ovnnb.LogicalRouterStaticRoute{
+		existingFabricRoutes := []*ovnnb.LogicalRouterStaticRoute{
 			internalStaticRoute,
 		}
 
@@ -94,7 +94,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 
 		mockOvnClient.EXPECT().CreateLogicalRouter(vpcName).Return(nil)
 		mockOvnClient.EXPECT().UpdateLogicalRouter(gomock.Any(), gomock.Any()).Return(nil)
-		mockOvnClient.EXPECT().ListLogicalRouterStaticRoutes(vpcName, nil, nil, "", externalIDs).Return(existingKubeOvnRoutes, nil)
+		mockOvnClient.EXPECT().ListLogicalRouterStaticRoutes(vpcName, nil, nil, "", externalIDs).Return(existingFabricRoutes, nil)
 		mockOvnClient.EXPECT().GetLogicalRouter(vpcName, false).Return(&ovnnb.LogicalRouter{
 			Name: vpcName,
 			Nat:  []string{},
@@ -126,35 +126,35 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 
 		ctrl.vpcKeyMutex = keymutex.NewHashed(500)
 
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vpcName,
 			},
-			Spec: kubeovnv1.VpcSpec{
-				StaticRoutes: []*kubeovnv1.StaticRoute{
+			Spec: fabricv1.VpcSpec{
+				StaticRoutes: []*fabricv1.StaticRoute{
 					{
 						CIDR:       "192.168.0.0/24",
 						NextHopIP:  "10.0.0.1",
-						Policy:     kubeovnv1.PolicyDst,
+						Policy:     fabricv1.PolicyDst,
 						RouteTable: util.MainRouteTable,
 					},
 				},
 				EnableExternal: false,
 				PolicyRoutes:   nil,
 			},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				Subnets:        []string{},
 				EnableExternal: false,
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
 		require.NoError(t, err)
 
-		existingKubeOvnRoutes := []*ovnnb.LogicalRouterStaticRoute{
+		existingFabricRoutes := []*ovnnb.LogicalRouterStaticRoute{
 			internalStaticRoute,
 			managedStaticRoute,
 		}
@@ -163,7 +163,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 
 		mockOvnClient.EXPECT().CreateLogicalRouter(vpcName).Return(nil)
 		mockOvnClient.EXPECT().UpdateLogicalRouter(gomock.Any(), gomock.Any()).Return(nil)
-		mockOvnClient.EXPECT().ListLogicalRouterStaticRoutes(vpcName, nil, nil, "", externalIDs).Return(existingKubeOvnRoutes, nil)
+		mockOvnClient.EXPECT().ListLogicalRouterStaticRoutes(vpcName, nil, nil, "", externalIDs).Return(existingFabricRoutes, nil)
 		mockOvnClient.EXPECT().GetLogicalRouter(vpcName, false).Return(&ovnnb.LogicalRouter{
 			Name: vpcName,
 			Nat:  []string{},
@@ -186,28 +186,28 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 
 		ctrl.vpcKeyMutex = keymutex.NewHashed(500)
 
-		vpcEmpty := &kubeovnv1.Vpc{
+		vpcEmpty := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vpcName,
 			},
-			Spec: kubeovnv1.VpcSpec{
-				StaticRoutes:   []*kubeovnv1.StaticRoute{},
+			Spec: fabricv1.VpcSpec{
+				StaticRoutes:   []*fabricv1.StaticRoute{},
 				EnableExternal: false,
 				PolicyRoutes:   nil,
 			},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				Subnets:        []string{},
 				EnableExternal: false,
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpcEmpty, metav1.CreateOptions{})
+		_, err := ctrl.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpcEmpty, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpcEmpty)
 		require.NoError(t, err)
 
-		existingKubeOvnRoutes := []*ovnnb.LogicalRouterStaticRoute{
+		existingFabricRoutes := []*ovnnb.LogicalRouterStaticRoute{
 			internalStaticRoute,
 			managedStaticRoute,
 		}
@@ -216,7 +216,7 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 
 		mockOvnClient.EXPECT().CreateLogicalRouter(vpcName).Return(nil)
 		mockOvnClient.EXPECT().UpdateLogicalRouter(gomock.Any(), gomock.Any()).Return(nil)
-		mockOvnClient.EXPECT().ListLogicalRouterStaticRoutes(vpcName, nil, nil, "", externalIDs).Return(existingKubeOvnRoutes, nil)
+		mockOvnClient.EXPECT().ListLogicalRouterStaticRoutes(vpcName, nil, nil, "", externalIDs).Return(existingFabricRoutes, nil)
 		mockOvnClient.EXPECT().GetLogicalRouter(vpcName, false).Return(&ovnnb.LogicalRouter{
 			Name: vpcName,
 			Nat:  []string{},
@@ -240,29 +240,29 @@ func Test_handleAddOrUpdateVpc_staticRoutes(t *testing.T) {
 
 		ctrl.vpcKeyMutex = keymutex.NewHashed(500)
 
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vpcName,
 			},
-			Spec: kubeovnv1.VpcSpec{
-				StaticRoutes: []*kubeovnv1.StaticRoute{
+			Spec: fabricv1.VpcSpec{
+				StaticRoutes: []*fabricv1.StaticRoute{
 					{
 						CIDR:       "192.168.0.0/24",
 						NextHopIP:  "10.0.0.1",
-						Policy:     kubeovnv1.PolicyDst,
+						Policy:     fabricv1.PolicyDst,
 						RouteTable: util.MainRouteTable,
 					},
 				},
 				EnableExternal: false,
 				PolicyRoutes:   nil,
 			},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				Subnets:        []string{},
 				EnableExternal: false,
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
@@ -309,29 +309,29 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 
 		ctrl.vpcKeyMutex = keymutex.NewHashed(500)
 
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vpcName,
 			},
-			Spec: kubeovnv1.VpcSpec{
-				StaticRoutes:   []*kubeovnv1.StaticRoute{},
+			Spec: fabricv1.VpcSpec{
+				StaticRoutes:   []*fabricv1.StaticRoute{},
 				EnableExternal: false,
-				PolicyRoutes: []*kubeovnv1.PolicyRoute{
+				PolicyRoutes: []*fabricv1.PolicyRoute{
 					{
 						Priority:  200,
 						Match:     "ip4.src == 10.0.0.0/8",
-						Action:    kubeovnv1.PolicyRouteActionDrop,
+						Action:    fabricv1.PolicyRouteActionDrop,
 						NextHopIP: "",
 					},
 				},
 			},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				Subnets:        []string{},
 				EnableExternal: false,
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
@@ -352,7 +352,7 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 			vpcName,
 			200,
 			"ip4.src == 10.0.0.0/8",
-			string(kubeovnv1.PolicyRouteActionDrop),
+			string(fabricv1.PolicyRouteActionDrop),
 			([]string)(nil),
 			([]string)(nil),
 			externalIDs,
@@ -373,29 +373,29 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 
 		ctrl.vpcKeyMutex = keymutex.NewHashed(500)
 
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vpcName,
 			},
-			Spec: kubeovnv1.VpcSpec{
-				StaticRoutes:   []*kubeovnv1.StaticRoute{},
+			Spec: fabricv1.VpcSpec{
+				StaticRoutes:   []*fabricv1.StaticRoute{},
 				EnableExternal: false,
-				PolicyRoutes: []*kubeovnv1.PolicyRoute{
+				PolicyRoutes: []*fabricv1.PolicyRoute{
 					{
 						Priority:  100,
 						Match:     "ip4.dst == 10.1.0.0/16",
-						Action:    kubeovnv1.PolicyRouteActionReroute,
+						Action:    fabricv1.PolicyRouteActionReroute,
 						NextHopIP: "192.168.1.1,192.168.1.2",
 					},
 				},
 			},
-			Status: kubeovnv1.VpcStatus{
+			Status: fabricv1.VpcStatus{
 				Subnets:        []string{},
 				EnableExternal: false,
 			},
 		}
 
-		_, err := ctrl.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		_, err := ctrl.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		require.NoError(t, err)
 
 		err = fakeinformers.vpcInformer.Informer().GetStore().Add(vpc)
@@ -417,7 +417,7 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 			vpcName,
 			100,
 			"ip4.dst == 10.1.0.0/16",
-			string(kubeovnv1.PolicyRouteActionReroute),
+			string(fabricv1.PolicyRouteActionReroute),
 			[]string{"192.168.1.1", "192.168.1.2"},
 			([]string)(nil),
 			externalIDs,
@@ -434,17 +434,17 @@ func Test_handleAddOrUpdateVpc_policyRoutes_ecmpNextHops(t *testing.T) {
 func TestDiffPolicyRouteWithLogical_NormalizesNextHopIPs(t *testing.T) {
 	t.Parallel()
 
-	target := []*kubeovnv1.PolicyRoute{{
+	target := []*fabricv1.PolicyRoute{{
 		Priority:  32000,
 		Match:     "ip4.src == 172.16.8.149/32",
-		Action:    kubeovnv1.PolicyRouteActionReroute,
+		Action:    fabricv1.PolicyRouteActionReroute,
 		NextHopIP: "172.31.255.253,172.31.255.254",
 	}}
 
 	existing := []*ovnnb.LogicalRouterPolicy{{
 		Priority: 32000,
 		Match:    "ip4.src == 172.16.8.149/32",
-		Action:   string(kubeovnv1.PolicyRouteActionReroute),
+		Action:   string(fabricv1.PolicyRouteActionReroute),
 		Nexthops: []string{"172.31.255.254", "172.31.255.253"},
 	}}
 
@@ -457,17 +457,17 @@ func TestDiffPolicyRouteWithLogical_HandlesLegacyNextHopField(t *testing.T) {
 	t.Parallel()
 
 	nextHop := "172.31.255.253"
-	target := []*kubeovnv1.PolicyRoute{{
+	target := []*fabricv1.PolicyRoute{{
 		Priority:  32000,
 		Match:     "ip4.src == 172.16.8.149/32",
-		Action:    kubeovnv1.PolicyRouteActionReroute,
+		Action:    fabricv1.PolicyRouteActionReroute,
 		NextHopIP: nextHop,
 	}}
 
 	existing := []*ovnnb.LogicalRouterPolicy{{
 		Priority: 32000,
 		Match:    "ip4.src == 172.16.8.149/32",
-		Action:   string(kubeovnv1.PolicyRouteActionReroute),
+		Action:   string(fabricv1.PolicyRouteActionReroute),
 		Nexthop:  &nextHop,
 	}}
 
@@ -481,10 +481,10 @@ func TestReconcileVpcBfdLRPClearsHAChassisGroupWhenSelectorMatchesNoNodes(t *tes
 	ctrl := fakeController.fakeController
 	mockOvnClient := fakeController.mockOvnClient
 
-	vpc := &kubeovnv1.Vpc{
+	vpc := &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-bfd"},
-		Spec: kubeovnv1.VpcSpec{
-			BFDPort: &kubeovnv1.BFDPort{
+		Spec: fabricv1.VpcSpec{
+			BFDPort: &fabricv1.BFDPort{
 				Enabled: true,
 				IP:      "169.254.0.1/32",
 				NodeSelector: &metav1.LabelSelector{
@@ -516,12 +516,12 @@ func Test_createVpcRouter_dynamicRouting(t *testing.T) {
 		ctrl := fakeController.fakeController
 		mockOvnClient := fakeController.mockOvnClient
 
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-dr"},
-			Spec: kubeovnv1.VpcSpec{
-				DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+			Spec: fabricv1.VpcSpec{
+				DynamicRouting: &fabricv1.VpcDynamicRouting{
 					Enabled:      true,
-					Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB},
+					Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeNAT, fabricv1.RedistributeLB},
 					LocalOnly:    true,
 					VrfName:      "vpc-dr",
 					VrfID:        1001,
@@ -552,9 +552,9 @@ func Test_createVpcRouter_dynamicRouting(t *testing.T) {
 		ctrl := fakeController.fakeController
 		mockOvnClient := fakeController.mockOvnClient
 
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-dr-off"},
-			Spec:       kubeovnv1.VpcSpec{},
+			Spec:       fabricv1.VpcSpec{},
 		}
 
 		mockOvnClient.EXPECT().CreateLogicalRouter(vpc.Name).Return(nil)
@@ -588,25 +588,25 @@ func Test_reconcileVpcDynamicRoutingLrpOptions(t *testing.T) {
 		{Name: "test-vpc-dr-peer"},
 	}
 
-	newVpc := func(dr *kubeovnv1.VpcDynamicRouting) *kubeovnv1.Vpc {
-		return &kubeovnv1.Vpc{
+	newVpc := func(dr *fabricv1.VpcDynamicRouting) *fabricv1.Vpc {
+		return &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-dr"},
-			Spec:       kubeovnv1.VpcSpec{EnableExternal: true, DynamicRouting: dr},
-			Status:     kubeovnv1.VpcStatus{Subnets: []string{"int"}},
+			Spec:       fabricv1.VpcSpec{EnableExternal: true, DynamicRouting: dr},
+			Status:     fabricv1.VpcStatus{Subnets: []string{"int"}},
 		}
 	}
 
 	tests := []struct {
 		name string
-		dr   *kubeovnv1.VpcDynamicRouting
+		dr   *fabricv1.VpcDynamicRouting
 		want map[string]map[string]string
 	}{
 		{
 			name: "nat and lb ride the subnet lrp only",
-			dr: &kubeovnv1.VpcDynamicRouting{
+			dr: &fabricv1.VpcDynamicRouting{
 				Enabled: true,
-				Redistribute: []kubeovnv1.RedistributeType{
-					kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB, kubeovnv1.RedistributeStatic,
+				Redistribute: []fabricv1.RedistributeType{
+					fabricv1.RedistributeNAT, fabricv1.RedistributeLB, fabricv1.RedistributeStatic,
 				},
 			},
 			want: map[string]map[string]string{
@@ -617,11 +617,11 @@ func Test_reconcileVpcDynamicRoutingLrpOptions(t *testing.T) {
 		},
 		{
 			name: "maintain vrf rides the external gateway lrp only",
-			dr: &kubeovnv1.VpcDynamicRouting{
+			dr: &fabricv1.VpcDynamicRouting{
 				Enabled:     true,
 				MaintainVrf: true,
-				Redistribute: []kubeovnv1.RedistributeType{
-					kubeovnv1.RedistributeNAT, kubeovnv1.RedistributeLB, kubeovnv1.RedistributeStatic,
+				Redistribute: []fabricv1.RedistributeType{
+					fabricv1.RedistributeNAT, fabricv1.RedistributeLB, fabricv1.RedistributeStatic,
 				},
 			},
 			want: map[string]map[string]string{
@@ -632,9 +632,9 @@ func Test_reconcileVpcDynamicRoutingLrpOptions(t *testing.T) {
 		},
 		{
 			name: "a nat only vpc leaves the external gateway lrp empty",
-			dr: &kubeovnv1.VpcDynamicRouting{
+			dr: &fabricv1.VpcDynamicRouting{
 				Enabled:      true,
-				Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+				Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeNAT},
 			},
 			want: map[string]map[string]string{
 				"test-vpc-dr-int":         {"dynamic-routing-maintain-vrf": "", "dynamic-routing-redistribute": "nat"},
@@ -673,14 +673,14 @@ func Test_reconcileVpcDynamicRoutingLrpOptions(t *testing.T) {
 func Test_enqueueUpdateVpc_dynamicRouting(t *testing.T) {
 	t.Parallel()
 
-	baseVpc := func() *kubeovnv1.Vpc {
-		return &kubeovnv1.Vpc{
+	baseVpc := func() *fabricv1.Vpc {
+		return &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vpc-dr", ResourceVersion: "1"},
-			Spec: kubeovnv1.VpcSpec{
+			Spec: fabricv1.VpcSpec{
 				EnableExternal: true,
-				DynamicRouting: &kubeovnv1.VpcDynamicRouting{
+				DynamicRouting: &fabricv1.VpcDynamicRouting{
 					Enabled:      true,
-					Redistribute: []kubeovnv1.RedistributeType{kubeovnv1.RedistributeNAT},
+					Redistribute: []fabricv1.RedistributeType{fabricv1.RedistributeNAT},
 				},
 			},
 		}
@@ -688,34 +688,34 @@ func Test_enqueueUpdateVpc_dynamicRouting(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		mutate   func(vpc *kubeovnv1.Vpc)
+		mutate   func(vpc *fabricv1.Vpc)
 		enqueued bool
 	}{
 		{
 			name:     "no change is skipped",
-			mutate:   func(*kubeovnv1.Vpc) {},
+			mutate:   func(*fabricv1.Vpc) {},
 			enqueued: false,
 		},
 		{
 			name:     "disabling dynamic routing is enqueued",
-			mutate:   func(vpc *kubeovnv1.Vpc) { vpc.Spec.DynamicRouting.Enabled = false },
+			mutate:   func(vpc *fabricv1.Vpc) { vpc.Spec.DynamicRouting.Enabled = false },
 			enqueued: true,
 		},
 		{
 			name: "redistribute change is enqueued",
-			mutate: func(vpc *kubeovnv1.Vpc) {
-				vpc.Spec.DynamicRouting.Redistribute = []kubeovnv1.RedistributeType{kubeovnv1.RedistributeLB}
+			mutate: func(vpc *fabricv1.Vpc) {
+				vpc.Spec.DynamicRouting.Redistribute = []fabricv1.RedistributeType{fabricv1.RedistributeLB}
 			},
 			enqueued: true,
 		},
 		{
 			name:     "removing the whole block is enqueued",
-			mutate:   func(vpc *kubeovnv1.Vpc) { vpc.Spec.DynamicRouting = nil },
+			mutate:   func(vpc *fabricv1.Vpc) { vpc.Spec.DynamicRouting = nil },
 			enqueued: true,
 		},
 		{
 			name: "adding the block to a vpc without it is enqueued",
-			mutate: func(vpc *kubeovnv1.Vpc) {
+			mutate: func(vpc *fabricv1.Vpc) {
 				vpc.Spec.DynamicRouting.MaintainVrf = true
 			},
 			enqueued: true,
@@ -745,24 +745,24 @@ func Test_enqueueUpdateVpc_dynamicRouting(t *testing.T) {
 func TestVpcExternalSubnets(t *testing.T) {
 	t.Parallel()
 
-	vpc := &kubeovnv1.Vpc{Spec: kubeovnv1.VpcSpec{ExtraExternalSubnets: []string{"vlan-a", "vlan-b"}}}
+	vpc := &fabricv1.Vpc{Spec: fabricv1.VpcSpec{ExtraExternalSubnets: []string{"vlan-a", "vlan-b"}}}
 	require.Equal(t, []string{"external", "vlan-a", "vlan-b"}, vpcExternalSubnets(vpc, "external"))
 	require.Equal(t, []string{"vlan-a", "vlan-b"}, vpcExternalSubnets(vpc, ""))
-	require.Equal(t, []string{"external"}, vpcExternalSubnets(&kubeovnv1.Vpc{}, "external"))
+	require.Equal(t, []string{"external"}, vpcExternalSubnets(&fabricv1.Vpc{}, "external"))
 }
 
 func TestPlanVpcExternalSubnetChanges(t *testing.T) {
 	t.Parallel()
 
-	vpc := func(specEnabled bool, specExtra []string, statusEnabled bool, statusExtra []string) *kubeovnv1.Vpc {
-		return &kubeovnv1.Vpc{
-			Spec:   kubeovnv1.VpcSpec{EnableExternal: specEnabled, ExtraExternalSubnets: specExtra},
-			Status: kubeovnv1.VpcStatus{EnableExternal: statusEnabled, ExtraExternalSubnets: statusExtra},
+	vpc := func(specEnabled bool, specExtra []string, statusEnabled bool, statusExtra []string) *fabricv1.Vpc {
+		return &fabricv1.Vpc{
+			Spec:   fabricv1.VpcSpec{EnableExternal: specEnabled, ExtraExternalSubnets: specExtra},
+			Status: fabricv1.VpcStatus{EnableExternal: statusEnabled, ExtraExternalSubnets: statusExtra},
 		}
 	}
 	cases := []struct {
 		name             string
-		vpc              *kubeovnv1.Vpc
+		vpc              *fabricv1.Vpc
 		defaultExists    bool
 		defaultConnected bool
 		wantConnect      []string
@@ -833,10 +833,10 @@ func TestPlanVpcExternalSubnetChanges(t *testing.T) {
 func TestReconcileVpcExternalSubnetConnectionsDropsDefaultNextToExtras(t *testing.T) {
 	t.Parallel()
 
-	vpc := &kubeovnv1.Vpc{
+	vpc := &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: "vpc-transit"},
-		Spec:       kubeovnv1.VpcSpec{EnableExternal: true, ExtraExternalSubnets: []string{"transit"}},
-		Status:     kubeovnv1.VpcStatus{EnableExternal: true, ExtraExternalSubnets: []string{"transit"}},
+		Spec:       fabricv1.VpcSpec{EnableExternal: true, ExtraExternalSubnets: []string{"transit"}},
+		Status:     fabricv1.VpcStatus{EnableExternal: true, ExtraExternalSubnets: []string{"transit"}},
 	}
 	fakeController := newFakeController(t)
 	ctrl := fakeController.fakeController
@@ -853,10 +853,10 @@ func TestReconcileVpcExternalSubnetConnectionsDropsDefaultNextToExtras(t *testin
 func TestReconcileVpcExternalSubnetConnectionsKeepsSteadyState(t *testing.T) {
 	t.Parallel()
 
-	vpc := &kubeovnv1.Vpc{
+	vpc := &fabricv1.Vpc{
 		ObjectMeta: metav1.ObjectMeta{Name: "vpc-default"},
-		Spec:       kubeovnv1.VpcSpec{EnableExternal: true},
-		Status:     kubeovnv1.VpcStatus{EnableExternal: true},
+		Spec:       fabricv1.VpcSpec{EnableExternal: true},
+		Status:     fabricv1.VpcStatus{EnableExternal: true},
 	}
 	fakeController := newFakeController(t)
 	ctrl := fakeController.fakeController

@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestIndexPodByNode(t *testing.T) {
@@ -106,27 +106,27 @@ func TestIndexIPBySubnet(t *testing.T) {
 	}{
 		{
 			name: "ip on primary subnet only",
-			obj:  &kubeovnv1.IP{Spec: kubeovnv1.IPSpec{Subnet: "subnet-1"}},
+			obj:  &fabricv1.IP{Spec: fabricv1.IPSpec{Subnet: "subnet-1"}},
 			want: []string{"subnet-1"},
 		},
 		{
 			name: "ip with attach subnets",
-			obj:  &kubeovnv1.IP{Spec: kubeovnv1.IPSpec{Subnet: "subnet-1", AttachSubnets: []string{"attach-1", "attach-2"}}},
+			obj:  &fabricv1.IP{Spec: fabricv1.IPSpec{Subnet: "subnet-1", AttachSubnets: []string{"attach-1", "attach-2"}}},
 			want: []string{"subnet-1", "attach-1", "attach-2"},
 		},
 		{
 			name: "ip with duplicate and empty attach subnets",
-			obj:  &kubeovnv1.IP{Spec: kubeovnv1.IPSpec{Subnet: "subnet-1", AttachSubnets: []string{"subnet-1", "", "attach-1"}}},
+			obj:  &fabricv1.IP{Spec: fabricv1.IPSpec{Subnet: "subnet-1", AttachSubnets: []string{"subnet-1", "", "attach-1"}}},
 			want: []string{"subnet-1", "attach-1"},
 		},
 		{
 			name: "ip without primary subnet",
-			obj:  &kubeovnv1.IP{Spec: kubeovnv1.IPSpec{AttachSubnets: []string{"attach-1"}}},
+			obj:  &fabricv1.IP{Spec: fabricv1.IPSpec{AttachSubnets: []string{"attach-1"}}},
 			want: []string{"attach-1"},
 		},
 		{
 			name: "ip without any subnet",
-			obj:  &kubeovnv1.IP{Spec: kubeovnv1.IPSpec{}},
+			obj:  &fabricv1.IP{Spec: fabricv1.IPSpec{}},
 			want: []string{},
 		},
 		{
@@ -189,11 +189,11 @@ func TestIndexersLookup(t *testing.T) {
 	}
 
 	ipIdx := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{IndexIPBySubnet: indexIPBySubnet})
-	for _, ip := range []*kubeovnv1.IP{
-		{ObjectMeta: metav1.ObjectMeta{Name: "ip1"}, Spec: kubeovnv1.IPSpec{Subnet: "subnet-a"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "ip2"}, Spec: kubeovnv1.IPSpec{Subnet: "subnet-a"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "ip3"}, Spec: kubeovnv1.IPSpec{Subnet: "subnet-b", AttachSubnets: []string{"subnet-a"}}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "ip4"}, Spec: kubeovnv1.IPSpec{Subnet: "subnet-b"}},
+	for _, ip := range []*fabricv1.IP{
+		{ObjectMeta: metav1.ObjectMeta{Name: "ip1"}, Spec: fabricv1.IPSpec{Subnet: "subnet-a"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "ip2"}, Spec: fabricv1.IPSpec{Subnet: "subnet-a"}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "ip3"}, Spec: fabricv1.IPSpec{Subnet: "subnet-b", AttachSubnets: []string{"subnet-a"}}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "ip4"}, Spec: fabricv1.IPSpec{Subnet: "subnet-b"}},
 	} {
 		if err := ipIdx.Add(ip); err != nil {
 			t.Fatalf("add ip: %v", err)
@@ -210,17 +210,17 @@ func TestIndexersLookup(t *testing.T) {
 
 func TestIndexVpcByBFDPort(t *testing.T) {
 	idx := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{IndexVpcByBFDPort: indexVpcByBFDPort})
-	vpcs := []*kubeovnv1.Vpc{
+	vpcs := []*fabricv1.Vpc{
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "bfd-enabled"},
-			Spec: kubeovnv1.VpcSpec{
-				BFDPort: &kubeovnv1.BFDPort{Enabled: true},
+			Spec: fabricv1.VpcSpec{
+				BFDPort: &fabricv1.BFDPort{Enabled: true},
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Name: "bfd-disabled"},
-			Spec: kubeovnv1.VpcSpec{
-				BFDPort: &kubeovnv1.BFDPort{Enabled: false},
+			Spec: fabricv1.VpcSpec{
+				BFDPort: &fabricv1.BFDPort{Enabled: false},
 			},
 		},
 	}
@@ -237,7 +237,7 @@ func TestIndexVpcByBFDPort(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected 1 indexed VPC, got %d", len(got))
 	}
-	vpc, ok := got[0].(*kubeovnv1.Vpc)
+	vpc, ok := got[0].(*fabricv1.Vpc)
 	if !ok || vpc.Name != "bfd-enabled" {
 		t.Fatalf("expected bfd-enabled VPC, got %#v", got[0])
 	}

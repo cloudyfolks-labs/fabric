@@ -44,7 +44,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 	nbGlobal, err := nbClient.GetNbGlobal()
 	require.NoError(t, err)
 	if nbGlobal.ExternalIDs != nil {
-		delete(nbGlobal.ExternalIDs, kubeOvnVersionKey)
+		delete(nbGlobal.ExternalIDs, fabricVersionKey)
 		err = nbClient.UpdateNbGlobal(nbGlobal, &nbGlobal.ExternalIDs)
 		require.NoError(t, err)
 	}
@@ -140,7 +140,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDs() {
 	require.Equal(t, util.VendorTag, migratedLb.ExternalIDs["vendor"])
 
 	// Verify version was stored
-	storedVersion, err := nbClient.GetKubeOvnVersion()
+	storedVersion, err := nbClient.GetFabricVersion()
 	require.NoError(t, err)
 	require.Equal(t, versions.VERSION, storedVersion)
 }
@@ -168,7 +168,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsIdempotent() {
 	nbGlobal, err := nbClient.GetNbGlobal()
 	require.NoError(t, err)
 	if nbGlobal.ExternalIDs != nil {
-		delete(nbGlobal.ExternalIDs, kubeOvnVersionKey)
+		delete(nbGlobal.ExternalIDs, fabricVersionKey)
 		err = nbClient.UpdateNbGlobal(nbGlobal, &nbGlobal.ExternalIDs)
 		require.NoError(t, err)
 	}
@@ -178,7 +178,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsIdempotent() {
 	require.NoError(t, err)
 
 	// Verify version was stored
-	storedVersion, err := nbClient.GetKubeOvnVersion()
+	storedVersion, err := nbClient.GetFabricVersion()
 	require.NoError(t, err)
 	require.Equal(t, versions.VERSION, storedVersion)
 
@@ -189,7 +189,7 @@ func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsIdempotent() {
 	}
 
 	// Version should still be set
-	storedVersion, err = nbClient.GetKubeOvnVersion()
+	storedVersion, err = nbClient.GetFabricVersion()
 	require.NoError(t, err)
 	require.Equal(t, versions.VERSION, storedVersion)
 }
@@ -209,7 +209,7 @@ func (suite *OvnClientTestSuite) testMigrateSkipsWhenVersionSet() {
 	ensureNbGlobalExists(t, nbClient)
 
 	// Set version to current (simulating already-migrated system)
-	err := nbClient.SetKubeOvnVersion(versions.VERSION)
+	err := nbClient.SetFabricVersion(versions.VERSION)
 	require.NoError(t, err)
 
 	// Check that migration is not needed
@@ -233,7 +233,7 @@ func (suite *OvnClientTestSuite) testMigrateRunsWhenOldVersion() {
 	ensureNbGlobalExists(t, nbClient)
 
 	// Set version to old version (before vendor tagging was introduced)
-	err := nbClient.SetKubeOvnVersion("v1.14.0")
+	err := nbClient.SetFabricVersion("v1.14.0")
 	require.NoError(t, err)
 
 	// Check that migration IS needed
@@ -242,7 +242,7 @@ func (suite *OvnClientTestSuite) testMigrateRunsWhenOldVersion() {
 	require.True(t, needsMigration, "migration should be needed when old version is stored")
 }
 
-func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsSkipsNonKubeOvn() {
+func (suite *OvnClientTestSuite) testMigrateVendorExternalIDsSkipsNonFabric() {
 	t := suite.T()
 	// Note: Cannot run in parallel as these tests modify shared NBGlobal state
 

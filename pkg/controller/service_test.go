@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -565,9 +565,9 @@ func Test_checkServiceLBIPBelongToSubnet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-				Subnets: []*kubeovnv1.Subnet{{
+				Subnets: []*fabricv1.Subnet{{
 					ObjectMeta: metav1.ObjectMeta{Name: subnetName},
-					Spec:       kubeovnv1.SubnetSpec{CIDRBlock: "192.168.1.0/24"},
+					Spec:       fabricv1.SubnetSpec{CIDRBlock: "192.168.1.0/24"},
 				}},
 			})
 			require.NoError(t, err)

@@ -81,7 +81,7 @@ func ExtractVlanIDFromInterface(interfaceName string) (int, error) {
 	return vlanID, nil
 }
 
-func FindKubeOVNAutoCreatedInterfaces(providerName string) ([]string, error) {
+func FindFabricAutoCreatedInterfaces(providerName string) ([]string, error) {
 	var createdInterfaces []string
 
 	links, err := netlink.LinkList()
@@ -97,20 +97,8 @@ func FindKubeOVNAutoCreatedInterfaces(providerName string) ([]string, error) {
 		}
 	}
 
-	klog.V(3).Infof("Found %d Kube-OVN auto-created interfaces for provider %s: %v", len(createdInterfaces), providerName, createdInterfaces)
+	klog.V(3).Infof("Found %d fabric auto-created interfaces for provider %s: %v", len(createdInterfaces), providerName, createdInterfaces)
 	return createdInterfaces, nil
-}
-
-func IsVlanInternalPort(portName string) (bool, int) {
-	if matched, vlanID := isCompactVlanInternalPort(portName); matched {
-		return true, vlanID
-	}
-
-	separatorIndex := strings.LastIndex(portName, "-vlan")
-	if separatorIndex == -1 || !strings.HasPrefix(portName[:separatorIndex], "br-") {
-		return false, 0
-	}
-	return parseVlanID(portName[separatorIndex+len("-vlan"):])
 }
 
 // IsVlanInternalPortForBridge reports whether portName is a compact or legacy

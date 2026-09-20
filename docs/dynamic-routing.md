@@ -1,9 +1,9 @@
 # Dynamic routing
 
 A VPC with `spec.dynamicRouting.enabled` advertises its EIPs to the
-fabric over BGP. OVN writes the routes of the VPC into the Linux
-routing table `vrfId` on the chassis that binds the external gateway
-LRP. The `fabric-frr` agent on that chassis renders the FRR
+physical network over BGP. OVN writes the routes of the VPC into the
+Linux routing table `vrfId` on the chassis that binds the external
+gateway LRP. The `fabric-frr` agent on that chassis renders the FRR
 configuration that redistributes the table into one BGP session set.
 
 ## What the agent renders
@@ -47,8 +47,8 @@ when no subnet is named and the VPC carries more than one gateway LRP.
 
 The agent does not import routes from the peer into the VPC tables.
 Egress traffic of a VPC follows the static routes of the VPC through
-the external subnet gateway. A VPC that needs a route to a fabric
-prefix declares it in `spec.staticRoutes`.
+the external subnet gateway. A VPC that needs a route to a prefix
+behind the peer declares it in `spec.staticRoutes`.
 
 ## NAT gateway ports
 

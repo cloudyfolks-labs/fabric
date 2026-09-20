@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestNewSubnetIPv4(t *testing.T) {

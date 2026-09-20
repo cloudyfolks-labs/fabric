@@ -8,7 +8,7 @@ import (
 	v1alpha1 "sigs.k8s.io/network-policy-api/apis/v1alpha1"
 	v1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnsb"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
@@ -190,11 +190,11 @@ type ACL interface {
 	CreateNodeACL(pgName, nodeIPStr, joinIPStr string) error
 	CreateSgDenyAllACL(sgName string) error
 	CreateSgBaseACL(sgName, direction string) error
-	UpdateSgACL(sg *kubeovnv1.SecurityGroup, direction string) error
-	UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcls []kubeovnv1.ACL, allowEWTraffic bool) error
+	UpdateSgACL(sg *fabricv1.SecurityGroup, direction string) error
+	UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcls []fabricv1.ACL, allowEWTraffic bool) error
 	SetNetPolACLLog(pgName string, logEnable, isIngress bool) error
 	SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR string, allowSubnets []string) error
-	SGLostACL(sg *kubeovnv1.SecurityGroup) (bool, error)
+	SGLostACL(sg *fabricv1.SecurityGroup) (bool, error)
 	DeleteAcls(parentName, parentType, direction string, externalIDs map[string]string) error
 	DeleteAclsOps(parentName, parentType, direction string, externalIDs map[string]string) ([]ovsdb.Operation, error)
 	UpdateAnpRuleACLOps(pgName, asName, protocol, aclName string, priority int, aclAction ovnnb.ACLAction, logACLActions []ovnnb.ACLAction, rulePorts []v1alpha1.AdminNetworkPolicyPort, isIngress, isBanp bool) ([]ovsdb.Operation, error)
@@ -254,7 +254,7 @@ type NAT interface {
 }
 
 type DHCPOptions interface {
-	UpdateDHCPOptions(subnet *kubeovnv1.Subnet, mtu int) (*DHCPOptionsUUIDs, error)
+	UpdateDHCPOptions(subnet *fabricv1.Subnet, mtu int) (*DHCPOptionsUUIDs, error)
 	UpdateDHCPOptionsForPort(lsName, portName, cidrBlock, gateway, v4Options, v6Options string, mtu int) (*DHCPOptionsUUIDs, error)
 	DeleteDHCPOptions(lsName, protocol string) error
 	DeleteDHCPOptionsForPort(portName string) error
@@ -313,7 +313,7 @@ type Chassis interface {
 	DeleteChassisByHost(node string) error
 	GetChassisByHost(nodeName string) (*ovnsb.Chassis, error)
 	GetChassis(chassisName string, ignoreNotFound bool) (*ovnsb.Chassis, error)
-	GetKubeOvnChassises() (*[]ovnsb.Chassis, error)
+	GetFabricChassises() (*[]ovnsb.Chassis, error)
 	UpdateChassisTag(chassisName, nodeName string) error
 	UpdateChassis(chassis *ovnsb.Chassis, fields ...any) error
 	ListChassis() (*[]ovnsb.Chassis, error)

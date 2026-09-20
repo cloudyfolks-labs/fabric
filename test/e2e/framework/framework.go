@@ -21,7 +21,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	anpclient "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
 
-	kubeovncs "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
+	fabriccs "github.com/cloudyfolks-labs/fabric/pkg/client/clientset/versioned"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -43,7 +43,7 @@ const (
 	timeout = 2 * time.Minute
 )
 
-func LoadKubeOVNClientSet() (*kubeovncs.Clientset, error) {
+func LoadFabricClientSet() (*fabriccs.Clientset, error) {
 	config, err := framework.LoadConfig()
 	if err != nil {
 		return nil, err
@@ -51,19 +51,19 @@ func LoadKubeOVNClientSet() (*kubeovncs.Clientset, error) {
 
 	config.QPS = 20
 	config.Burst = 50
-	return kubeovncs.NewForConfig(config)
+	return fabriccs.NewForConfig(config)
 }
 
 type Framework struct {
 	KubeContext string
 	*framework.Framework
-	KubeOVNClientSet  kubeovncs.Interface
+	FabricClientSet   fabriccs.Interface
 	KubeVirtClientSet kubecli.KubevirtClient
 	MetallbClientSet  *MetallbClientSet
 	AttachNetClient   nad.Interface
 	ExtClientSet      *extClientSet.Clientset
 	AnpClientSet      anpclient.Interface
-	KubeOVNVersion    *versionutil.Version
+	FabricVersion     *versionutil.Version
 	// master/release-1.10/...
 	ClusterVersion string
 	// 999.999 for master
@@ -74,10 +74,10 @@ type Framework struct {
 	// overlay/underlay/underlay-hairpin
 	ClusterNetworkMode string
 	// image info
-	KubeOVNImage       string
-	KubeOVNImageDomain string
-	KubeOVNImageRepo   string
-	KubeOVNImageTag    string
+	FabricImage       string
+	FabricImageDomain string
+	FabricImageRepo   string
+	FabricImageTag    string
 }
 
 func (f *Framework) parseEnv() {
@@ -86,12 +86,12 @@ func (f *Framework) parseEnv() {
 
 	envBranch := os.Getenv("E2E_BRANCH")
 	if !strings.HasPrefix(envBranch, "release-") {
-		f.KubeOVNVersion = versionutil.MustParseMajorMinor("999.999")
+		f.FabricVersion = versionutil.MustParseMajorMinor("999.999")
 	} else {
 		var err error
-		if f.KubeOVNVersion, err = versionutil.ParseMajorMinor(strings.TrimPrefix(envBranch, "release-")); err != nil {
+		if f.FabricVersion, err = versionutil.ParseMajorMinor(strings.TrimPrefix(envBranch, "release-")); err != nil {
 			defer ginkgo.GinkgoRecover()
-			ginkgo.Fail(fmt.Sprintf("Failed to parse Kube-OVN version %q", envBranch))
+			ginkgo.Fail(fmt.Sprintf("Failed to parse fabric version %q", envBranch))
 		}
 	}
 }
@@ -195,14 +195,14 @@ func (f *Framework) BeforeEach() {
 	ginkgo.By("Setting kubernetes context")
 	ExpectNoError(f.useContext())
 
-	if f.KubeOVNClientSet == nil {
-		ginkgo.By("Creating a Kube-OVN client")
+	if f.FabricClientSet == nil {
+		ginkgo.By("Creating a fabric client")
 		config, err := framework.LoadConfig()
 		ExpectNoError(err)
 
 		config.QPS = f.Options.ClientQPS
 		config.Burst = f.Options.ClientBurst
-		f.KubeOVNClientSet, err = kubeovncs.NewForConfig(config)
+		f.FabricClientSet, err = fabriccs.NewForConfig(config)
 		ExpectNoError(err)
 	}
 
@@ -261,30 +261,30 @@ func (f *Framework) BeforeEach() {
 		ExpectNoError(err)
 	}
 
-	if f.KubeOVNImage == "" && f.ClientSet != nil {
-		framework.Logf("Getting Kube-OVN image")
-		f.KubeOVNImage = GetKubeOvnImage(f.ClientSet)
-		framework.Logf("Got Kube-OVN image: %s", f.KubeOVNImage)
-		ref, err := reference.Parse(f.KubeOVNImage)
+	if f.FabricImage == "" && f.ClientSet != nil {
+		framework.Logf("Getting fabric image")
+		f.FabricImage = GetFabricImage(f.ClientSet)
+		framework.Logf("Got fabric image: %s", f.FabricImage)
+		ref, err := reference.Parse(f.FabricImage)
 		ExpectNoError(err)
 		taggedRef := ref.(reference.Tagged)
-		ExpectNotNil(taggedRef, "Failed to get tagged reference from Kube-OVN image")
-		f.KubeOVNImageTag = taggedRef.Tag()
+		ExpectNotNil(taggedRef, "Failed to get tagged reference from fabric image")
+		f.FabricImageTag = taggedRef.Tag()
 		namedRef := ref.(reference.Named)
-		ExpectNotNil(namedRef, "Failed to get named reference from Kube-OVN image")
-		f.KubeOVNImageDomain = reference.Domain(namedRef)
-		f.KubeOVNImageRepo = reference.Path(namedRef)
+		ExpectNotNil(namedRef, "Failed to get named reference from fabric image")
+		f.FabricImageDomain = reference.Domain(namedRef)
+		f.FabricImageRepo = reference.Path(namedRef)
 	}
 
 	framework.TestContext.Host = ""
 }
 
-// VersionPriorTo returns true if the Kube-OVN version is prior to the specified version.
+// VersionPriorTo returns true if the fabric version is prior to the specified version.
 func (f *Framework) VersionPriorTo(major, minor uint) bool {
-	return f.KubeOVNVersion.LessThan(versionutil.MustParseMajorMinor(fmt.Sprintf("%d.%d", major, minor)))
+	return f.FabricVersion.LessThan(versionutil.MustParseMajorMinor(fmt.Sprintf("%d.%d", major, minor)))
 }
 
-// SkipVersionPriorTo skips the test if the Kube-OVN version is prior to the specified version.
+// SkipVersionPriorTo skips the test if the fabric version is prior to the specified version.
 func (f *Framework) SkipVersionPriorTo(major, minor uint, reason string) {
 	ginkgo.GinkgoHelper()
 
@@ -295,8 +295,8 @@ func (f *Framework) SkipVersionPriorTo(major, minor uint, reason string) {
 
 // Image returns the image reference with the specified name.
 func (f *Framework) Image(name string) string {
-	repo := path.Clean(path.Join(path.Dir(f.KubeOVNImageRepo), name))
-	return fmt.Sprintf("%s/%s:%s", f.KubeOVNImageDomain, repo, f.KubeOVNImageTag)
+	repo := path.Clean(path.Join(path.Dir(f.FabricImageRepo), name))
+	return fmt.Sprintf("%s/%s:%s", f.FabricImageDomain, repo, f.FabricImageTag)
 }
 
 func (f *Framework) ValidateFinalizers(obj metav1.Object) {
@@ -304,7 +304,7 @@ func (f *Framework) ValidateFinalizers(obj metav1.Object) {
 
 	finalizers := obj.GetFinalizers()
 	if !f.VersionPriorTo(1, 13) {
-		ExpectContainElement(finalizers, util.KubeOVNControllerFinalizer)
+		ExpectContainElement(finalizers, util.FabricControllerFinalizer)
 		ExpectNotContainElement(finalizers, util.DeprecatedFinalizerName)
 		ExpectNotContainElement(finalizers, util.LegacyControllerFinalizer)
 	} else {
@@ -313,19 +313,19 @@ func (f *Framework) ValidateFinalizers(obj metav1.Object) {
 }
 
 func Describe(text string, body func()) bool {
-	return ginkgo.Describe("[CNI:Kube-OVN] "+text, ginkgo.Offset(1), body)
+	return ginkgo.Describe("[CNI:fabric] "+text, ginkgo.Offset(1), body)
 }
 
 func FDescribe(text string, body func()) bool {
-	return ginkgo.FDescribe("[CNI:Kube-OVN] "+text, ginkgo.Offset(1), body)
+	return ginkgo.FDescribe("[CNI:fabric] "+text, ginkgo.Offset(1), body)
 }
 
 func SerialDescribe(text string, body func()) bool {
-	return ginkgo.Describe("[CNI:Kube-OVN] "+text, ginkgo.Offset(1), ginkgo.Serial, body)
+	return ginkgo.Describe("[CNI:fabric] "+text, ginkgo.Offset(1), ginkgo.Serial, body)
 }
 
 func OrderedDescribe(text string, body func()) bool {
-	return ginkgo.Describe("[CNI:Kube-OVN] "+text, ginkgo.Offset(1), ginkgo.Ordered, body)
+	return ginkgo.Describe("[CNI:fabric] "+text, ginkgo.Offset(1), ginkgo.Ordered, body)
 }
 
 var ConformanceIt func(args ...any) bool = framework.ConformanceIt

@@ -1,8 +1,6 @@
 package util
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"slices"
 	"sort"
 	"strings"
@@ -12,7 +10,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 // ReadyServiceCIDRs returns Spec.CIDRs when the ServiceCIDR object's Ready
@@ -121,10 +119,10 @@ func (s *ServiceCIDRStore) AllCIDRs() []string {
 }
 
 // V4CIDRs returns the IPv4 subset of the merged set.
-func (s *ServiceCIDRStore) V4CIDRs() []string { return s.byProtocol(kubeovnv1.ProtocolIPv4) }
+func (s *ServiceCIDRStore) V4CIDRs() []string { return s.byProtocol(fabricv1.ProtocolIPv4) }
 
 // V6CIDRs returns the IPv6 subset of the merged set.
-func (s *ServiceCIDRStore) V6CIDRs() []string { return s.byProtocol(kubeovnv1.ProtocolIPv6) }
+func (s *ServiceCIDRStore) V6CIDRs() []string { return s.byProtocol(fabricv1.ProtocolIPv6) }
 
 func (s *ServiceCIDRStore) byProtocol(proto string) []string {
 	s.mu.RLock()
@@ -136,19 +134,6 @@ func (s *ServiceCIDRStore) byProtocol(proto string) []string {
 		}
 	}
 	return out
-}
-
-// Hash returns a stable SHA-256 over the sorted merged set. Used as a
-// deployment annotation to roll vpc-lb pods when the set changes.
-func (s *ServiceCIDRStore) Hash() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	h := sha256.New()
-	for _, cidr := range s.cached {
-		h.Write([]byte(cidr))
-		h.Write([]byte{0})
-	}
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 // UpsertFromAPI sets the CIDRs for a given ServiceCIDR object name. Returns

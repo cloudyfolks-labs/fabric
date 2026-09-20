@@ -82,7 +82,7 @@ def decideDispatch(
     if confirmedHeadSHA != headSHA:
         return rejectedDecision(command, "pull request HEAD changed; comment again")
     baseRef = pullRequest.get("base", {}).get("ref")
-    if baseRef != "master" and not re.fullmatch(r"release-[A-Za-z0-9._-]+", baseRef or ""):
+    if baseRef != "main" and not re.fullmatch(r"release-[A-Za-z0-9._-]+", baseRef or ""):
         return rejectedDecision(command, "pull request base branch is not supported")
     baseSHA = pullRequest.get("base", {}).get("sha")
     if not re.fullmatch(r"[0-9a-f]{40}", baseSHA or ""):
@@ -467,7 +467,7 @@ def latestExecutorRun(
     catalogRevision=None,
     workflowSHA=None,
 ):
-    if baseRef != "master" and not re.fullmatch(
+    if baseRef != "main" and not re.fullmatch(
         r"release-[A-Za-z0-9._-]+", baseRef or ""
     ):
         return None

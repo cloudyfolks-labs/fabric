@@ -1,9 +1,9 @@
 # fabric Helm chart
 
-![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square)
+![Version: 1.2.1](https://img.shields.io/badge/Version-1.2.1-informational?style=flat-square)
 
-Kubernetes network fabric for multi-tenant clouds, a fork of fabric.
-CRDs ship in the embedded `fabric-crds` subchart so `helm upgrade` keeps them up to date; set `crds.enabled=false` to manage CRDs yourself.
+fabric is a Kubernetes network fabric for multi-tenant clouds. The project started as a fork of Kube-OVN and is now a standalone project.
+CRDs ship in the embedded `fabric-crds` subchart, so `helm upgrade` keeps them up to date. Set `crds.enabled=false` to manage CRDs yourself.
 
 ## Installing the Chart
 
@@ -12,7 +12,7 @@ CRDs ship in the embedded `fabric-crds` subchart so `helm upgrade` keeps them up
 The Helm chart is available from GitHub Container Registry:
 
 ```bash
-helm install fabric oci://ghcr.io/cloudyfolks-labs/charts/fabric --version 1.0.0
+helm install fabric oci://ghcr.io/cloudyfolks-labs/charts/fabric --version 1.2.1
 ```
 
 ### From Source
@@ -21,9 +21,9 @@ helm install fabric oci://ghcr.io/cloudyfolks-labs/charts/fabric --version 1.0.0
 helm install fabric ./charts/fabric
 ```
 
-## How to install Kube-OVN on Talos Linux
+## How to install fabric on Talos Linux
 
-To install Kube-OVN on Talos Linux, declare the **OpenvSwitch** module in the `machine` config of your Talos install:
+To install fabric on Talos Linux, declare the **OpenvSwitch** module in the `machine` config of your Talos install:
 
 ```yaml
 machine:
@@ -45,190 +45,12 @@ cni:
 ```
 
 All three `ovsOvn` directories must point outside `/etc`, which is read-only on Talos. `ovsIpsecKeysDirectory`
-only becomes a host mount when `features.enableOvnIpsec` is enabled, but setting it up front keeps IPSEC
-from failing later with `mkdir /etc/origin: read-only file system`.
-
-## Migrate from v1 to v2 Chart
-
-> **⚠️ This is a breaking migration.** The v2 chart adopts standard Kubernetes labels (`app.kubernetes.io/name`,
-> `app.kubernetes.io/part-of`) for all `spec.selector.matchLabels`. Kubernetes considers `spec.selector.matchLabels`
-> **immutable** on Deployments and DaemonSets — they cannot be patched after creation.
->
-> Because the selectors changed, every workload must be **deleted and recreated** — a regular `helm upgrade` will fail.
-> Plan for a maintenance window.
-
-### What changed
-
-The v1 chart used ad-hoc labels such as `app: ovs` or `app: fabric-pinger` in `spec.selector.matchLabels`.
-The v2 chart replaces these selectors with Kubernetes-recommended labels. Since `spec.selector.matchLabels` is
-immutable, this change requires deleting and recreating each workload.
-
-The legacy labels are still present in `spec.template.metadata.labels` (pod labels) for backward compatibility
-(e.g. existing NetworkPolicies or PodMonitors that reference them). Pod template labels are mutable and do not
-require workload recreation.
-
-| Component | v1 selector | v2 selector |
-|---|---|---|
-| fabric-pinger | `app: fabric-pinger` | `app.kubernetes.io/name: fabric-pinger` |
-| fabric-monitor | `app: fabric-monitor` | `app.kubernetes.io/name: fabric-monitor` |
-| fabric-controller | `app: fabric-controller` | `app.kubernetes.io/name: fabric-controller` |
-| ovn-central | `app: ovn-central` | `app.kubernetes.io/name: ovn-central` |
-| ovs-ovn | `app: ovs` | `app.kubernetes.io/name: kube-ovn-ovs` |
-| fabric-cni | `app: fabric-cni` | `app.kubernetes.io/name: fabric-cni` |
-
-> **Note:** The fabric-cni component is called **agent** in the v2 chart templates (`templates/agent/`).
-
-All v2 selectors also include `app.kubernetes.io/part-of: fabric`.
-
-Additionally, the values file structure has changed (e.g. `networking.NET_STACK` → `networking.stack`).
-Always generate the v2 templates with a dry-run first and compare them against your running resources:
-
-```bash
-helm template fabric ./charts/fabric -f your-values.yaml > v2-manifests.yaml
-```
-
-### Migration order
-
-Migrate components in the order below — least critical first, data-plane last — and **wait for each
-component to become healthy before proceeding** to the next.
-
-You can verify pod health at any time with:
-
-```bash
-kubectl get pods -n kube-system -l app.kubernetes.io/part-of=fabric
-```
-
-#### 1. fabric-pinger (DaemonSet)
-
-Monitoring-only component — safe to recreate first.
-
-```bash
-# Delete the old DaemonSet
-kubectl delete daemonset fabric-pinger -n kube-system
-
-# Apply the new DaemonSet and Service
-kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
-  -s templates/pinger/pinger-daemonset.yaml \
-  -s templates/pinger/pinger-service.yaml)
-```
-
-#### 2. fabric-monitor (Deployment)
-
-Metrics exporter — stateless and safe to recreate.
-
-```bash
-# Delete the old Deployment
-kubectl delete deployment fabric-monitor -n kube-system
-
-# Apply the new Deployment and Service
-kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
-  -s templates/monitor/monitor-deployment.yaml \
-  -s templates/monitor/monitor-service.yaml)
-```
-
-#### 3. fabric-controller (Deployment)
-
-Control-plane component. Scale down first to avoid split-brain during switchover.
-
-```bash
-# Scale down
-kubectl scale deployment fabric-controller -n kube-system --replicas=0
-kubectl rollout status deployment fabric-controller -n kube-system
-
-# Delete the old Deployment
-kubectl delete deployment fabric-controller -n kube-system
-
-# Apply the new Deployment and Service
-kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
-  -s templates/controller/controller-deployment.yaml \
-  -s templates/controller/controller-service.yaml)
-```
-
-#### 4. ovn-central (Deployment)
-
-OVN northd/nb/sb. Same approach as the controller.
-
-```bash
-# Scale down
-kubectl scale deployment ovn-central -n kube-system --replicas=0
-kubectl rollout status deployment ovn-central -n kube-system
-
-# Delete the old Deployment
-kubectl delete deployment ovn-central -n kube-system
-
-# Apply the new Deployment and Services
-kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
-  -s templates/central/central-deployment.yaml \
-  -s templates/central/northbound-service.yaml \
-  -s templates/central/southbound-service.yaml \
-  -s templates/central/northd-service.yaml)
-```
-
-#### 5. ovs-ovn (DaemonSet) — zero-downtime
-
-This runs Open vSwitch on every node. Deleting it normally would cause a **network outage**.
-Use the orphan strategy: delete only the DaemonSet object while keeping the existing pods running,
-then relabel the pods so the new DaemonSet adopts them.
-
-```bash
-# Delete the DaemonSet but keep its pods alive
-kubectl delete daemonset ovs-ovn -n kube-system --cascade=orphan
-
-# Add the new labels to existing pods (the old labels are kept by the v2 chart)
-kubectl label pod -n kube-system -l app=ovs \
-  app.kubernetes.io/name=fabric-ovs \
-  app.kubernetes.io/part-of=fabric
-
-# Apply the new DaemonSet — it will adopt the relabeled pods without restarting them
-kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
-  -s templates/ovs-ovn/ovs-ovn-daemonset.yaml)
-```
-
-#### 6. fabric-cni / agent (DaemonSet) — zero-downtime
-
-> **Note:** The v2 chart refers to this component as **agent** in its templates (`templates/agent/`),
-> but the resulting DaemonSet is still named `fabric-cni` in the cluster.
-
-Same orphan strategy as ovs-ovn. Apply the new Service first so it selects the relabeled pods immediately.
-Note: applying the new DaemonSet will trigger a rolling restart of the CNI pods.
-
-```bash
-# Delete the DaemonSet but keep its pods alive
-kubectl delete daemonset fabric-cni -n kube-system --cascade=orphan
-
-# Add the new labels to existing pods (the old labels are kept by the v2 chart)
-kubectl label pod -n kube-system -l app=fabric-cni \
-  app.kubernetes.io/name=fabric-cni \
-  app.kubernetes.io/part-of=fabric
-
-# Apply the new Service (selects the relabeled pods)
-kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
-  -s templates/agent/agent-service.yaml)
-
-# Apply the new DaemonSet (will trigger a rolling restart)
-kubectl apply -f <(helm template fabric ./charts/fabric -f your-values.yaml \
-  -s templates/agent/agent-daemonset.yaml)
-```
-
-### Finalize
-
-Once all components are healthy, run a full Helm upgrade to ensure every remaining resource
-(RBAC, CRDs, ConfigMaps, etc.) is in sync with the v2 chart:
-
-```bash
-helm upgrade --install fabric ./charts/fabric -f your-values.yaml -n kube-system
-```
-
-### Notes for GitOps users
-
-If you manage Kube-OVN through a GitOps tool (e.g. ArgoCD, Flux), a regular sync will fail because
-Kubernetes rejects selector changes on existing Deployments and DaemonSets. You will need to use
-your tool's equivalent of a **force-replace** for the affected resources, or perform the manual
-`kubectl` steps above before pointing your GitOps tool at the v2 chart.
+only becomes a host mount when `features.enableOvnIpsec` is enabled. Set it up front so that IPSEC does not fail
+later with `mkdir /etc/origin: read-only file system`.
 
 ## How to regenerate this README
 
-This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs). Launch `helm-docs` while in this folder to regenerate the documented values.
+This README is generated with [helm-docs](https://github.com/norwoodj/helm-docs). Run `helm-docs` in this folder to regenerate the documented values.
 
 ## Values
 
@@ -258,6 +80,15 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 </pre>
 </td>
 			<td>Annotations to be added to all top-level agent objects (resources under templates/agent)</td>
+		</tr>
+		<tr>
+			<td>agent.dpdkTunnelInterface</td>
+			<td>string</td>
+			<td><pre lang="json">
+"br-phy"
+</pre>
+</td>
+			<td>Name of the DPDK tunnel interface.</td>
 		</tr>
 		<tr>
 			<td>agent.extraEnv</td>
@@ -319,6 +150,15 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 			<td>Tag override for this component image. Defaults to `.global.images.fabric.tag`.</td>
 		</tr>
 		<tr>
+			<td>agent.interface</td>
+			<td>string</td>
+			<td><pre lang="json">
+""
+</pre>
+</td>
+			<td>Interface used for inter-host pod communication. A NIC name or comma-separated regular expressions. When empty, the interface that owns the pod IP or the node internal IP is used.</td>
+		</tr>
+		<tr>
 			<td>agent.labels</td>
 			<td>object</td>
 			<td><pre lang="json">
@@ -352,7 +192,7 @@ This README is generated using [helm-docs](https://github.com/norwoodj/helm-docs
 "{}"
 </pre>
 </td>
-			<td>Mirroring of the traffic for debug or analysis. https://kubeovn.github.io/docs/stable/en/guide/mirror/</td>
+			<td>Mirroring of the traffic for debug or analysis. See the upstream Kube-OVN documentation: https://kubeovn.github.io/docs/stable/en/guide/mirror/</td>
 		</tr>
 		<tr>
 			<td>agent.mirroring.enabled</td>
@@ -429,35 +269,6 @@ false
 		</tr>
 	</tbody>
 </table>
-<h3>CNI agent configuration.</h3>
-<table>
-	<thead>
-		<th>Key</th>
-		<th>Type</th>
-		<th>Default</th>
-		<th>Description</th>
-	</thead>
-	<tbody>
-		<tr>
-			<td>agent.dpdkTunnelInterface</td>
-			<td>string</td>
-			<td><pre lang="json">
-"br-phy"
-</pre>
-</td>
-			<td>""</td>
-		</tr>
-		<tr>
-			<td>agent.interface</td>
-			<td>string</td>
-			<td><pre lang="json">
-""
-</pre>
-</td>
-			<td>""</td>
-		</tr>
-	</tbody>
-</table>
 <h3>API Network Attachment Definition configuration</h3>
 <table>
 	<thead>
@@ -474,7 +285,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>API NetworkAttachmentDefinition to give some pods (CoreDNS, NAT GW) in custom VPCs access to the K8S API. This requires Multus to be installed.</td>
+			<td>API NetworkAttachmentDefinition to give some pods (for example CoreDNS) in custom VPCs access to the K8S API. This requires Multus to be installed.</td>
 		</tr>
 		<tr>
 			<td>apiNad.enabled</td>
@@ -602,6 +413,24 @@ false
 			<td>Deploy ovn-central as a PVC-backed StatefulSet that can be exposed to workload clusters.</td>
 		</tr>
 		<tr>
+			<td>central.hcp.nbAddress</td>
+			<td>string</td>
+			<td><pre lang="json">
+""
+</pre>
+</td>
+			<td>OVN NB address used by workload clusters, for example tcp:ovn-nb.example.com:6641.</td>
+		</tr>
+		<tr>
+			<td>central.hcp.sbAddress</td>
+			<td>string</td>
+			<td><pre lang="json">
+""
+</pre>
+</td>
+			<td>OVN SB address used by workload clusters, for example tcp:ovn-sb.example.com:6642.</td>
+		</tr>
+		<tr>
 			<td>central.image</td>
 			<td>object</td>
 			<td><pre lang="json">
@@ -670,7 +499,52 @@ false
 }
 </pre>
 </td>
-			<td>More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+			<td>Node affinity configuration for ovn-central. See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+		</tr>
+		<tr>
+			<td>central.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
+		</tr>
+		<tr>
+			<td>central.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
+		</tr>
+		<tr>
+			<td>central.ovnLeaderProbeInterval</td>
+			<td>int</td>
+			<td><pre lang="json">
+5
+</pre>
+</td>
+			<td>Interval, in seconds, at which ovn-central checks the OVN database leader.</td>
+		</tr>
+		<tr>
+			<td>central.ovnNorthdNThreads</td>
+			<td>int</td>
+			<td><pre lang="json">
+1
+</pre>
+</td>
+			<td>Number of ovn-northd worker threads.</td>
+		</tr>
+		<tr>
+			<td>central.ovnNorthdProbeInterval</td>
+			<td>int</td>
+			<td><pre lang="json">
+5000
+</pre>
+</td>
+			<td>Probe interval, in milliseconds, between ovn-northd and the OVN NB/SB databases (NB_Global options:northd_probe_interval).</td>
 		</tr>
 		<tr>
 			<td>central.podAnnotations</td>
@@ -711,44 +585,6 @@ false
 		</tr>
 	</tbody>
 </table>
-<h3>OVN-central daemon configuration.</h3>
-<table>
-	<thead>
-		<th>Key</th>
-		<th>Type</th>
-		<th>Default</th>
-		<th>Description</th>
-	</thead>
-	<tbody>
-		<tr>
-			<td>central.ovnLeaderProbeInterval</td>
-			<td>int</td>
-			<td><pre lang="json">
-5
-</pre>
-</td>
-			<td>""</td>
-		</tr>
-		<tr>
-			<td>central.ovnNorthdNThreads</td>
-			<td>int</td>
-			<td><pre lang="json">
-1
-</pre>
-</td>
-			<td>""</td>
-		</tr>
-		<tr>
-			<td>central.ovnNorthdProbeInterval</td>
-			<td>int</td>
-			<td><pre lang="json">
-5000
-</pre>
-</td>
-			<td>""</td>
-		</tr>
-	</tbody>
-</table>
 <h3>Global parameters</h3>
 <table>
 	<thead>
@@ -784,7 +620,7 @@ false
   "images": {
     "fabric": {
       "repository": "fabric",
-      "tag": "v1.0.0"
+      "tag": "v1.2.1"
     }
   },
   "registry": {
@@ -841,7 +677,7 @@ false
 }
 </pre>
 </td>
-			<td>Label used to auto-identify masters. Any node that has any of these labels will be considered a master node. Note: This feature uses Helm "lookup" function, which is not compatible with tools such as ArgoCD.</td>
+			<td>Labels used to auto-identify masters. Any node that has one of these labels is a master node, for example `node-role.kubernetes.io/control-plane: ""`. Note: This feature uses the Helm "lookup" function, which is not compatible with tools such as ArgoCD.</td>
 		</tr>
 		<tr>
 			<td>nameOverride</td>
@@ -888,7 +724,7 @@ false
 "/opt/cni/bin"
 </pre>
 </td>
-			<td>Location on the node where the agent will inject the Kube-OVN binary.</td>
+			<td>Location on the node where the agent installs the fabric CNI binary.</td>
 		</tr>
 		<tr>
 			<td>cni.configDirectory</td>
@@ -906,7 +742,7 @@ false
 "01"
 </pre>
 </td>
-			<td>Priority of Kube-OVN within the CNI configuration directory on the node. Should be a string representing a double-digit integer.</td>
+			<td>Priority of fabric within the CNI configuration directory on the node. Should be a string representing a double-digit integer.</td>
 		</tr>
 		<tr>
 			<td>cni.localConfigFile</td>
@@ -942,7 +778,7 @@ false
 false
 </pre>
 </td>
-			<td>Whether to use Kube-OVN as non-primary CNI. When set to true, Kube-OVN will not allocate/handle primary network interfaces. Interfaces are created using Network Attachment Definitions (NADs)</td>
+			<td>Whether to use fabric as a non-primary CNI. When set to true, fabric does not allocate or handle primary network interfaces. Interfaces are created using Network Attachment Definitions (NADs)</td>
 		</tr>
 		<tr>
 			<td>cni.toolingDirectory</td>
@@ -951,11 +787,11 @@ false
 "/usr/local/bin"
 </pre>
 </td>
-			<td>Location on the node where the CNI will install Kube-OVN's tooling.</td>
+			<td>Location on the node where the CNI installs the fabric tooling.</td>
 		</tr>
 	</tbody>
 </table>
-<h3>Kube-OVN controller configuration</h3>
+<h3>fabric-controller configuration</h3>
 <table>
 	<thead>
 		<th>Key</th>
@@ -1118,7 +954,25 @@ false
 }
 </pre>
 </td>
-			<td>More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+			<td>Node affinity configuration for fabric-controller. See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+		</tr>
+		<tr>
+			<td>controller.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
+		</tr>
+		<tr>
+			<td>controller.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
 		</tr>
 		<tr>
 			<td>controller.podAnnotations</td>
@@ -1173,7 +1027,7 @@ false
 false
 </pre>
 </td>
-			<td>Enable the deployment of the ServiceMonitor for the Kube-OVN controller.</td>
+			<td>Enable the deployment of the ServiceMonitor for fabric-controller.</td>
 		</tr>
 	</tbody>
 </table>
@@ -1193,7 +1047,7 @@ false
 []
 </pre>
 </td>
-			<td>Array of extra K8s manifests to deploy. Note: Supports use of custom Helm templates (Go templating)</td>
+			<td>Array of extra Kubernetes manifests to deploy. Each item can use Helm (Go) templating.</td>
 		</tr>
 	</tbody>
 </table>
@@ -1233,7 +1087,7 @@ false
 }
 </pre>
 </td>
-			<td>Features of Kube-OVN we wish to enable/disable.</td>
+			<td>Features of fabric to enable or disable.</td>
 		</tr>
 		<tr>
 			<td>features.enableHardwareOffload</td>
@@ -1278,7 +1132,7 @@ true
 true
 </pre>
 </td>
-			<td>Enable Kube-OVN loadbalancers</td>
+			<td>Enable fabric load balancers</td>
 		</tr>
 		<tr>
 			<td>features.enableNetworkPolicies</td>
@@ -1287,7 +1141,7 @@ true
 true
 </pre>
 </td>
-			<td>Enable Kube-OVN network policies</td>
+			<td>Enable fabric network policies</td>
 		</tr>
 		<tr>
 			<td>features.enableOvnInterconnections</td>
@@ -1687,7 +1541,25 @@ false
 }
 </pre>
 </td>
-			<td>More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+			<td>Node affinity configuration for the OVN IC controller. See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+		</tr>
+		<tr>
+			<td>ic.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
+		</tr>
+		<tr>
+			<td>ic.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
 		</tr>
 	</tbody>
 </table>
@@ -1718,15 +1590,6 @@ false
 </td>
 			<td>Directory in which the kubelet operates.</td>
 		</tr>
-		<tr>
-			<td>logging.directory</td>
-			<td>string</td>
-			<td><pre lang="json">
-"/var/log"
-</pre>
-</td>
-			<td>Directory in which to write the logs.</td>
-		</tr>
 	</tbody>
 </table>
 <h3>Logging configuration</h3>
@@ -1746,6 +1609,15 @@ false
 </pre>
 </td>
 			<td>Logging configuration for all the daemons.</td>
+		</tr>
+		<tr>
+			<td>logging.directory</td>
+			<td>string</td>
+			<td><pre lang="json">
+"/var/log"
+</pre>
+</td>
+			<td>Directory in which to write the logs.</td>
 		</tr>
 	</tbody>
 </table>
@@ -1872,7 +1744,25 @@ false
 }
 </pre>
 </td>
-			<td>More information on formatting nodeAffinity can be found at https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+			<td>Node affinity configuration for fabric-monitor. See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity</td>
+		</tr>
+		<tr>
+			<td>monitor.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Preferred node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
+		</tr>
+		<tr>
+			<td>monitor.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
+			<td>list</td>
+			<td><pre lang="json">
+[]
+</pre>
+</td>
+			<td>Required node affinity terms. Each entry is a set of matchExpressions combined with AND. Entries are combined with OR. Example entry: `matchExpressions: [{key: topology.kubernetes.io/zone, operator: In, values: [antarctica-east1]}]`.</td>
 		</tr>
 		<tr>
 			<td>monitor.podAnnotations</td>
@@ -1947,7 +1837,7 @@ false
 "standard"
 </pre>
 </td>
-			<td>Enforcement level of network policies when they get applied (can be: standard, lax). Enforcement "standard" blocks everything except what is allowed by the network policies. Enforcement "lax" is similar to "standard" with the exception that ARP/DHCPv4/DHCPv6/ICMPv4/ICMPv6 is allowed by default. This mode is useful when using Kubevirt and VMs with IPs configured via Kube-OVN's DHCP.</td>
+			<td>Enforcement level of network policies when they get applied (can be: standard, lax). Enforcement "standard" blocks everything except what is allowed by the network policies. Enforcement "lax" is similar to "standard" with the exception that ARP/DHCPv4/DHCPv6/ICMPv4/ICMPv6 is allowed by default. This mode is useful when using Kubevirt and VMs with IPs configured through OVN DHCP.</td>
 		</tr>
 	</tbody>
 </table>
@@ -1967,7 +1857,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>General configuration of the network created by Kube-OVN.</td>
+			<td>General configuration of the network created by fabric.</td>
 		</tr>
 		<tr>
 			<td>networking.defaultVpcName</td>
@@ -1985,7 +1875,7 @@ false
 false
 </pre>
 </td>
-			<td>""</td>
+			<td>Enable periodic compaction of the OVN NB/SB databases.</td>
 		</tr>
 		<tr>
 			<td>networking.enableEcmp</td>
@@ -1994,7 +1884,7 @@ false
 false
 </pre>
 </td>
-			<td>""</td>
+			<td>Enable ECMP routes for centralized subnets.</td>
 		</tr>
 		<tr>
 			<td>networking.enableMetrics</td>
@@ -2021,7 +1911,7 @@ false
 false
 </pre>
 </td>
-			<td>""</td>
+			<td>Exchange the link names of the OVS bridge and the provider NIC in the default provider network.</td>
 		</tr>
 		<tr>
 			<td>networking.excludeIps</td>
@@ -2264,7 +2154,7 @@ false
 "IPv4"
 </pre>
 </td>
-			<td>Protocol(s) used by Kube-OVN to allocate IPs to pods and services. Can be either IPv4, IPv6 or Dual.</td>
+			<td>Protocol(s) used by fabric to allocate IPs to pods and services. Can be either IPv4, IPv6 or Dual.</td>
 		</tr>
 		<tr>
 			<td>networking.tlsCipherSuites</td>
@@ -2370,7 +2260,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>DPDK-hybrid support for OVS. ref: https://kubeovn.github.io/docs/v1.12.x/en/advance/dpdk/</td>
+			<td>DPDK-hybrid support for OVS. See the upstream Kube-OVN documentation: https://kubeovn.github.io/docs/v1.12.x/en/advance/dpdk/</td>
 		</tr>
 		<tr>
 			<td>ovsOvn.dpdkHybrid.affinity</td>
@@ -2476,7 +2366,7 @@ false
 			<td>ovsOvn.dpdkHybrid.tag</td>
 			<td>string</td>
 			<td><pre lang="json">
-"v1.0.0"
+"v1.2.1"
 </pre>
 </td>
 			<td>DPDK image tag.</td>
@@ -2570,6 +2460,24 @@ false
 			<td>Directory on the node where Open Virtual Network (OVN) lives.</td>
 		</tr>
 		<tr>
+			<td>ovsOvn.ovnRemoteOpenflowInterval</td>
+			<td>int</td>
+			<td><pre lang="json">
+180
+</pre>
+</td>
+			<td>Inactivity probe interval, in seconds, between ovn-controller and OVS (external-ids:ovn-openflow-probe-interval).</td>
+		</tr>
+		<tr>
+			<td>ovsOvn.ovnRemoteProbeInterval</td>
+			<td>int</td>
+			<td><pre lang="json">
+10000
+</pre>
+</td>
+			<td>Inactivity probe interval, in milliseconds, between ovn-controller and the OVN SB database (external-ids:ovn-remote-probe-interval).</td>
+		</tr>
+		<tr>
 			<td>ovsOvn.ovsDirectory</td>
 			<td>string</td>
 			<td><pre lang="json">
@@ -2604,6 +2512,15 @@ false
 </pre>
 </td>
 			<td>Labels to be added to ovs-ovn pods.</td>
+		</tr>
+		<tr>
+			<td>ovsOvn.probeInterval</td>
+			<td>int</td>
+			<td><pre lang="json">
+180000
+</pre>
+</td>
+			<td>Inactivity probe interval, in milliseconds, for OVN NB/SB database connections.</td>
 		</tr>
 		<tr>
 			<td>ovsOvn.resources</td>
@@ -2649,6 +2566,24 @@ false
 </td>
 			<td>Upgrade logic for OVS/OVN.</td>
 		</tr>
+		<tr>
+			<td>ovsOvn.upgrade.enabled</td>
+			<td>bool</td>
+			<td><pre lang="json">
+true
+</pre>
+</td>
+			<td>Enable the pre-upgrade and post-upgrade hooks that run the OVS/OVN upgrade logic.</td>
+		</tr>
+		<tr>
+			<td>ovsOvn.upgrade.versionCompatibility</td>
+			<td>string</td>
+			<td><pre lang="json">
+"25.03"
+</pre>
+</td>
+			<td>Value propagated to ovn-central to handle OVS/OVN compatibility with fabric. This value must be updated for each new OVN version.</td>
+		</tr>
 	</tbody>
 </table>
 <h3>Performance configuration</h3>
@@ -2676,7 +2611,7 @@ false
 360
 </pre>
 </td>
-			<td>""</td>
+			<td>Interval, in seconds, between garbage collection runs of fabric-controller. Set to 0 to disable garbage collection.</td>
 		</tr>
 		<tr>
 			<td>performance.inspectInterval</td>
@@ -2685,7 +2620,7 @@ false
 20
 </pre>
 </td>
-			<td>""</td>
+			<td>Interval, in seconds, between inspection runs of fabric-controller.</td>
 		</tr>
 		<tr>
 			<td>performance.ovsVsctlConcurrency</td>
@@ -2694,7 +2629,7 @@ false
 100
 </pre>
 </td>
-			<td>""</td>
+			<td>Maximum number of concurrent ovs-vsctl calls made by the agent.</td>
 		</tr>
 	</tbody>
 </table>
@@ -2947,7 +2882,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>Configuration of the PrometheusRule shipping baseline Kube-OVN alerts. Requires prometheus-operator CRDs to be installed in the cluster.  Prerequisite: most bundled rules query metrics exposed by the controller, the OVN monitor, the pinger and the agent. Scrape-dependent alerts only fire when those metrics are actually being scraped, which means **either**:   1. enabling the matching ServiceMonitors shipped by this chart      (`controller.serviceMonitor.enabled`, `monitor.serviceMonitor.enabled`,      `pinger.serviceMonitor.enabled`, `agent.serviceMonitor.enabled`), **or**   2. configuring an external scrape (PodMonitor, custom scrape config, etc.)      that produces samples for the same job/metric labels.  When neither is true, scrape-dependent alerts stay inactive. Note however that `absent()`-style alerts (e.g. KubeOvnControllerAbsent) still fire in that configuration, because "no target" is precisely what they report. If you want to skip them until scraping is wired up, silence/inhibit them in Alertmanager or leave `prometheusRule.enabled` off.</td>
+			<td>Configuration of the PrometheusRule shipping baseline fabric alerts. Requires prometheus-operator CRDs to be installed in the cluster.  Prerequisite: most bundled rules query metrics exposed by the controller, the OVN monitor, the pinger and the agent. Scrape-dependent alerts only fire when those metrics are actually being scraped, which means **either**:   1. enabling the matching ServiceMonitors shipped by this chart      (`controller.serviceMonitor.enabled`, `monitor.serviceMonitor.enabled`,      `pinger.serviceMonitor.enabled`, `agent.serviceMonitor.enabled`), **or**   2. configuring an external scrape (PodMonitor, custom scrape config, etc.)      that produces samples for the same job/metric labels.  When neither is true, scrape-dependent alerts stay inactive. Note however that `absent()`-style alerts (e.g. KubeOvnControllerAbsent) still fire in that configuration, because "no target" is precisely what they report. If you want to skip them until scraping is wired up, silence/inhibit them in Alertmanager or leave `prometheusRule.enabled` off.</td>
 		</tr>
 		<tr>
 			<td>prometheusRule.additionalGroups</td>
@@ -3012,7 +2947,7 @@ false
 "{}"
 </pre>
 </td>
-			<td>Configuration of the validating webhook used to verify custom resources before they are pushed to Kubernetes. Make sure cert-manager is installed for the generation of certificates for the webhook. See https://kubeovn.github.io/docs/stable/en/guide/webhook/</td>
+			<td>Configuration of the validating webhook used to verify custom resources before they are pushed to Kubernetes. Make sure cert-manager is installed for the generation of certificates for the webhook. See the upstream Kube-OVN documentation: https://kubeovn.github.io/docs/stable/en/guide/webhook/</td>
 		</tr>
 		<tr>
 			<td>validatingWebhook.annotations</td>
@@ -3131,60 +3066,6 @@ false
 	</thead>
 	<tbody>
 	<tr>
-		<td>central.hcp.nbAddress</td>
-		<td>string</td>
-		<td><pre lang="json">
-""
-</pre>
-</td>
-		<td>OVN NB address used by workload clusters, for example tcp:ovn-nb.example.com:6641.</td>
-	</tr>
-	<tr>
-		<td>central.hcp.sbAddress</td>
-		<td>string</td>
-		<td><pre lang="json">
-""
-</pre>
-</td>
-		<td>OVN SB address used by workload clusters, for example tcp:ovn-sb.example.com:6642.</td>
-	</tr>
-	<tr>
-		<td>central.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>central.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>controller.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>controller.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
 		<td>crds.enabled</td>
 		<td>bool</td>
 		<td><pre lang="json">
@@ -3192,60 +3073,6 @@ true
 </pre>
 </td>
 		<td></td>
-	</tr>
-	<tr>
-		<td>ic.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>ic.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>monitor.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>monitor.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution</td>
-		<td>list</td>
-		<td><pre lang="json">
-[]
-</pre>
-</td>
-		<td>- antarctica-west1</td>
-	</tr>
-	<tr>
-		<td>ovsOvn.upgrade.enabled</td>
-		<td>bool</td>
-		<td><pre lang="json">
-true
-</pre>
-</td>
-		<td>Enable post-upgrade hooks to run upgrade logic of OVS/OVN.</td>
-	</tr>
-	<tr>
-		<td>ovsOvn.upgrade.versionCompatibility</td>
-		<td>string</td>
-		<td><pre lang="json">
-"25.03"
-</pre>
-</td>
-		<td>Value propagated to ovn-central to handle OVS/OVN compatibility with Kube-OVN. This value must be updated for each new OVN version.</td>
 	</tr>
 	</tbody>
 </table>

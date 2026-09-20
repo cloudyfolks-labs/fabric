@@ -488,44 +488,6 @@ func TestLogicalRouterPortName(t *testing.T) {
 	}
 }
 
-func TestLogicalSwitchPortName(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name     string
-		lr       string
-		ls       string
-		expected string
-	}{
-		{
-			name:     "Standard case",
-			lr:       "router1",
-			ls:       "switch1",
-			expected: "switch1-router1",
-		},
-		{
-			name:     "Names with special characters",
-			lr:       "router-1",
-			ls:       "switch_1",
-			expected: "switch_1-router-1",
-		},
-		{
-			name:     "Long names",
-			lr:       "very_long_router_name_123456789",
-			ls:       "extremely_long_switch_name_987654321",
-			expected: "extremely_long_switch_name_987654321-very_long_router_name_123456789",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			result := LogicalSwitchPortName(tc.lr, tc.ls)
-			require.Equal(t, tc.expected, result)
-		})
-	}
-}
-
 func TestFormatDHCPOptions(t *testing.T) {
 	t.Parallel()
 

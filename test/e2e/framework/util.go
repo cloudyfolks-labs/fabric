@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	KubeOvnNamespace = metav1.NamespaceSystem
-	DaemonSetOvsOvn  = "ovs-ovn"
+	FabricNamespace = metav1.NamespaceSystem
+	DaemonSetOvsOvn = "ovs-ovn"
 )
 
 // RandomSuffix provides a random sequence to append to resources.

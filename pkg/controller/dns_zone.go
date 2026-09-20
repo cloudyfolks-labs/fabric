@@ -15,18 +15,18 @@ import (
 
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func (c *Controller) enqueueAddDNSZone(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.DNSZone)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.DNSZone)).String()
 	klog.V(3).Infof("enqueue add dns zone %s", key)
 	c.addOrUpdateDNSZoneQueue.Add(key)
 }
 
 func (c *Controller) enqueueUpdateDNSZone(oldObj, newObj any) {
-	oldZone := oldObj.(*kubeovnv1.DNSZone)
-	newZone := newObj.(*kubeovnv1.DNSZone)
+	oldZone := oldObj.(*fabricv1.DNSZone)
+	newZone := newObj.(*fabricv1.DNSZone)
 	if oldZone.Generation == newZone.Generation {
 		return
 	}
@@ -36,13 +36,13 @@ func (c *Controller) enqueueUpdateDNSZone(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDeleteDNSZone(obj any) {
-	zone, ok := obj.(*kubeovnv1.DNSZone)
+	zone, ok := obj.(*fabricv1.DNSZone)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			return
 		}
-		zone, ok = tombstone.Obj.(*kubeovnv1.DNSZone)
+		zone, ok = tombstone.Obj.(*fabricv1.DNSZone)
 		if !ok {
 			return
 		}
@@ -67,7 +67,7 @@ func (c *Controller) enqueueDNSZonesForVpc(vpcName string) {
 	}
 }
 
-func dnsZoneRecords(zone *kubeovnv1.DNSZone) (map[string]string, error) {
+func dnsZoneRecords(zone *fabricv1.DNSZone) (map[string]string, error) {
 	records := make(map[string]string, len(zone.Spec.Records))
 	for _, record := range zone.Spec.Records {
 		name := strings.ToLower(strings.TrimSuffix(record.Name, "."))
@@ -144,7 +144,7 @@ func (c *Controller) handleDelDNSZone(name string) error {
 	return c.OVNNbClient.DeleteDNSZone(name)
 }
 
-func (c *Controller) patchDNSZoneStatus(zone *kubeovnv1.DNSZone, activeRecords int64, ready corev1.ConditionStatus, reason, message string) error {
+func (c *Controller) patchDNSZoneStatus(zone *fabricv1.DNSZone, activeRecords int64, ready corev1.ConditionStatus, reason, message string) error {
 	if zone.Status.ActiveRecords == activeRecords && len(zone.Status.Conditions) == 1 {
 		cond := zone.Status.Conditions[0]
 		if cond.Type == "Ready" && cond.Status == ready && cond.Reason == reason && cond.Message == message {
@@ -153,7 +153,7 @@ func (c *Controller) patchDNSZoneStatus(zone *kubeovnv1.DNSZone, activeRecords i
 	}
 	newZone := zone.DeepCopy()
 	newZone.Status.ActiveRecords = activeRecords
-	newZone.Status.Conditions = []kubeovnv1.Condition{{
+	newZone.Status.Conditions = []fabricv1.Condition{{
 		Type:               "Ready",
 		Status:             ready,
 		Reason:             reason,
@@ -167,7 +167,7 @@ func (c *Controller) patchDNSZoneStatus(zone *kubeovnv1.DNSZone, activeRecords i
 		}
 	}
 
-	if _, err := c.config.KubeOvnClient.FabricV1().DNSZones().UpdateStatus(context.Background(), newZone, metav1.UpdateOptions{}); err != nil {
+	if _, err := c.config.FabricClient.FabricV1().DNSZones().UpdateStatus(context.Background(), newZone, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update status of dns zone %s: %w", zone.Name, err)
 	}
 	return nil

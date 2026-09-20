@@ -14,8 +14,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
-	kubeovnlisters "github.com/cloudyfolks-labs/fabric/pkg/client/listers/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
+	fabriclisters "github.com/cloudyfolks-labs/fabric/pkg/client/listers/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -23,15 +23,15 @@ type errorVlanLister struct {
 	err error
 }
 
-func (l errorVlanLister) List(labels.Selector) ([]*kubeovnv1.Vlan, error) {
+func (l errorVlanLister) List(labels.Selector) ([]*fabricv1.Vlan, error) {
 	return nil, l.err
 }
 
-func (l errorVlanLister) Get(string) (*kubeovnv1.Vlan, error) {
+func (l errorVlanLister) Get(string) (*fabricv1.Vlan, error) {
 	return nil, l.err
 }
 
-func newProviderNetworkEventController(t *testing.T, pn *kubeovnv1.ProviderNetwork, node *corev1.Node) (*Controller, *record.FakeRecorder) {
+func newProviderNetworkEventController(t *testing.T, pn *fabricv1.ProviderNetwork, node *corev1.Node) (*Controller, *record.FakeRecorder) {
 	t.Helper()
 
 	providerNetworkIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
@@ -42,7 +42,7 @@ func newProviderNetworkEventController(t *testing.T, pn *kubeovnv1.ProviderNetwo
 
 	return &Controller{
 		config:                 &Configuration{NodeName: node.Name},
-		providerNetworksLister: kubeovnlisters.NewProviderNetworkLister(providerNetworkIndexer),
+		providerNetworksLister: fabriclisters.NewProviderNetworkLister(providerNetworkIndexer),
 		nodesLister:            corelisters.NewNodeLister(nodeIndexer),
 		recorder:               recorder,
 	}, recorder
@@ -72,9 +72,9 @@ func requireNoProviderNetworkEvent(t *testing.T, recorder *record.FakeRecorder) 
 }
 
 func TestHandleAddOrUpdateProviderNetworkRecordsValidationFailureEvent(t *testing.T) {
-	pn := &kubeovnv1.ProviderNetwork{
+	pn := &fabricv1.ProviderNetwork{
 		ObjectMeta: metav1.ObjectMeta{Name: "provider-network-1"},
-		Spec: kubeovnv1.ProviderNetworkSpec{
+		Spec: fabricv1.ProviderNetworkSpec{
 			DefaultInterface: "eth1",
 			NodeSelector: &metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{
 				Key:      "network-role",
@@ -91,10 +91,10 @@ func TestHandleAddOrUpdateProviderNetworkRecordsValidationFailureEvent(t *testin
 }
 
 func TestHandleAddOrUpdateProviderNetworkRecordsInitializationFailureEvent(t *testing.T) {
-	pn := &kubeovnv1.ProviderNetwork{
+	pn := &fabricv1.ProviderNetwork{
 		ObjectMeta: metav1.ObjectMeta{Name: "provider-network-1"},
-		Spec:       kubeovnv1.ProviderNetworkSpec{DefaultInterface: "eth1"},
-		Status:     kubeovnv1.ProviderNetworkStatus{Vlans: []string{"vlan-1"}},
+		Spec:       fabricv1.ProviderNetworkSpec{DefaultInterface: "eth1"},
+		Status:     fabricv1.ProviderNetworkStatus{Vlans: []string{"vlan-1"}},
 	}
 	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1"}}
 	controller, recorder := newProviderNetworkEventController(t, pn, node)
@@ -118,9 +118,9 @@ func providerNetworkReadyNode(nodeName, providerNetwork, nic, mtu string) *corev
 
 func TestEnqueueUpdateNodeRecordsProviderNetworkInitializationSuccessEvent(t *testing.T) {
 	const providerNetworkName = "provider-network-1"
-	pn := &kubeovnv1.ProviderNetwork{
+	pn := &fabricv1.ProviderNetwork{
 		ObjectMeta: metav1.ObjectMeta{Name: providerNetworkName},
-		Spec:       kubeovnv1.ProviderNetworkSpec{DefaultInterface: "eth1"},
+		Spec:       fabricv1.ProviderNetworkSpec{DefaultInterface: "eth1"},
 	}
 
 	tests := []struct {
@@ -155,7 +155,7 @@ func TestEnqueueUpdateNodeRecordsProviderNetworkInitializationSuccessEvent(t *te
 
 func TestEnqueueUpdateNodeDoesNotRepeatProviderNetworkInitializationSuccessEvent(t *testing.T) {
 	const providerNetworkName = "provider-network-1"
-	pn := &kubeovnv1.ProviderNetwork{ObjectMeta: metav1.ObjectMeta{Name: providerNetworkName}}
+	pn := &fabricv1.ProviderNetwork{ObjectMeta: metav1.ObjectMeta{Name: providerNetworkName}}
 	node := providerNetworkReadyNode("node-1", providerNetworkName, "eth1", "1500")
 	controller, recorder := newProviderNetworkEventController(t, pn, node)
 

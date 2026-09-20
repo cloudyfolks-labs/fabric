@@ -90,7 +90,7 @@ func (c *Controller) needNewCert(p *pkiFiles) (bool, error) {
 	// get a new certificate if we're over half way through this certificates validity
 	now := time.Now()
 	if now.Before(cert.NotBefore) ||
-		time.Since(cert.NotBefore) > (cert.NotAfter.Sub(cert.NotBefore))/2 {
+		time.Since(cert.NotBefore) > cert.NotAfter.Sub(cert.NotBefore)/2 {
 		klog.Infof("ipsec cert near expiry")
 		return true, nil
 	}
@@ -141,7 +141,7 @@ func (c *Controller) untilCertRefresh(certPath string) (time.Duration, error) {
 	}
 
 	// get a new certificate if we're over half way through this certificates validity
-	refreshTime := cert.NotBefore.Add((cert.NotAfter.Sub(cert.NotBefore)) / 2)
+	refreshTime := cert.NotBefore.Add(cert.NotAfter.Sub(cert.NotBefore) / 2)
 	return time.Until(refreshTime), nil
 }
 

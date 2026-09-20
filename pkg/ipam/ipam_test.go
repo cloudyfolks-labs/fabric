@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
 func TestNewIPAM(t *testing.T) {
@@ -150,7 +150,7 @@ func TestGetRandomAddressWithFamily(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, subnet.V6Using.Contains(ip))
 
-	v4, v6, macStr, err = ipam.GetRandomAddressWithFamily("pod2.default", "pod2.default", nil, subnetName, "", kubeovnv1.ProtocolIPv4, nil, true)
+	v4, v6, macStr, err = ipam.GetRandomAddressWithFamily("pod2.default", "pod2.default", nil, subnetName, "", fabricv1.ProtocolIPv4, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, "10.0.0.2", v4)
 	require.Empty(t, v6)
@@ -162,7 +162,7 @@ func TestGetRandomAddressWithFamily(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, subnet.V6Using.Contains(ip))
 
-	v4, v6, macStr, err = ipam.GetRandomAddressWithFamily("pod3.default", "pod3.default", nil, subnetName, "", kubeovnv1.ProtocolIPv6, nil, true)
+	v4, v6, macStr, err = ipam.GetRandomAddressWithFamily("pod3.default", "pod3.default", nil, subnetName, "", fabricv1.ProtocolIPv6, nil, true)
 	require.NoError(t, err)
 	require.Empty(t, v4)
 	require.Equal(t, "2001:db8::2", v6)
@@ -288,7 +288,7 @@ func TestGetStaticAddressWithFamily(t *testing.T) {
 	require.NoError(t, err)
 	ipam.Subnets[subnetName] = subnet
 
-	v4, v6, macStr, err := ipam.GetStaticAddressWithFamily("pod1.default", "pod1.default", "10.0.0.10", nil, subnetName, kubeovnv1.ProtocolIPv4, true)
+	v4, v6, macStr, err := ipam.GetStaticAddressWithFamily("pod1.default", "pod1.default", "10.0.0.10", nil, subnetName, fabricv1.ProtocolIPv4, true)
 	require.NoError(t, err)
 	require.Equal(t, "10.0.0.10", v4)
 	require.Empty(t, v6)
@@ -300,7 +300,7 @@ func TestGetStaticAddressWithFamily(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, subnet.V6Using.Contains(ip))
 
-	v4, v6, macStr, err = ipam.GetStaticAddressWithFamily("pod2.default", "pod2.default", "2001:db8::10", nil, subnetName, kubeovnv1.ProtocolIPv6, true)
+	v4, v6, macStr, err = ipam.GetStaticAddressWithFamily("pod2.default", "pod2.default", "2001:db8::10", nil, subnetName, fabricv1.ProtocolIPv6, true)
 	require.NoError(t, err)
 	require.Empty(t, v4)
 	require.Equal(t, "2001:db8::10", v6)
@@ -312,13 +312,13 @@ func TestGetStaticAddressWithFamily(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, subnet.V6Using.Contains(ip))
 
-	_, _, _, err = ipam.GetStaticAddressWithFamily("pod3.default", "pod3.default", "2001:db8::11", nil, subnetName, kubeovnv1.ProtocolIPv4, true)
+	_, _, _, err = ipam.GetStaticAddressWithFamily("pod3.default", "pod3.default", "2001:db8::11", nil, subnetName, fabricv1.ProtocolIPv4, true)
 	require.ErrorIs(t, err, ErrInvalidIPFamily)
 	ip, err = NewIP("2001:db8::11")
 	require.NoError(t, err)
 	require.False(t, subnet.V6Using.Contains(ip))
 
-	_, _, _, err = ipam.GetStaticAddressWithFamily("pod3.default", "pod3.default", "10.0.0.11,2001:db8::11", nil, subnetName, kubeovnv1.ProtocolIPv4, true)
+	_, _, _, err = ipam.GetStaticAddressWithFamily("pod3.default", "pod3.default", "10.0.0.11,2001:db8::11", nil, subnetName, fabricv1.ProtocolIPv4, true)
 	require.ErrorIs(t, err, ErrInvalidIPFamily)
 	ip, err = NewIP("10.0.0.11")
 	require.NoError(t, err)
@@ -327,7 +327,7 @@ func TestGetStaticAddressWithFamily(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, subnet.V6Using.Contains(ip))
 
-	_, _, _, err = ipam.GetStaticAddressWithFamily("pod3.default", "pod3.default", "not-an-ip", nil, subnetName, kubeovnv1.ProtocolIPv4, true)
+	_, _, _, err = ipam.GetStaticAddressWithFamily("pod3.default", "pod3.default", "not-an-ip", nil, subnetName, fabricv1.ProtocolIPv4, true)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `invalid IP address "not-an-ip"`)
 	require.NotErrorIs(t, err, ErrInvalidIPFamily)
@@ -347,16 +347,16 @@ func TestGetStaticAddressWithFamily(t *testing.T) {
 
 func TestGetStaticAddressDualStackPreserveCounters(t *testing.T) {
 	t.Run("ReplaceV4PreserveV6", func(t *testing.T) {
-		testIPAMStaticAddressPreservesOtherFamily(t, kubeovnv1.ProtocolIPv4)
+		testIPAMStaticAddressPreservesOtherFamily(t, fabricv1.ProtocolIPv4)
 	})
 	t.Run("ReplaceV6PreserveV4", func(t *testing.T) {
-		testIPAMStaticAddressPreservesOtherFamily(t, kubeovnv1.ProtocolIPv6)
+		testIPAMStaticAddressPreservesOtherFamily(t, fabricv1.ProtocolIPv6)
 	})
 	t.Run("ReplaceV4PreserveV6RandomExhaustion", func(t *testing.T) {
-		testIPAMPreservedAddressIsNotReissued(t, kubeovnv1.ProtocolIPv6)
+		testIPAMPreservedAddressIsNotReissued(t, fabricv1.ProtocolIPv6)
 	})
 	t.Run("ReplaceV6PreserveV4RandomExhaustion", func(t *testing.T) {
-		testIPAMPreservedAddressIsNotReissued(t, kubeovnv1.ProtocolIPv4)
+		testIPAMPreservedAddressIsNotReissued(t, fabricv1.ProtocolIPv4)
 	})
 }
 
@@ -369,7 +369,7 @@ func testIPAMStaticAddressPreservesOtherFamily(t *testing.T, replacedFamily stri
 	podName := "pod1.default"
 	oldV4, oldV6 := "10.0.0.1", "2001:db8::1"
 	newV4, newV6 := oldV4, "2001:db8::2"
-	if replacedFamily == kubeovnv1.ProtocolIPv4 {
+	if replacedFamily == fabricv1.ProtocolIPv4 {
 		newV4, newV6 = "10.0.0.2", oldV6
 	}
 
@@ -385,16 +385,16 @@ func testIPAMStaticAddressPreservesOtherFamily(t *testing.T, replacedFamily stri
 	require.NoError(t, err)
 	replaced, err := NewIP(oldV6)
 	require.NoError(t, err)
-	preservedFamily := kubeovnv1.ProtocolIPv4
-	if replacedFamily == kubeovnv1.ProtocolIPv4 {
+	preservedFamily := fabricv1.ProtocolIPv4
+	if replacedFamily == fabricv1.ProtocolIPv4 {
 		preserved, err = NewIP(oldV6)
 		require.NoError(t, err)
 		replaced, err = NewIP(oldV4)
 		require.NoError(t, err)
-		preservedFamily = kubeovnv1.ProtocolIPv6
+		preservedFamily = fabricv1.ProtocolIPv6
 	}
 	assertPreservedAddressViews(t, subnet, podName, podName, preserved, preservedFamily)
-	if replacedFamily == kubeovnv1.ProtocolIPv4 {
+	if replacedFamily == fabricv1.ProtocolIPv4 {
 		require.Empty(t, subnet.V4IPToPod[replaced.String()])
 		require.False(t, subnet.V4Using.Contains(replaced))
 		require.True(t, subnet.V4Available.Contains(replaced))
@@ -414,11 +414,11 @@ func testIPAMPreservedAddressIsNotReissued(t *testing.T, preservedFamily string)
 	podName := "pod1.default"
 	initial := "10.0.0.1,2001:db8::1"
 	replacement := "10.0.0.2,2001:db8::1"
-	family := kubeovnv1.ProtocolIPv6
+	family := fabricv1.ProtocolIPv6
 	preserved := "2001:db8::1"
-	if preservedFamily == kubeovnv1.ProtocolIPv4 {
+	if preservedFamily == fabricv1.ProtocolIPv4 {
 		replacement = "10.0.0.1,2001:db8::2"
-		family = kubeovnv1.ProtocolIPv4
+		family = fabricv1.ProtocolIPv4
 		preserved = "10.0.0.1"
 	}
 	_, _, _, err = ipam.GetStaticAddress(podName, podName, initial, nil, subnetName, true)
@@ -563,7 +563,7 @@ func TestMacOnlySubnet(t *testing.T) {
 	require.NoError(t, err)
 	subnet, ok := ipam.Subnets[macOnlySubnetName]
 	require.True(t, ok)
-	require.Equal(t, kubeovnv1.ProtocolMac, subnet.Protocol)
+	require.Equal(t, fabricv1.ProtocolMac, subnet.Protocol)
 	require.Nil(t, subnet.V4CIDR)
 	require.Nil(t, subnet.V6CIDR)
 
@@ -681,7 +681,7 @@ func TestMacOnlySubnetCannotStripCIDR(t *testing.T) {
 	// Converting an existing IP subnet to mac-only (stripping its CIDR) is invalid.
 	err = ipam.AddOrUpdateSubnet(subnetName, "", "", nil)
 	require.ErrorIs(t, err, ErrInvalidCIDR)
-	require.Equal(t, kubeovnv1.ProtocolIPv4, ipam.Subnets[subnetName].Protocol)
+	require.Equal(t, fabricv1.ProtocolIPv4, ipam.Subnets[subnetName].Protocol)
 }
 
 func TestDeleteSubnet(t *testing.T) {
@@ -1300,30 +1300,6 @@ func TestIPAMIPPoolStatistics(t *testing.T) {
 	require.Empty(t, v6UsingRange)
 }
 
-func TestGetSubnetV4Mask(t *testing.T) {
-	ipam := NewIPAM()
-	// get mask for exist subnet
-	v4ExcludeIps := []string{
-		"10.0.0.2", "10.0.0.4", "10.0.0.100",
-		"10.0.0.252", "10.0.0.253", "10.0.0.254",
-	}
-	v4SubnetName := "v4Subnet"
-	ipv4CIDR := "10.0.0.0/24"
-	v4Gw := "10.0.0.1"
-	v4SubnetMask := "24"
-	err := ipam.AddOrUpdateSubnet(v4SubnetName, ipv4CIDR, v4Gw, v4ExcludeIps)
-	require.NoError(t, err)
-	mask, err := ipam.GetSubnetV4Mask(v4SubnetName)
-	require.NoError(t, err)
-	require.Equal(t, mask, v4SubnetMask)
-
-	// get mask for non-exist subnet
-	nonExistSubnetName := "nonExistSubnet"
-	mask, err = ipam.GetSubnetV4Mask(nonExistSubnetName)
-	require.Equal(t, err, ErrNoAvailable)
-	require.Empty(t, mask)
-}
-
 func TestIPAMNamedPoolDoesNotAllocateNewlyExcludedAddresses(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1337,14 +1313,14 @@ func TestIPAMNamedPoolDoesNotAllocateNewlyExcludedAddresses(t *testing.T) {
 			cidr:    "10.0.0.0/30",
 			gateway: "10.0.0.1",
 			poolIP:  "10.0.0.2",
-			family:  kubeovnv1.ProtocolIPv4,
+			family:  fabricv1.ProtocolIPv4,
 		},
 		{
 			name:    "IPv6",
 			cidr:    "fd00::/126",
 			gateway: "fd00::1",
 			poolIP:  "fd00::2",
-			family:  kubeovnv1.ProtocolIPv6,
+			family:  fabricv1.ProtocolIPv6,
 		},
 	}
 
@@ -1418,7 +1394,7 @@ func TestIPAMReleasedExcludedAddressDoesNotBecomeAvailable(t *testing.T) {
 			cidr:    "10.0.0.0/30",
 			gateway: "10.0.0.1",
 			poolIP:  "10.0.0.2",
-			family:  kubeovnv1.ProtocolIPv4,
+			family:  fabricv1.ProtocolIPv4,
 			v4Using: "1",
 			v6Using: "0",
 		},
@@ -1427,7 +1403,7 @@ func TestIPAMReleasedExcludedAddressDoesNotBecomeAvailable(t *testing.T) {
 			cidr:    "fd00::/126",
 			gateway: "fd00::1",
 			poolIP:  "fd00::2",
-			family:  kubeovnv1.ProtocolIPv6,
+			family:  fabricv1.ProtocolIPv6,
 			v4Using: "0",
 			v6Using: "1",
 		},

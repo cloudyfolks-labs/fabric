@@ -185,7 +185,7 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 		framework.ExpectTrue(len(nodeList.Items) >= 2)
 
 		ginkgo.By("Getting fabric-cni pods")
-		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+		daemonSetClient := f.DaemonSetClientNS(framework.FabricNamespace)
 		ds := daemonSetClient.Get("fabric-cni")
 		podList, err := daemonSetClient.GetPods(ds)
 		framework.ExpectNoError(err)
@@ -243,14 +243,14 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 		framework.ExpectHaveLen(nodeIPs, len(nodeList.Items))
 
 		ginkgo.By("Getting current CA")
-		initialOVNCA, err := getValueFromSecret(cs, framework.KubeOvnNamespace, util.DefaultOVNIPSecCA, "cacert")
+		initialOVNCA, err := getValueFromSecret(cs, framework.FabricNamespace, util.DefaultOVNIPSecCA, "cacert")
 		framework.ExpectNoError(err)
 		initialCAKey, err := getValueFromSecret(cs, "cert-manager", "fabric-ca", "tls.key")
 		framework.ExpectNoError(err)
 		framework.ExpectNotEmpty(initialCAKey)
 
 		ginkgo.By("Getting fabric-cni pods")
-		daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+		daemonSetClient := f.DaemonSetClientNS(framework.FabricNamespace)
 		ds := daemonSetClient.Get("fabric-cni")
 		podList, err := daemonSetClient.GetPods(ds)
 		framework.ExpectNoError(err)
@@ -272,11 +272,11 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 		framework.Logf("Generated secondary CA:\n%s", secondaryCA)
 
 		ginkgo.By("Adding secondary CA to secret bundle")
-		ovnIpsecSecret, err := cs.CoreV1().Secrets(framework.KubeOvnNamespace).Get(context.Background(), util.DefaultOVNIPSecCA, metav1.GetOptions{})
+		ovnIpsecSecret, err := cs.CoreV1().Secrets(framework.FabricNamespace).Get(context.Background(), util.DefaultOVNIPSecCA, metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		updatedCA := initialOVNCA + secondaryCA
 		ovnIpsecSecret.Data["cacert"] = []byte(updatedCA)
-		ovnIpsecSecret, err = cs.CoreV1().Secrets(framework.KubeOvnNamespace).Update(context.Background(), ovnIpsecSecret, metav1.UpdateOptions{})
+		ovnIpsecSecret, err = cs.CoreV1().Secrets(framework.FabricNamespace).Update(context.Background(), ovnIpsecSecret, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 		framework.Logf("Updated secret %s with new CA:\n%s", util.DefaultOVNIPSecCA, string(ovnIpsecSecret.Data["cacert"]))
 
@@ -345,10 +345,10 @@ var _ = framework.OrderedDescribe("[group:ipsec]", func() {
 
 		ginkgo.By("Removing initial CA from bundle")
 
-		ovnIpsecSecret, err = cs.CoreV1().Secrets(framework.KubeOvnNamespace).Get(context.Background(), "ovn-ipsec-ca", metav1.GetOptions{})
+		ovnIpsecSecret, err = cs.CoreV1().Secrets(framework.FabricNamespace).Get(context.Background(), "ovn-ipsec-ca", metav1.GetOptions{})
 		framework.ExpectNoError(err)
 		ovnIpsecSecret.Data["cacert"] = []byte(secondaryCA)
-		_, err = cs.CoreV1().Secrets(framework.KubeOvnNamespace).Update(context.Background(), ovnIpsecSecret, metav1.UpdateOptions{})
+		_, err = cs.CoreV1().Secrets(framework.FabricNamespace).Update(context.Background(), ovnIpsecSecret, metav1.UpdateOptions{})
 		framework.ExpectNoError(err)
 
 		ginkgo.By("Verifying IPsec CA updated")

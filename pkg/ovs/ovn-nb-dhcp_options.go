@@ -9,7 +9,7 @@ import (
 	"github.com/ovn-kubernetes/libovsdb/ovsdb"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -23,7 +23,7 @@ func (c *OVNNbClient) CreateDHCPOptions(lsName, cidr, options string) error {
 	return c.createDHCPEntry(lsName, "", cidr, options)
 }
 
-func (c *OVNNbClient) UpdateDHCPOptions(subnet *kubeovnv1.Subnet, mtu int) (*DHCPOptionsUUIDs, error) {
+func (c *OVNNbClient) UpdateDHCPOptions(subnet *fabricv1.Subnet, mtu int) (*DHCPOptionsUUIDs, error) {
 	lsName := subnet.Name
 	cidrBlock := subnet.Spec.CIDRBlock
 	gateway := subnet.Spec.Gateway
@@ -45,12 +45,12 @@ func (c *OVNNbClient) UpdateDHCPOptions(subnet *kubeovnv1.Subnet, mtu int) (*DHC
 	var v4CIDR, v6CIDR string
 	var v4Gateway string
 	switch util.CheckProtocol(cidrBlock) {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		v4CIDR = cidrBlock
 		v4Gateway = gateway
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		v6CIDR = cidrBlock
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		cidrBlocks := strings.Split(cidrBlock, ",")
 		gateways := strings.Split(gateway, ",")
 		v4CIDR, v6CIDR = cidrBlocks[0], cidrBlocks[1]
@@ -98,12 +98,12 @@ func (c *OVNNbClient) UpdateDHCPOptionsForPort(lsName, portName, cidrBlock, gate
 
 	var v4CIDR, v6CIDR, v4Gateway string
 	switch util.CheckProtocol(cidrBlock) {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		v4CIDR = cidrBlock
 		v4Gateway = gateway
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		v6CIDR = cidrBlock
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		cidrBlocks := strings.Split(cidrBlock, ",")
 		gateways := strings.Split(gateway, ",")
 		if len(cidrBlocks) < 2 || len(gateways) < 1 {
@@ -142,7 +142,7 @@ func (c *OVNNbClient) updateDHCPv4Options(lsName, portName, cidr, gateway, optio
 	necessaryV4DHCPOptions := []string{"lease_time", "router", "server_id", "server_mac", "mtu"}
 
 	protocol := util.CheckProtocol(cidr)
-	if protocol != kubeovnv1.ProtocolIPv4 {
+	if protocol != fabricv1.ProtocolIPv4 {
 		return "", fmt.Errorf("cidr %s must be a valid ipv4 address", cidr)
 	}
 
@@ -183,7 +183,7 @@ func (c *OVNNbClient) updateDHCPv6Options(lsName, portName, cidr, options string
 	necessaryV6DHCPOptions := []string{"server_id"}
 
 	protocol := util.CheckProtocol(cidr)
-	if protocol != kubeovnv1.ProtocolIPv6 {
+	if protocol != fabricv1.ProtocolIPv6 {
 		return "", fmt.Errorf("cidr %s must be a valid ipv6 address", cidr)
 	}
 
@@ -264,7 +264,7 @@ func (c *OVNNbClient) DeleteDHCPOptionsByUUIDs(uuidList ...string) error {
 
 // DeleteDHCPOptions delete dhcp options which belongs to logical switch
 func (c *OVNNbClient) DeleteDHCPOptions(lsName, protocol string) error {
-	if protocol == kubeovnv1.ProtocolDual {
+	if protocol == fabricv1.ProtocolDual {
 		protocol = ""
 	}
 	externalIDs := map[string]string{
@@ -316,7 +316,7 @@ func (c *OVNNbClient) GetDHCPOptions(lsName, protocol string, ignoreNotFound boo
 		return nil, errors.New("the logical switch name is required")
 	}
 
-	if protocol != kubeovnv1.ProtocolIPv4 && protocol != kubeovnv1.ProtocolIPv6 {
+	if protocol != fabricv1.ProtocolIPv4 && protocol != fabricv1.ProtocolIPv6 {
 		return nil, errors.New("protocol must be IPv4 or IPv6")
 	}
 

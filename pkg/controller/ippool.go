@@ -16,23 +16,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddIPPool(obj any) {
-	key := cache.MetaObjectToName(obj.(*kubeovnv1.IPPool)).String()
+	key := cache.MetaObjectToName(obj.(*fabricv1.IPPool)).String()
 	klog.V(3).Infof("enqueue add ippool %s", key)
 	c.addOrUpdateIPPoolQueue.Add(key)
 }
 
 func (c *Controller) enqueueDeleteIPPool(obj any) {
-	var ippool *kubeovnv1.IPPool
+	var ippool *fabricv1.IPPool
 	switch t := obj.(type) {
-	case *kubeovnv1.IPPool:
+	case *fabricv1.IPPool:
 		ippool = t
 	case cache.DeletedFinalStateUnknown:
-		i, ok := t.Obj.(*kubeovnv1.IPPool)
+		i, ok := t.Obj.(*fabricv1.IPPool)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -48,8 +48,8 @@ func (c *Controller) enqueueDeleteIPPool(obj any) {
 }
 
 func (c *Controller) enqueueUpdateIPPool(oldObj, newObj any) {
-	oldIPPool := oldObj.(*kubeovnv1.IPPool)
-	newIPPool := newObj.(*kubeovnv1.IPPool)
+	oldIPPool := oldObj.(*fabricv1.IPPool)
+	newIPPool := newObj.(*fabricv1.IPPool)
 	if !newIPPool.DeletionTimestamp.IsZero() {
 		klog.V(3).Infof("enqueue delete ippool %s due to deletion timestamp", cache.MetaObjectToName(newIPPool).String())
 		c.deleteIPPoolQueue.Add(newIPPool)
@@ -117,7 +117,7 @@ func (c *Controller) handleAddOrUpdateIPPool(key string) error {
 	return nil
 }
 
-func (c *Controller) handleDeleteIPPool(ippool *kubeovnv1.IPPool) error {
+func (c *Controller) handleDeleteIPPool(ippool *fabricv1.IPPool) error {
 	c.ippoolKeyMutex.LockKey(ippool.Name)
 	defer func() { _ = c.ippoolKeyMutex.UnlockKey(ippool.Name) }()
 
@@ -170,7 +170,7 @@ func (c *Controller) handleUpdateIPPoolStatus(key string) error {
 	return c.patchIPPoolStatus(ippool)
 }
 
-func (c *Controller) patchIPPoolStatusCondition(ippool *kubeovnv1.IPPool, reason, errMsg string) error {
+func (c *Controller) patchIPPoolStatusCondition(ippool *fabricv1.IPPool, reason, errMsg string) error {
 	if errMsg != "" {
 		ippool.Status.SetError(reason, errMsg)
 		ippool.Status.NotReady(reason, errMsg)
@@ -184,13 +184,13 @@ func (c *Controller) patchIPPoolStatusCondition(ippool *kubeovnv1.IPPool, reason
 	return c.patchIPPoolStatus(ippool)
 }
 
-func (c *Controller) patchIPPoolStatus(ippool *kubeovnv1.IPPool) error {
+func (c *Controller) patchIPPoolStatus(ippool *fabricv1.IPPool) error {
 	bytes, err := ippool.Status.Bytes()
 	if err != nil {
 		klog.Errorf("failed to generate json representation for status of ippool %s: %v", ippool.Name, err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
+	if _, err = c.config.FabricClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name, types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 		klog.Errorf("failed to patch status of ippool %s: %v", ippool.Name, err)
 		return err
 	}
@@ -199,7 +199,7 @@ func (c *Controller) patchIPPoolStatus(ippool *kubeovnv1.IPPool) error {
 }
 
 func (c *Controller) syncIPPoolFinalizer(cl client.Client) error {
-	ippools := &kubeovnv1.IPPoolList{}
+	ippools := &fabricv1.IPPoolList{}
 	return migrateFinalizers(cl, ippools, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(ippools.Items) {
 			return nil, nil
@@ -208,22 +208,22 @@ func (c *Controller) syncIPPoolFinalizer(cl client.Client) error {
 	})
 }
 
-func (c *Controller) handleAddIPPoolFinalizer(ippool *kubeovnv1.IPPool) error {
+func (c *Controller) handleAddIPPoolFinalizer(ippool *fabricv1.IPPool) error {
 	if !ippool.DeletionTimestamp.IsZero() {
 		return nil
 	}
-	if controllerutil.ContainsFinalizer(ippool, util.KubeOVNControllerFinalizer) {
+	if controllerutil.ContainsFinalizer(ippool, util.FabricControllerFinalizer) {
 		return nil
 	}
 
 	newIPPool := ippool.DeepCopy()
-	controllerutil.AddFinalizer(newIPPool, util.KubeOVNControllerFinalizer)
+	controllerutil.AddFinalizer(newIPPool, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(ippool, newIPPool)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ippool %s: %v", ippool.Name, err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name,
+	if _, err = c.config.FabricClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -234,7 +234,7 @@ func (c *Controller) handleAddIPPoolFinalizer(ippool *kubeovnv1.IPPool) error {
 	return nil
 }
 
-func (c *Controller) handleDelIPPoolFinalizer(ippool *kubeovnv1.IPPool) error {
+func (c *Controller) handleDelIPPoolFinalizer(ippool *fabricv1.IPPool) error {
 	if ippool == nil || len(ippool.GetFinalizers()) == 0 {
 		return nil
 	}
@@ -242,13 +242,13 @@ func (c *Controller) handleDelIPPoolFinalizer(ippool *kubeovnv1.IPPool) error {
 	newIPPool := ippool.DeepCopy()
 	controllerutil.RemoveFinalizer(newIPPool, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newIPPool, util.LegacyControllerFinalizer)
-	controllerutil.RemoveFinalizer(newIPPool, util.KubeOVNControllerFinalizer)
+	controllerutil.RemoveFinalizer(newIPPool, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(ippool, newIPPool)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ippool %s: %v", ippool.Name, err)
 		return err
 	}
-	if _, err = c.config.KubeOvnClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name,
+	if _, err = c.config.FabricClient.FabricV1().IPPools().Patch(context.Background(), ippool.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -259,7 +259,7 @@ func (c *Controller) handleDelIPPoolFinalizer(ippool *kubeovnv1.IPPool) error {
 	return nil
 }
 
-func (c *Controller) updateIPPoolStatistics(ippool *kubeovnv1.IPPool) {
+func (c *Controller) updateIPPoolStatistics(ippool *fabricv1.IPPool) {
 	v4a, v4u, v6a, v6u, v4as, v4us, v6as, v6us := c.ipam.IPPoolStatistics(ippool.Spec.Subnet, ippool.Name)
 	ippool.Status.V4AvailableIPs = v4a
 	ippool.Status.V4UsingIPs = v4u
@@ -271,7 +271,7 @@ func (c *Controller) updateIPPoolStatistics(ippool *kubeovnv1.IPPool) {
 	ippool.Status.V6UsingIPRange = v6us
 }
 
-func (c *Controller) reconcileIPPoolAddressSet(ippool *kubeovnv1.IPPool) error {
+func (c *Controller) reconcileIPPoolAddressSet(ippool *fabricv1.IPPool) error {
 	asName := util.IPPoolAddressSetName(ippool.Name)
 
 	if !ippool.Spec.EnableAddressSet {

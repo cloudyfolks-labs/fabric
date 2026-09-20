@@ -1,10 +1,9 @@
-# Makefile for running end-to-end tests
 
 E2E_BUILD_FLAGS = -ldflags "-w -s"
 
 KUBECONFIG = $(shell echo $${KUBECONFIG:-$(HOME)/.kube/config})
 
-E2E_BRANCH := $(shell echo $${E2E_BRANCH:-master})
+E2E_BRANCH := $(shell echo $${E2E_BRANCH:-main})
 E2E_IP_FAMILY := $(shell echo $${E2E_IP_FAMILY:-ipv4})
 E2E_NETWORK_MODE := $(shell echo $${E2E_NETWORK_MODE:-overlay})
 E2E_CILIUM_CHAINING = $(shell echo $${E2E_CILIUM_CHAINING:-false})
@@ -88,7 +87,7 @@ e2e: fabric-conformance-e2e
 .PHONY: e2e-build
 e2e-build:
 	$(GINKGO_E2E_BUILD) ./test/e2e/k8s-network
-	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
+	$(GINKGO_E2E_BUILD) ./test/e2e/fabric
 	$(GINKGO_E2E_BUILD) ./test/e2e/ovn-ic
 	$(GINKGO_E2E_BUILD) ./test/e2e/multus
 	$(GINKGO_E2E_BUILD) ./test/e2e/non-primary-cni
@@ -145,11 +144,11 @@ cyclonus-netpol-e2e:
 fabric-conformance-e2e:
 	$(call kind_load_image,fabric,$(PAUSE_IMAGE),1)
 	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
+	$(GINKGO_E2E_BUILD) ./test/e2e/fabric
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --timeout=35m --focus=CNI:Kube-OVN ./test/e2e/kube-ovn/kube-ovn.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --timeout=35m --focus=CNI:fabric ./test/e2e/fabric/fabric.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-ic-conformance-e2e
 fabric-ic-conformance-e2e:
@@ -159,7 +158,7 @@ fabric-ic-conformance-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/ovn-ic/ovn-ic.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/ovn-ic/ovn-ic.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-submariner-conformance-e2e
 fabric-submariner-conformance-e2e:
@@ -174,7 +173,7 @@ fabric-multus-conformance-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=10m \
-		--focus=CNI:Kube-OVN ./test/e2e/multus/multus.test -- $(TEST_BIN_ARGS)
+		--focus=CNI:fabric ./test/e2e/multus/multus.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-non-primary-cni-e2e
 fabric-non-primary-cni-e2e:
@@ -193,7 +192,7 @@ vip-conformance-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/vip/vip.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/vip/vip.test -- $(TEST_BIN_ARGS)
 
 .PHONY: vpc-dynamic-routing-e2e
 vpc-dynamic-routing-e2e:
@@ -203,7 +202,7 @@ vpc-dynamic-routing-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m --fail-on-empty \
-		--focus=CNI:Kube-OVN ./test/e2e/vpc-dynamic-routing/vpc-dynamic-routing.test -- $(TEST_BIN_ARGS)
+		--focus=CNI:fabric ./test/e2e/vpc-dynamic-routing/vpc-dynamic-routing.test -- $(TEST_BIN_ARGS)
 
 .PHONY: ovn-vpc-nat-gw-conformance-e2e
 ovn-vpc-nat-gw-conformance-e2e:
@@ -212,7 +211,7 @@ ovn-vpc-nat-gw-conformance-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) \
-		--focus=CNI:Kube-OVN ./test/e2e/ovn-vpc-nat-gw/ovn-vpc-nat-gw.test -- $(TEST_BIN_ARGS)
+		--focus=CNI:fabric ./test/e2e/ovn-vpc-nat-gw/ovn-vpc-nat-gw.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-ha-e2e
 fabric-ha-e2e:
@@ -220,7 +219,7 @@ fabric-ha-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/ha/ha.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/ha/ha.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-single-replica-e2e
 fabric-single-replica-e2e:
@@ -228,12 +227,8 @@ fabric-single-replica-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/single-replica/single-replica.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/single-replica/single-replica.test -- $(TEST_BIN_ARGS)
 
-# Kamaji-backed e2e for fabric's hosted OVN central chart path. Runs against
-# the tenant cluster the setup script brings up; expects KUBECONFIG and the
-# fabric HCP OVN DB addresses exported via
-# `./hack/kamaji-e2e.sh vars`.
 .PHONY: fabric-kamaji-e2e
 fabric-kamaji-e2e:
 	$(GINKGO_E2E_BUILD) ./test/e2e/kamaji
@@ -243,7 +238,7 @@ fabric-kamaji-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN) --focus=CNI:Kube-OVN ./test/e2e/kamaji/kamaji.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN) --focus=CNI:fabric ./test/e2e/kamaji/kamaji.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-security-e2e
 fabric-security-e2e:
@@ -251,7 +246,7 @@ fabric-security-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/security/security.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/security/security.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-kubevirt-e2e
 fabric-kubevirt-e2e:
@@ -260,7 +255,7 @@ fabric-kubevirt-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	KUBEVIRT_CONTAINERDISK_IMAGE=$(KUBEVIRT_CONTAINERDISK_IMAGE) \
-	$(GINKGO_E2E_RUN) --focus=CNI:Kube-OVN ./test/e2e/kubevirt/kubevirt.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN) --focus=CNI:fabric ./test/e2e/kubevirt/kubevirt.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-webhook-e2e
 fabric-webhook-e2e:
@@ -268,7 +263,7 @@ fabric-webhook-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/webhook/webhook.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/webhook/webhook.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-ipsec-e2e
 fabric-ipsec-e2e:
@@ -276,7 +271,7 @@ fabric-ipsec-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN --label-filter="!cert-manager" \
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric --label-filter="!cert-manager" \
 		./test/e2e/ipsec/ipsec.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-ipsec-cert-mgr-e2e
@@ -285,7 +280,7 @@ fabric-ipsec-cert-mgr-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/ipsec/ipsec.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/ipsec/ipsec.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-anp-domain-e2e
 fabric-anp-domain-e2e:
@@ -294,7 +289,7 @@ fabric-anp-domain-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m \
-		--focus=CNI:Kube-OVN ./test/e2e/anp-domain/anp-domain.test -- $(TEST_BIN_ARGS)
+		--focus=CNI:fabric ./test/e2e/anp-domain/anp-domain.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-cnp-domain-e2e
 fabric-cnp-domain-e2e:
@@ -303,7 +298,7 @@ fabric-cnp-domain-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN_PARALLEL) --timeout=30m \
-		--focus=CNI:Kube-OVN ./test/e2e/cnp-domain/cnp-domain.test -- $(TEST_BIN_ARGS)
+		--focus=CNI:fabric ./test/e2e/cnp-domain/cnp-domain.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-connectivity-e2e
 fabric-connectivity-e2e:
@@ -313,7 +308,7 @@ fabric-connectivity-e2e:
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN) --procs 2 --timeout=30m \
-		--focus=CNI:Kube-OVN ./test/e2e/connectivity -- $(TEST_BIN_ARGS)
+		--focus=CNI:fabric ./test/e2e/connectivity -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-underlay-metallb-e2e
 fabric-underlay-metallb-e2e:
@@ -325,24 +320,24 @@ fabric-underlay-metallb-e2e:
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
-	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:Kube-OVN ./test/e2e/metallb/metallb.test -- $(TEST_BIN_ARGS)
+	$(GINKGO_E2E_RUN_PARALLEL) --focus=CNI:fabric ./test/e2e/metallb/metallb.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-dns-zone-e2e
 fabric-dns-zone-e2e:
 	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
+	$(GINKGO_E2E_BUILD) ./test/e2e/fabric
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN) --timeout=20m \
-		--focus="\[group:dns-zone\]" ./test/e2e/kube-ovn/kube-ovn.test -- $(TEST_BIN_ARGS)
+		--focus="\[group:dns-zone\]" ./test/e2e/fabric/fabric.test -- $(TEST_BIN_ARGS)
 
 .PHONY: fabric-rlr-e2e
 fabric-rlr-e2e:
 	$(call kind_load_image,fabric,$(AGNHOST_IMAGE),1)
-	$(GINKGO_E2E_BUILD) ./test/e2e/kube-ovn
+	$(GINKGO_E2E_BUILD) ./test/e2e/fabric
 	E2E_BRANCH=$(E2E_BRANCH) \
 	E2E_IP_FAMILY=$(E2E_IP_FAMILY) \
 	E2E_NETWORK_MODE=$(E2E_NETWORK_MODE) \
 	$(GINKGO_E2E_RUN) --timeout=20m \
-		--focus="\[group:rlr\]" ./test/e2e/kube-ovn/kube-ovn.test -- $(TEST_BIN_ARGS)
+		--focus="\[group:rlr\]" ./test/e2e/fabric/fabric.test -- $(TEST_BIN_ARGS)

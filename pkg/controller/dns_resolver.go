@@ -10,7 +10,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -154,7 +154,7 @@ func (r *domainResolver) resolve(ctx context.Context, domain string) {
 	var v4, v6 []string
 	for _, addr := range addrs {
 		ip := addr.IP.String()
-		if util.CheckProtocol(ip) == kubeovnv1.ProtocolIPv4 {
+		if util.CheckProtocol(ip) == fabricv1.ProtocolIPv4 {
 			v4 = append(v4, ip)
 		} else {
 			v6 = append(v6, ip)

@@ -8,16 +8,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func TestNatGatewayPort(t *testing.T) {
-	routedVpc := func(name string, routing *kubeovnv1.VpcDynamicRouting) *kubeovnv1.Vpc {
-		return &kubeovnv1.Vpc{
+	routedVpc := func(name string, routing *fabricv1.VpcDynamicRouting) *fabricv1.Vpc {
+		return &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec: kubeovnv1.VpcSpec{
+			Spec: fabricv1.VpcSpec{
 				ExtraExternalSubnets: []string{"transit", "services"},
 				DynamicRouting:       routing,
 			},
@@ -25,8 +25,8 @@ func TestNatGatewayPort(t *testing.T) {
 	}
 
 	t.Run("routed vpc names the lrp of the external subnet", func(t *testing.T) {
-		vpc := routedVpc("vpc-a", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		vpc := routedVpc("vpc-a", &fabricv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*fabricv1.Vpc{vpc}})
 		require.NoError(t, err)
 		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-a-transit", false).Return(&ovnnb.LogicalRouterPort{UUID: "lrp-uuid"}, nil)
 
@@ -36,8 +36,8 @@ func TestNatGatewayPort(t *testing.T) {
 	})
 
 	t.Run("nat on an external subnet with its own lrp names that lrp", func(t *testing.T) {
-		vpc := routedVpc("vpc-f", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		vpc := routedVpc("vpc-f", &fabricv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*fabricv1.Vpc{vpc}})
 		require.NoError(t, err)
 		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-f-services", true).Return(&ovnnb.LogicalRouterPort{UUID: "services-lrp-uuid"}, nil)
 
@@ -47,8 +47,8 @@ func TestNatGatewayPort(t *testing.T) {
 	})
 
 	t.Run("nat on a pool subnet without an lrp falls back to the bgp next hop", func(t *testing.T) {
-		vpc := routedVpc("vpc-g", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		vpc := routedVpc("vpc-g", &fabricv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*fabricv1.Vpc{vpc}})
 		require.NoError(t, err)
 		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-g-public-pool", true).Return(nil, nil)
 		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-g-transit", false).Return(&ovnnb.LogicalRouterPort{UUID: "lrp-uuid"}, nil)
@@ -59,8 +59,8 @@ func TestNatGatewayPort(t *testing.T) {
 	})
 
 	t.Run("routed vpc without the lrp is retried", func(t *testing.T) {
-		vpc := routedVpc("vpc-b", &kubeovnv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		vpc := routedVpc("vpc-b", &fabricv1.VpcDynamicRouting{Enabled: true, ExternalSubnet: "transit"})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*fabricv1.Vpc{vpc}})
 		require.NoError(t, err)
 		fc.mockOvnClient.EXPECT().GetLogicalRouterPort("vpc-b-transit", false).Return(nil, errors.New("not found"))
 
@@ -69,8 +69,8 @@ func TestNatGatewayPort(t *testing.T) {
 	})
 
 	t.Run("routed vpc without a named external subnet leaves the choice to northd", func(t *testing.T) {
-		vpc := routedVpc("vpc-c", &kubeovnv1.VpcDynamicRouting{Enabled: true})
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		vpc := routedVpc("vpc-c", &fabricv1.VpcDynamicRouting{Enabled: true})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*fabricv1.Vpc{vpc}})
 		require.NoError(t, err)
 
 		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-c", "services")
@@ -80,7 +80,7 @@ func TestNatGatewayPort(t *testing.T) {
 
 	t.Run("vpc without dynamic routing leaves the choice to northd", func(t *testing.T) {
 		vpc := routedVpc("vpc-d", nil)
-		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*kubeovnv1.Vpc{vpc}})
+		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{Vpcs: []*fabricv1.Vpc{vpc}})
 		require.NoError(t, err)
 
 		gatewayPort, err := fc.fakeController.natGatewayPort("vpc-d", "services")
@@ -98,7 +98,7 @@ func TestNatGatewayPort(t *testing.T) {
 func Test_getOvnEipNat(t *testing.T) {
 	// NAT rules always carry an eip_v4_ip label, so a pure-IPv6 rule still has
 	// eip_v4_ip="" together with its own eip_v6_ip label.
-	ipv6Dnat := &kubeovnv1.OvnDnatRule{
+	ipv6Dnat := &fabricv1.OvnDnatRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "dnat-v6",
 			Labels: map[string]string{
@@ -107,7 +107,7 @@ func Test_getOvnEipNat(t *testing.T) {
 			},
 		},
 	}
-	ipv6Snat := &kubeovnv1.OvnSnatRule{
+	ipv6Snat := &fabricv1.OvnSnatRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "snat-v6",
 			Labels: map[string]string{
@@ -116,7 +116,7 @@ func Test_getOvnEipNat(t *testing.T) {
 			},
 		},
 	}
-	ipv4Dnat := &kubeovnv1.OvnDnatRule{
+	ipv4Dnat := &fabricv1.OvnDnatRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "dnat-v4",
 			Labels: map[string]string{
@@ -132,8 +132,8 @@ func Test_getOvnEipNat(t *testing.T) {
 	// every IPv6-only NAT rule and blocking the EIP from ever being deleted.
 	t.Run("pure IPv6 EIP does not match unrelated IPv6 NAT via empty v4 label", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			OvnDnatRules: []*kubeovnv1.OvnDnatRule{ipv6Dnat},
-			OvnSnatRules: []*kubeovnv1.OvnSnatRule{ipv6Snat},
+			OvnDnatRules: []*fabricv1.OvnDnatRule{ipv6Dnat},
+			OvnSnatRules: []*fabricv1.OvnSnatRule{ipv6Snat},
 		})
 		require.NoError(t, err)
 		nat, err := fc.fakeController.getOvnEipNat("", "fc00:1::7")
@@ -143,8 +143,8 @@ func Test_getOvnEipNat(t *testing.T) {
 
 	t.Run("pure IPv6 EIP matches NAT rules that actually use its v6 ip", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			OvnDnatRules: []*kubeovnv1.OvnDnatRule{ipv6Dnat},
-			OvnSnatRules: []*kubeovnv1.OvnSnatRule{ipv6Snat},
+			OvnDnatRules: []*fabricv1.OvnDnatRule{ipv6Dnat},
+			OvnSnatRules: []*fabricv1.OvnSnatRule{ipv6Snat},
 		})
 		require.NoError(t, err)
 		nat, err := fc.fakeController.getOvnEipNat("", "fc00:1::a")
@@ -154,7 +154,7 @@ func Test_getOvnEipNat(t *testing.T) {
 
 	t.Run("IPv4 EIP matches a NAT rule that uses its v4 ip", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			OvnDnatRules: []*kubeovnv1.OvnDnatRule{ipv4Dnat},
+			OvnDnatRules: []*fabricv1.OvnDnatRule{ipv4Dnat},
 		})
 		require.NoError(t, err)
 		nat, err := fc.fakeController.getOvnEipNat("192.168.0.5", "")
@@ -164,7 +164,7 @@ func Test_getOvnEipNat(t *testing.T) {
 
 	t.Run("IPv4 EIP does not match a different v4 NAT rule", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			OvnDnatRules: []*kubeovnv1.OvnDnatRule{ipv4Dnat},
+			OvnDnatRules: []*fabricv1.OvnDnatRule{ipv4Dnat},
 		})
 		require.NoError(t, err)
 		nat, err := fc.fakeController.getOvnEipNat("192.168.0.99", "")
@@ -174,7 +174,7 @@ func Test_getOvnEipNat(t *testing.T) {
 
 	t.Run("EIP with no ip queries nothing", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-			OvnDnatRules: []*kubeovnv1.OvnDnatRule{ipv6Dnat},
+			OvnDnatRules: []*fabricv1.OvnDnatRule{ipv6Dnat},
 		})
 		require.NoError(t, err)
 		nat, err := fc.fakeController.getOvnEipNat("", "")
@@ -216,11 +216,11 @@ func TestEnqueueAddOvnEip(t *testing.T) {
 	t.Cleanup(c.addOvnEipQueue.ShutDown)
 	t.Cleanup(c.updateOvnEipQueue.ShutDown)
 	now := metav1.Now()
-	fin := []string{util.KubeOVNControllerFinalizer}
+	fin := []string{util.FabricControllerFinalizer}
 	assertEnqueueAddRoutingWithFinalizer(t, c.addOvnEipQueue, c.updateOvnEipQueue, c.enqueueAddOvnEip,
-		&kubeovnv1.OvnEip{ObjectMeta: metav1.ObjectMeta{Name: "live-eip"}},
-		&kubeovnv1.OvnEip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-eip", DeletionTimestamp: &now, Finalizers: fin}},
-		&kubeovnv1.OvnEip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-eip-no-finalizer", DeletionTimestamp: &now}},
+		&fabricv1.OvnEip{ObjectMeta: metav1.ObjectMeta{Name: "live-eip"}},
+		&fabricv1.OvnEip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-eip", DeletionTimestamp: &now, Finalizers: fin}},
+		&fabricv1.OvnEip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-eip-no-finalizer", DeletionTimestamp: &now}},
 	)
 }
 
@@ -233,11 +233,11 @@ func TestEnqueueAddOvnFip(t *testing.T) {
 	t.Cleanup(c.addOvnFipQueue.ShutDown)
 	t.Cleanup(c.updateOvnFipQueue.ShutDown)
 	now := metav1.Now()
-	fin := []string{util.KubeOVNControllerFinalizer}
+	fin := []string{util.FabricControllerFinalizer}
 	assertEnqueueAddRoutingWithFinalizer(t, c.addOvnFipQueue, c.updateOvnFipQueue, c.enqueueAddOvnFip,
-		&kubeovnv1.OvnFip{ObjectMeta: metav1.ObjectMeta{Name: "live-fip"}},
-		&kubeovnv1.OvnFip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-fip", DeletionTimestamp: &now, Finalizers: fin}},
-		&kubeovnv1.OvnFip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-fip-no-finalizer", DeletionTimestamp: &now}},
+		&fabricv1.OvnFip{ObjectMeta: metav1.ObjectMeta{Name: "live-fip"}},
+		&fabricv1.OvnFip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-fip", DeletionTimestamp: &now, Finalizers: fin}},
+		&fabricv1.OvnFip{ObjectMeta: metav1.ObjectMeta{Name: "terminating-fip-no-finalizer", DeletionTimestamp: &now}},
 	)
 }
 
@@ -250,11 +250,11 @@ func TestEnqueueAddOvnDnatRule(t *testing.T) {
 	t.Cleanup(c.addOvnDnatRuleQueue.ShutDown)
 	t.Cleanup(c.updateOvnDnatRuleQueue.ShutDown)
 	now := metav1.Now()
-	fin := []string{util.KubeOVNControllerFinalizer}
+	fin := []string{util.FabricControllerFinalizer}
 	assertEnqueueAddRoutingWithFinalizer(t, c.addOvnDnatRuleQueue, c.updateOvnDnatRuleQueue, c.enqueueAddOvnDnatRule,
-		&kubeovnv1.OvnDnatRule{ObjectMeta: metav1.ObjectMeta{Name: "live-dnat"}},
-		&kubeovnv1.OvnDnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-dnat", DeletionTimestamp: &now, Finalizers: fin}},
-		&kubeovnv1.OvnDnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-dnat-no-finalizer", DeletionTimestamp: &now}},
+		&fabricv1.OvnDnatRule{ObjectMeta: metav1.ObjectMeta{Name: "live-dnat"}},
+		&fabricv1.OvnDnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-dnat", DeletionTimestamp: &now, Finalizers: fin}},
+		&fabricv1.OvnDnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-dnat-no-finalizer", DeletionTimestamp: &now}},
 	)
 }
 
@@ -267,11 +267,11 @@ func TestEnqueueAddOvnSnatRule(t *testing.T) {
 	t.Cleanup(c.addOvnSnatRuleQueue.ShutDown)
 	t.Cleanup(c.updateOvnSnatRuleQueue.ShutDown)
 	now := metav1.Now()
-	fin := []string{util.KubeOVNControllerFinalizer}
+	fin := []string{util.FabricControllerFinalizer}
 	assertEnqueueAddRoutingWithFinalizer(t, c.addOvnSnatRuleQueue, c.updateOvnSnatRuleQueue, c.enqueueAddOvnSnatRule,
-		&kubeovnv1.OvnSnatRule{ObjectMeta: metav1.ObjectMeta{Name: "live-snat"}},
-		&kubeovnv1.OvnSnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-snat", DeletionTimestamp: &now, Finalizers: fin}},
-		&kubeovnv1.OvnSnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-snat-no-finalizer", DeletionTimestamp: &now}},
+		&fabricv1.OvnSnatRule{ObjectMeta: metav1.ObjectMeta{Name: "live-snat"}},
+		&fabricv1.OvnSnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-snat", DeletionTimestamp: &now, Finalizers: fin}},
+		&fabricv1.OvnSnatRule{ObjectMeta: metav1.ObjectMeta{Name: "terminating-snat-no-finalizer", DeletionTimestamp: &now}},
 	)
 }
 
@@ -281,9 +281,9 @@ func TestEnqueueAddOvnSnatRule(t *testing.T) {
 func TestEnqueueAddOvnEipRequeuesRouterLBRules(t *testing.T) {
 	t.Parallel()
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		RouterLBRules: []*kubeovnv1.RouterLBRule{{
+		RouterLBRules: []*fabricv1.RouterLBRule{{
 			ObjectMeta: metav1.ObjectMeta{Name: "rlr1"},
-			Spec:       kubeovnv1.RouterLBRuleSpec{OvnEip: "eip1"},
+			Spec:       fabricv1.RouterLBRuleSpec{OvnEip: "eip1"},
 		}},
 	})
 	require.NoError(t, err)
@@ -297,8 +297,8 @@ func TestEnqueueAddOvnEipRequeuesRouterLBRules(t *testing.T) {
 	t.Cleanup(c.updateOvnEipQueue.ShutDown)
 
 	now := metav1.Now()
-	c.enqueueAddOvnEip(&kubeovnv1.OvnEip{
-		ObjectMeta: metav1.ObjectMeta{Name: "eip1", DeletionTimestamp: &now, Finalizers: []string{util.KubeOVNControllerFinalizer}},
+	c.enqueueAddOvnEip(&fabricv1.OvnEip{
+		ObjectMeta: metav1.ObjectMeta{Name: "eip1", DeletionTimestamp: &now, Finalizers: []string{util.FabricControllerFinalizer}},
 	})
 
 	require.Equal(t, 1, c.updateOvnEipQueue.Len(), "terminating eip with finalizer goes to the update queue")

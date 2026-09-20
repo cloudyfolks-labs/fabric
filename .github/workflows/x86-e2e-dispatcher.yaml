@@ -171,7 +171,7 @@ jobs:
             --jq '.permission' 2>/dev/null || printf 'none')
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > pull-request.json
           baseRef=$(jq -r '.base.ref' pull-request.json)
-          if ! [[ "$baseRef" == master || "$baseRef" =~ ^release-[A-Za-z0-9._-]+$ ]]; then
+          if ! [[ "$baseRef" == main || "$baseRef" =~ ^release-[A-Za-z0-9._-]+$ ]]; then
             echo 'Pull request base branch is outside the supported trusted set.' >&2
             exit 1
           fi
@@ -593,7 +593,7 @@ jobs:
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > pull-request.json
           baseRef=$(jq -r '.base.ref' pull-request.json)
-          if ! [[ "$baseRef" == master || "$baseRef" =~ ^release-[A-Za-z0-9._-]+$ ]]; then
+          if ! [[ "$baseRef" == main || "$baseRef" =~ ^release-[A-Za-z0-9._-]+$ ]]; then
             echo 'hasApprovals=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi

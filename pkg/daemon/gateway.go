@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -79,19 +79,19 @@ func (c *Controller) setICGateway() error {
 	return nil
 }
 
-func (c *Controller) isSubnetNeedNat(subnet *kubeovnv1.Subnet, protocol string) bool {
+func (c *Controller) isSubnetNeedNat(subnet *fabricv1.Subnet, protocol string) bool {
 	if subnet.DeletionTimestamp.IsZero() &&
 		subnet.Spec.NatOutgoing &&
 		(subnet.Spec.Vlan == "" || subnet.Spec.LogicalGateway) &&
 		subnet.Spec.Vpc == c.config.ClusterRouter &&
 		subnet.Spec.CIDRBlock != "" &&
-		(subnet.Spec.Protocol == kubeovnv1.ProtocolDual || subnet.Spec.Protocol == protocol) {
+		(subnet.Spec.Protocol == fabricv1.ProtocolDual || subnet.Spec.Protocol == protocol) {
 		return true
 	}
 	return false
 }
 
-func (c *Controller) getSubnetsNeedNAT(subnets []*kubeovnv1.Subnet, protocol string) []string {
+func (c *Controller) getSubnetsNeedNAT(subnets []*fabricv1.Subnet, protocol string) []string {
 	var subnetsNeedNat []string
 	for _, subnet := range subnets {
 		if !c.isSubnetNeedNat(subnet, protocol) {
@@ -109,8 +109,8 @@ func (c *Controller) getSubnetsNeedNAT(subnets []*kubeovnv1.Subnet, protocol str
 	return subnetsNeedNat
 }
 
-func (c *Controller) getSubnetsNatOutGoingPolicy(subnets []*kubeovnv1.Subnet, protocol string) []*kubeovnv1.Subnet {
-	var subnetsWithNatPolicy []*kubeovnv1.Subnet
+func (c *Controller) getSubnetsNatOutGoingPolicy(subnets []*fabricv1.Subnet, protocol string) []*fabricv1.Subnet {
+	var subnetsWithNatPolicy []*fabricv1.Subnet
 	for _, subnet := range subnets {
 		if c.isSubnetNeedNat(subnet, protocol) && len(subnet.Status.NatOutgoingPolicyRules) != 0 {
 			subnetsWithNatPolicy = append(subnetsWithNatPolicy, subnet)
@@ -119,15 +119,15 @@ func (c *Controller) getSubnetsNatOutGoingPolicy(subnets []*kubeovnv1.Subnet, pr
 	return subnetsWithNatPolicy
 }
 
-func (c *Controller) getSubnetsDistributedGateway(subnets []*kubeovnv1.Subnet, protocol string) []string {
+func (c *Controller) getSubnetsDistributedGateway(subnets []*fabricv1.Subnet, protocol string) []string {
 	var result []string
 	for _, subnet := range subnets {
 		if subnet.DeletionTimestamp.IsZero() &&
 			(subnet.Spec.Vlan == "" || subnet.Spec.LogicalGateway) &&
 			subnet.Spec.Vpc == c.config.ClusterRouter &&
 			subnet.Spec.CIDRBlock != "" &&
-			subnet.Spec.GatewayType == kubeovnv1.GWDistributedType &&
-			(subnet.Spec.Protocol == kubeovnv1.ProtocolDual || subnet.Spec.Protocol == protocol) {
+			subnet.Spec.GatewayType == fabricv1.GWDistributedType &&
+			(subnet.Spec.Protocol == fabricv1.ProtocolDual || subnet.Spec.Protocol == protocol) {
 			cidrBlock, err := getCidrByProtocol(subnet.Spec.CIDRBlock, protocol)
 			if err != nil {
 				klog.Errorf("failed to get subnet %s CIDR block by protocol: %v", subnet.Name, err)
@@ -142,13 +142,13 @@ func (c *Controller) getSubnetsDistributedGateway(subnets []*kubeovnv1.Subnet, p
 }
 
 func (c *Controller) getServicesCIDR(protocol string) []string {
-	if protocol == kubeovnv1.ProtocolIPv6 {
+	if protocol == fabricv1.ProtocolIPv6 {
 		return c.serviceCIDRStore.V6CIDRs()
 	}
 	return c.serviceCIDRStore.V4CIDRs()
 }
 
-func (c *Controller) getDefaultVpcSubnetsCIDR(subnets []*kubeovnv1.Subnet, protocol string) ([]string, map[string]string) {
+func (c *Controller) getDefaultVpcSubnetsCIDR(subnets []*fabricv1.Subnet, protocol string) ([]string, map[string]string) {
 	ret := make([]string, 0, len(subnets)+1)
 	subnetMap := make(map[string]string, len(subnets)+1)
 
@@ -204,12 +204,12 @@ func getCidrByProtocol(cidr, protocol string) (string, error) {
 	return "", nil
 }
 
-func (c *Controller) getEgressNatIPByNode(subnets []*kubeovnv1.Subnet, nodeName string) map[string]string {
+func (c *Controller) getEgressNatIPByNode(subnets []*fabricv1.Subnet, nodeName string) map[string]string {
 	subnetsNatIP := make(map[string]string)
 	for _, subnet := range subnets {
 		if !subnet.Spec.NatOutgoing ||
 			(subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway) ||
-			subnet.Spec.GatewayType != kubeovnv1.GWCentralizedType ||
+			subnet.Spec.GatewayType != fabricv1.GWCentralizedType ||
 			!util.GatewayContains(subnet.Spec.GatewayNode, nodeName) ||
 			subnet.Spec.Vpc != c.config.ClusterRouter {
 			continue

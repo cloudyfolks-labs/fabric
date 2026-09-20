@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -94,10 +94,10 @@ func (c *Controller) InitDefaultVpc() error {
 			return err
 		}
 		// create default vpc
-		vpc := &kubeovnv1.Vpc{
+		vpc := &fabricv1.Vpc{
 			ObjectMeta: metav1.ObjectMeta{Name: c.config.ClusterRouter},
 		}
-		cachedVpc, err = c.config.KubeOvnClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
+		cachedVpc, err = c.config.FabricClient.FabricV1().Vpcs().Create(context.Background(), vpc, metav1.CreateOptions{})
 		if err != nil {
 			klog.Errorf("failed to create default vpc %q: %v", c.config.ClusterRouter, err)
 			return err
@@ -114,7 +114,7 @@ func (c *Controller) InitDefaultVpc() error {
 		vpc.Status.Router = c.config.ClusterRouter
 		vpc.Status.DefaultLogicalSwitch = c.config.DefaultLogicalSwitch
 
-		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.FabricClient.FabricV1().Vpcs().UpdateStatus(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("failed to update default vpc %q: %v", c.config.ClusterRouter, err)
 			return err
 		}
@@ -129,7 +129,7 @@ func (c *Controller) initDefaultLogicalSwitch() error {
 	if err == nil {
 		if subnet != nil && util.CheckProtocol(c.config.DefaultCIDR) != util.CheckProtocol(subnet.Spec.CIDRBlock) {
 			// single-stack upgrade to dual-stack
-			if util.CheckProtocol(c.config.DefaultCIDR) == kubeovnv1.ProtocolDual {
+			if util.CheckProtocol(c.config.DefaultCIDR) == fabricv1.ProtocolDual {
 				subnet := subnet.DeepCopy()
 				subnet.Spec.CIDRBlock = c.config.DefaultCIDR
 				if _, err = c.formatSubnet(subnet); err != nil {
@@ -146,9 +146,9 @@ func (c *Controller) initDefaultLogicalSwitch() error {
 		return err
 	}
 
-	defaultSubnet := kubeovnv1.Subnet{
+	defaultSubnet := fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: c.config.DefaultLogicalSwitch},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			Vpc:                 c.config.ClusterRouter,
 			Default:             true,
 			Provider:            util.OvnProvider,
@@ -158,7 +158,7 @@ func (c *Controller) initDefaultLogicalSwitch() error {
 			DisableGatewayCheck: !c.config.DefaultGatewayCheck,
 			ExcludeIps:          strings.Split(c.config.DefaultExcludeIps, ","),
 			NatOutgoing:         true,
-			GatewayType:         kubeovnv1.GWDistributedType,
+			GatewayType:         fabricv1.GWDistributedType,
 			Protocol:            util.CheckProtocol(c.config.DefaultCIDR),
 			EnableLb:            &c.config.EnableLb,
 		},
@@ -174,7 +174,7 @@ func (c *Controller) initDefaultLogicalSwitch() error {
 		defaultSubnet.Spec.U2OInterconnection = c.config.DefaultU2OInterconnection
 	}
 
-	if _, err = c.config.KubeOvnClient.FabricV1().Subnets().Create(context.Background(), &defaultSubnet, metav1.CreateOptions{}); err != nil {
+	if _, err = c.config.FabricClient.FabricV1().Subnets().Create(context.Background(), &defaultSubnet, metav1.CreateOptions{}); err != nil {
 		klog.Errorf("failed to create default subnet %q: %v", c.config.DefaultLogicalSwitch, err)
 		return err
 	}
@@ -185,7 +185,7 @@ func (c *Controller) initDefaultLogicalSwitch() error {
 func (c *Controller) initNodeSwitch() error {
 	subnet, err := c.subnetsLister.Get(c.config.NodeSwitch)
 	if err == nil {
-		if util.CheckProtocol(c.config.NodeSwitchCIDR) == kubeovnv1.ProtocolDual && util.CheckProtocol(subnet.Spec.CIDRBlock) != kubeovnv1.ProtocolDual {
+		if util.CheckProtocol(c.config.NodeSwitchCIDR) == fabricv1.ProtocolDual && util.CheckProtocol(subnet.Spec.CIDRBlock) != fabricv1.ProtocolDual {
 			// single-stack upgrade to dual-stack
 			subnet := subnet.DeepCopy()
 			subnet.Spec.CIDRBlock = c.config.NodeSwitchCIDR
@@ -204,9 +204,9 @@ func (c *Controller) initNodeSwitch() error {
 		return err
 	}
 
-	nodeSubnet := kubeovnv1.Subnet{
+	nodeSubnet := fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: c.config.NodeSwitch},
-		Spec: kubeovnv1.SubnetSpec{
+		Spec: fabricv1.SubnetSpec{
 			Vpc:                    c.config.ClusterRouter,
 			Default:                false,
 			Provider:               util.OvnProvider,
@@ -219,7 +219,7 @@ func (c *Controller) initNodeSwitch() error {
 		},
 	}
 
-	if _, err = c.config.KubeOvnClient.FabricV1().Subnets().Create(context.Background(), &nodeSubnet, metav1.CreateOptions{}); err != nil {
+	if _, err = c.config.FabricClient.FabricV1().Subnets().Create(context.Background(), &nodeSubnet, metav1.CreateOptions{}); err != nil {
 		klog.Errorf("failed to create node subnet %q: %v", c.config.NodeSwitch, err)
 		return err
 	}
@@ -353,7 +353,7 @@ func (c *Controller) initLoadBalancer() error {
 			klog.Error(err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().Vpcs().Patch(context.Background(), cachedVpc.Name, types.MergePatchType, body, metav1.PatchOptions{}, "status"); err != nil {
+		if _, err = c.config.FabricClient.FabricV1().Vpcs().Patch(context.Background(), cachedVpc.Name, types.MergePatchType, body, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Error(err)
 			return err
 		}
@@ -486,9 +486,9 @@ func (c *Controller) InitIPAM() error {
 			continue
 		}
 
-		podNets, err := c.getPodKubeovnNets(pod)
+		podNets, err := c.getPodFabricNets(pod)
 		if err != nil {
-			klog.Errorf("failed to get pod kubeovn nets %s.%s address %s: %v", pod.Name, pod.Namespace, pod.Annotations[util.IPAddressAnnotation], err)
+			klog.Errorf("failed to get pod fabric nets %s.%s address %s: %v", pod.Name, pod.Namespace, pod.Annotations[util.IPAddressAnnotation], err)
 			continue
 		}
 
@@ -597,11 +597,11 @@ func (c *Controller) initDefaultProviderNetwork() error {
 		return err
 	}
 
-	pn := kubeovnv1.ProviderNetwork{
+	pn := fabricv1.ProviderNetwork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.config.DefaultProviderName,
 		},
-		Spec: kubeovnv1.ProviderNetworkSpec{
+		Spec: fabricv1.ProviderNetworkSpec{
 			DefaultInterface: c.config.DefaultHostInterface,
 			ExchangeLinkName: c.config.DefaultExchangeLinkName,
 		},
@@ -629,7 +629,7 @@ func (c *Controller) initDefaultProviderNetwork() error {
 			if index != nil {
 				pn.Spec.CustomInterfaces[*index].Nodes = append(pn.Spec.CustomInterfaces[*index].Nodes, node.Name)
 			} else {
-				ci := kubeovnv1.CustomInterface{Interface: s, Nodes: []string{node.Name}}
+				ci := fabricv1.CustomInterface{Interface: s, Nodes: []string{node.Name}}
 				pn.Spec.CustomInterfaces = append(pn.Spec.CustomInterfaces, ci)
 			}
 			patchNodes = append(patchNodes, node.Name)
@@ -650,7 +650,7 @@ func (c *Controller) initDefaultProviderNetwork() error {
 		}
 	}()
 
-	_, err = c.config.KubeOvnClient.FabricV1().ProviderNetworks().Create(context.Background(), &pn, metav1.CreateOptions{})
+	_, err = c.config.FabricClient.FabricV1().ProviderNetworks().Create(context.Background(), &pn, metav1.CreateOptions{})
 	if err != nil {
 		klog.Errorf("failed to create provider network %s: %v", c.config.DefaultProviderName, err)
 		return err
@@ -682,15 +682,15 @@ func (c *Controller) initDefaultVlan() error {
 		return errors.New("the default vlan id is not between 1-4095")
 	}
 
-	defaultVlan := kubeovnv1.Vlan{
+	defaultVlan := fabricv1.Vlan{
 		ObjectMeta: metav1.ObjectMeta{Name: c.config.DefaultVlanName},
-		Spec: kubeovnv1.VlanSpec{
+		Spec: fabricv1.VlanSpec{
 			ID:       c.config.DefaultVlanID,
 			Provider: c.config.DefaultProviderName,
 		},
 	}
 
-	_, err = c.config.KubeOvnClient.FabricV1().Vlans().Create(context.Background(), &defaultVlan, metav1.CreateOptions{})
+	_, err = c.config.FabricClient.FabricV1().Vlans().Create(context.Background(), &defaultVlan, metav1.CreateOptions{})
 	if err != nil {
 		klog.Errorf("failed to create vlan %s: %v", defaultVlan.Name, err)
 		return err
@@ -735,7 +735,7 @@ func (c *Controller) syncIPCR() error {
 
 		ip.Spec.V4IPAddress = v4IP
 		ip.Spec.V6IPAddress = v6IP
-		_, err := c.config.KubeOvnClient.FabricV1().IPs().Update(context.Background(), ip, metav1.UpdateOptions{})
+		_, err := c.config.FabricClient.FabricV1().IPs().Update(context.Background(), ip, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("failed to sync crd ip %s: %v", ip.Spec.IPAddress, err)
 			return err
@@ -769,7 +769,7 @@ func (c *Controller) syncSubnetCR() error {
 		}
 
 		// only sync subnet spec enableEcmp when subnet.Spec.EnableEcmp is false and c.config.EnableEcmp is true
-		if subnet.Spec.GatewayType == kubeovnv1.GWCentralizedType && !subnet.Spec.EnableEcmp && subnet.Spec.EnableEcmp != c.config.EnableEcmp {
+		if subnet.Spec.GatewayType == fabricv1.GWCentralizedType && !subnet.Spec.EnableEcmp && subnet.Spec.EnableEcmp != c.config.EnableEcmp {
 			subnet, err = c.subnetsLister.Get(subnet.Name)
 			if err != nil {
 				klog.Errorf("failed to get subnet %s: %v", subnet.Name, err)
@@ -777,7 +777,7 @@ func (c *Controller) syncSubnetCR() error {
 			}
 
 			subnet.Spec.EnableEcmp = c.config.EnableEcmp
-			if _, err := c.config.KubeOvnClient.FabricV1().Subnets().Update(context.Background(), subnet, metav1.UpdateOptions{}); err != nil {
+			if _, err := c.config.FabricClient.FabricV1().Subnets().Update(context.Background(), subnet, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("failed to sync subnet spec enableEcmp with fabric-controller config enableEcmp %s: %v", subnet.Name, err)
 				return err
 			}
@@ -814,7 +814,7 @@ func (c *Controller) syncVlanCR() error {
 			needUpdate = true
 		}
 		if needUpdate {
-			if _, err = c.config.KubeOvnClient.FabricV1().Vlans().Update(context.Background(), newVlan, metav1.UpdateOptions{}); err != nil {
+			if _, err = c.config.FabricClient.FabricV1().Vlans().Update(context.Background(), newVlan, metav1.UpdateOptions{}); err != nil {
 				klog.Errorf("failed to update spec of vlan %s: %v", newVlan.Name, err)
 				return err
 			}
@@ -826,9 +826,9 @@ func (c *Controller) syncVlanCR() error {
 
 func (c *Controller) batchMigrateNodeRoute(nodes []*v1.Node) error {
 	start := time.Now()
-	addPolicies := make([]*kubeovnv1.PolicyRoute, 0)
-	delPolicies := make([]*kubeovnv1.PolicyRoute, 0)
-	staticRoutes := make([]*kubeovnv1.StaticRoute, 0)
+	addPolicies := make([]*fabricv1.PolicyRoute, 0)
+	delPolicies := make([]*fabricv1.PolicyRoute, 0)
+	staticRoutes := make([]*fabricv1.StaticRoute, 0)
 	externalIDsMap := make(map[string]map[string]string)
 	delAsNames := make([]string, 0)
 	for _, node := range nodes {
@@ -868,31 +868,31 @@ func (c *Controller) batchMigrateNodeRoute(nodes []*v1.Node) error {
 	return nil
 }
 
-func buildNodeRoute(af int, nodeName, nexthop, ip string, addPolicies, delPolicies *[]*kubeovnv1.PolicyRoute, staticRoutes *[]*kubeovnv1.StaticRoute, externalIDsMap map[string]map[string]string, delAsNames *[]string) {
+func buildNodeRoute(af int, nodeName, nexthop, ip string, addPolicies, delPolicies *[]*fabricv1.PolicyRoute, staticRoutes *[]*fabricv1.StaticRoute, externalIDsMap map[string]map[string]string, delAsNames *[]string) {
 	var (
 		match       = fmt.Sprintf("ip%d.dst == %s", af, ip)
-		action      = kubeovnv1.PolicyRouteActionReroute
+		action      = fabricv1.PolicyRouteActionReroute
 		externalIDs = map[string]string{
 			"vendor": util.VendorTag,
 			"node":   nodeName,
 		}
 	)
-	*addPolicies = append(*addPolicies, &kubeovnv1.PolicyRoute{
+	*addPolicies = append(*addPolicies, &fabricv1.PolicyRoute{
 		Priority:  util.NodeRouterPolicyPriority,
 		Match:     match,
 		Action:    action,
 		NextHopIP: nexthop,
 	})
 	externalIDsMap[buildExternalIDsMapKey(match, string(action), util.NodeRouterPolicyPriority)] = externalIDs
-	*staticRoutes = append(*staticRoutes, &kubeovnv1.StaticRoute{
-		Policy:     kubeovnv1.PolicyDst,
+	*staticRoutes = append(*staticRoutes, &fabricv1.StaticRoute{
+		Policy:     fabricv1.PolicyDst,
 		RouteTable: util.MainRouteTable,
 		NextHopIP:  "",
 		CIDR:       ip,
 	})
 	asName := nodeUnderlayAddressSetName(nodeName, af)
 	obsoleteMatch := fmt.Sprintf("ip%d.dst == %s && ip%d.src != $%s", af, ip, af, asName)
-	*delPolicies = append(*delPolicies, &kubeovnv1.PolicyRoute{
+	*delPolicies = append(*delPolicies, &fabricv1.PolicyRoute{
 		Match:    obsoleteMatch,
 		Priority: util.NodeRouterPolicyPriority,
 	})
@@ -920,7 +920,7 @@ func (c *Controller) initNodeChassis() error {
 		klog.Errorf("failed to list nodes: %v", err)
 		return err
 	}
-	chassises, err := c.OVNSbClient.GetKubeOvnChassises()
+	chassises, err := c.OVNSbClient.GetFabricChassises()
 	if err != nil {
 		klog.Errorf("failed to get chassis nodes: %v", err)
 		return err
@@ -961,7 +961,7 @@ func migrateFinalizers(c client.Client, list client.ObjectList, getObjectItem fu
 		controllerutil.RemoveFinalizer(patchedObj, util.LegacyControllerFinalizer)
 		if cachedObj.GetDeletionTimestamp() == nil {
 			// if the object is not being deleted, add the new finalizer
-			controllerutil.AddFinalizer(patchedObj, util.KubeOVNControllerFinalizer)
+			controllerutil.AddFinalizer(patchedObj, util.FabricControllerFinalizer)
 		}
 		if err := c.Patch(context.Background(), patchedObj, client.MergeFrom(cachedObj)); client.IgnoreNotFound(err) != nil {
 			klog.Errorf("failed to sync finalizers for %s %s: %v",

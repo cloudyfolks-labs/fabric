@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
@@ -48,7 +48,7 @@ type RenderInput struct {
 	HostTables      []uint32
 }
 
-func BuildRenderInput(conf *kubeovnv1.BgpConf, nodeName, routerID string, vpcs []VpcAdvertisement) RenderInput {
+func BuildRenderInput(conf *fabricv1.BgpConf, nodeName, routerID string, vpcs []VpcAdvertisement) RenderInput {
 	input := RenderInput{
 		NodeName:        nodeName,
 		RouterID:        routerID,

@@ -53,7 +53,7 @@ class E2EControlTest(unittest.TestCase):
         observedHeadSHA="a" * 40,
         confirmedHeadSHA="a" * 40,
         state="open",
-        baseRef="master",
+        baseRef="main",
     ):
         event = {
             "action": "created",
@@ -84,7 +84,7 @@ class E2EControlTest(unittest.TestCase):
         self.assertEqual(decision["action"], "dispatch")
         self.assertEqual(decision["prNumber"], 7231)
         self.assertEqual(decision["headSHA"], "a" * 40)
-        self.assertEqual(decision["baseRef"], "master")
+        self.assertEqual(decision["baseRef"], "main")
         self.assertEqual(decision["baseSHA"], "b" * 40)
         self.assertEqual(decision["approvalGeneration"], 1001)
         self.assertEqual(decision["requestedGroups"], ["policy"])
@@ -271,7 +271,7 @@ class E2EControlTest(unittest.TestCase):
         pullRequest = {
             "number": 7231,
             "head": {"sha": "a" * 40},
-            "base": {"ref": "master", "sha": "b" * 40},
+            "base": {"ref": "main", "sha": "b" * 40},
         }
         pages = [[
             {"user": {"login": "github-actions[bot]", "type": "Bot"}, "body": marker},
@@ -346,7 +346,7 @@ class E2EControlTest(unittest.TestCase):
         pullRequest = {
             "number": 7231,
             "head": {"sha": "a" * 40},
-            "base": {"ref": "master", "sha": "b" * 40},
+            "base": {"ref": "main", "sha": "b" * 40},
         }
         first = self.dispatchDecision(body="/test e2e policy")
         second = {**first, "approvalGeneration": 1002, "requestedGroups": ["multi-cni"]}
@@ -459,11 +459,11 @@ class E2EControlTest(unittest.TestCase):
         runs = [
             {**trusted, "id": 1, "path": ".github/workflows/other.yaml"},
             {**trusted, "id": 2, "actor": {"login": "maintainer"}},
-            {**trusted, "id": 4, "head_branch": "master"},
+            {**trusted, "id": 4, "head_branch": "main"},
             trusted,
         ]
 
-        latest = e2eControl.latestExecutorRun(runs, 7231, "a" * 40, "master")
+        latest = e2eControl.latestExecutorRun(runs, 7231, "a" * 40, "main")
 
         self.assertEqual(latest["id"], 3)
 
@@ -486,7 +486,7 @@ class E2EControlTest(unittest.TestCase):
                 [run],
                 7231,
                 "a" * 40,
-                "master",
+                "main",
                 "c" * 64,
                 "d" * 40,
             )
@@ -496,7 +496,7 @@ class E2EControlTest(unittest.TestCase):
                 [run],
                 7231,
                 "a" * 40,
-                "master",
+                "main",
                 "c" * 64,
                 "e" * 40,
             )
@@ -524,7 +524,7 @@ class E2EControlTest(unittest.TestCase):
                         "number": 7231,
                         "state": "open",
                         "head": {"sha": "a" * 40},
-                        "base": {"ref": "master", "sha": "b" * 40},
+                        "base": {"ref": "main", "sha": "b" * 40},
                     }
                 )
             )
@@ -766,7 +766,7 @@ class E2EControlTest(unittest.TestCase):
             blocks["k8s-conformance-e2e"],
         )
         self.assertIn(
-            "matrix: ${{ fromJSON(needs.e2e-selection.outputs.kubeOvnConformanceMatrix) }}",
+            "matrix: ${{ fromJSON(needs.e2e-selection.outputs.fabricConformanceMatrix) }}",
             blocks["fabric-conformance-e2e"],
         )
         self.assertIn(

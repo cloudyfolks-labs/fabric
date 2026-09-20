@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -136,7 +136,7 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 	}
 	for _, ip := range annotationVips {
 		// Health checks can only run against IPv4 endpoints and if the service doesn't specify they must be disabled
-		if util.CheckProtocol(ip) == kubeovnv1.ProtocolIPv4 && !serviceHealthChecksDisabled(svc) {
+		if util.CheckProtocol(ip) == fabricv1.ProtocolIPv4 && !serviceHealthChecksDisabled(svc) {
 			ignoreHealthCheck = false
 		}
 	}
@@ -155,7 +155,7 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 		}
 	}
 
-	// If Kube-OVN is running in secondary CNI mode, the endpoint IPs should be derived from the network attachment definitions
+	// If fabric is running in secondary CNI mode, the endpoint IPs should be derived from the network attachment definitions
 	// This overwrite can be removed if endpoint construction accounts for network attachment IP address
 	// TODO: Identify how endpoints are constructed, by default, endpoints has IP address of eth0 interface
 	if c.config.EnableNonPrimaryCNI && serviceHasSelector(svc) {
@@ -177,7 +177,7 @@ func (c *Controller) handleUpdateEndpointSlice(key string) error {
 	}
 
 	var (
-		vpc    *kubeovnv1.Vpc
+		vpc    *fabricv1.Vpc
 		svcVpc string
 	)
 
@@ -653,7 +653,7 @@ func (c *Controller) findVpcAndSubnetWithNoTargets(endpointSlices []*discoveryv1
 func (c *Controller) getHealthCheckVip(subnetName, lbVip string) (string, error) {
 	var (
 		needCreateHealthCheckVip bool
-		checkVip                 *kubeovnv1.Vip
+		checkVip                 *fabricv1.Vip
 		checkIP                  string
 		err                      error
 	)
@@ -668,15 +668,15 @@ func (c *Controller) getHealthCheckVip(subnetName, lbVip string) (string, error)
 		}
 	}
 	if needCreateHealthCheckVip {
-		vip := &kubeovnv1.Vip{
+		vip := &fabricv1.Vip{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: vipName,
 			},
-			Spec: kubeovnv1.VipSpec{
+			Spec: fabricv1.VipSpec{
 				Subnet: subnetName,
 			},
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{}); err != nil {
+		if _, err = c.config.FabricClient.FabricV1().Vips().Create(context.Background(), vip, metav1.CreateOptions{}); err != nil {
 			klog.Errorf("failed to create health check vip %s, %v", vipName, err)
 			return "", err
 		}
@@ -698,9 +698,9 @@ func (c *Controller) getHealthCheckVip(subnetName, lbVip string) (string, error)
 	}
 
 	switch util.CheckProtocol(lbVip) {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		checkIP = checkVip.Status.V4ip
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		checkIP = checkVip.Status.V6ip
 	}
 	if checkIP == "" {
@@ -765,7 +765,7 @@ func (c *Controller) addIPPortMappingEntry(pod *v1.Pod, addresses []string, chec
 
 	for _, address := range addresses {
 		key := address
-		if util.CheckProtocol(address) == kubeovnv1.ProtocolIPv6 {
+		if util.CheckProtocol(address) == fabricv1.ProtocolIPv6 {
 			key = fmt.Sprintf("[%s]", address)
 		}
 		mapping[key] = fmt.Sprintf(util.HealthCheckNamedVipTemplate, lspName, checkVip)
@@ -867,7 +867,7 @@ func (c *Controller) getIPPortMappingWithNoTargets(endpointSlices []*discoveryv1
 // getPodProviders returns all the providers available on a pod
 func (c *Controller) getPodProviders(pod *v1.Pod) ([]string, error) {
 	// Get all the networks to which the pod is attached
-	podNetworks, err := c.getPodKubeovnNets(pod)
+	podNetworks, err := c.getPodFabricNets(pod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod networks: %w", err)
 	}

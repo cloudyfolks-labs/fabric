@@ -51,7 +51,6 @@ for pn in $(kubectl get provider-networks.fabric.cloudyfolks.io -o name); do
   kubectl delete --ignore-not-found $pn
 done
 
-# Delete Kube-OVN components
 kubectl delete --ignore-not-found -n kube-system deploy fabric-monitor
 kubectl delete --ignore-not-found -n kube-system cm ovn-config ovn-ic-config \
   ovn-external-gw-config ovn-vpc-nat-config

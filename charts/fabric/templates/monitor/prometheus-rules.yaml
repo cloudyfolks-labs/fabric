@@ -47,7 +47,7 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: 'Kube-OVN subnet {{`{{ $labels.subnet_name }}`}} IP usage is above 90%'
+            summary: 'fabric subnet {{`{{ $labels.subnet_name }}`}} IP usage is above 90%'
             description: 'Subnet {{`{{ $labels.subnet_name }}`}} ({{`{{ $labels.subnet_cidr }}`}}) has exceeded 90% IP allocation for more than 10 minutes.'
     - name: fabric.pinger
       rules:

@@ -9,7 +9,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/internal"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
@@ -89,12 +89,12 @@ func NewSubnet(name, cidrStr string, excludeIps []string) (*Subnet, error) {
 		IPPools:      make(map[string]*IPPool, 0),
 	}
 	switch protocol {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		firstIP, _ := util.FirstIP(cidrStr)
 		lastIP, _ := util.LastIP(cidrStr)
 		subnet.V4CIDR = cidrs[0]
 		subnet.V4Free, _ = NewIPRangeListFrom(fmt.Sprintf("%s..%s", firstIP, lastIP))
-	case kubeovnv1.ProtocolIPv6:
+	case fabricv1.ProtocolIPv6:
 		firstIP, _ := util.FirstIP(cidrStr)
 		lastIP, _ := util.LastIP(cidrStr)
 		subnet.V6CIDR = cidrs[0]
@@ -141,7 +141,7 @@ func NewSubnet(name, cidrStr string, excludeIps []string) (*Subnet, error) {
 func NewMacOnlySubnet(name string) *Subnet {
 	return &Subnet{
 		Name:         name,
-		Protocol:     kubeovnv1.ProtocolMac,
+		Protocol:     fabricv1.ProtocolMac,
 		V4Free:       NewEmptyIPRangeList(),
 		V6Free:       NewEmptyIPRangeList(),
 		V4Reserved:   NewEmptyIPRangeList(),
@@ -238,22 +238,22 @@ func (s *Subnet) GetRandomAddressWithFamily(poolName, podName, nicName string, m
 		s.Mutex.Unlock()
 	}()
 
-	if ipFamily != "" && s.Protocol != kubeovnv1.ProtocolDual && s.Protocol != kubeovnv1.ProtocolMac && ipFamily != s.Protocol {
+	if ipFamily != "" && s.Protocol != fabricv1.ProtocolDual && s.Protocol != fabricv1.ProtocolMac && ipFamily != s.Protocol {
 		return nil, nil, "", ErrInvalidIPFamily
 	}
 
 	switch s.Protocol {
-	case kubeovnv1.ProtocolMac:
+	case fabricv1.ProtocolMac:
 		return s.getMacOnlyAddress(podName, nicName, mac, checkConflict)
-	case kubeovnv1.ProtocolDual:
+	case fabricv1.ProtocolDual:
 		switch ipFamily {
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			return s.getV4RandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			return s.getV6RandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
 		}
 		return s.getDualRandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		return s.getV4RandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
 	default:
 		return s.getV6RandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
@@ -733,15 +733,15 @@ func (s *Subnet) ContainAddress(address IP) bool {
 // This func is only called in ipam.GetPodAddress, move mutex to caller
 func (s *Subnet) GetPodAddress(nicName string) (IP, IP, string, string) {
 	switch s.Protocol {
-	case kubeovnv1.ProtocolIPv4:
+	case fabricv1.ProtocolIPv4:
 		ip, mac := s.V4NicToIP[nicName], s.NicToMac[nicName]
-		return ip, nil, mac, kubeovnv1.ProtocolIPv4
-	case kubeovnv1.ProtocolIPv6:
+		return ip, nil, mac, fabricv1.ProtocolIPv4
+	case fabricv1.ProtocolIPv6:
 		ip, mac := s.V6NicToIP[nicName], s.NicToMac[nicName]
-		return nil, ip, mac, kubeovnv1.ProtocolIPv6
+		return nil, ip, mac, fabricv1.ProtocolIPv6
 	default:
 		v4IP, v6IP, mac := s.V4NicToIP[nicName], s.V6NicToIP[nicName], s.NicToMac[nicName]
-		return v4IP, v6IP, mac, kubeovnv1.ProtocolDual
+		return v4IP, v6IP, mac, fabricv1.ProtocolDual
 	}
 }
 

@@ -12,7 +12,7 @@ import (
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/netconf"
 	"github.com/cloudyfolks-labs/fabric/pkg/request"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -112,7 +112,7 @@ func parseRoutes(routes []request.Route) []*types.Route {
 	parsedRoutes := make([]*types.Route, len(routes))
 	for i, r := range routes {
 		if r.Destination == "" {
-			if util.CheckProtocol(r.Gateway) == kubeovnv1.ProtocolIPv4 {
+			if util.CheckProtocol(r.Gateway) == fabricv1.ProtocolIPv4 {
 				r.Destination = "0.0.0.0/0"
 			} else {
 				r.Destination = "::/0"
@@ -214,7 +214,7 @@ func assignAddress(cfg request.IPConfig) (*current.IPConfig, *types.Route, error
 
 	var ipAddr, gwIP net.IP
 	var defaultDst net.IPNet
-	if cfg.Protocol == kubeovnv1.ProtocolIPv6 {
+	if cfg.Protocol == fabricv1.ProtocolIPv6 {
 		if parsed := net.ParseIP(cfg.IP); parsed != nil {
 			ipAddr = parsed.To16()
 		} else {

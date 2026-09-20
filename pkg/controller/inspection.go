@@ -27,7 +27,7 @@ func (c *Controller) inspectPod() error {
 
 		podName := c.getNameByPod(pod)
 		key := cache.MetaObjectToName(pod).String()
-		podNets, err := c.getPodKubeovnNets(pod)
+		podNets, err := c.getPodFabricNets(pod)
 		if err != nil {
 			klog.Errorf("failed to list pod subnets, %v", err)
 			return err
@@ -66,11 +66,11 @@ func (c *Controller) inspectPod() error {
 	return nil
 }
 
-func filterSubnets(pod *v1.Pod, nets []*kubeovnNet) []*kubeovnNet {
+func filterSubnets(pod *v1.Pod, nets []*fabricNet) []*fabricNet {
 	if pod.Annotations == nil {
 		return nets
 	}
-	result := make([]*kubeovnNet, 0, len(nets))
+	result := make([]*fabricNet, 0, len(nets))
 	for _, n := range nets {
 		if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, n.ProviderName)] == "true" {
 			result = append(result, n)

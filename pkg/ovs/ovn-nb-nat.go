@@ -11,7 +11,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/set"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 )
@@ -232,7 +232,7 @@ func (c *OVNNbClient) UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, 
 
 	// update logical port and external mac when nat exists
 	if nat != nil {
-		if gatewayType == kubeovnv1.GWDistributedType {
+		if gatewayType == fabricv1.GWDistributedType {
 			// clear lspName and externalMac when they are empty
 			nat.LogicalPort = &lspName
 			nat.ExternalMAC = &externalMac
@@ -242,7 +242,7 @@ func (c *OVNNbClient) UpdateDnatAndSnat(lrName, externalIP, logicalIP, lspName, 
 	}
 
 	options := func(nat *ovnnb.NAT) {
-		if gatewayType == kubeovnv1.GWDistributedType {
+		if gatewayType == fabricv1.GWDistributedType {
 			nat.LogicalPort = &lspName
 			nat.ExternalMAC = &externalMac
 

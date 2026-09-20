@@ -17,7 +17,7 @@ import (
 	"k8s.io/utils/ptr"
 	v1alpha1 "sigs.k8s.io/network-policy-api/apis/v1alpha1"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	ovsclient "github.com/cloudyfolks-labs/fabric/pkg/ovsdb/client"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
@@ -233,7 +233,7 @@ func (suite *OvnClientTestSuite) testUpdateIngressACLOps() {
 		pgName := "test_create_v4_ingress_acl_pg"
 		asIngressName := "test.default.ingress.allow.ipv4.all"
 		asExceptName := "test.default.ingress.except.ipv4.all"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_ingress_acl_pg"
 
 		err := nbClient.CreatePortGroup(pgName, nil)
@@ -260,7 +260,7 @@ func (suite *OvnClientTestSuite) testUpdateIngressACLOps() {
 		pgName := "test_create_v6_ingress_acl_pg"
 		asIngressName := "test.default.ingress.allow.ipv6.all"
 		asExceptName := "test.default.ingress.except.ipv6.all"
-		protocol := kubeovnv1.ProtocolIPv6
+		protocol := fabricv1.ProtocolIPv6
 		aclName := "test_create_v6_ingress_acl_pg"
 
 		err := nbClient.CreatePortGroup(pgName, nil)
@@ -285,7 +285,7 @@ func (suite *OvnClientTestSuite) testUpdateIngressACLOps() {
 		pgName := "test_create_ingress_acl_with_meter_pg"
 		asIngressName := "test.default.ingress.allow.ipv4.all"
 		asExceptName := "test.default.ingress.except.ipv4.all"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_ingress_acl_pg_with_meter"
 
 		err := nbClient.CreatePortGroup(pgName, nil)
@@ -315,7 +315,7 @@ func (suite *OvnClientTestSuite) testUpdateIngressACLOps() {
 		pgName := ""
 		asIngressName := "test.default.ingress.allow.ipv4.all"
 		asExceptName := "test.default.ingress.except.ipv4.all"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_ingress_acl_pg"
 
 		_, err := nbClient.UpdateIngressACLOps(pgName, asIngressName, asExceptName, protocol, aclName, nil, true, nil, 0, nil)
@@ -328,7 +328,7 @@ func (suite *OvnClientTestSuite) testUpdateIngressACLOps() {
 		pgName := ""
 		asIngressName := "test.default.ingress.allow.ipv4"
 		asExceptName := "test.default.ingress.except.ipv4"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_ingress_acl_pg"
 
 		_, err := nbClient.UpdateIngressACLOps(pgName, asIngressName, asExceptName, protocol, aclName, nil, true, nil, 0, nil)
@@ -357,7 +357,7 @@ func (suite *OvnClientTestSuite) testUpdateEgressACLOps() {
 		pgName := "test_create_v4_egress_acl_pg"
 		asEgressName := "test.default.egress.allow.ipv4.all"
 		asExceptName := "test.default.egress.except.ipv4.all"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_egress_acl_pg"
 
 		err := nbClient.CreatePortGroup(pgName, nil)
@@ -384,7 +384,7 @@ func (suite *OvnClientTestSuite) testUpdateEgressACLOps() {
 		pgName := "test_create_v6_egress_acl_pg"
 		asEgressName := "test.default.egress.allow.ipv6.all"
 		asExceptName := "test.default.egress.except.ipv6.all"
-		protocol := kubeovnv1.ProtocolIPv6
+		protocol := fabricv1.ProtocolIPv6
 		aclName := "test_create_v6_egress_acl_pg"
 
 		err := nbClient.CreatePortGroup(pgName, nil)
@@ -409,7 +409,7 @@ func (suite *OvnClientTestSuite) testUpdateEgressACLOps() {
 		pgName := "test_create_egress_acl_with_meter_pg"
 		asEgressName := "test.default.egress.allow.ipv4.all"
 		asExceptName := "test.default.egress.except.ipv4.all"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_egress_acl_pg_with_meter"
 
 		err := nbClient.CreatePortGroup(pgName, nil)
@@ -439,7 +439,7 @@ func (suite *OvnClientTestSuite) testUpdateEgressACLOps() {
 		pgName := ""
 		asEgressName := "test.default.egress.allow.ipv4.all"
 		asExceptName := "test.default.egress.except.ipv4.all"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_egress_acl_pg"
 
 		_, err := nbClient.UpdateEgressACLOps(pgName, asEgressName, asExceptName, protocol, aclName, nil, true, nil, 0, nil)
@@ -452,7 +452,7 @@ func (suite *OvnClientTestSuite) testUpdateEgressACLOps() {
 		pgName := ""
 		asEgressName := "test.default.egress.allow.ipv4"
 		asExceptName := "test.default.egress.except.ipv4"
-		protocol := kubeovnv1.ProtocolIPv4
+		protocol := fabricv1.ProtocolIPv4
 		aclName := "test_create_v4_egress_acl_pg"
 
 		_, err := nbClient.UpdateEgressACLOps(pgName, asEgressName, asExceptName, protocol, aclName, nil, true, nil, 0, nil)
@@ -471,7 +471,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "10.0.0.0/8"},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Len(t, matches, 1)
 		require.Equal(t, "inport == @test.ipblock.pg && ip && (ip4.dst == 10.0.0.0/8)", matches[0])
 	})
@@ -481,7 +481,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "0.0.0.0/0", Except: []string{"10.42.0.0/16"}},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Len(t, matches, 1)
 		require.Equal(t, "inport == @test.ipblock.pg && ip && (ip4.dst == 0.0.0.0/0 && ip4.dst != {10.42.0.0/16})", matches[0])
 	})
@@ -492,7 +492,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 			{CIDR: "0.0.0.0/0", Except: []string{"10.42.0.0/16"}},
 			{CIDR: "192.168.0.0/16"},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Len(t, matches, 1)
 		// Should contain OR of the two ipBlock matches with double parentheses due to OrACLMatch internal grouping and our explicit grouping
 		require.Equal(t, "inport == @test.ipblock.pg && ip && ((ip4.dst == 0.0.0.0/0 && ip4.dst != {10.42.0.0/16}) || ip4.dst == 192.168.0.0/16)", matches[0])
@@ -504,7 +504,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 			{CIDR: "10.0.0.0/8", Except: []string{"10.1.0.0/16"}},
 		}
 		npp := mockNetworkPolicyPort()
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, npp, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, npp, nil)
 		require.NotEmpty(t, matches)
 		for _, m := range matches {
 			require.Contains(t, m, "(ip4.dst == 10.0.0.0/8 && ip4.dst != {10.1.0.0/16})")
@@ -517,7 +517,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "fd00::/48", Except: []string{"fd00:0:0:1::/64"}},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv6, ovnnb.ACLDirectionToLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv6, ovnnb.ACLDirectionToLport, ipBlocks, nil, nil)
 		require.Len(t, matches, 1)
 		require.Equal(t, "outport == @test.ipblock.pg && ip && (ip6.src == fd00::/48 && ip6.src != {fd00:0:0:1::/64})", matches[0])
 	})
@@ -527,13 +527,13 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "10.0.0.0/8"},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv6, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv6, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Empty(t, matches)
 	})
 
 	t.Run("empty ipBlocks", func(t *testing.T) {
 		t.Parallel()
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, nil, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, nil, nil, nil)
 		require.Empty(t, matches)
 	})
 
@@ -550,7 +550,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 				Protocol: &protocolTCP,
 			},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, npp, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, npp, nil)
 		require.Empty(t, matches)
 	})
 
@@ -569,7 +569,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 				Protocol: &protocolTCP,
 			},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, npp, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, npp, nil)
 		require.Empty(t, matches)
 	})
 
@@ -578,7 +578,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "10.0.0.0/24", Except: []string{"10.0.0.0/16"}},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Len(t, matches, 1)
 		require.Equal(t, "inport == @test.ipblock.pg && ip && (ip4.dst == 10.0.0.0/24)", matches[0])
 	})
@@ -588,7 +588,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "10.0.0.0/24", Except: []string{"192.168.0.0/16"}},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Len(t, matches, 1)
 		require.Equal(t, "inport == @test.ipblock.pg && ip && (ip4.dst == 10.0.0.0/24)", matches[0])
 	})
@@ -598,7 +598,7 @@ func (suite *OvnClientTestSuite) testNewIPBlockACLMatch() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "10.0.0.0/8", Except: []string{"10.1.0.0/16", "192.168.0.0/16"}},
 		}
-		matches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		matches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Len(t, matches, 1)
 		require.Equal(t, "inport == @test.ipblock.pg && ip && (ip4.dst == 10.0.0.0/8 && ip4.dst != {10.1.0.0/16})", matches[0])
 	})
@@ -621,11 +621,11 @@ func (suite *OvnClientTestSuite) testUpdateIngressIPBlockACLOps() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "0.0.0.0/0", Except: []string{"10.42.0.0/16"}},
 		}
-		ops, err := nbClient.UpdateIngressIPBlockACLOps(pgName, kubeovnv1.ProtocolIPv4, aclName, ipBlocks, nil, false, nil, 0, nil)
+		ops, err := nbClient.UpdateIngressIPBlockACLOps(pgName, fabricv1.ProtocolIPv4, aclName, ipBlocks, nil, false, nil, 0, nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, ops)
 
-		expectedMatches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, ipBlocks, nil, nil)
+		expectedMatches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, ipBlocks, nil, nil)
 		require.Len(t, expectedMatches, 1)
 		require.Equal(t, expectedMatches[0], ops[0].Row["match"])
 	})
@@ -648,11 +648,11 @@ func (suite *OvnClientTestSuite) testUpdateEgressIPBlockACLOps() {
 		ipBlocks := []netv1.IPBlock{
 			{CIDR: "0.0.0.0/0", Except: []string{"10.42.0.0/16"}},
 		}
-		ops, err := nbClient.UpdateEgressIPBlockACLOps(pgName, kubeovnv1.ProtocolIPv4, aclName, ipBlocks, nil, false, nil, 0, nil)
+		ops, err := nbClient.UpdateEgressIPBlockACLOps(pgName, fabricv1.ProtocolIPv4, aclName, ipBlocks, nil, false, nil, 0, nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, ops)
 
-		expectedMatches := newIPBlockACLMatch(pgName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
+		expectedMatches := newIPBlockACLMatch(pgName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, ipBlocks, nil, nil)
 		require.Len(t, expectedMatches, 1)
 		require.Equal(t, expectedMatches[0], ops[0].Row["match"])
 	})
@@ -664,7 +664,7 @@ func (suite *OvnClientTestSuite) testUpdateEgressIPBlockACLOps() {
 		err := nbClient.CreatePortGroup(pgName, nil)
 		require.NoError(t, err)
 
-		ops, err := nbClient.UpdateEgressIPBlockACLOps(pgName, kubeovnv1.ProtocolIPv4, "test", nil, nil, false, nil, 0, nil)
+		ops, err := nbClient.UpdateEgressIPBlockACLOps(pgName, fabricv1.ProtocolIPv4, "test", nil, nil, false, nil, 0, nil)
 		require.NoError(t, err)
 		require.Empty(t, ops)
 	})
@@ -782,7 +782,7 @@ func (suite *OvnClientTestSuite) testCreateNodeACL() {
 		for ip := range strings.SplitSeq(nodeIP, ",") {
 			protocol := util.CheckProtocol(ip)
 			ipSuffix := "ip4"
-			if protocol == kubeovnv1.ProtocolIPv6 {
+			if protocol == fabricv1.ProtocolIPv6 {
 				ipSuffix = "ip6"
 			}
 
@@ -1039,17 +1039,17 @@ func (suite *OvnClientTestSuite) testUpdateSgACL() {
 	v6AsName := GetSgV6AssociatedName(sgName)
 	pgName := GetSgPortGroupName(sgName)
 
-	sg := &kubeovnv1.SecurityGroup{
+	sg := &fabricv1.SecurityGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: sgName,
 		},
-		Spec: kubeovnv1.SecurityGroupSpec{
+		Spec: fabricv1.SecurityGroupSpec{
 			AllowSameGroupTraffic: true,
 			Tier:                  1,
-			IngressRules: []kubeovnv1.SecurityGroupRule{
+			IngressRules: []fabricv1.SecurityGroupRule{
 				{
 					IPVersion:     "ipv4",
-					RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+					RemoteType:    fabricv1.SgRemoteTypeAddress,
 					RemoteAddress: "0.0.0.0/0",
 					Protocol:      "icmp",
 					Priority:      12,
@@ -1057,7 +1057,7 @@ func (suite *OvnClientTestSuite) testUpdateSgACL() {
 				},
 				{
 					IPVersion:          "ipv4",
-					RemoteType:         kubeovnv1.SgRemoteTypeAddress,
+					RemoteType:         fabricv1.SgRemoteTypeAddress,
 					RemoteAddress:      "0.0.0.0/0",
 					Protocol:           "tcp",
 					PortRangeMin:       80,
@@ -1069,10 +1069,10 @@ func (suite *OvnClientTestSuite) testUpdateSgACL() {
 					SourcePortRangeMax: 2000,
 				},
 			},
-			EgressRules: []kubeovnv1.SecurityGroupRule{
+			EgressRules: []fabricv1.SecurityGroupRule{
 				{
 					IPVersion:     "ipv4",
-					RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+					RemoteType:    fabricv1.SgRemoteTypeAddress,
 					RemoteAddress: "0.0.0.0/0",
 					Protocol:      "all",
 					Priority:      10,
@@ -1080,7 +1080,7 @@ func (suite *OvnClientTestSuite) testUpdateSgACL() {
 				},
 				{
 					IPVersion:           "ipv4",
-					RemoteType:          kubeovnv1.SgRemoteTypeSg,
+					RemoteType:          fabricv1.SgRemoteTypeSg,
 					RemoteSecurityGroup: "randomPortGroup",
 					Protocol:            "udp",
 					PortRangeMin:        22,
@@ -1188,7 +1188,7 @@ func (suite *OvnClientTestSuite) testUpdateSgACL() {
 	})
 
 	t.Run("should print log err when sg name is empty", func(t *testing.T) {
-		sg := &kubeovnv1.SecurityGroup{
+		sg := &fabricv1.SecurityGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "",
 			},
@@ -1206,7 +1206,7 @@ func (suite *OvnClientTestSuite) testUpdateLogicalSwitchACL() {
 	lsName := "test_update_acl_ls"
 	cidrBlock := "192.168.2.0/24,2409:8720:4a00::0/64"
 
-	subnetAcls := []kubeovnv1.ACL{
+	subnetAcls := []fabricv1.ACL{
 		{
 			Direction: ovnnb.ACLDirectionToLport,
 			Priority:  1111,
@@ -1243,7 +1243,7 @@ func (suite *OvnClientTestSuite) testUpdateLogicalSwitchACL() {
 		protocol := util.CheckProtocol(cidr)
 
 		match := "ip4.src == 192.168.2.0/24 && ip4.dst == 192.168.2.0/24"
-		if protocol == kubeovnv1.ProtocolIPv6 {
+		if protocol == fabricv1.ProtocolIPv6 {
 			match = "ip6.src == 2409:8720:4a00::0/64 && ip6.dst == 2409:8720:4a00::0/64"
 		}
 		ingressACL, err := nbClient.GetACL(lsName, ovnnb.ACLDirectionToLport, util.AllowEWTrafficPriority, match, util.NetpolACLTier, false)
@@ -1379,7 +1379,7 @@ func (suite *OvnClientTestSuite) testSetLogicalSwitchPrivate() {
 			protocol := util.CheckProtocol(cidr)
 
 			match := fmt.Sprintf(`ip4.src == %s && ip4.dst == %s`, cidr, cidr)
-			if protocol == kubeovnv1.ProtocolIPv6 {
+			if protocol == fabricv1.ProtocolIPv6 {
 				match = fmt.Sprintf(`ip6.src == %s && ip6.dst == %s`, cidr, cidr)
 			}
 
@@ -1397,7 +1397,7 @@ func (suite *OvnClientTestSuite) testSetLogicalSwitchPrivate() {
 				}
 
 				match = fmt.Sprintf("(ip4.src == %s && ip4.dst == %s) || (ip4.src == %s && ip4.dst == %s)", cidr, subnet, subnet, cidr)
-				if protocol == kubeovnv1.ProtocolIPv6 {
+				if protocol == fabricv1.ProtocolIPv6 {
 					match = fmt.Sprintf("(ip6.src == %s && ip6.dst == %s) || (ip6.src == %s && ip6.dst == %s)", cidr, subnet, subnet, cidr)
 				}
 
@@ -1412,7 +1412,7 @@ func (suite *OvnClientTestSuite) testSetLogicalSwitchPrivate() {
 			protocol := util.CheckProtocol(cidr)
 
 			match := "ip4.src == " + cidr
-			if protocol == kubeovnv1.ProtocolIPv6 {
+			if protocol == fabricv1.ProtocolIPv6 {
 				match = "ip6.src == " + cidr
 			}
 
@@ -1448,7 +1448,7 @@ func (suite *OvnClientTestSuite) testSetLogicalSwitchPrivate() {
 			protocol := util.CheckProtocol(cidr)
 
 			match := fmt.Sprintf(`ip4.src == %s && ip4.dst == %s`, cidr, cidr)
-			if protocol == kubeovnv1.ProtocolIPv6 {
+			if protocol == fabricv1.ProtocolIPv6 {
 				match = fmt.Sprintf(`ip6.src == %s && ip6.dst == %s`, cidr, cidr)
 			}
 
@@ -1466,7 +1466,7 @@ func (suite *OvnClientTestSuite) testSetLogicalSwitchPrivate() {
 				}
 
 				match = fmt.Sprintf("(ip4.src == %s && ip4.dst == %s) || (ip4.src == %s && ip4.dst == %s)", cidr, subnet, subnet, cidr)
-				if protocol == kubeovnv1.ProtocolIPv6 {
+				if protocol == fabricv1.ProtocolIPv6 {
 					match = fmt.Sprintf("(ip6.src == %s && ip6.dst == %s) || (ip6.src == %s && ip6.dst == %s)", cidr, subnet, subnet, cidr)
 				}
 
@@ -1481,12 +1481,12 @@ func (suite *OvnClientTestSuite) testSetLogicalSwitchPrivate() {
 			protocol := util.CheckProtocol(cidr)
 
 			match := "ip4.src == " + cidr
-			if protocol == kubeovnv1.ProtocolIPv6 {
+			if protocol == fabricv1.ProtocolIPv6 {
 				match = "ip6.src == " + cidr
 			}
 
 			acl, err = nbClient.GetACL(lsName, direction, util.NodeAllowPriority, match, util.NetpolACLTier, false)
-			if protocol == kubeovnv1.ProtocolIPv4 {
+			if protocol == fabricv1.ProtocolIPv4 {
 				require.NoError(t, err)
 				require.Contains(t, ls.ACLs, acl.UUID)
 			} else {
@@ -1513,9 +1513,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create securityGroup type sg acl", func(t *testing.T) {
 		t.Parallel()
 		testTier := 2
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:           "ipv4",
-			RemoteType:          kubeovnv1.SgRemoteTypeSg,
+			RemoteType:          fabricv1.SgRemoteTypeSg,
 			RemoteSecurityGroup: "ovn.sg.test_sg",
 			Protocol:            "icmp",
 			Priority:            12,
@@ -1534,9 +1534,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create address type sg acl", func(t *testing.T) {
 		t.Parallel()
 		testTier := 2
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "10.10.10.12/24",
 			Protocol:      "icmp",
 			Priority:      12,
@@ -1555,9 +1555,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create ipv6 acl", func(t *testing.T) {
 		t.Parallel()
 
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv6",
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "fe80::200:ff:fe04:2611/64",
 			Protocol:      "icmp",
 			Priority:      12,
@@ -1577,9 +1577,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create egress sg acl", func(t *testing.T) {
 		t.Parallel()
 
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "10.10.10.12/24",
 			Protocol:      "icmp",
 			Priority:      12,
@@ -1599,9 +1599,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create drop sg acl", func(t *testing.T) {
 		t.Parallel()
 
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "10.10.10.12/24",
 			Protocol:      "icmp",
 			Priority:      21,
@@ -1621,9 +1621,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create tcp sg acl", func(t *testing.T) {
 		t.Parallel()
 
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "10.10.10.12/24",
 			Protocol:      "tcp",
 			Priority:      12,
@@ -1645,9 +1645,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create sg acl with local address", func(t *testing.T) {
 		t.Parallel()
 
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "10.10.10.0/24",
 			LocalAddress:  "192.168.1.0/24",
 			Protocol:      "all",
@@ -1668,9 +1668,9 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create tcp sg acl with local address and source port", func(t *testing.T) {
 		t.Parallel()
 
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:          "ipv4",
-			RemoteType:         kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:         fabricv1.SgRemoteTypeAddress,
 			RemoteAddress:      "10.10.10.0/24",
 			LocalAddress:       "192.168.1.100",
 			Protocol:           "tcp",
@@ -1696,13 +1696,13 @@ func (suite *OvnClientTestSuite) testNewSgRuleACL() {
 	t.Run("create pass policy sg acl", func(t *testing.T) {
 		t.Parallel()
 
-		sgRule := kubeovnv1.SecurityGroupRule{
+		sgRule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "10.10.10.0/24",
 			Protocol:      "icmp",
 			Priority:      10,
-			Policy:        kubeovnv1.SgPolicy(ovnnb.ACLActionPass),
+			Policy:        fabricv1.SgPolicy(ovnnb.ACLActionPass),
 		}
 		priority := strconv.Itoa(highestPriority - sgRule.Priority)
 
@@ -2299,7 +2299,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 		t.Parallel()
 
 		npp := mockNetworkPolicyPort()
-		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
+		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
 		require.ElementsMatch(t, []string{
 			fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s && tcp.dst == %d", pgName, asAllowName, asExceptName, npp[0].Port.IntVal),
 			fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s && %d <= tcp.dst <= %d", pgName, asAllowName, asExceptName, npp[1].Port.IntVal, *npp[1].EndPort),
@@ -2311,7 +2311,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 
 		npp := mockNetworkPolicyPort()
 
-		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, npp, nil)
+		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionFromLport, npp, nil)
 		require.ElementsMatch(t, []string{
 			fmt.Sprintf("inport == @%s && ip && ip4.dst == $%s && ip4.dst != $%s && tcp.dst == %d", pgName, asAllowName, asExceptName, npp[0].Port.IntVal),
 			fmt.Sprintf("inport == @%s && ip && ip4.dst == $%s && ip4.dst != $%s && %d <= tcp.dst <= %d", pgName, asAllowName, asExceptName, npp[1].Port.IntVal, *npp[1].EndPort),
@@ -2321,7 +2321,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 	t.Run("network policy port is nil", func(t *testing.T) {
 		t.Parallel()
 
-		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, nil, nil)
+		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, nil, nil)
 		require.ElementsMatch(t, []string{
 			fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s", pgName, asAllowName, asExceptName),
 		}, matches)
@@ -2333,7 +2333,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 		npp := mockNetworkPolicyPort()
 		npp[1].Port = nil
 
-		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
+		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
 		require.ElementsMatch(t, []string{
 			fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s && tcp.dst == %d", pgName, asAllowName, asExceptName, npp[0].Port.IntVal),
 			fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s && tcp", pgName, asAllowName, asExceptName),
@@ -2348,7 +2348,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 			npp := mockNetworkPolicyPort()
 			npp[1].EndPort = nil
 
-			matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
+			matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
 			require.ElementsMatch(t, []string{
 				fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s && tcp.dst == %d", pgName, asAllowName, asExceptName, npp[0].Port.IntVal),
 				fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s && tcp.dst == %d", pgName, asAllowName, asExceptName, npp[1].Port.IntVal),
@@ -2373,7 +2373,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 					PortID: 13455,
 				},
 			}
-			matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, namedPortMap)
+			matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, namedPortMap)
 			require.ElementsMatch(t, []string{
 				fmt.Sprintf("outport == @%s && ip && ip4.src == $%s && ip4.src != $%s && tcp.dst == %d", pgName, asAllowName, asExceptName, 13455),
 			}, matches)
@@ -2397,7 +2397,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 					PortID: 13455,
 				},
 			}
-			matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, namedPortMap)
+			matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, namedPortMap)
 			// named port not found should generate no match (deny-all), not port 0
 			require.Empty(t, matches)
 		})
@@ -2417,7 +2417,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 				Protocol: &protocolTCP,
 			},
 		}
-		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
+		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
 		require.Empty(t, matches)
 	})
 
@@ -2433,7 +2433,7 @@ func (suite *OvnClientTestSuite) testnewNetworkPolicyACLMatch() {
 				Protocol: &protocolTCP,
 			},
 		}
-		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, kubeovnv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
+		matches := newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, fabricv1.ProtocolIPv4, ovnnb.ACLDirectionToLport, npp, nil)
 		require.Empty(t, matches)
 	})
 }
@@ -2580,10 +2580,10 @@ func (suite *OvnClientTestSuite) testSgRuleNoACL() {
 	require.NoError(t, err)
 
 	t.Run("ipv4 ingress rule", func(t *testing.T) {
-		rule := kubeovnv1.SecurityGroupRule{
+		rule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			Protocol:      kubeovnv1.SgProtocolTCP,
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			Protocol:      fabricv1.SgProtocolTCP,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "192.168.1.0/24",
 			PortRangeMin:  80,
 			PortRangeMax:  80,
@@ -2595,10 +2595,10 @@ func (suite *OvnClientTestSuite) testSgRuleNoACL() {
 	})
 
 	t.Run("ipv6 egress rule", func(t *testing.T) {
-		rule := kubeovnv1.SecurityGroupRule{
+		rule := fabricv1.SecurityGroupRule{
 			IPVersion:           "ipv6",
-			Protocol:            kubeovnv1.SgProtocolUDP,
-			RemoteType:          kubeovnv1.SgRemoteTypeSg,
+			Protocol:            fabricv1.SgProtocolUDP,
+			RemoteType:          fabricv1.SgRemoteTypeSg,
 			RemoteSecurityGroup: "remote-sg",
 			PortRangeMin:        53,
 			PortRangeMax:        53,
@@ -2610,10 +2610,10 @@ func (suite *OvnClientTestSuite) testSgRuleNoACL() {
 	})
 
 	t.Run("icmp rule", func(t *testing.T) {
-		rule := kubeovnv1.SecurityGroupRule{
+		rule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			Protocol:      kubeovnv1.SgProtocolICMP,
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			Protocol:      fabricv1.SgProtocolICMP,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "10.0.0.0/8",
 			Priority:      198,
 		}
@@ -2623,10 +2623,10 @@ func (suite *OvnClientTestSuite) testSgRuleNoACL() {
 	})
 
 	t.Run("existing ACL", func(t *testing.T) {
-		rule := kubeovnv1.SecurityGroupRule{
+		rule := fabricv1.SecurityGroupRule{
 			IPVersion:     "ipv4",
-			Protocol:      kubeovnv1.SgProtocolTCP,
-			RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+			Protocol:      fabricv1.SgProtocolTCP,
+			RemoteType:    fabricv1.SgRemoteTypeAddress,
 			RemoteAddress: "172.16.0.0/16",
 			PortRangeMin:  443,
 			PortRangeMax:  443,
@@ -2655,16 +2655,16 @@ func (suite *OvnClientTestSuite) testSGLostACL() {
 
 	t.Run("no lost ACLs", func(t *testing.T) {
 		t.Parallel()
-		sg := &kubeovnv1.SecurityGroup{
+		sg := &fabricv1.SecurityGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-sg-no-lost-acl",
 			},
-			Spec: kubeovnv1.SecurityGroupSpec{
-				IngressRules: []kubeovnv1.SecurityGroupRule{
+			Spec: fabricv1.SecurityGroupSpec{
+				IngressRules: []fabricv1.SecurityGroupRule{
 					{
 						IPVersion:     "ipv4",
 						Protocol:      "tcp",
-						RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+						RemoteType:    fabricv1.SgRemoteTypeAddress,
 						RemoteAddress: "192.168.0.0/24",
 						PortRangeMin:  80,
 						PortRangeMax:  80,
@@ -2672,11 +2672,11 @@ func (suite *OvnClientTestSuite) testSGLostACL() {
 						Policy:        "allow",
 					},
 				},
-				EgressRules: []kubeovnv1.SecurityGroupRule{
+				EgressRules: []fabricv1.SecurityGroupRule{
 					{
 						IPVersion:     "ipv6",
 						Protocol:      "udp",
-						RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+						RemoteType:    fabricv1.SgRemoteTypeAddress,
 						RemoteAddress: "fd00::/64",
 						PortRangeMin:  53,
 						PortRangeMax:  53,
@@ -2708,16 +2708,16 @@ func (suite *OvnClientTestSuite) testSGLostACL() {
 
 	t.Run("lost ingress ACL", func(t *testing.T) {
 		t.Parallel()
-		sg := &kubeovnv1.SecurityGroup{
+		sg := &fabricv1.SecurityGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-sg-lost-ingress-acl",
 			},
-			Spec: kubeovnv1.SecurityGroupSpec{
-				IngressRules: []kubeovnv1.SecurityGroupRule{
+			Spec: fabricv1.SecurityGroupSpec{
+				IngressRules: []fabricv1.SecurityGroupRule{
 					{
 						IPVersion:     "ipv4",
 						Protocol:      "tcp",
-						RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+						RemoteType:    fabricv1.SgRemoteTypeAddress,
 						RemoteAddress: "192.168.0.0/24",
 						PortRangeMin:  80,
 						PortRangeMax:  80,
@@ -2725,11 +2725,11 @@ func (suite *OvnClientTestSuite) testSGLostACL() {
 						Policy:        "allow",
 					},
 				},
-				EgressRules: []kubeovnv1.SecurityGroupRule{
+				EgressRules: []fabricv1.SecurityGroupRule{
 					{
 						IPVersion:     "ipv6",
 						Protocol:      "udp",
-						RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+						RemoteType:    fabricv1.SgRemoteTypeAddress,
 						RemoteAddress: "fd00::/64",
 						PortRangeMin:  53,
 						PortRangeMax:  53,
@@ -2756,16 +2756,16 @@ func (suite *OvnClientTestSuite) testSGLostACL() {
 
 	t.Run("lost egress ACL", func(t *testing.T) {
 		t.Parallel()
-		sg := &kubeovnv1.SecurityGroup{
+		sg := &fabricv1.SecurityGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-sg-lost-egress-acl",
 			},
-			Spec: kubeovnv1.SecurityGroupSpec{
-				IngressRules: []kubeovnv1.SecurityGroupRule{
+			Spec: fabricv1.SecurityGroupSpec{
+				IngressRules: []fabricv1.SecurityGroupRule{
 					{
 						IPVersion:     "ipv4",
 						Protocol:      "tcp",
-						RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+						RemoteType:    fabricv1.SgRemoteTypeAddress,
 						RemoteAddress: "192.168.0.0/24",
 						PortRangeMin:  80,
 						PortRangeMax:  80,
@@ -2773,11 +2773,11 @@ func (suite *OvnClientTestSuite) testSGLostACL() {
 						Policy:        "allow",
 					},
 				},
-				EgressRules: []kubeovnv1.SecurityGroupRule{
+				EgressRules: []fabricv1.SecurityGroupRule{
 					{
 						IPVersion:     "ipv6",
 						Protocol:      "udp",
-						RemoteType:    kubeovnv1.SgRemoteTypeAddress,
+						RemoteType:    fabricv1.SgRemoteTypeAddress,
 						RemoteAddress: "fd00::/64",
 						PortRangeMin:  53,
 						PortRangeMax:  53,
@@ -2804,7 +2804,7 @@ func (suite *OvnClientTestSuite) testSGLostACL() {
 
 	t.Run("empty security group", func(t *testing.T) {
 		t.Parallel()
-		sg := &kubeovnv1.SecurityGroup{
+		sg := &fabricv1.SecurityGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-sg-empty",
 			},
@@ -2837,7 +2837,7 @@ func (suite *OvnClientTestSuite) testNewAnpACLMatch() {
 			name:      "IPv4 ingress no ports",
 			pgName:    "pg1",
 			asName:    "as1",
-			protocol:  kubeovnv1.ProtocolIPv4,
+			protocol:  fabricv1.ProtocolIPv4,
 			direction: ovnnb.ACLDirectionToLport,
 			rulePorts: []v1alpha1.AdminNetworkPolicyPort{},
 			expected:  []string{"outport == @pg1 && ip && ip4.src == $as1"},
@@ -2846,7 +2846,7 @@ func (suite *OvnClientTestSuite) testNewAnpACLMatch() {
 			name:      "IPv6 egress no ports",
 			pgName:    "pg2",
 			asName:    "as2",
-			protocol:  kubeovnv1.ProtocolIPv6,
+			protocol:  fabricv1.ProtocolIPv6,
 			direction: ovnnb.ACLDirectionFromLport,
 			rulePorts: []v1alpha1.AdminNetworkPolicyPort{},
 			expected:  []string{"inport == @pg2 && ip && ip6.dst == $as2"},
@@ -2855,7 +2855,7 @@ func (suite *OvnClientTestSuite) testNewAnpACLMatch() {
 			name:      "IPv4 ingress with port number",
 			pgName:    "pg3",
 			asName:    "as3",
-			protocol:  kubeovnv1.ProtocolIPv4,
+			protocol:  fabricv1.ProtocolIPv4,
 			direction: ovnnb.ACLDirectionToLport,
 			rulePorts: []v1alpha1.AdminNetworkPolicyPort{
 				{
@@ -2871,7 +2871,7 @@ func (suite *OvnClientTestSuite) testNewAnpACLMatch() {
 			name:      "IPv6 egress with port range",
 			pgName:    "pg4",
 			asName:    "as4",
-			protocol:  kubeovnv1.ProtocolIPv6,
+			protocol:  fabricv1.ProtocolIPv6,
 			direction: ovnnb.ACLDirectionFromLport,
 			rulePorts: []v1alpha1.AdminNetworkPolicyPort{
 				{
@@ -2888,7 +2888,7 @@ func (suite *OvnClientTestSuite) testNewAnpACLMatch() {
 			name:      "IPv4 ingress with multiple ports",
 			pgName:    "pg5",
 			asName:    "as5",
-			protocol:  kubeovnv1.ProtocolIPv4,
+			protocol:  fabricv1.ProtocolIPv4,
 			direction: ovnnb.ACLDirectionToLport,
 			rulePorts: []v1alpha1.AdminNetworkPolicyPort{
 				{

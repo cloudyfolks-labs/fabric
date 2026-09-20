@@ -20,13 +20,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddIP(obj any) {
-	ipObj := obj.(*kubeovnv1.IP)
+	ipObj := obj.(*fabricv1.IP)
 	if strings.HasPrefix(ipObj.Name, util.U2OInterconnName[0:20]) ||
 		strings.HasPrefix(ipObj.Name, util.McastQuerierName[0:14]) {
 		return
@@ -44,8 +44,8 @@ func (c *Controller) enqueueAddIP(obj any) {
 }
 
 func (c *Controller) enqueueUpdateIP(oldObj, newObj any) {
-	oldIP := oldObj.(*kubeovnv1.IP)
-	newIP := newObj.(*kubeovnv1.IP)
+	oldIP := oldObj.(*fabricv1.IP)
+	newIP := newObj.(*fabricv1.IP)
 	// ip can not change these specs below
 	if oldIP.Spec.Subnet != "" && newIP.Spec.Subnet != oldIP.Spec.Subnet {
 		klog.Warningf("ip %s subnet changed from %s to %s", newIP.Name, oldIP.Spec.Subnet, newIP.Spec.Subnet)
@@ -101,12 +101,12 @@ func (c *Controller) enqueueUpdateIP(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDelIP(obj any) {
-	var ipObj *kubeovnv1.IP
+	var ipObj *fabricv1.IP
 	switch t := obj.(type) {
-	case *kubeovnv1.IP:
+	case *fabricv1.IP:
 		ipObj = t
 	case cache.DeletedFinalStateUnknown:
-		ip, ok := t.Obj.(*kubeovnv1.IP)
+		ip, ok := t.Obj.(*fabricv1.IP)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -220,7 +220,7 @@ func (c *Controller) handleAddReservedIP(key string) error {
 		}
 		op := "replace"
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.FabricV1().IPs().Patch(context.Background(), ip.Name,
+		if _, err := c.config.FabricClient.FabricV1().IPs().Patch(context.Background(), ip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for ip %s, %v", ip.Name, err)
 			return err
@@ -296,7 +296,7 @@ func (c *Controller) handleUpdateIP(key string) error {
 	return nil
 }
 
-func (c *Controller) handleDelIP(ip *kubeovnv1.IP) error {
+func (c *Controller) handleDelIP(ip *fabricv1.IP) error {
 	klog.Infof("deleting ip %s enqueue update status subnet %s", ip.Name, ip.Spec.Subnet)
 	c.updateSubnetStatusQueue.Add(ip.Spec.Subnet)
 	for _, as := range ip.Spec.AttachSubnets {
@@ -308,7 +308,7 @@ func (c *Controller) handleDelIP(ip *kubeovnv1.IP) error {
 
 func (c *Controller) syncIPFinalizer(cl client.Client) error {
 	// migrate deprecated finalizer to new finalizer
-	ips := &kubeovnv1.IPList{}
+	ips := &fabricv1.IPList{}
 	return migrateFinalizers(cl, ips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(ips.Items) {
 			return nil, nil
@@ -317,20 +317,20 @@ func (c *Controller) syncIPFinalizer(cl client.Client) error {
 	})
 }
 
-func (c *Controller) handleDelIPFinalizer(cachedIP *kubeovnv1.IP) error {
+func (c *Controller) handleDelIPFinalizer(cachedIP *fabricv1.IP) error {
 	if len(cachedIP.GetFinalizers()) == 0 {
 		return nil
 	}
 	newIP := cachedIP.DeepCopy()
 	controllerutil.RemoveFinalizer(newIP, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newIP, util.LegacyControllerFinalizer)
-	controllerutil.RemoveFinalizer(newIP, util.KubeOVNControllerFinalizer)
+	controllerutil.RemoveFinalizer(newIP, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedIP, newIP)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ip %s, %v", cachedIP.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().IPs().Patch(context.Background(), cachedIP.Name,
+	if _, err := c.config.FabricClient.FabricV1().IPs().Patch(context.Background(), cachedIP.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -426,7 +426,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 			key = podName
 			ipName = podName
 			owner = &metav1.OwnerReference{
-				APIVersion: kubeovnv1.SchemeGroupVersion.String(),
+				APIVersion: fabricv1.SchemeGroupVersion.String(),
 				Kind:       util.KindSubnet,
 				Name:       subnetName,
 				UID:        subnet.UID,
@@ -435,7 +435,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 	}
 
 	var err error
-	var ipCR *kubeovnv1.IP
+	var ipCR *fabricv1.IP
 	ipCR, err = c.ipsLister.Get(ipName)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -454,7 +454,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 	}
 	v4IP, v6IP := util.SplitStringIP(ip)
 	if ipCR == nil {
-		ipCR = &kubeovnv1.IP{
+		ipCR = &fabricv1.IP{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: ipName,
 				Labels: map[string]string{
@@ -463,9 +463,9 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 					subnetName:           "",
 					util.IPReservedLabel: "false", // ip create with pod or node, ip not reserved
 				},
-				Finalizers: []string{util.KubeOVNControllerFinalizer},
+				Finalizers: []string{util.FabricControllerFinalizer},
 			},
-			Spec: kubeovnv1.IPSpec{
+			Spec: fabricv1.IPSpec{
 				PodName:       key,
 				Subnet:        subnetName,
 				NodeName:      nodeName,
@@ -483,7 +483,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 		if owner != nil {
 			ipCR.OwnerReferences = []metav1.OwnerReference{*owner}
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().IPs().Create(context.Background(), ipCR, metav1.CreateOptions{}); err != nil {
+		if _, err = c.config.FabricClient.FabricV1().IPs().Create(context.Background(), ipCR, metav1.CreateOptions{}); err != nil {
 			errMsg := fmt.Errorf("failed to create ip CR %s: %w", ipName, err)
 			klog.Error(errMsg)
 			return errMsg
@@ -526,9 +526,9 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 		if maps.Equal(newIPCR.Labels, ipCR.Labels) && reflect.DeepEqual(newIPCR.Spec, ipCR.Spec) {
 			return nil
 		}
-		controllerutil.AddFinalizer(newIPCR, util.KubeOVNControllerFinalizer)
+		controllerutil.AddFinalizer(newIPCR, util.FabricControllerFinalizer)
 
-		if _, err = c.config.KubeOvnClient.FabricV1().IPs().Update(context.Background(), newIPCR, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.config.FabricClient.FabricV1().IPs().Update(context.Background(), newIPCR, metav1.UpdateOptions{}); err != nil {
 			err := fmt.Errorf("failed to update ip CR %s: %w", ipName, err)
 			klog.Error(err)
 			return err
@@ -537,7 +537,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 	return nil
 }
 
-func (c *Controller) ipAcquireAddress(ip *kubeovnv1.IP, subnet *kubeovnv1.Subnet) (string, string, string, error) {
+func (c *Controller) ipAcquireAddress(ip *fabricv1.IP, subnet *fabricv1.Subnet) (string, string, string, error) {
 	key := cache.NewObjectName(ip.Spec.Namespace, ip.Spec.PodName).String()
 	portName := ovs.PodNameToPortName(ip.Spec.PodName, ip.Spec.Namespace, subnet.Spec.Provider)
 	ipStr := util.GetStringIP(ip.Spec.V4IPAddress, ip.Spec.V6IPAddress)

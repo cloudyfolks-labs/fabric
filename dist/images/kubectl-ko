@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-KUBE_OVN_NS=${KUBE_OVN_NS:-kube-system}
+FABRIC_NS=${FABRIC_NS:-kube-system}
 WITHOUT_KUBE_PROXY=${WITHOUT_KUBE_PROXY:-false}
 OVN_NB_POD=
 OVN_SB_POD=
 OVN_IC_NB_POD=
 OVN_IC_SB_POD=
 OVN_NORTHD_POD=
-KUBE_OVN_VERSION=
+FABRIC_VERSION=
 REGISTRY="ghcr.io/cloudyfolks-labs"
 PERF_TIMES=5
 PERF_LABEL="PerfTest"
@@ -160,7 +160,7 @@ tcpdump(){
     exit 1
   fi
 
-  ovsPod=$(kubectl get pod -n $KUBE_OVN_NS -l app=ovs -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
+  ovsPod=$(kubectl get pod -n $FABRIC_NS -l app=ovs -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
   if [ -z "$ovsPod" ]; then
     echo "ovs-ovn not exist on node $nodeName"
     exit 1
@@ -168,25 +168,25 @@ tcpdump(){
 
   if [ "$hostNetwork" = "true" ]; then
     set -x
-    kubectl exec "$ovsPod" -n $KUBE_OVN_NS -- tcpdump -nn "$@"
+    kubectl exec "$ovsPod" -n $FABRIC_NS -- tcpdump -nn "$@"
   else
-    nicName=$(kubectl exec "$ovsPod" -n $KUBE_OVN_NS -- ovs-vsctl --data=bare --no-heading --columns=name find interface external-ids:iface-id="$podName"."$namespace" | tr -d '\r')
+    nicName=$(kubectl exec "$ovsPod" -n $FABRIC_NS -- ovs-vsctl --data=bare --no-heading --columns=name find interface external-ids:iface-id="$podName"."$namespace" | tr -d '\r')
     if [ -z "$nicName" ]; then
       echo "nic doesn't exist on node $nodeName"
       exit 1
     fi
     podNicType=$(kubectl get pod "$podName" -n "$namespace" -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/pod_nic_type})
-    podNetNs=$(kubectl exec "$ovsPod" -n $KUBE_OVN_NS -- ovs-vsctl --data=bare --no-heading get interface "$nicName" external-ids:pod_netns | tr -d '\r' | sed -e 's/^"//' -e 's/"$//')
-    ovnCni=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
+    podNetNs=$(kubectl exec "$ovsPod" -n $FABRIC_NS -- ovs-vsctl --data=bare --no-heading get interface "$nicName" external-ids:pod_netns | tr -d '\r' | sed -e 's/^"//' -e 's/"$//')
+    ovnCni=$(kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
     if [ -z "$ovnCni" ]; then
       echo "fabric-cni not exist on node $nodeName"
       exit 1
     fi
     set -x
     if [ "$podNicType" = "internal-port" ]; then
-      kubectl exec "$ovnCni" -n $KUBE_OVN_NS -- nsenter --net="$podNetNs" tcpdump -nn -i "$nicName" "$@"
+      kubectl exec "$ovnCni" -n $FABRIC_NS -- nsenter --net="$podNetNs" tcpdump -nn -i "$nicName" "$@"
     else
-      kubectl exec "$ovnCni" -n $KUBE_OVN_NS -- nsenter --net="$podNetNs" tcpdump -nn -i eth0 "$@"
+      kubectl exec "$ovnCni" -n $FABRIC_NS -- nsenter --net="$podNetNs" tcpdump -nn -i eth0 "$@"
     fi
   fi
 }
@@ -282,7 +282,7 @@ trace(){
     exit 1
   fi
 
-  local ovsPod=$(kubectl get pod -n $KUBE_OVN_NS -l app=ovs -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
+  local ovsPod=$(kubectl get pod -n $FABRIC_NS -l app=ovs -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
   if [ -z "$ovsPod" ]; then
     echo "Error: no ovs-ovn Pod running on node $nodeName"
     exit 1
@@ -303,9 +303,9 @@ trace(){
       if ipIsInCidr $dst $cidr; then
         set +o pipefail
         if [ $af -eq 4 ]; then
-          dstMac=$(kubectl exec $OVN_NB_POD -n $KUBE_OVN_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=addresses list logical_switch_port | grep -w "$(echo $dst | tr . '\.')" | awk '{print $1}')
+          dstMac=$(kubectl exec $OVN_NB_POD -n $FABRIC_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=addresses list logical_switch_port | grep -w "$(echo $dst | tr . '\.')" | awk '{print $1}')
         else
-          dstMac=$(kubectl exec $OVN_NB_POD -n $KUBE_OVN_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=addresses list logical_switch_port | grep -i " $dst\$" | awk '{print $1}')
+          dstMac=$(kubectl exec $OVN_NB_POD -n $FABRIC_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=addresses list logical_switch_port | grep -i " $dst\$" | awk '{print $1}')
         fi
         set -o pipefail
       fi
@@ -318,7 +318,7 @@ trace(){
         exit 1
       fi
 
-      ovnCni=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
+      ovnCni=$(kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
       if [ -z "$ovnCni" ]; then
         echo "fabric-cni not exist on node $node"
         exit 1
@@ -337,28 +337,28 @@ trace(){
           fi
         fi
 
-        local nicName=$(kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-vsctl --data=bare --no-heading --columns=name find interface external-ids:iface-id="$lsp" | tr -d '\r')
+        local nicName=$(kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-vsctl --data=bare --no-heading --columns=name find interface external-ids:iface-id="$lsp" | tr -d '\r')
         if [ -z "$nicName" ]; then
           echo "Error: failed to find ovs interface for LSP $lsp"
           exit 1
         fi
 
         local podNicType=$(kubectl get "$typedName" $optNamespace -o jsonpath={.metadata.annotations.fabric\\.cloudyfolks\\.io/pod_nic_type})
-        local podNetNs=$(kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-vsctl --data=bare --no-heading get interface "$nicName" external-ids:pod_netns | tr -d '\r' | sed -e 's/^"//' -e 's/"$//')
+        local podNetNs=$(kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-vsctl --data=bare --no-heading get interface "$nicName" external-ids:pod_netns | tr -d '\r' | sed -e 's/^"//' -e 's/"$//')
         local nicName= nsenterCmd=
         if [ ! -z $podNetNs ]; then
           nsenterCmd="nsenter --net='$podNetNs'"
         fi
         if [ "$podNicType" != "internal-port" ]; then
-          local interface=$(kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-vsctl --format=csv --data=bare --no-heading --columns=name find interface external_id:iface-id="$lsp")
-          local peer=$(kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ip link show $interface | grep -oE "^[0-9]+:\\s$interface@if[0-9]+" | awk -F @ '{print $2}')
+          local interface=$(kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-vsctl --format=csv --data=bare --no-heading --columns=name find interface external_id:iface-id="$lsp")
+          local peer=$(kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ip link show $interface | grep -oE "^[0-9]+:\\s$interface@if[0-9]+" | awk -F @ '{print $2}')
           local peerIndex=${peer//if/}
-          local peer=$(kubectl exec "$ovnCni" -c cni-server -n $KUBE_OVN_NS -- sh -c "$nsenterCmd ip link show type veth" | grep "^$peerIndex:" | awk -F @ '{print $1}')
+          local peer=$(kubectl exec "$ovnCni" -c cni-server -n $FABRIC_NS -- sh -c "$nsenterCmd ip link show type veth" | grep "^$peerIndex:" | awk -F @ '{print $1}')
           nicName=$(echo $peer | awk '{print $2}')
         fi
 
         set +o pipefail
-        local master=$(kubectl exec "$ovnCni" -c cni-server -n $KUBE_OVN_NS -- sh -c "$nsenterCmd ip link show $nicName" | grep -Eo '\smaster\s\w+\s' | awk '{print $2}')
+        local master=$(kubectl exec "$ovnCni" -c cni-server -n $FABRIC_NS -- sh -c "$nsenterCmd ip link show $nicName" | grep -Eo '\smaster\s\w+\s' | awk '{print $2}')
         set -o pipefail
         if [ ! -z "$master" ]; then
           echo "Error: Pod nic $nicName is a slave of $master, please set the destination mac address."
@@ -368,10 +368,10 @@ trace(){
         local cmd= output=
         if [[ "$gateway" =~ .*:.* ]]; then
           cmd="ndisc6 -q $gateway $nicName"
-          output=$(kubectl exec "$ovnCni" -c cni-server -n $KUBE_OVN_NS -- sh -c "$nsenterCmd ndisc6 -q $gateway $nicName")
+          output=$(kubectl exec "$ovnCni" -c cni-server -n $FABRIC_NS -- sh -c "$nsenterCmd ndisc6 -q $gateway $nicName")
         else
           cmd="arping -c3 -C1 -i1 -I $nicName $gateway"
-          output=$(kubectl exec "$ovnCni" -c cni-server -n $KUBE_OVN_NS -- sh -c "$nsenterCmd arping -c3 -C1 -i1 -I $nicName $gateway")
+          output=$(kubectl exec "$ovnCni" -c cni-server -n $FABRIC_NS -- sh -c "$nsenterCmd arping -c3 -C1 -i1 -I $nicName $gateway")
         fi
 
         if [ $? -ne 0 ]; then
@@ -389,7 +389,7 @@ trace(){
       if [ -z "$lr" ]; then
         lr=$(kubectl get subnet "$ls" -o jsonpath={.spec.vpc})
       fi
-      dstMac=$(kubectl exec $OVN_NB_POD -n $KUBE_OVN_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=mac find logical_router_port name="$lr-$ls" | tr -d '\r')
+      dstMac=$(kubectl exec $OVN_NB_POD -n $FABRIC_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=mac find logical_router_port name="$lr-$ls" | tr -d '\r')
     fi
 
     if [ -z "$dstMac" ]; then
@@ -403,7 +403,7 @@ trace(){
     dstMac="ff:ff:ff:ff:ff:ff"
   fi
 
-  local lspUUID=$(kubectl exec $OVN_NB_POD -n $KUBE_OVN_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=_uuid find logical_switch_port name="$lsp")
+  local lspUUID=$(kubectl exec $OVN_NB_POD -n $FABRIC_NS -c ovn-central -- ovn-nbctl --data=bare --no-heading --columns=_uuid find logical_switch_port name="$lsp")
   if [ -z "$lspUUID" ]; then
     echo "Notice: LSP $lsp does not exist"
   fi
@@ -425,7 +425,7 @@ trace(){
         icmp_type="6.type == 128"
       fi
       set -x
-      kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-trace --ct=new --ct=new --ct=new --ct=new "$ls" \
+      kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-trace --ct=new --ct=new --ct=new --ct=new "$ls" \
         "inport == \"$lsp\" && ip.ttl == 255 && icmp$icmp_type && eth.src == $mac && ip$af.src == $srcIP && eth.dst == $dstMac && ip$af.dst == $dst"
       ;;
     tcp|udp)
@@ -435,19 +435,19 @@ trace(){
         tcp_flags=" && tcp.flags == 2"
       fi
       set -x
-      kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-trace --ct=new --ct=new --ct=new --ct=new "$ls" \
+      kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-trace --ct=new --ct=new --ct=new --ct=new "$ls" \
         "inport == \"$lsp\" && ip.ttl == 255 && eth.src == $mac && ip$af.src == $srcIP && eth.dst == $dstMac && ip$af.dst == $dst && $type.src == 30000 && $type.dst == $4 $tcp_flags"
       ;;
     arp)
       case "$4" in
         ""|request)
           set -x
-          kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-trace "$ls" \
+          kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-trace "$ls" \
             "inport == \"$lsp\" && eth.src == $mac && eth.dst == $dstMac && arp.op == 1 && arp.sha == $mac && arp.tha == 00:00:00:00:00:00 && arp.spa == $srcIP && arp.tpa == $dst"
           ;;
         reply)
           set -x
-          kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-trace "$ls" \
+          kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-trace "$ls" \
             "inport == \"$lsp\" && eth.src == $mac && eth.dst == $dstMac && arp.op == 2 && arp.sha == $mac && arp.tha == $dstMac && arp.spa == $srcIP && arp.tpa == $dst"
           ;;
         *)
@@ -478,25 +478,25 @@ trace(){
   echo ""
   echo ""
 
-  local inPort=$(kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-vsctl --format=csv --data=bare --no-heading --columns=ofport find interface external_id:iface-id="$lsp")
+  local inPort=$(kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-vsctl --format=csv --data=bare --no-heading --columns=ofport find interface external_id:iface-id="$lsp")
   case $type in
     icmp)
       set -x
-      kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,icmp$proto,nw_ttl=64,${nw}_src=$srcIP,${nw}_dst=$dst,dl_src=$mac,dl_dst=$dstMac"
+      kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,icmp$proto,nw_ttl=64,${nw}_src=$srcIP,${nw}_dst=$dst,dl_src=$mac,dl_dst=$dstMac"
       ;;
     tcp|udp)
       set -x
-      kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,$type$proto,nw_ttl=64,${nw}_src=$srcIP,${nw}_dst=$dst,dl_src=$mac,dl_dst=$dstMac,${type}_src=1000,${type}_dst=$4"
+      kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,$type$proto,nw_ttl=64,${nw}_src=$srcIP,${nw}_dst=$dst,dl_src=$mac,dl_dst=$dstMac,${type}_src=1000,${type}_dst=$4"
       ;;
     arp)
       case "$4" in
         ""|request)
           set -x
-          kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,arp,arp_op=1,dl_src=$mac,dl_dst=$dstMac,arp_spa=$srcIP,arp_tpa=$dst,arp_sha=$mac,arp_tha=00:00:00:00:00:00"
+          kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,arp,arp_op=1,dl_src=$mac,dl_dst=$dstMac,arp_spa=$srcIP,arp_tpa=$dst,arp_sha=$mac,arp_tha=00:00:00:00:00:00"
           ;;
         reply)
           set -x
-          kubectl exec "$ovsPod" -c openvswitch -n $KUBE_OVN_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,arp,arp_op=2,dl_src=$mac,dl_dst=$dstMac,arp_spa=$srcIP,arp_tpa=$dst,arp_sha=$mac,arp_tha=$dstMac"
+          kubectl exec "$ovsPod" -c openvswitch -n $FABRIC_NS -- ovs-appctl ofproto/trace br-int "in_port=$inPort,arp,arp_op=2,dl_src=$mac,dl_dst=$dstMac,arp_spa=$srcIP,arp_tpa=$dst,arp_sha=$mac,arp_tha=$dstMac"
           ;;
       esac
       ;;
@@ -507,19 +507,19 @@ xxctl(){
   subcommand="$1"; shift
   nodeName="$1"; shift
   kubectl get no "$nodeName" > /dev/null
-  ovsPod=$(kubectl get pod -n $KUBE_OVN_NS -l app=ovs -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
+  ovsPod=$(kubectl get pod -n $FABRIC_NS -l app=ovs -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
   if [ -z "$ovsPod" ]; then
     echo "ovs pod  doesn't exist on node $nodeName"
     exit 1
   fi
-  kubectl exec "$ovsPod" -n $KUBE_OVN_NS -- ovs-$subcommand "$@"
+  kubectl exec "$ovsPod" -n $FABRIC_NS -- ovs-$subcommand "$@"
 }
 
 checkLeader(){
   component="$1"; shift
   for i in $(seq 1 10); do
     set +o pipefail
-    count=$(kubectl get endpointslice -l kubernetes.io/service-name=ovn-$component -n $KUBE_OVN_NS -o jsonpath='{range .items[*]}{range .endpoints[?(@.conditions.ready!=false)]}{.targetRef.name}{"\n"}{end}{end}' 2>/dev/null | sort | uniq | wc -l)
+    count=$(kubectl get endpointslice -l kubernetes.io/service-name=ovn-$component -n $FABRIC_NS -o jsonpath='{range .items[*]}{range .endpoints[?(@.conditions.ready!=false)]}{.targetRef.name}{"\n"}{end}{end}' 2>/dev/null | sort | uniq | wc -l)
     set -o pipefail
     if [ $count -eq 1 ]; then
       echo "ovn-$component leader check ok"
@@ -544,13 +544,13 @@ applyConnServerDaemonset(){
     exit 1
   fi
 
-  imageID=$(kubectl get ds -n $KUBE_OVN_NS fabric-pinger -o jsonpath={.spec.template.spec.containers[0].image})
+  imageID=$(kubectl get ds -n $FABRIC_NS fabric-pinger -o jsonpath={.spec.template.spec.containers[0].image})
   cat <<EOF | kubectl apply -f -
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: $subnetName-$CONN_CHECK_SERVER
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
   labels:
     app: $CONN_CHECK_LABEL
 spec:
@@ -599,7 +599,7 @@ spec:
 EOF
 
   isfailed=true
-  if kubectl -n $KUBE_OVN_NS rollout status ds $subnetName-$CONN_CHECK_SERVER --timeout=30s; then
+  if kubectl -n $FABRIC_NS rollout status ds $subnetName-$CONN_CHECK_SERVER --timeout=30s; then
     isfailed=false
   else
     echo "Error ds $subnetName-$CONN_CHECK_SERVER pod not ready"
@@ -615,7 +615,7 @@ metadata:
   labels:
     app: $CONN_CHECK_LABEL
   name: $svcName
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
 spec:
   type: NodePort
   ports:
@@ -631,7 +631,7 @@ EOF
 getTestNodePortServiceIPPorts() {
   targetIPPorts=""
   nodeIPs=($(kubectl get node -o wide | grep -v "INTERNAL-IP" | awk '{print $6}'))
-  nodePort=$(kubectl get svc test-node-port -n $KUBE_OVN_NS -o 'jsonpath={.spec.ports[0].nodePort}')
+  nodePort=$(kubectl get svc test-node-port -n $FABRIC_NS -o 'jsonpath={.spec.ports[0].nodePort}')
   for nodeIP in "${nodeIPs[@]}"
   do
     if [ -z "$targetIPPorts" ]; then
@@ -674,7 +674,7 @@ diagnose(){
   set -eu
 
   kubectl get svc kubernetes -n default
-  kubectl get sa -n $KUBE_OVN_NS ovn
+  kubectl get sa -n $FABRIC_NS ovn
   kubectl get clusterrole system:ovn
   kubectl get clusterrolebinding ovn
 
@@ -715,7 +715,7 @@ diagnose(){
   trap quitDiagnose EXIT
 
   if [[ $type != "IPPorts" ]]; then
-    gcCommands+=("kubectl delete svc -l app=$CONN_CHECK_LABEL -n $KUBE_OVN_NS")
+    gcCommands+=("kubectl delete svc -l app=$CONN_CHECK_LABEL -n $FABRIC_NS")
     applyTestNodePortService
     targetIPPorts=$(getTestNodePortServiceIPPorts)
   fi
@@ -724,25 +724,25 @@ diagnose(){
     all)
       echo "### fabric-controller recent log"
       set +e
-      kubectl logs -n $KUBE_OVN_NS -l app=fabric-controller --tail=100 | grep E$(date +%m%d)
+      kubectl logs -n $FABRIC_NS -l app=fabric-controller --tail=100 | grep E$(date +%m%d)
       set -e
       echo ""
-      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
+      pingers=$(kubectl -n $FABRIC_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
       for pinger in $pingers
       do
-        nodeName=$(kubectl get pod "$pinger" -n "$KUBE_OVN_NS" -o jsonpath={.spec.nodeName})
+        nodeName=$(kubectl get pod "$pinger" -n "$FABRIC_NS" -o jsonpath={.spec.nodeName})
         echo "### start to diagnose node $nodeName"
         echo "#### ovn-controller log:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- tail /var/log/ovn/ovn-controller.log
+        kubectl exec -n $FABRIC_NS "$pinger" -- tail /var/log/ovn/ovn-controller.log
         echo ""
         echo "#### ovs-vswitchd log:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- tail /var/log/openvswitch/ovs-vswitchd.log
+        kubectl exec -n $FABRIC_NS "$pinger" -- tail /var/log/openvswitch/ovs-vswitchd.log
         echo ""
         echo "#### ovs-vsctl show results:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- ovs-vsctl show
+        kubectl exec -n $FABRIC_NS "$pinger" -- ovs-vsctl show
         echo ""
         echo "#### pinger diagnose results:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- /fabric/fabric-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
+        kubectl exec -n $FABRIC_NS "$pinger" -- /fabric/fabric-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
         echo "### finish diagnose node $nodeName"
         echo ""
       done
@@ -751,33 +751,33 @@ diagnose(){
       nodeName="$2"
       kubectl get no "$nodeName" > /dev/null
       echo "### make sure fabric-pinger running on node $nodeName"
-      kubectl -n $KUBE_OVN_NS get po -l app=fabric-pinger
-      pinger=$(kubectl -n $KUBE_OVN_NS get po -l app=fabric-pinger -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
+      kubectl -n $FABRIC_NS get po -l app=fabric-pinger
+      pinger=$(kubectl -n $FABRIC_NS get po -l app=fabric-pinger -o 'jsonpath={.items[?(@.spec.nodeName=="'$nodeName'")].metadata.name}')
       if [ ! -n "$pinger" ]; then
         echo "Error: No fabric-pinger running on node $nodeName"
         exit 1
       fi
       echo "### start to diagnose node $nodeName"
       echo "#### ovn-controller log:"
-      kubectl exec -n $KUBE_OVN_NS "$pinger" -- tail /var/log/ovn/ovn-controller.log
+      kubectl exec -n $FABRIC_NS "$pinger" -- tail /var/log/ovn/ovn-controller.log
       echo ""
       echo "#### ovs-vswitchd log:"
-      kubectl exec -n $KUBE_OVN_NS "$pinger" -- tail /var/log/openvswitch/ovs-vswitchd.log
+      kubectl exec -n $FABRIC_NS "$pinger" -- tail /var/log/openvswitch/ovs-vswitchd.log
       echo ""
-      kubectl exec -n $KUBE_OVN_NS "$pinger" -- /fabric/fabric-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
+      kubectl exec -n $FABRIC_NS "$pinger" -- /fabric/fabric-pinger --mode=job --external-address=1.1.1.1,2606:4700:4700::1111 --target-ip-ports=$targetIPPorts
       echo "### finish diagnose node $nodeName"
       echo ""
       ;;
     subnet)
       subnetName="$2"
-      gcCommands+=("kubectl delete ds -l app=$CONN_CHECK_LABEL -n $KUBE_OVN_NS")
+      gcCommands+=("kubectl delete ds -l app=$CONN_CHECK_LABEL -n $FABRIC_NS")
       applyConnServerDaemonset $subnetName
 
-      if [ $(kubectl get ds fabric-cni -n $KUBE_OVN_NS -oyaml | grep enable-verbose-conn-check | wc -l) -eq 0 ]; then
+      if [ $(kubectl get ds fabric-cni -n $FABRIC_NS -oyaml | grep enable-verbose-conn-check | wc -l) -eq 0 ]; then
         echo "Warning: fabric-cni not have args enable-verbose-conn-check, it will fail when check node tcp/udp connectivity"
       fi
 
-      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
+      pingers=$(kubectl -n $FABRIC_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
       cmd=(
         /fabric/fabric-pinger --mode=job
         --tcp-conn-check-port=$TCP_CONN_CHECK_PORT --udp-conn-check-port=$UDP_CONN_CHECK_PORT
@@ -785,19 +785,19 @@ diagnose(){
       )
       for pinger in $pingers
       do
-        echo "#### pinger $pinger on namespace $KUBE_OVN_NS diagnose results:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- ${cmd[*]}
+        echo "#### pinger $pinger on namespace $FABRIC_NS diagnose results:"
+        kubectl exec -n $FABRIC_NS "$pinger" -- ${cmd[*]}
         echo ""
       done
       ;;
     IPPorts)
       targetIPPorts="$2"
 
-      pingers=$(kubectl -n $KUBE_OVN_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
+      pingers=$(kubectl -n $FABRIC_NS get po --no-headers -o custom-columns=NAME:.metadata.name -l app=fabric-pinger)
       for pinger in $pingers
       do
-        echo "#### pinger $pinger on namespace $KUBE_OVN_NS diagnose results:"
-        kubectl exec -n $KUBE_OVN_NS "$pinger" -- /fabric/fabric-pinger --mode=job --target-ip-ports=$targetIPPorts
+        echo "#### pinger $pinger on namespace $FABRIC_NS diagnose results:"
+        kubectl exec -n $FABRIC_NS "$pinger" -- /fabric/fabric-pinger --mode=job --target-ip-ports=$targetIPPorts
         echo ""
       done
       ;;
@@ -814,7 +814,7 @@ getLeaderPod(){
     local result=
     for i in $(seq 1 10); do
       set +o pipefail
-      result=$(kubectl get pod -n $KUBE_OVN_NS -l "$label"=true 2>/dev/null | grep ovn-central | awk '{if($2=="1/1" && $3=="Running") print $1}' | head -n 1)
+      result=$(kubectl get pod -n $FABRIC_NS -l "$label"=true 2>/dev/null | grep ovn-central | awk '{if($2=="1/1" && $3=="Running") print $1}' | head -n 1)
       set -o pipefail
       if [ -n "$result" ]; then
         echo "$result"
@@ -830,17 +830,17 @@ getOvnCentralPod(){
     OVN_NB_POD=$(getLeaderPod "ovn-nb-leader" "nb")
     OVN_SB_POD=$(getLeaderPod "ovn-sb-leader" "sb")
     OVN_NORTHD_POD=$(getLeaderPod "ovn-northd-leader" "northd")
-    image=$(kubectl -n $KUBE_OVN_NS get pods -l app=fabric-cni -o jsonpath='{.items[0].spec.containers[0].image}')
+    image=$(kubectl -n $FABRIC_NS get pods -l app=fabric-cni -o jsonpath='{.items[0].spec.containers[0].image}')
     if [ -z "$image" ]; then
           echo "cannot get fabric image"
           exit 1
     fi
     REGISTRY=$(dirname $image)
-    KUBE_OVN_VERSION=$(basename $image | awk -F ':' '{print $2}')
+    FABRIC_VERSION=$(basename $image | awk -F ':' '{print $2}')
 }
 
 getOVNICNBPod(){
-    OVN_IC_NB_POD=$(kubectl get pod -n $KUBE_OVN_NS -l ovn-ic-nb-leader=true | grep ovn-ic-server | head -n 1 | awk '{print $1}')
+    OVN_IC_NB_POD=$(kubectl get pod -n $FABRIC_NS -l ovn-ic-nb-leader=true | grep ovn-ic-server | head -n 1 | awk '{print $1}')
     if [ -z "$OVN_IC_NB_POD" ]; then
       echo "ic nb leader not exists"
       exit 1
@@ -848,7 +848,7 @@ getOVNICNBPod(){
 }
 
 getOVNICSBPod(){
-    OVN_IC_SB_POD=$(kubectl get pod -n $KUBE_OVN_NS -l ovn-ic-sb-leader=true | grep ovn-ic-server | head -n 1 | awk '{print $1}')
+    OVN_IC_SB_POD=$(kubectl get pod -n $FABRIC_NS -l ovn-ic-sb-leader=true | grep ovn-ic-server | head -n 1 | awk '{print $1}')
     if [ -z "$OVN_IC_SB_POD" ]; then
       echo "ic sb leader not exists"
       exit 1
@@ -856,13 +856,13 @@ getOVNICSBPod(){
 }
 
 getOvnCentralDbStatus(){
-  NB_PODS=$(kubectl get pod -n $KUBE_OVN_NS | grep ovn-central | awk '{print $1}')
+  NB_PODS=$(kubectl get pod -n $FABRIC_NS | grep ovn-central | awk '{print $1}')
   for pod in $NB_PODS
   do
     echo "get dbstatus in pod $pod"
-    nbstatus=`kubectl exec "$pod" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl ovsdb-server/get-db-storage-status OVN_Northbound`
+    nbstatus=`kubectl exec "$pod" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl ovsdb-server/get-db-storage-status OVN_Northbound`
     echo "nb db status $nbstatus"
-    sbstatus=`kubectl exec "$pod" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl ovsdb-server/get-db-storage-status OVN_Southbound`
+    sbstatus=`kubectl exec "$pod" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl ovsdb-server/get-db-storage-status OVN_Southbound`
     echo "sb db status $sbstatus"
   done
 }
@@ -872,10 +872,10 @@ checkDaemonSet(){
   isfailed=true
   for i in {0..29}
   do
-    currentScheduled=$(kubectl get ds -n $KUBE_OVN_NS "$name" -o jsonpath={.status.currentNumberScheduled})
-    desiredScheduled=$(kubectl get ds -n $KUBE_OVN_NS "$name" -o jsonpath={.status.desiredNumberScheduled})
-    available=$(kubectl get ds -n $KUBE_OVN_NS "$name" -o jsonpath={.status.numberAvailable})
-    ready=$(kubectl get ds -n $KUBE_OVN_NS "$name" -o jsonpath={.status.numberReady})
+    currentScheduled=$(kubectl get ds -n $FABRIC_NS "$name" -o jsonpath={.status.currentNumberScheduled})
+    desiredScheduled=$(kubectl get ds -n $FABRIC_NS "$name" -o jsonpath={.status.desiredNumberScheduled})
+    available=$(kubectl get ds -n $FABRIC_NS "$name" -o jsonpath={.status.numberAvailable})
+    ready=$(kubectl get ds -n $FABRIC_NS "$name" -o jsonpath={.status.numberReady})
     if [ "$currentScheduled" = "$desiredScheduled" ] && [ "$desiredScheduled" = "$available" ] && [ "$available" = "$ready" ]; then
       echo "ds $name ready"
       isfailed=false
@@ -894,10 +894,10 @@ checkDeployment(){
   isfailed=true
   for i in {0..29}
   do
-    ready=$(kubectl get deployment -n $KUBE_OVN_NS "$name" -o jsonpath={.status.readyReplicas})
-    updated=$(kubectl get deployment -n $KUBE_OVN_NS "$name" -o jsonpath={.status.updatedReplicas})
-    desire=$(kubectl get deployment -n $KUBE_OVN_NS "$name" -o jsonpath={.status.replicas})
-    available=$(kubectl get deployment -n $KUBE_OVN_NS "$name" -o jsonpath={.status.availableReplicas})
+    ready=$(kubectl get deployment -n $FABRIC_NS "$name" -o jsonpath={.status.readyReplicas})
+    updated=$(kubectl get deployment -n $FABRIC_NS "$name" -o jsonpath={.status.updatedReplicas})
+    desire=$(kubectl get deployment -n $FABRIC_NS "$name" -o jsonpath={.status.replicas})
+    available=$(kubectl get deployment -n $FABRIC_NS "$name" -o jsonpath={.status.availableReplicas})
     if [ "$ready" = "$updated" ] && [ "$updated" = "$desire" ] && [ "$desire" = "$available" ]; then
       echo "deployment $name ready"
       isfailed=false
@@ -915,14 +915,14 @@ checkKubeProxy(){
     checkDaemonSet kube-proxy
   else
     for node in $(kubectl get node --no-headers -o custom-columns=NAME:.metadata.name); do
-      local pod=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
-      local ip=$(kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].status.podIP}')
+      local pod=$(kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].metadata.name}')
+      local ip=$(kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[?(@.spec.nodeName=="'$node'")].status.podIP}')
       local arg=""
       if [[ $ip =~ .*:.* ]]; then
         arg="g6"
         ip="[$ip]"
       fi
-      healthResult=$(kubectl -n $KUBE_OVN_NS exec $pod -- curl -s${arg} -m 3 -w %{http_code} http://$ip:10256/healthz -o /dev/null | grep -v 200 || true)
+      healthResult=$(kubectl -n $FABRIC_NS exec $pod -- curl -s${arg} -m 3 -w %{http_code} http://$ip:10256/healthz -o /dev/null | grep -v 200 || true)
       if [ -n "$healthResult" ]; then
         echo "$node kube-proxy's health check failed"
         exit 1
@@ -940,16 +940,16 @@ dbtool(){
     nb)
       case $action in
         status)
-          kubectl exec "$OVN_NB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
-          kubectl exec "$OVN_NB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl ovsdb-server/get-db-storage-status OVN_Northbound
+          kubectl exec "$OVN_NB_POD" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
+          kubectl exec "$OVN_NB_POD" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl ovsdb-server/get-db-storage-status OVN_Northbound
           ;;
         kick)
-          kubectl exec "$OVN_NB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl cluster/kick OVN_Northbound "$1"
+          kubectl exec "$OVN_NB_POD" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnnb_db.ctl cluster/kick OVN_Northbound "$1"
           ;;
         backup)
-          kubectl exec "$OVN_NB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovsdb-tool cluster-to-standalone /etc/ovn/ovnnb_db.$suffix.backup /etc/ovn/ovnnb_db.db
-          kubectl cp $KUBE_OVN_NS/$OVN_NB_POD:/etc/ovn/ovnnb_db.$suffix.backup $(pwd)/ovnnb_db.$suffix.backup
-          kubectl exec "$OVN_NB_POD" -n $KUBE_OVN_NS -c ovn-central -- rm -f /etc/ovn/ovnnb_db.$suffix.backup
+          kubectl exec "$OVN_NB_POD" -n $FABRIC_NS -c ovn-central -- ovsdb-tool cluster-to-standalone /etc/ovn/ovnnb_db.$suffix.backup /etc/ovn/ovnnb_db.db
+          kubectl cp $FABRIC_NS/$OVN_NB_POD:/etc/ovn/ovnnb_db.$suffix.backup $(pwd)/ovnnb_db.$suffix.backup
+          kubectl exec "$OVN_NB_POD" -n $FABRIC_NS -c ovn-central -- rm -f /etc/ovn/ovnnb_db.$suffix.backup
           echo "backup ovn-$component db to $(pwd)/ovnnb_db.$suffix.backup"
           ;;
         dbstatus)
@@ -957,8 +957,8 @@ dbtool(){
           ;;
         restore)
           # set ovn-central replicas to 0
-          replicas=$(kubectl get deployment -n $KUBE_OVN_NS ovn-central -o jsonpath={.spec.replicas})
-          kubectl scale deployment -n $KUBE_OVN_NS ovn-central --replicas=0
+          replicas=$(kubectl get deployment -n $FABRIC_NS ovn-central -o jsonpath={.spec.replicas})
+          kubectl scale deployment -n $FABRIC_NS ovn-central --replicas=0
           echo "ovn-central original replicas is $replicas"
 
           # backup ovn-nb db
@@ -966,14 +966,14 @@ dbtool(){
           declare podNameArray
           declare nodeIps
 
-          if [[ $(kubectl get deployment -n $KUBE_OVN_NS ovn-central -o jsonpath='{.spec.template.spec.containers[0].env[1]}') =~ "NODE_IPS" ]]; then
-            nodeIpVals=`kubectl get deployment -n $KUBE_OVN_NS ovn-central -o jsonpath='{.spec.template.spec.containers[0].env[1].value}'`
+          if [[ $(kubectl get deployment -n $FABRIC_NS ovn-central -o jsonpath='{.spec.template.spec.containers[0].env[1]}') =~ "NODE_IPS" ]]; then
+            nodeIpVals=`kubectl get deployment -n $FABRIC_NS ovn-central -o jsonpath='{.spec.template.spec.containers[0].env[1].value}'`
             nodeIps=(${nodeIpVals//,/ })
           else
             nodeIps=`kubectl get node -lfabric/role=master -o wide | grep -v "INTERNAL-IP" | awk '{print $6}'`
           fi
           firstIP=${nodeIps[0]}
-          podNames=`kubectl get pod -n $KUBE_OVN_NS | grep ovs-ovn | awk '{print $1}'`
+          podNames=`kubectl get pod -n $FABRIC_NS | grep ovs-ovn | awk '{print $1}'`
           echo "first nodeIP is $firstIP"
 
           i=0
@@ -981,7 +981,7 @@ dbtool(){
           do
             for pod in $podNames
             do
-              hostip=$(kubectl get pod -n $KUBE_OVN_NS $pod -o jsonpath={.status.hostIP})
+              hostip=$(kubectl get pod -n $FABRIC_NS $pod -o jsonpath={.status.hostIP})
               if [ $nodeIp = $hostip ]; then
                 nodeIpArray[$i]=$nodeIp
                 podNameArray[$i]=$pod
@@ -993,32 +993,32 @@ dbtool(){
           done
 
           echo "backup nb db file"
-          kubectl exec -it -n $KUBE_OVN_NS ${podNameArray[0]} -- ovsdb-tool cluster-to-standalone  /etc/ovn/ovnnb_db_standalone.db  /etc/ovn/ovnnb_db.db
+          kubectl exec -it -n $FABRIC_NS ${podNameArray[0]} -- ovsdb-tool cluster-to-standalone  /etc/ovn/ovnnb_db_standalone.db  /etc/ovn/ovnnb_db.db
 
           # mv all db files
           for pod in ${podNameArray[@]}
           do
-            kubectl exec -it -n $KUBE_OVN_NS $pod -- mv -f /etc/ovn/ovnnb_db.db /tmp
-            kubectl exec -it -n $KUBE_OVN_NS $pod -- mv -f /etc/ovn/ovnsb_db.db /tmp
+            kubectl exec -it -n $FABRIC_NS $pod -- mv -f /etc/ovn/ovnnb_db.db /tmp
+            kubectl exec -it -n $FABRIC_NS $pod -- mv -f /etc/ovn/ovnsb_db.db /tmp
           done
 
           # restore db and replicas
           echo "restore nb db file, operate in pod ${podNameArray[0]}"
-          kubectl exec -it -n $KUBE_OVN_NS ${podNameArray[0]} -- mv -f /etc/ovn/ovnnb_db_standalone.db /etc/ovn/ovnnb_db.db
-          kubectl scale deployment -n $KUBE_OVN_NS ovn-central --replicas=$replicas
+          kubectl exec -it -n $FABRIC_NS ${podNameArray[0]} -- mv -f /etc/ovn/ovnnb_db_standalone.db /etc/ovn/ovnnb_db.db
+          kubectl scale deployment -n $FABRIC_NS ovn-central --replicas=$replicas
 
           # wait ovn-central pods running
-          availableNum=$(kubectl get deployment -n $KUBE_OVN_NS | grep ovn-central | awk {'print $4'})
+          availableNum=$(kubectl get deployment -n $FABRIC_NS | grep ovn-central | awk {'print $4'})
           while [ $availableNum != $replicas ]
           do
-            availableNum=$(kubectl get deployment -n $KUBE_OVN_NS | grep ovn-central | awk {'print $4'})
+            availableNum=$(kubectl get deployment -n $FABRIC_NS | grep ovn-central | awk {'print $4'})
             echo "wait all ovn-central pods running, available $availableNum"
             sleep 1
           done
           echo "finish restore nb db file and ovn-central replicas"
 
           echo "restart ovs-ovn"
-          kubectl -n $KUBE_OVN_NS rollout restart ds ovs-ovn
+          kubectl -n $FABRIC_NS rollout restart ds ovs-ovn
           ;;
         *)
           echo "unknown action $action"
@@ -1027,16 +1027,16 @@ dbtool(){
     sb)
       case $action in
         status)
-          kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl cluster/status OVN_Southbound
-          kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl ovsdb-server/get-db-storage-status OVN_Southbound
+          kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl cluster/status OVN_Southbound
+          kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl ovsdb-server/get-db-storage-status OVN_Southbound
           ;;
         kick)
-          kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl cluster/kick OVN_Southbound "$1"
+          kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-appctl -t /var/run/ovn/ovnsb_db.ctl cluster/kick OVN_Southbound "$1"
           ;;
         backup)
-          kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovsdb-tool cluster-to-standalone /etc/ovn/ovnsb_db.$suffix.backup /etc/ovn/ovnsb_db.db
-          kubectl cp $KUBE_OVN_NS/$OVN_SB_POD:/etc/ovn/ovnsb_db.$suffix.backup $(pwd)/ovnsb_db.$suffix.backup
-          kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- rm -f /etc/ovn/ovnsb_db.$suffix.backup
+          kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovsdb-tool cluster-to-standalone /etc/ovn/ovnsb_db.$suffix.backup /etc/ovn/ovnsb_db.db
+          kubectl cp $FABRIC_NS/$OVN_SB_POD:/etc/ovn/ovnsb_db.$suffix.backup $(pwd)/ovnsb_db.$suffix.backup
+          kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- rm -f /etc/ovn/ovnsb_db.$suffix.backup
           echo "backup ovn-$component db to $(pwd)/ovnsb_db.$suffix.backup"
           ;;
         dbstatus)
@@ -1055,60 +1055,60 @@ dbtool(){
 }
 
 reload(){
-  kubectl delete pod -n $KUBE_OVN_NS -l app=ovn-central
-  kubectl rollout status deployment/ovn-central -n $KUBE_OVN_NS
-  kubectl rollout restart daemonset/ovs-ovn -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-controller
-  kubectl rollout status deployment/fabric-controller -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-cni
-  kubectl rollout status daemonset/fabric-cni -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-pinger
-  kubectl rollout status daemonset/fabric-pinger -n $KUBE_OVN_NS
-  kubectl delete pod -n $KUBE_OVN_NS -l app=fabric-monitor
-  kubectl rollout status deployment/fabric-monitor -n $KUBE_OVN_NS
+  kubectl delete pod -n $FABRIC_NS -l app=ovn-central
+  kubectl rollout status deployment/ovn-central -n $FABRIC_NS
+  kubectl rollout restart daemonset/ovs-ovn -n $FABRIC_NS
+  kubectl delete pod -n $FABRIC_NS -l app=fabric-controller
+  kubectl rollout status deployment/fabric-controller -n $FABRIC_NS
+  kubectl delete pod -n $FABRIC_NS -l app=fabric-cni
+  kubectl rollout status daemonset/fabric-cni -n $FABRIC_NS
+  kubectl delete pod -n $FABRIC_NS -l app=fabric-pinger
+  kubectl rollout status daemonset/fabric-pinger -n $FABRIC_NS
+  kubectl delete pod -n $FABRIC_NS -l app=fabric-monitor
+  kubectl rollout status deployment/fabric-monitor -n $FABRIC_NS
 }
 
 env-check(){
   set +e
 
-  KUBE_OVN_NS=${KUBE_OVN_NS:-kube-system}
-  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
+  FABRIC_NS=${FABRIC_NS:-kube-system}
+  podNames=`kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
   for pod in $podNames; do
-    nodeName=$(kubectl get pod $pod -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
+    nodeName=$(kubectl get pod $pod -n $FABRIC_NS -o jsonpath={.spec.nodeName})
     echo "************************************************"
     echo "Start environment check for node $nodeName"
     echo "************************************************"
-    kubectl exec -it -n $KUBE_OVN_NS $pod -c cni-server -- bash /fabric/env-check.sh
+    kubectl exec -it -n $FABRIC_NS $pod -c cni-server -- bash /fabric/env-check.sh
   done
 }
 
 init_dir() {
     mkdir -p kubectl-ko-log
-    podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
+    podNames=`kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
     for pod in $podNames; do
-      nodeName=$(kubectl get pod "$pod" -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
+      nodeName=$(kubectl get pod "$pod" -n $FABRIC_NS -o jsonpath={.spec.nodeName})
       mkdir -p ./kubectl-ko-log/$nodeName/
     done
 }
 
-log_kube_ovn(){
+log_fabric(){
   echo "Collecting fabric logging files"
-  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
+  podNames=`kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
   for pod in $podNames; do
-    nodeName=$(kubectl get pod "$pod" -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
+    nodeName=$(kubectl get pod "$pod" -n $FABRIC_NS -o jsonpath={.spec.nodeName})
     mkdir -p ./kubectl-ko-log/$nodeName/fabric
-    kubectl cp $pod:/var/log/fabric ./kubectl-ko-log/$nodeName/fabric -n $KUBE_OVN_NS -c cni-server > /dev/null || :
+    kubectl cp $pod:/var/log/fabric ./kubectl-ko-log/$nodeName/fabric -n $FABRIC_NS -c cni-server > /dev/null || :
   done
 }
 
 log_ovn_ovs(){
   component_param=$1
   echo "Collecting $component_param logging files"
-  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=ovs -o 'jsonpath={.items[*].metadata.name}'`
+  podNames=`kubectl get pod -n $FABRIC_NS -l app=ovs -o 'jsonpath={.items[*].metadata.name}'`
   for pod in $podNames; do
-    nodeName=$(kubectl get pod "$pod" -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
+    nodeName=$(kubectl get pod "$pod" -n $FABRIC_NS -o jsonpath={.spec.nodeName})
     mkdir -p ./kubectl-ko-log/$nodeName/$component_param
-    kubectl cp $pod:/var/log/$component_param ./kubectl-ko-log/$nodeName/$component_param -n $KUBE_OVN_NS > /dev/null || :
+    kubectl cp $pod:/var/log/$component_param ./kubectl-ko-log/$nodeName/$component_param -n $FABRIC_NS > /dev/null || :
   done
 }
 
@@ -1116,83 +1116,83 @@ log_linux(){
   component_param=$1
   sub_component_param=$2
   echo "Collecting $component_param $sub_component_param files"
-  podNames=`kubectl get pod -n $KUBE_OVN_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
+  podNames=`kubectl get pod -n $FABRIC_NS -l app=fabric-cni -o 'jsonpath={.items[*].metadata.name}'`
   for pod in $podNames; do
-    nodeName=$(kubectl get pod "$pod" -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
+    nodeName=$(kubectl get pod "$pod" -n $FABRIC_NS -o jsonpath={.spec.nodeName})
     mkdir -p ./kubectl-ko-log/$nodeName/$component_param
     case $sub_component_param in
       dmesg)
-        kubectl exec $pod -n $KUBE_OVN_NS -- dmesg -T > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- dmesg -T > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       iptables-legacy)
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/iptables-legacy -V > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/iptables-legacy -V > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** legacy filter v4 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/iptables-legacy -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/iptables-legacy -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** legacy nat v4 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/iptables-legacy -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/iptables-legacy -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** legacy filter v6 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/ip6tables-legacy -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/ip6tables-legacy -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** legacy nat v6 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/ip6tables-legacy -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/ip6tables-legacy -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       iptables-nft)
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/iptables-nft -V > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/iptables-nft -V > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** nft filter v4 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/iptables-nft -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/iptables-nft -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** nft nat v4 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/iptables-nft -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/iptables-nft -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** nft filter v6 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/ip6tables-nft -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/ip6tables-nft -S >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** nft nat v6 ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- /usr/sbin/ip6tables-nft -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- /usr/sbin/ip6tables-nft -S -t nat >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       route)
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip -4 route show > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip -6 route show >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip -4 route show > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip -6 route show >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       link)
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip -d -s link show > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip -d -s link show > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       neigh)
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip -4 n > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip -6 n >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip -4 n > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip -6 n >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       xfrm)
         echo "****************** policy ******************" > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip xfrm policy >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip xfrm policy >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** state ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip xfrm state >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip xfrm state >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       memory)
-        kubectl exec $pod -n $KUBE_OVN_NS -- free -m > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- free -m > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       top)
-        kubectl exec $pod -n $KUBE_OVN_NS -- top -b -n 1 > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- top -b -n 1 > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       sysctl)
-        kubectl exec $pod -n $KUBE_OVN_NS -- sysctl -a > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- sysctl -a > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       netstat)
-        kubectl exec $pod -n $KUBE_OVN_NS -- netstat -tunlp > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- netstat -tunlp > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       addr)
-        kubectl exec $pod -n $KUBE_OVN_NS -- ip addr show > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ip addr show > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       ipset)
-        kubectl exec $pod -n $KUBE_OVN_NS -- ipset list > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ipset list > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       tcp)
-        kubectl exec $pod -n $KUBE_OVN_NS -- cat /proc/net/sockstat > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- cat /proc/net/sockstat > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
       ipsec)
         echo "****************** config ******************" > ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- cat /etc/ipsec.conf >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- cat /etc/ipsec.conf >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** ca certs ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- ipsec listcacerts >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ipsec listcacerts >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** certs ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- ipsec listcerts >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ipsec listcerts >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         echo "****************** status ******************" >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log
-        kubectl exec $pod -n $KUBE_OVN_NS -- ipsec statusall >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
+        kubectl exec $pod -n $FABRIC_NS -- ipsec statusall >> ./kubectl-ko-log/$nodeName/$component_param/$sub_component_param.log || :
         ;;
     esac
   done
@@ -1233,7 +1233,7 @@ log(){
   init_dir
 
   if [[ "$component" == "fabric" || "$component" == "all" ]]; then
-    log_kube_ovn
+    log_fabric
   fi
 
   if [[ "$component" == "ovn" || "$component" == "all" ]]; then
@@ -1262,7 +1262,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: $podName
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
   labels:
     app: $PERF_LABEL
     env: server
@@ -1293,7 +1293,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: $podName
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
   labels:
     app: $PERF_LABEL
 spec:
@@ -1324,7 +1324,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: $podName
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
   labels:
     app: $PERF_LABEL
 spec:
@@ -1350,7 +1350,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: $podName
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
   labels:
     app: $PERF_LABEL
 spec:
@@ -1377,7 +1377,7 @@ metadata:
   labels:
     app: $PERF_LABEL
   name: $svcName
-  namespace: $KUBE_OVN_NS
+  namespace: $FABRIC_NS
 spec:
   ports:
     - port: 19765
@@ -1434,8 +1434,8 @@ quitPerfTest() {
         eval "$item"
     done
   fi
-  kubectl delete pods -l app=$PERF_LABEL -n $KUBE_OVN_NS
-  kubectl delete svc -l app=$PERF_LABEL -n $KUBE_OVN_NS
+  kubectl delete pods -l app=$PERF_LABEL -n $FABRIC_NS
+  kubectl delete svc -l app=$PERF_LABEL -n $FABRIC_NS
 
   local pids=($(ps -ef | grep -v "kubectl exec" | grep "iperf -s -B 224.0.0.100 -i 1 -u" | grep -v grep | awk '{print $2}'))
   if [ ! ${#pids[@]} -eq 0 ]; then
@@ -1472,7 +1472,7 @@ perf(){
   isfailed=true
   for i in {0..300}
   do
-    if kubectl wait pod --for=condition=Ready -l app=$PERF_LABEL -n $KUBE_OVN_NS 2>/dev/null ; then
+    if kubectl wait pod --for=condition=Ready -l app=$PERF_LABEL -n $FABRIC_NS 2>/dev/null ; then
       isfailed=false
       break
     fi
@@ -1485,9 +1485,9 @@ perf(){
   fi
   addEndDecoration
 
-  local serverPodIP=$(kubectl get pod test-server -n $KUBE_OVN_NS -o jsonpath={.status.podIP})
-  local hostserverPodIP=$(kubectl get pod test-host-server -n $KUBE_OVN_NS -o jsonpath={.status.podIP})
-  local svcIP=$(kubectl get svc test-server -n $KUBE_OVN_NS -o jsonpath={.spec.clusterIP})
+  local serverPodIP=$(kubectl get pod test-server -n $FABRIC_NS -o jsonpath={.status.podIP})
+  local hostserverPodIP=$(kubectl get pod test-host-server -n $FABRIC_NS -o jsonpath={.status.podIP})
+  local svcIP=$(kubectl get svc test-server -n $FABRIC_NS -o jsonpath={.spec.clusterIP})
 
   trap quitPerfTest EXIT
 
@@ -1534,16 +1534,16 @@ unicastPerfTest() {
   printf "%-15s %-15s %-15s %-15s %-15s %-15s\n" "Size" "TCP Latency" "TCP Bandwidth" "UDP Latency" "UDP Lost Rate" "UDP Bandwidth"
   for size in "64" "128" "512" "1k" "4k"
   do
-    kubectl exec $clientPodName -n $KUBE_OVN_NS -- qperf -t $PERF_TIMES $serverIP -ub -oo msg_size:$size -vu tcp_lat udp_lat > $tmpFileName 2> /dev/null
+    kubectl exec $clientPodName -n $FABRIC_NS -- qperf -t $PERF_TIMES $serverIP -ub -oo msg_size:$size -vu tcp_lat udp_lat > $tmpFileName 2> /dev/null
     formattedInput=$(cat $tmpFileName | tr -d '\n' | tr -s ' ')
     tcpLat=$(echo $formattedInput | grep -oP 'tcp_lat: latency = \K[\d.]+ (us|ms|sec)')
     udpLat=$(echo $formattedInput | grep -oP 'udp_lat: latency = \K[\d.]+ (us|ms|sec)')
 
-    kubectl exec $clientPodName -n $KUBE_OVN_NS -- iperf3 -c $serverIP -u -t $PERF_TIMES -i 1 -P 10 -b 1000G -l $size > $tmpFileName 2> /dev/null
+    kubectl exec $clientPodName -n $FABRIC_NS -- iperf3 -c $serverIP -u -t $PERF_TIMES -i 1 -P 10 -b 1000G -l $size > $tmpFileName 2> /dev/null
     udpBw=$(cat $tmpFileName | grep -oP '\d+\.?\d* [KMG]bits/sec' | tail -n 1)
     udpLostRate=$(cat $tmpFileName | grep -oP '\(\d+(\.\d+)?%\)' | tail -n 1)
 
-    kubectl exec $clientPodName -n $KUBE_OVN_NS -- iperf3 -c $serverIP -t $PERF_TIMES -i 1 -P 10 -l $size > $tmpFileName 2> /dev/null
+    kubectl exec $clientPodName -n $FABRIC_NS -- iperf3 -c $serverIP -t $PERF_TIMES -i 1 -P 10 -l $size > $tmpFileName 2> /dev/null
     tcpBw=$(cat $tmpFileName | grep -oP '\d+\.?\d* [KMG]bits/sec' | tail -n 1)
     printf "%-15s %-15s %-15s %-15s %-15s %-15s\n" "$size" "$tcpLat" "$tcpBw" "$udpLat" "$udpLostRate" "$udpBw"
   done
@@ -1553,38 +1553,38 @@ getAddressNic() {
   podName=$1
   ipAddress=$2
 
-  interface=$(kubectl exec $podName -n $KUBE_OVN_NS -- ip -o addr show | awk '{split($4, a, "/"); print $2, a[1]}' | awk -v ip="$ipAddress" '$0 ~ ip {print $1}')
+  interface=$(kubectl exec $podName -n $FABRIC_NS -- ip -o addr show | awk '{split($4, a, "/"); print $2, a[1]}' | awk -v ip="$ipAddress" '$0 ~ ip {print $1}')
   echo "$interface"
 }
 
 multicastHostPerfTest() {
-  clientNode=$(kubectl get pod test-host-client -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
-  serverNode=$(kubectl get pod test-host-server -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
+  clientNode=$(kubectl get pod test-host-client -n $FABRIC_NS -o jsonpath={.spec.nodeName})
+  serverNode=$(kubectl get pod test-host-server -n $FABRIC_NS -o jsonpath={.spec.nodeName})
 
-  clientHostIP=$(kubectl get pod test-host-client -n $KUBE_OVN_NS -o jsonpath={.status.hostIP})
-  serverHostIP=$(kubectl get pod test-host-server -n $KUBE_OVN_NS -o jsonpath={.status.hostIP})
+  clientHostIP=$(kubectl get pod test-host-client -n $FABRIC_NS -o jsonpath={.status.hostIP})
+  serverHostIP=$(kubectl get pod test-host-server -n $FABRIC_NS -o jsonpath={.status.hostIP})
 
   clientNic=$(getAddressNic test-host-client $clientHostIP)
   serverNic=$(getAddressNic test-host-server $serverHostIP)
 
   clientovsPod=$(kubectl get pod -owide -A |grep ovs-ovn | grep $clientNode | awk '{print $2}')
-  PERF_GC_COMMAND+=("kubectl exec $clientovsPod -n $KUBE_OVN_NS -- ip maddr del 01:00:5e:00:00:64 dev $clientNic")
-  kubectl exec $clientovsPod -n $KUBE_OVN_NS -- ip maddr add 01:00:5e:00:00:64 dev $clientNic
+  PERF_GC_COMMAND+=("kubectl exec $clientovsPod -n $FABRIC_NS -- ip maddr del 01:00:5e:00:00:64 dev $clientNic")
+  kubectl exec $clientovsPod -n $FABRIC_NS -- ip maddr add 01:00:5e:00:00:64 dev $clientNic
   serverovsPod=$(kubectl get pod -owide -A |grep ovs-ovn | grep $serverNode | awk '{print $2}')
-  PERF_GC_COMMAND+=("kubectl exec $serverovsPod -n $KUBE_OVN_NS -- ip maddr del 01:00:5e:00:00:64 dev $serverNic")
-  kubectl exec $serverovsPod -n $KUBE_OVN_NS -- ip maddr add 01:00:5e:00:00:64 dev $serverNic
+  PERF_GC_COMMAND+=("kubectl exec $serverovsPod -n $FABRIC_NS -- ip maddr del 01:00:5e:00:00:64 dev $serverNic")
+  kubectl exec $serverovsPod -n $FABRIC_NS -- ip maddr add 01:00:5e:00:00:64 dev $serverNic
   genMulticastPerfResult test-host-server test-host-client
 }
 
 multicastPerfTest() {
-  clientNode=$(kubectl get pod test-client -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
-  serverNode=$(kubectl get pod test-server -n $KUBE_OVN_NS -o jsonpath={.spec.nodeName})
-  clientNs=$(kubectl ko vsctl $clientNode --column=external_ids find interface external_ids:iface-id=test-client.$KUBE_OVN_NS | awk -F 'pod_netns=' '{print $2}' | grep -o 'cni-[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}')
-  serverNs=$(kubectl ko vsctl $serverNode --column=external_ids find interface external_ids:iface-id=test-server.$KUBE_OVN_NS | awk -F 'pod_netns=' '{print $2}' | grep -o 'cni-[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}')
+  clientNode=$(kubectl get pod test-client -n $FABRIC_NS -o jsonpath={.spec.nodeName})
+  serverNode=$(kubectl get pod test-server -n $FABRIC_NS -o jsonpath={.spec.nodeName})
+  clientNs=$(kubectl ko vsctl $clientNode --column=external_ids find interface external_ids:iface-id=test-client.$FABRIC_NS | awk -F 'pod_netns=' '{print $2}' | grep -o 'cni-[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}')
+  serverNs=$(kubectl ko vsctl $serverNode --column=external_ids find interface external_ids:iface-id=test-server.$FABRIC_NS | awk -F 'pod_netns=' '{print $2}' | grep -o 'cni-[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}')
   clientovsPod=$(kubectl get pod -owide -A |grep ovs-ovn | grep $clientNode | awk '{print $2}')
-  kubectl exec $clientovsPod -n $KUBE_OVN_NS -- ip netns exec $clientNs ip maddr add 01:00:5e:00:00:64 dev eth0
+  kubectl exec $clientovsPod -n $FABRIC_NS -- ip netns exec $clientNs ip maddr add 01:00:5e:00:00:64 dev eth0
   serverovsPod=$(kubectl get pod -owide -A |grep ovs-ovn | grep $serverNode | awk '{print $2}')
-  kubectl exec $serverovsPod -n $KUBE_OVN_NS -- ip netns exec $serverNs ip maddr add 01:00:5e:00:00:64 dev eth0
+  kubectl exec $serverovsPod -n $FABRIC_NS -- ip netns exec $serverNs ip maddr add 01:00:5e:00:00:64 dev eth0
   genMulticastPerfResult test-server test-client
 }
 
@@ -1596,16 +1596,16 @@ genMulticastPerfResult() {
   LAST_PERF_FAILED_LOG=$tmpFileName
 
   start_server_cmd="iperf -s -B 224.0.0.100 -i 1 -u"
-  kubectl exec $serverName -n $KUBE_OVN_NS -- $start_server_cmd > $tmpFileName &
+  kubectl exec $serverName -n $FABRIC_NS -- $start_server_cmd > $tmpFileName &
   sleep 1
 
   printf "%-15s %-15s %-15s %-15s\n" "Size" "UDP Latency" "UDP Lost Rate" "UDP Bandwidth"
   for size in "64" "128" "512" "1k" "4k"
   do
-    kubectl exec $clientName -n $KUBE_OVN_NS -- iperf -c 224.0.0.100 -u -T 32 -t $PERF_TIMES -i 1 -b 1000G -l $size > /dev/null
+    kubectl exec $clientName -n $FABRIC_NS -- iperf -c 224.0.0.100 -u -T 32 -t $PERF_TIMES -i 1 -b 1000G -l $size > /dev/null
     udpBw=$(cat $tmpFileName | grep -oP '\d+\.?\d* [KMG]bits/sec' | tail -n 1)
     udpLostRate=$(cat $tmpFileName |grep -oP '\(\d+(\.\d+)?%\)' | tail -n 1)
-    kubectl exec $clientName -n $KUBE_OVN_NS -- iperf -c 224.0.0.100 -u -T 32 -t $PERF_TIMES -i 1 -l $size > /dev/null
+    kubectl exec $clientName -n $FABRIC_NS -- iperf -c 224.0.0.100 -u -T 32 -t $PERF_TIMES -i 1 -l $size > /dev/null
     udpLat=$(cat $tmpFileName | grep -oP '\d+\.?\d* ms' | tail -n 1)
     printf "%-15s %-15s %-15s %-15s\n" "$size" "$udpLat" "$udpLostRate" "$udpBw"
   done
@@ -1627,18 +1627,18 @@ getPodRecoverTime(){
   start_time=$(date +%s.%N)
   echo "Delete ovn central $component_name pod"
   if [[ $component_name == "nb" ]]; then
-    kubectl delete pod $OVN_NB_POD -n $KUBE_OVN_NS
+    kubectl delete pod $OVN_NB_POD -n $FABRIC_NS
   elif [[ $component_name == "sb" ]]; then
-    kubectl delete pod $OVN_SB_POD -n $KUBE_OVN_NS
+    kubectl delete pod $OVN_SB_POD -n $FABRIC_NS
   elif [[ $component_name == "northd" ]]; then
-    kubectl delete pod $OVN_NORTHD_POD -n $KUBE_OVN_NS
+    kubectl delete pod $OVN_NORTHD_POD -n $FABRIC_NS
   fi
   echo "Waiting for ovn central $component_name pod running"
-  replicas=$(kubectl get deployment -n $KUBE_OVN_NS ovn-central -o jsonpath={.spec.replicas})
-  availableNum=$(kubectl get deployment -n $KUBE_OVN_NS | grep ovn-central | awk {'print $4'})
+  replicas=$(kubectl get deployment -n $FABRIC_NS ovn-central -o jsonpath={.spec.replicas})
+  availableNum=$(kubectl get deployment -n $FABRIC_NS | grep ovn-central | awk {'print $4'})
   while [ $availableNum != $replicas ]
   do
-    availableNum=$(kubectl get deployment -n $KUBE_OVN_NS | grep ovn-central | awk {'print $4'})
+    availableNum=$(kubectl get deployment -n $FABRIC_NS | grep ovn-central | awk {'print $4'})
     sleep 0.001
   done
 
@@ -1658,19 +1658,19 @@ subcommand="$1"; shift
 case $subcommand in
   nbctl)
     getOvnCentralPod
-    kubectl exec "$OVN_NB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-nbctl "$@"
+    kubectl exec "$OVN_NB_POD" -n $FABRIC_NS -c ovn-central -- ovn-nbctl "$@"
     ;;
   sbctl)
     getOvnCentralPod
-    kubectl exec "$OVN_SB_POD" -n $KUBE_OVN_NS -c ovn-central -- ovn-sbctl "$@"
+    kubectl exec "$OVN_SB_POD" -n $FABRIC_NS -c ovn-central -- ovn-sbctl "$@"
     ;;
   icnbctl)
     getOVNICNBPod
-    kubectl exec "$OVN_IC_NB_POD" -n $KUBE_OVN_NS -- ovn-ic-nbctl "$@"
+    kubectl exec "$OVN_IC_NB_POD" -n $FABRIC_NS -- ovn-ic-nbctl "$@"
     ;;
   icsbctl)
     getOVNICSBPod
-    kubectl exec "$OVN_IC_SB_POD" -n $KUBE_OVN_NS -- ovn-ic-sbctl "$@"
+    kubectl exec "$OVN_IC_SB_POD" -n $FABRIC_NS -- ovn-ic-sbctl "$@"
     ;;
   vsctl|ofctl|dpctl|appctl)
     xxctl "$subcommand" "$@"

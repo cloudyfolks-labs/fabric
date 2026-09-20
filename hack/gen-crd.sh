@@ -10,7 +10,7 @@ go install sigs.k8s.io/controller-tools/cmd/controller-gen@"${CONTROLLER_TOOLS_V
 mkdir -p ./yamls/gen
 rm -f ./yamls/gen/*.yaml
 
-"${CONTROLLER_GEN_BIN}" crd:allowDangerousTypes=true paths=./pkg/apis/kubeovn/v1 output:crd:artifacts:config=./yamls/gen
+"${CONTROLLER_GEN_BIN}" crd:allowDangerousTypes=true paths=./pkg/apis/fabric/v1 output:crd:artifacts:config=./yamls/gen
 
 GEN_DIR="yamls/gen"
 BUNDLE_FILE="yamls/gen/fabric-crd.yaml"
@@ -55,8 +55,8 @@ awk '
   { print }
 ' "$BUNDLE_FILE" > "$CHART_CRD_PATH"
 
-START_ANCHOR="# BEGIN GENERATED KUBE-OVN CRD BUNDLE"
-END_ANCHOR="# END GENERATED KUBE-OVN CRD BUNDLE"
+START_ANCHOR="# BEGIN GENERATED FABRIC CRD BUNDLE"
+END_ANCHOR="# END GENERATED FABRIC CRD BUNDLE"
 
 awk -v start="$START_ANCHOR" -v end="$END_ANCHOR" -v bundle="$BUNDLE_FILE" '
     $0 ~ start {

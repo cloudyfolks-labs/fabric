@@ -12,7 +12,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	apiv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework"
 )
 
@@ -45,7 +45,7 @@ func CheckIptablesRulesOnNode(f *framework.Framework, node, table, chain, protoc
 func getOvsPodOnNode(f *framework.Framework, node string) *corev1.Pod {
 	ginkgo.GinkgoHelper()
 
-	daemonSetClient := f.DaemonSetClientNS(framework.KubeOvnNamespace)
+	daemonSetClient := f.DaemonSetClientNS(framework.FabricNamespace)
 	ds := daemonSetClient.Get("ovs-ovn")
 	pod, err := daemonSetClient.GetPodOnNode(ds, node)
 	framework.ExpectNoError(err)

@@ -1,4 +1,4 @@
-suite: Immutable selectors carried over from kube-ovn
+suite: Immutable selectors inherited from upstream Kube-OVN
 templates:
   - ovs-ovn/ovs-ovn-daemonset.yaml
   - ovs-ovn/ovs-ovn-dpdk-daemonset.yaml
@@ -8,7 +8,7 @@ templates:
   - central/southbound-service.yaml
   - central/northd-service.yaml
 tests:
-  - it: keeps the kube-ovn selector on the ovs-ovn daemonset
+  - it: keeps the upstream Kube-OVN selector on the ovs-ovn daemonset
     template: ovs-ovn/ovs-ovn-daemonset.yaml
     set:
       masterNodes:
@@ -26,7 +26,7 @@ tests:
           path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
           value: kube-ovn
 
-  - it: keeps the kube-ovn selector on the ovs-ovn-dpdk daemonset
+  - it: keeps the upstream Kube-OVN selector on the ovs-ovn-dpdk daemonset
     template: ovs-ovn/ovs-ovn-dpdk-daemonset.yaml
     set:
       masterNodes:
@@ -45,7 +45,7 @@ tests:
           path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
           value: kube-ovn
 
-  - it: keeps the kube-ovn selector on the ovn-central deployment
+  - it: keeps the upstream Kube-OVN selector on the ovn-central deployment
     template: central/central-deployment.yaml
     set:
       masterNodes:
@@ -63,7 +63,7 @@ tests:
           path: spec.template.metadata.labels["app.kubernetes.io/part-of"]
           value: kube-ovn
 
-  - it: keeps the kube-ovn selector on the ovn-central statefulset and its claims
+  - it: keeps the upstream Kube-OVN selector on the ovn-central statefulset and its claims
     template: central/central-deployment.yaml
     set:
       masterNodes:

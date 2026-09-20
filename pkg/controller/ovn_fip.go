@@ -16,13 +16,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnnb"
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
 func (c *Controller) enqueueAddOvnFip(obj any) {
-	fip := obj.(*kubeovnv1.OvnFip)
+	fip := obj.(*fabricv1.OvnFip)
 	key := cache.MetaObjectToName(fip).String()
 	// A terminating object reconciles via the update queue for cleanup (handleAdd skips it; resync=0).
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnFipQueue, key, "ovn fip", fip.DeletionTimestamp, fip.GetFinalizers()) {
@@ -33,12 +33,12 @@ func (c *Controller) enqueueAddOvnFip(obj any) {
 }
 
 func (c *Controller) enqueueUpdateOvnFip(oldObj, newObj any) {
-	newFip := newObj.(*kubeovnv1.OvnFip)
+	newFip := newObj.(*fabricv1.OvnFip)
 	key := cache.MetaObjectToName(newFip).String()
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnFipQueue, key, "ovn fip", newFip.DeletionTimestamp, newFip.GetFinalizers()) {
 		return
 	}
-	oldFip := oldObj.(*kubeovnv1.OvnFip)
+	oldFip := oldObj.(*fabricv1.OvnFip)
 	if oldFip.Spec.OvnEip != newFip.Spec.OvnEip {
 		// enqueue to reset eip to be clean
 		klog.Infof("enqueue reset old ovn eip %s", oldFip.Spec.OvnEip)
@@ -53,12 +53,12 @@ func (c *Controller) enqueueUpdateOvnFip(oldObj, newObj any) {
 }
 
 func (c *Controller) enqueueDelOvnFip(obj any) {
-	var fip *kubeovnv1.OvnFip
+	var fip *fabricv1.OvnFip
 	switch t := obj.(type) {
-	case *kubeovnv1.OvnFip:
+	case *fabricv1.OvnFip:
 		fip = t
 	case cache.DeletedFinalStateUnknown:
-		f, ok := t.Obj.(*kubeovnv1.OvnFip)
+		f, ok := t.Obj.(*fabricv1.OvnFip)
 		if !ok {
 			klog.Warningf("unexpected object type: %T", t.Obj)
 			return
@@ -191,7 +191,7 @@ func (c *Controller) handleAddOvnFip(key string) error {
 		return err
 	}
 	// ovn add fip
-	stateless := cachedFip.Spec.Type == kubeovnv1.GWDistributedType
+	stateless := cachedFip.Spec.Type == fabricv1.GWDistributedType
 	options := map[string]string{"stateless": strconv.FormatBool(stateless)}
 	gatewayPort, err := c.natGatewayPort(vpcName, cachedEip.Spec.ExternalSubnet)
 	if err != nil {
@@ -487,7 +487,7 @@ func (c *Controller) patchOvnFipAnnotations(key, eipName string) error {
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/annotations", "value": %s }]`
 		raw, _ := json.Marshal(fip.Annotations)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
+		if _, err := c.config.FabricClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch annotation for ovn fip %s, %v", fip.Name, err)
 			return err
@@ -523,7 +523,7 @@ func (c *Controller) patchOvnFipStatus(key, vpcName, v4Eip, podIP string, ready 
 		patchPayloadTemplate := `[{ "op": "%s", "path": "/metadata/labels", "value": %s }]`
 		raw, _ := json.Marshal(fip.Labels)
 		patchPayload := fmt.Sprintf(patchPayloadTemplate, op, raw)
-		if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
+		if _, err := c.config.FabricClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
 			types.JSONPatchType, []byte(patchPayload), metav1.PatchOptions{}); err != nil {
 			klog.Errorf("failed to patch label for ovn fip %s, %v", fip.Name, err)
 			return err
@@ -552,7 +552,7 @@ func (c *Controller) patchOvnFipStatus(key, vpcName, v4Eip, podIP string, ready 
 			klog.Error(err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
+		if _, err = c.config.FabricClient.FabricV1().OvnFips().Patch(context.Background(), fip.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch fip %s, %v", fip.Name, err)
 			return err
@@ -564,7 +564,7 @@ func (c *Controller) patchOvnFipStatus(key, vpcName, v4Eip, podIP string, ready 
 // convergeOvnFipGatewayPort mirrors convergeOvnSnatGatewayPort for fip
 // rules: a Ready rule replayed as an add on controller start gets its
 // gateway_port re-derived instead of being skipped.
-func (c *Controller) convergeOvnFipGatewayPort(cachedFip *kubeovnv1.OvnFip) error {
+func (c *Controller) convergeOvnFipGatewayPort(cachedFip *fabricv1.OvnFip) error {
 	if cachedFip.Status.Vpc == "" {
 		return nil
 	}
@@ -587,7 +587,7 @@ func (c *Controller) convergeOvnFipGatewayPort(cachedFip *kubeovnv1.OvnFip) erro
 	return nil
 }
 
-func (c *Controller) GetOvnEip(eipName string) (*kubeovnv1.OvnEip, error) {
+func (c *Controller) GetOvnEip(eipName string) (*fabricv1.OvnEip, error) {
 	cachedEip, err := c.ovnEipsLister.Get(eipName)
 	if err != nil {
 		klog.Errorf("failed to get eip %s, %v", eipName, err)
@@ -603,7 +603,7 @@ func (c *Controller) GetOvnEip(eipName string) (*kubeovnv1.OvnEip, error) {
 
 func (c *Controller) syncOvnFipFinalizer(cl client.Client) error {
 	// migrate deprecated finalizer to new finalizer
-	fips := &kubeovnv1.OvnFipList{}
+	fips := &fabricv1.OvnFipList{}
 	return migrateFinalizers(cl, fips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(fips.Items) {
 			return nil, nil
@@ -612,20 +612,20 @@ func (c *Controller) syncOvnFipFinalizer(cl client.Client) error {
 	})
 }
 
-func (c *Controller) handleAddOvnFipFinalizer(cachedFip *kubeovnv1.OvnFip) error {
+func (c *Controller) handleAddOvnFipFinalizer(cachedFip *fabricv1.OvnFip) error {
 	if !cachedFip.DeletionTimestamp.IsZero() || len(cachedFip.GetFinalizers()) != 0 {
 		return nil
 	}
 	newFip := cachedFip.DeepCopy()
 	controllerutil.RemoveFinalizer(newFip, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newFip, util.LegacyControllerFinalizer)
-	controllerutil.AddFinalizer(newFip, util.KubeOVNControllerFinalizer)
+	controllerutil.AddFinalizer(newFip, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedFip, newFip)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ovn fip '%s', %v", cachedFip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), cachedFip.Name,
+	if _, err := c.config.FabricClient.FabricV1().OvnFips().Patch(context.Background(), cachedFip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -636,7 +636,7 @@ func (c *Controller) handleAddOvnFipFinalizer(cachedFip *kubeovnv1.OvnFip) error
 	return nil
 }
 
-func (c *Controller) handleDelOvnFipFinalizer(cachedFip *kubeovnv1.OvnFip) error {
+func (c *Controller) handleDelOvnFipFinalizer(cachedFip *fabricv1.OvnFip) error {
 	if len(cachedFip.GetFinalizers()) == 0 {
 		return nil
 	}
@@ -644,13 +644,13 @@ func (c *Controller) handleDelOvnFipFinalizer(cachedFip *kubeovnv1.OvnFip) error
 	newFip := cachedFip.DeepCopy()
 	controllerutil.RemoveFinalizer(newFip, util.DeprecatedFinalizerName)
 	controllerutil.RemoveFinalizer(newFip, util.LegacyControllerFinalizer)
-	controllerutil.RemoveFinalizer(newFip, util.KubeOVNControllerFinalizer)
+	controllerutil.RemoveFinalizer(newFip, util.FabricControllerFinalizer)
 	patch, err := util.GenerateMergePatchPayload(cachedFip, newFip)
 	if err != nil {
 		klog.Errorf("failed to generate patch payload for ovn fip '%s', %v", cachedFip.Name, err)
 		return err
 	}
-	if _, err := c.config.KubeOvnClient.FabricV1().OvnFips().Patch(context.Background(), cachedFip.Name,
+	if _, err := c.config.FabricClient.FabricV1().OvnFips().Patch(context.Background(), cachedFip.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, ""); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil

@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	kubeovnv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/kubeovn/v1"
+	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 	"github.com/cloudyfolks-labs/fabric/pkg/net/yusur"
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 	"github.com/cloudyfolks-labs/fabric/pkg/request"
@@ -592,7 +592,7 @@ func (csh cniServerHandler) configureContainerNic(podName, podNamespace, nicName
 		}
 
 		if gwCheckMode != gatewayCheckModeDisabled {
-			if util.CheckProtocol(ipAddr) == kubeovnv1.ProtocolIPv6 || util.CheckProtocol(ipAddr) == kubeovnv1.ProtocolDual {
+			if util.CheckProtocol(ipAddr) == fabricv1.ProtocolIPv6 || util.CheckProtocol(ipAddr) == fabricv1.ProtocolDual {
 				addrsFlags, err := waitIPv6AddressPreferred(ifName, 10, 500*time.Millisecond, ipv6DAD)
 				if err != nil {
 					klog.Error(err)
@@ -685,7 +685,7 @@ func waitNetworkReady(nic, ipAddr, gateway string, preferARP, verbose bool, maxR
 	}
 	for i, gw := range gws {
 		src, _, _ := strings.Cut(ips[i], "/")
-		if preferARP && util.CheckProtocol(gw) == kubeovnv1.ProtocolIPv4 {
+		if preferARP && util.CheckProtocol(gw) == fabricv1.ProtocolIPv4 {
 			mac, count, err := util.ArpResolve(nic, gw, time.Second, maxRetry, done)
 			cniConnectivityResult.WithLabelValues(nodeName).Add(float64(count))
 			if err != nil {
@@ -761,7 +761,7 @@ func configureNodeNic(cs kubernetes.Interface, nodeName, portName, ip, gw, joinC
 			protocol := util.CheckProtocol(c)
 			var src net.IP
 			var priority int
-			if protocol == kubeovnv1.ProtocolIPv4 {
+			if protocol == fabricv1.ProtocolIPv4 {
 				for _, ip := range util.SplitTrimmed(ipStr, ",") {
 					if util.CheckProtocol(ip) == protocol {
 						src = net.ParseIP(ip)
@@ -997,7 +997,7 @@ func configureNodeGwNic(portName, ip, gw string, macAddr net.HardwareAddr, mtu i
 			return err
 		}
 		switch util.CheckProtocol(ip) {
-		case kubeovnv1.ProtocolIPv4:
+		case fabricv1.ProtocolIPv4:
 			_, defaultNet, _ := net.ParseCIDR("0.0.0.0/0")
 			err = netlink.RouteReplace(&netlink.Route{
 				LinkIndex: gwLink.Attrs().Index,
@@ -1005,7 +1005,7 @@ func configureNodeGwNic(portName, ip, gw string, macAddr net.HardwareAddr, mtu i
 				Dst:       defaultNet,
 				Gw:        net.ParseIP(gw),
 			})
-		case kubeovnv1.ProtocolIPv6:
+		case fabricv1.ProtocolIPv6:
 			_, defaultNet, _ := net.ParseCIDR("::/0")
 			err = netlink.RouteReplace(&netlink.Route{
 				LinkIndex: gwLink.Attrs().Index,
@@ -1013,7 +1013,7 @@ func configureNodeGwNic(portName, ip, gw string, macAddr net.HardwareAddr, mtu i
 				Dst:       defaultNet,
 				Gw:        net.ParseIP(gw),
 			})
-		case kubeovnv1.ProtocolDual:
+		case fabricv1.ProtocolDual:
 			gws := strings.Split(gw, ",")
 			_, defaultNet, _ := net.ParseCIDR("0.0.0.0/0")
 			err = netlink.RouteReplace(&netlink.Route{
@@ -1191,7 +1191,7 @@ func (c *Controller) patchOvnEipStatus(key string, ready bool) error {
 			klog.Errorf("failed to marshal ovn eip status '%s', %v", key, err)
 			return err
 		}
-		if _, err = c.config.KubeOvnClient.FabricV1().OvnEips().Patch(context.Background(), ovnEip.Name,
+		if _, err = c.config.FabricClient.FabricV1().OvnEips().Patch(context.Background(), ovnEip.Name,
 			types.MergePatchType, bytes, metav1.PatchOptions{}, "status"); err != nil {
 			klog.Errorf("failed to patch status for ovn eip '%s', %v", key, err)
 			return err
@@ -1303,7 +1303,7 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 	for _, ipAddr := range ipAddrs {
 		if ipAddr.IP.IsLinkLocalUnicast() {
 			// skip 169.254.0.0/16 and fe80::/10
-			if util.CheckProtocol(ipAddr.IP.String()) == kubeovnv1.ProtocolIPv6 {
+			if util.CheckProtocol(ipAddr.IP.String()) == fabricv1.ProtocolIPv6 {
 				isIPv6LinkLocalExist = true
 			}
 			continue
@@ -1315,7 +1315,7 @@ func configureNic(link, ip string, macAddr net.HardwareAddr, mtu int, detectIPv4
 	// The interface keeps only its MAC and the VM gets its address from DHCP. Stale addresses
 	// collected above are still flushed below.
 	if ip != "" {
-		if ipv6LinkLocalOn && !isIPv6LinkLocalExist && (util.CheckProtocol(ip) == kubeovnv1.ProtocolIPv6 || util.CheckProtocol(ip) == kubeovnv1.ProtocolDual) {
+		if ipv6LinkLocalOn && !isIPv6LinkLocalExist && (util.CheckProtocol(ip) == fabricv1.ProtocolIPv6 || util.CheckProtocol(ip) == fabricv1.ProtocolDual) {
 			linkLocal, err := macToLinkLocalIPv6(macAddr)
 			if err != nil {
 				return fmt.Errorf("failed to generate link-local address: %w", err)
@@ -1994,7 +1994,7 @@ func TurnOffNicTxChecksum(nicName string) error {
 	start := time.Now()
 	args := []string{"-K", nicName, "tx", "off"}
 	output, err := exec.Command("ethtool", args...).CombinedOutput() // #nosec G204
-	elapsed := float64((time.Since(start)) / time.Millisecond)
+	elapsed := float64(time.Since(start) / time.Millisecond)
 	klog.V(4).Infof("command %s %s in %vms", "ethtool", strings.Join(args, " "), elapsed)
 	if err != nil {
 		klog.Error(err)
@@ -2154,7 +2154,7 @@ func (c *Controller) createVlanSubinterfaces(vlanInterfaces []string, baseInterf
 }
 
 func (c *Controller) cleanupAutoCreatedVlanInterfaces(providerName, nic string, preservedIfaces map[string]int) error {
-	gcVlanIfaces, err := util.FindKubeOVNAutoCreatedInterfaces(providerName)
+	gcVlanIfaces, err := util.FindFabricAutoCreatedInterfaces(providerName)
 	if err != nil {
 		return fmt.Errorf("failed to find auto-created interfaces for provider %s: %w", providerName, err)
 	}
