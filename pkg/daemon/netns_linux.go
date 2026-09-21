@@ -30,10 +30,7 @@ func newNetNS(path string) error {
 	}()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		runtime.LockOSThread()
 
 		var origNS ns.NetNS
@@ -53,7 +50,7 @@ func newNetNS(path string) error {
 		if err != nil {
 			err = fmt.Errorf("failed to bind mount ns at %s: %w", path, err)
 		}
-	}()
+	})
 	wg.Wait()
 
 	if err != nil {
