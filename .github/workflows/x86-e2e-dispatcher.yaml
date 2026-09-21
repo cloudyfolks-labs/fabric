@@ -28,7 +28,7 @@ permissions:
   contents: read
   actions: write
   checks: read
-  pull-requests: write
+  pull-requests: read
   issues: write
 
 jobs:
@@ -148,6 +148,12 @@ jobs:
       accepted: ${{ steps.decision.outputs.accepted }}
       action: ${{ steps.decision.outputs.action }}
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+      checks: read
+      pull-requests: write
+      issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHONPATH: hack
