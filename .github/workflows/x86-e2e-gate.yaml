@@ -750,7 +750,7 @@ jobs:
       checks: write
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write
     env:
       GH_TOKEN: ${{ github.token }}
       PYTHONPATH: hack
