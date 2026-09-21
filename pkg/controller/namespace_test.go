@@ -13,19 +13,12 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// Test_handleAddNamespace_orphanedSubnet is a regression guard for the bug where
-// a subnet referencing a non-existent VPC aborted evaluation of the whole subnet
-// list. The orphan handling used to `break` the `for _, s := range subnets` loop,
-// so any valid subnet returned by the lister after the orphaned one was never
-// bound to the namespace. The fix replaces `break` with `continue`, so the valid
-// subnet must always be bound regardless of the (random) lister iteration order.
 func Test_handleAddNamespace_orphanedSubnet(t *testing.T) {
 	const nsName = "test-ns"
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: nsName},
 	}
-	// A broken subnet whose referenced VPC does not exist - it must not stop the
-	// loop from reaching the valid subnet below.
+
 	orphanSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "orphan-subnet"},
 		Spec: fabricv1.SubnetSpec{
@@ -33,7 +26,7 @@ func Test_handleAddNamespace_orphanedSubnet(t *testing.T) {
 			CIDRBlock: "10.16.0.0/16",
 		},
 	}
-	// A valid subnet that binds the namespace via Spec.Namespaces.
+
 	validSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: "valid-subnet"},
 		Spec: fabricv1.SubnetSpec{

@@ -5,7 +5,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-// OVN NB metrics
 var ovsClientRequestLatency = prometheus.NewHistogramVec(
 	prometheus.HistogramOpts{
 		Name:    "ovs_client_request_latency_milliseconds",

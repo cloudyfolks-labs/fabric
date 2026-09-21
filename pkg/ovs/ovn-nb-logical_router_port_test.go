@@ -463,7 +463,6 @@ func (suite *OvnClientTestSuite) testGetLogicalRouterPortByUUID() {
 	err := nbClient.CreateLogicalRouter(lrName)
 	require.NoError(t, err)
 
-	// err = nbClient.CreateLogicalRouterPort(lrName, lrpName, "00:11:22:37:af:62", []string{"192.168.123.1/24"})
 	lrp := &ovnnb.LogicalRouterPort{
 		UUID: lrpuuid,
 		Name: lrpName,
@@ -698,14 +697,13 @@ func (suite *OvnClientTestSuite) testLogicalRouterPortFilter() {
 	lrps := make([]*ovnnb.LogicalRouterPort, 0)
 
 	i := 0
-	// create three normal lrp
+
 	for ; i < 3; i++ {
 		lrpName := fmt.Sprintf("%s-%d", prefix, i)
 		lrp := newLogicalRouterPort(lrName, lrpName, util.GenerateMac(), networks)
 		lrps = append(lrps, lrp)
 	}
 
-	// create two peer lrp
 	for ; i < 5; i++ {
 		lrpName := fmt.Sprintf("%s-%d", prefix, i)
 		lrp := newLogicalRouterPort(lrName, lrpName, util.GenerateMac(), networks)
@@ -714,7 +712,6 @@ func (suite *OvnClientTestSuite) testLogicalRouterPortFilter() {
 		lrps = append(lrps, lrp)
 	}
 
-	// create two normal lrp with different logical router name
 	for ; i < 6; i++ {
 		lrpName := fmt.Sprintf("%s-%d", prefix, i)
 		lrp := newLogicalRouterPort(lrName, lrpName, util.GenerateMac(), networks)

@@ -149,7 +149,6 @@ func (suite *OvnClientTestSuite) testLogicalSwitchAddPort() {
 		_, err = nbClient.GetLogicalSwitch(lspRepeatedLsName, false)
 		require.Nil(t, err)
 
-		// add port to logical switch repeatedly
 		err = nbClient.LogicalSwitchAddPort(lspRepeatedLsName, lspRepeatedName)
 		require.Nil(t, err)
 	})
@@ -265,13 +264,11 @@ func (suite *OvnClientTestSuite) testLogicalSwitchUpdateLoadBalancers() {
 	})
 
 	t.Run("should no err when add non-existent lbs to logical switch", func(t *testing.T) {
-		// add a non-existent lb
 		err = nbClient.LogicalSwitchUpdateLoadBalancers(lsName, ovsdb.MutateOperationInsert, "test-add-lb-non-existent")
 		require.NoError(t, err)
 	})
 
 	t.Run("del lbs from logical switch", func(t *testing.T) {
-		// delete the first two lbs from logical switch
 		err = nbClient.LogicalSwitchUpdateLoadBalancers(lsName, ovsdb.MutateOperationDelete, lbNames[0:2]...)
 		require.NoError(t, err)
 
@@ -282,7 +279,6 @@ func (suite *OvnClientTestSuite) testLogicalSwitchUpdateLoadBalancers() {
 			lb, err := nbClient.GetLoadBalancer(lbName, false)
 			require.NoError(t, err)
 
-			// logical switch contains the last lb
 			if i == 2 {
 				require.Contains(t, ls.LoadBalancer, lb.UUID)
 				continue
@@ -383,14 +379,13 @@ func (suite *OvnClientTestSuite) testListLogicalSwitch() {
 	namePrefix := "test-list-ls-"
 
 	i := 0
-	// create three logical switch
+
 	for ; i < 3; i++ {
 		name := fmt.Sprintf("%s%d", namePrefix, i)
 		err := nbClient.CreateBareLogicalSwitch(name)
 		require.NoError(t, err)
 	}
 
-	// create two logical switch which vendor is others
 	for ; i < 5; i++ {
 		name := fmt.Sprintf("%s%d", namePrefix, i)
 		ls := &ovnnb.LogicalSwitch{
@@ -402,7 +397,6 @@ func (suite *OvnClientTestSuite) testListLogicalSwitch() {
 		require.NoError(t, err)
 	}
 
-	// create two logical switch without vendor
 	for ; i < 7; i++ {
 		name := fmt.Sprintf("%s%d", namePrefix, i)
 		ls := &ovnnb.LogicalSwitch{

@@ -27,9 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// handleWaitingAPIError handles an error from an API request in the context of a Wait function.
-// If the error is retryable, sleep the recommended delay and ignore the error.
-// If the error is terminal, return it.
 func handleWaitingAPIError(err error, retryNotFound bool, taskFormat string, taskArgs ...any) (bool, error) {
 	taskDescription := fmt.Sprintf(taskFormat, taskArgs...)
 	if retryNotFound && apierrors.IsNotFound(err) {
@@ -47,14 +44,11 @@ func handleWaitingAPIError(err error, retryNotFound bool, taskFormat string, tas
 	return false, err
 }
 
-// Decide whether to retry an API request. Optionally include a delay to retry after.
 func shouldRetry(err error) (retry bool, retryAfter time.Duration) {
-	// if the error sends the Retry-After header, we respect it as an explicit confirmation we should retry.
 	if delay, shouldRetry := apierrors.SuggestsClientDelay(err); shouldRetry {
 		return shouldRetry, time.Duration(delay) * time.Second
 	}
 
-	// these errors indicate a transient error that should be retried.
 	if apierrors.IsTimeout(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err) {
 		return true, 0
 	}
@@ -62,7 +56,6 @@ func shouldRetry(err error) (retry bool, retryAfter time.Duration) {
 	return false, 0
 }
 
-// WaitUntil waits the condition to be met
 func WaitUntil(interval, timeout time.Duration, cond func(context.Context) (bool, error), condDesc string) {
 	ginkgo.GinkgoHelper()
 

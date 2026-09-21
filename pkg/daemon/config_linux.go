@@ -35,7 +35,6 @@ func getIfaceByIP(ip string) (string, int, error) {
 		return "", 0, fmt.Errorf("invalid IP address %q", ip)
 	}
 
-	// Use a single AddrList dump instead of LinkList + per-link AddrList (N+1 dumps → 1+1)
 	addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to list all addresses: %w", err)
@@ -55,6 +54,5 @@ func getIfaceByIP(ip string) (string, int, error) {
 }
 
 func (config *Configuration) initRuntimeConfig(_ *corev1.Node) error {
-	// nothing to do on Linux
 	return nil
 }

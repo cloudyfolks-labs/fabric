@@ -32,7 +32,6 @@ func (c *Controller) startServiceCIDRInformer(ctx context.Context) {
 
 	c.serviceCIDRStore.OnChange(c.reconcileForServiceCIDRChange)
 
-	// Re-fire after sync so consumers see the merged set even when no events follow.
 	scs, err := c.serviceCIDRLister.List(labels.Everything())
 	if err != nil {
 		klog.Warningf("failed to list ServiceCIDRs after sync: %v", err)
@@ -61,10 +60,6 @@ func (c *Controller) tryStartServiceCIDRInformer(ctx context.Context) bool {
 	return true
 }
 
-// StartServiceCIDRInformerFactory wires up the optional networking.k8s.io/v1
-// ServiceCIDR informer. On clusters without the API (K8s <1.31, or 1.31/1.32
-// with the feature gate disabled) the informer is never started and the
-// ServiceCIDRStore stays at its flag-derived fallback.
 func (c *Controller) StartServiceCIDRInformerFactory(ctx context.Context) {
 	if c.tryStartServiceCIDRInformer(ctx) {
 		return
@@ -109,9 +104,6 @@ func (c *Controller) onServiceCIDRDelete(obj any) {
 	c.serviceCIDRStore.DeleteFromAPI(sc.Name)
 }
 
-// reconcileForServiceCIDRChange enqueues every object whose data-plane artifact
-// embeds a Service CIDR so that its existing reconciler rebuilds the artifact
-// against the freshly merged set.
 func (c *Controller) reconcileForServiceCIDRChange() {
 	subnets, err := c.subnetsLister.List(labels.Everything())
 	if err != nil {

@@ -54,7 +54,6 @@ func NewSubnet(name, cidrStr string, excludeIps []string) (*Subnet, error) {
 		cidrs = append(cidrs, cidr)
 	}
 
-	// subnet.Spec.ExcludeIps contains both v4 and v6 addresses
 	excludeIps = util.ExpandExcludeIPs(excludeIps, cidrStr)
 	v4ExcludeIps, v6ExcludeIps := util.SplitIpsByProtocol(excludeIps)
 	v4Reserved, err := NewIPRangeListFrom(v4ExcludeIps...)
@@ -134,10 +133,6 @@ func NewSubnet(name, cidrStr string, excludeIps []string) (*Subnet, error) {
 	return subnet, nil
 }
 
-// NewMacOnlySubnet creates a subnet entry for an underlay subnet that has no CIDR
-// (BYO-DHCP / external DHCP). Such a subnet only tracks MAC allocations - it has no
-// IP ranges. Registering it in IPAM keeps MAC allocation idempotent per NIC and
-// prevents the GC from treating the subnet's IP/LSP resources as orphaned.
 func NewMacOnlySubnet(name string) *Subnet {
 	return &Subnet{
 		Name:         name,
@@ -203,7 +198,7 @@ func (s *Subnet) GetStaticMac(podName, nicName, mac string, checkConflict bool) 
 			klog.Errorf("mac %s has been allocated to pod %s", mac, p)
 			return ErrConflict
 		}
-		// Check if static MAC conflicts with gateway MAC
+
 		if s.GatewayMAC != "" && mac == s.GatewayMAC {
 			klog.Errorf("static MAC %s conflicts with gateway MAC", mac)
 			return ErrConflict
@@ -260,10 +255,6 @@ func (s *Subnet) GetRandomAddressWithFamily(poolName, podName, nicName string, m
 	}
 }
 
-// getMacOnlyAddress allocates only a MAC address (no IP) for a mac-only subnet.
-// Allocation is idempotent per NIC: a NIC that already has a MAC keeps it. When a
-// static MAC is requested it is validated for conflicts (unless checkConflict is
-// false, e.g. for live-migration). Must be called with s.Mutex held.
 func (s *Subnet) getMacOnlyAddress(podName, nicName string, mac *string, checkConflict bool) (IP, IP, string, error) {
 	if mac == nil || *mac == "" {
 		return nil, nil, s.GetRandomMac(podName, nicName), nil
@@ -276,9 +267,6 @@ func (s *Subnet) getMacOnlyAddress(podName, nicName string, mac *string, checkCo
 }
 
 func (s *Subnet) getDualRandomAddress(poolName, podName, nicName string, mac *string, skippedAddrs []string, checkConflict bool) (IP, IP, string, error) {
-	// record whether the v4 half is already cached on this nic — if so,
-	// getV4RandomAddress will fast-path it without mutating any state and
-	// we must keep that IP intact if the v6 half later fails.
 	existingV4 := s.V4NicToIP[nicName]
 
 	v4IP, _, _, err := s.getV4RandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
@@ -288,9 +276,6 @@ func (s *Subnet) getDualRandomAddress(poolName, podName, nicName string, mac *st
 	}
 	_, v6IP, macStr, err := s.getV6RandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
 	if err != nil {
-		// only roll back the v4 half if this call actually allocated it.
-		// a fast-path return means the v4 counters were never mutated and
-		// tearing them down would silently revoke the pod's working IPv4.
 		if existingV4 == nil || !existingV4.Equal(v4IP) {
 			s.releaseV4Addr(podName, nicName)
 			s.popPodNic(podName, nicName)
@@ -299,7 +284,6 @@ func (s *Subnet) getDualRandomAddress(poolName, podName, nicName string, mac *st
 		return nil, nil, "", err
 	}
 
-	// allocated IPv4 address may be released in getV6RandomAddress()
 	if !s.V4NicToIP[nicName].Equal(v4IP) {
 		v4IP, _, _, _ = s.getV4RandomAddress(poolName, podName, nicName, mac, skippedAddrs, checkConflict)
 	}
@@ -308,15 +292,11 @@ func (s *Subnet) getDualRandomAddress(poolName, podName, nicName string, mac *st
 }
 
 func (s *Subnet) getV4RandomAddress(ippoolName, podName, nicName string, mac *string, skippedAddrs []string, checkConflict bool) (IP, IP, string, error) {
-	// After 'macAdd' introduced to support only static mac address, pod restart will run into error mac AddressConflict
-	// controller will re-enqueue the new pod then wait for old pod deleted and address released.
-	// here will return only if both ip and mac exist, otherwise only ip without mac returned will trigger CreatePort error.
 	if s.V4NicToIP[nicName] != nil && (s.NicToMac[nicName] != "" || (mac != nil && *mac == "")) {
 		if !slices.Contains(skippedAddrs, s.V4NicToIP[nicName].String()) {
 			return s.V4NicToIP[nicName], nil, s.NicToMac[nicName], nil
 		}
-		// only the skipped IPv4 half may be released; the IPv6 half (if any) on
-		// the same nic must stay untouched, as in the mac-conflict path below.
+
 		s.releaseV4Addr(podName, nicName)
 	}
 
@@ -360,9 +340,6 @@ func (s *Subnet) getV4RandomAddress(ippoolName, podName, nicName string, mac *st
 		return ip, nil, s.GetRandomMac(podName, nicName), nil
 	}
 	if err := s.GetStaticMac(podName, nicName, *mac, checkConflict); err != nil {
-		// the IPv4 counters were already mutated above, release just the v4
-		// half so retries do not leak IPs out of the pool. The IPv6 half
-		// (if any) on the same nic must stay untouched.
 		s.releaseV4Addr(podName, nicName)
 		s.popPodNic(podName, nicName)
 		klog.Error(err)
@@ -372,15 +349,11 @@ func (s *Subnet) getV4RandomAddress(ippoolName, podName, nicName string, mac *st
 }
 
 func (s *Subnet) getV6RandomAddress(ippoolName, podName, nicName string, mac *string, skippedAddrs []string, checkConflict bool) (IP, IP, string, error) {
-	// After 'macAdd' introduced to support only static mac address, pod restart will run into error mac AddressConflict
-	// controller will re-enqueue the new pod then wait for old pod deleted and address released.
-	// here will return only if both ip and mac exist, otherwise only ip without mac returned will trigger CreatePort error.
 	if s.V6NicToIP[nicName] != nil && (s.NicToMac[nicName] != "" || (mac != nil && *mac == "")) {
 		if !slices.Contains(skippedAddrs, s.V6NicToIP[nicName].String()) {
 			return nil, s.V6NicToIP[nicName], s.NicToMac[nicName], nil
 		}
-		// only the skipped IPv6 half may be released; the IPv4 half (if any) on
-		// the same nic must stay untouched, as in the mac-conflict path below.
+
 		s.releaseV6Addr(podName, nicName)
 	}
 
@@ -424,9 +397,6 @@ func (s *Subnet) getV6RandomAddress(ippoolName, podName, nicName string, mac *st
 		return nil, ip, s.GetRandomMac(podName, nicName), nil
 	}
 	if err := s.GetStaticMac(podName, nicName, *mac, checkConflict); err != nil {
-		// the IPv6 counters were already mutated above, release just the v6
-		// half so retries do not leak IPs out of the pool. The IPv4 half
-		// (if any) on the same nic must stay untouched.
 		s.releaseV6Addr(podName, nicName)
 		s.popPodNic(podName, nicName)
 		klog.Error(err)
@@ -582,10 +552,6 @@ func markStaticAddressAllocated(family staticAddressFamily, ip IP) {
 	family.poolUsing.Add(ip)
 }
 
-// releaseV4Addr drops a pod's IPv4 lease from this subnet without touching
-// the IPv6 half. The MAC mapping is only cleared when the nic no longer
-// holds an IPv6 lease, so dual-stack rollback paths can undo just the IPv4
-// half they allocated.
 func (s *Subnet) releaseV4Addr(podName, nicName string) {
 	ip, ok := s.V4NicToIP[nicName]
 	if !ok {
@@ -608,7 +574,7 @@ func (s *Subnet) releaseV4Addr(podName, nicName string) {
 		}
 	}
 	var changed bool
-	// When CIDR changed, do not relocate ip to CIDR list
+
 	if !s.V4CIDR.Contains(net.IP(ip)) {
 		klog.Infof("release v4 %s mac %s from subnet %s for %s, ignore ip", ip, mac, s.Name, podName)
 		changed = true
@@ -634,7 +600,6 @@ func (s *Subnet) releaseV4Addr(podName, nicName string) {
 	}
 }
 
-// releaseV6Addr is the IPv6 counterpart of releaseV4Addr.
 func (s *Subnet) releaseV6Addr(podName, nicName string) {
 	ip, ok := s.V6NicToIP[nicName]
 	if !ok {
@@ -685,10 +650,7 @@ func (s *Subnet) releaseV6Addr(podName, nicName string) {
 func (s *Subnet) releaseAddr(podName, nicName string) {
 	s.releaseV4Addr(podName, nicName)
 	s.releaseV6Addr(podName, nicName)
-	// A mac-only NIC has no V4/V6 IP entry, so the IP release paths above are no-ops
-	// and leave the MAC behind. Clean it up here. For IP-backed NICs this is a no-op
-	// because releaseV4Addr/releaseV6Addr already removed the MAC once the last IP
-	// family was released.
+
 	if _, hasV4 := s.V4NicToIP[nicName]; hasV4 {
 		return
 	}
@@ -730,7 +692,6 @@ func (s *Subnet) ContainAddress(address IP) bool {
 	return false
 }
 
-// This func is only called in ipam.GetPodAddress, move mutex to caller
 func (s *Subnet) GetPodAddress(nicName string) (IP, IP, string, string) {
 	switch s.Protocol {
 	case fabricv1.ProtocolIPv4:

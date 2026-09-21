@@ -108,7 +108,6 @@ func (c *OVNNbClient) CreateBFD(lrpName, dstIP string, minRx, minTx, detectMult 
 	return &bfdList[0], nil
 }
 
-// UpdateBFD update BFD
 func (c *OVNNbClient) UpdateBFD(bfd *ovnnb.BFD, fields ...any) error {
 	op, err := c.ovsDbClient.Where(bfd).Update(bfd, fields...)
 	if err != nil {
@@ -165,9 +164,6 @@ func (c *OVNNbClient) DeleteBFDByDstIP(lrpName, dstIP string) error {
 	return nil
 }
 
-// MonitorBFD will add a handler
-// to NB libovsdb cache to update the BFD priority.
-// This function should only be called once.
 func (c *OVNNbClient) MonitorBFD() {
 	c.ovsDbClient.Cache().AddEventHandler(&cache.EventHandlerFuncs{
 		AddFunc: func(table string, model model.Model) {
@@ -190,7 +186,7 @@ func (c *OVNNbClient) isLrpBfdUp(lrpName, dstIP string) (bool, error) {
 	}
 	if len(bfdList) == 0 {
 		klog.Errorf("no bfd for lrp %s", lrpName)
-		// no bfd, means no need to handle
+
 		return true, nil
 	}
 	bfd := bfdList[0]
@@ -202,7 +198,7 @@ func (c *OVNNbClient) isLrpBfdUp(lrpName, dstIP string) (bool, error) {
 		klog.Infof("lrp %s bfd dst ip %s status is up", lrpName, bfd.DstIP)
 		return true, nil
 	}
-	// bfd status is still down
+
 	err = fmt.Errorf("lrp %s bfd dst ip %s status is down", lrpName, bfd.DstIP)
 	klog.Error(err)
 	return false, err
@@ -228,7 +224,7 @@ func (c *OVNNbClient) bfdAddL3HAHandler(table string, model model.Model) {
 	if !needRecheck {
 		return
 	}
-	// bfd status should be up in 15 seconds
+
 	for try := 1; try < 4; try++ {
 		time.Sleep(5 * time.Second)
 		klog.Warningf("the %d time check bfd status for lrp %s dst ip %s", try, bfd.LogicalPort, bfd.DstIP)
@@ -263,7 +259,6 @@ func (c *OVNNbClient) bfdUpdateL3HAHandler(table string, oldModel, newModel mode
 	lrpName := newBfd.LogicalPort
 	dstIP := newBfd.DstIP
 	if *oldBfd.Status == ovnnb.BFDStatusAdminDown && *newBfd.Status == ovnnb.BFDStatusDown {
-		// bfd status should be up in 15 seconds
 		for try := 1; try <= 3; try++ {
 			time.Sleep(5 * time.Second)
 			klog.Warningf("the %d time check bfd status for lrp %s dst ip %s", try, lrpName, dstIP)
@@ -277,7 +272,6 @@ func (c *OVNNbClient) bfdUpdateL3HAHandler(table string, oldModel, newModel mode
 	}
 
 	if *oldBfd.Status == ovnnb.BFDStatusDown && *newBfd.Status == ovnnb.BFDStatusUp {
-		// up
 		gwChassisList, err := c.ListGatewayChassisByLogicalRouterPort(lrpName, false)
 		if err != nil {
 			klog.Errorf("failed to list gateway chassis for lrp %s, %v", lrpName, err)
@@ -296,10 +290,7 @@ func (c *OVNNbClient) bfdUpdateL3HAHandler(table string, oldModel, newModel mode
 		}
 	}
 
-	// LRP may still locate on a bad chassis node
-	// update recheck the bfd status later
 	if *oldBfd.Status == ovnnb.BFDStatusUp && *newBfd.Status == ovnnb.BFDStatusDown {
-		// down
 		lrpName := newBfd.LogicalPort
 		gwChassisList, err := c.ListGatewayChassisByLogicalRouterPort(lrpName, false)
 		if err != nil {
@@ -311,22 +302,19 @@ func (c *OVNNbClient) bfdUpdateL3HAHandler(table string, oldModel, newModel mode
 			return
 		}
 		badChassis := gwChassisList[0]
-		// centralized gw chassis node number probably less than 5
+
 		badChassis.Priority = util.GwChassisMaxPriority - 5
 		klog.Infof("lower bad chassis %s priority to %d", badChassis.Name, badChassis.Priority)
 		if err := c.UpdateGatewayChassis(&badChassis, &badChassis.Priority); err != nil {
 			klog.Errorf("failed to update bad chassis %s, %v", badChassis.Name, err)
 			return
 		}
-		// lower bad chassis priority will not trigger bfd update
-		// recheck until bfd status is up
+
 		try := 1
 		for {
 			time.Sleep(5 * time.Second)
 			klog.Warningf("the %d time check bfd status for lrp %s dst ip %s", try, lrpName, dstIP)
 			if ok, err := c.isLrpBfdUp(lrpName, dstIP); err != nil {
-				// bfd status is still down
-				// update bfd external_ids to trigger bfd update
 				klog.Errorf("failed to check bfd status for lrp %s dst ip %s, %v", lrpName, dstIP, err)
 				gwChassisList, err = c.ListGatewayChassisByLogicalRouterPort(lrpName, false)
 				if err != nil {

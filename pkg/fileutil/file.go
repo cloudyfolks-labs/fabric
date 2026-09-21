@@ -7,10 +7,6 @@ import (
 	"path/filepath"
 )
 
-// AtomicWriteFile writes data to a temporary file in the target directory,
-// fsyncs it, then renames it to path. Concurrent readers never observe a
-// partially written file, and a crash mid-write cannot leave a truncated
-// file at the final path.
 func AtomicWriteFile(path string, data []byte, perm os.FileMode) (resultErr error) {
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
@@ -48,7 +44,6 @@ func AtomicWriteFile(path string, data []byte, perm os.FileMode) (resultErr erro
 		return fmt.Errorf("failed to replace target file: %w", err)
 	}
 
-	// Fsync the parent directory so the rename itself survives a power loss.
 	d, err := os.Open(dir) // #nosec G304
 	if err != nil {
 		return fmt.Errorf("failed to open target directory: %w", err)

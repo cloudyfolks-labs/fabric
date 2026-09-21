@@ -16,9 +16,6 @@ import (
 )
 
 func ValidateSubnet(subnet fabricv1.Subnet) error {
-	// Allow underlay subnets (with vlan) to be created without a CIDRBlock.
-	// Such subnets only allocate a MAC address and rely on an external DHCP
-	// server (BYO-DHCP) for IP assignment.
 	isUnderlayWithoutCIDR := subnet.Spec.Vlan != "" && subnet.Spec.CIDRBlock == ""
 
 	if isUnderlayWithoutCIDR {
@@ -31,7 +28,6 @@ func ValidateSubnet(subnet fabricv1.Subnet) error {
 
 	excludeIps := subnet.Spec.ExcludeIps
 	for _, ipr := range excludeIps {
-		// v6 ip address can not use upper case
 		if ContainsUppercase(ipr) {
 			err := fmt.Errorf("subnet exclude ip %s can not contain upper case", ipr)
 			return err
@@ -67,7 +63,6 @@ func ValidateSubnet(subnet fabricv1.Subnet) error {
 
 	allow := subnet.Spec.AllowSubnets
 	for _, cidr := range allow {
-		// v6 ip address can not use upper case
 		if ContainsUppercase(cidr) {
 			err := fmt.Errorf("subnet %s allow subnet %s v6 ip address can not contain upper case", subnet.Name, cidr)
 			klog.Error(err)
@@ -92,9 +87,6 @@ func ValidateSubnet(subnet fabricv1.Subnet) error {
 		return fmt.Errorf("%s is not a valid protocol type", protocol)
 	}
 
-	// Reject MTU values that would break IPv6 on the subnet. Linux silently
-	// drops IPv6 traffic on interfaces below 1280 (RFC 8200), so the user
-	// cannot tell apart a misconfiguration from a real network outage.
 	if subnet.Spec.Mtu > 0 && subnet.Spec.Mtu < IPv6MinMTU {
 		cidrProtocol := CheckProtocol(subnet.Spec.CIDRBlock)
 		if cidrProtocol == fabricv1.ProtocolIPv6 || cidrProtocol == fabricv1.ProtocolDual {
@@ -117,7 +109,7 @@ func ValidateSubnet(subnet fabricv1.Subnet) error {
 		if subnet.Spec.NatOutgoing {
 			return errors.New("conflict configuration: natOutgoing and externalEgressGateway")
 		}
-		// v6 ip address can not use upper case
+
 		if ContainsUppercase(egw) {
 			err := fmt.Errorf("subnet %s external egress gateway %s v6 ip address can not contain upper case", subnet.Name, egw)
 			klog.Error(err)
@@ -143,7 +135,6 @@ func ValidateSubnet(subnet fabricv1.Subnet) error {
 			return fmt.Errorf("vips are not supported for underlay subnet %s without cidrBlock", subnet.Name)
 		}
 		for _, vip := range subnet.Spec.Vips {
-			// v6 ip address can not use upper case
 			if ContainsUppercase(vip) {
 				err := fmt.Errorf("subnet %s vips %s v6 ip address can not contain upper case", subnet.Name, vip)
 				klog.Error(err)
@@ -179,7 +170,7 @@ func ValidateSubnet(subnet fabricv1.Subnet) error {
 		if isUnderlayWithoutCIDR {
 			return fmt.Errorf("u2oInterconnectionIP is not supported for underlay subnet %s without cidrBlock", subnet.Name)
 		}
-		// v6 ip address can not use upper case
+
 		if ContainsUppercase(subnet.Spec.U2OInterconnectionIP) {
 			err := fmt.Errorf("subnet %s U2O interconnection ip %s v6 ip address can not contain upper case", subnet.Name, subnet.Spec.U2OInterconnectionIP)
 			klog.Error(err)
@@ -204,26 +195,19 @@ func ValidateSubnet(subnet fabricv1.Subnet) error {
 	return nil
 }
 
-// validateMacOnlySubnet validates an underlay subnet created without a CIDRBlock
-// (BYO-DHCP / external DHCP). Such a subnet allocates only a MAC address per pod
-// NIC, so address fields that depend on a CIDR must be empty.
 func validateMacOnlySubnet(subnet fabricv1.Subnet) error {
-	// For underlay subnets without CIDR, gateway must also be empty
 	if subnet.Spec.Gateway != "" {
 		return fmt.Errorf("gateway must be empty for underlay subnet %s without cidrBlock", subnet.Name)
 	}
-	// excludeIps has no meaning without a CIDR to allocate addresses from
+
 	if len(subnet.Spec.ExcludeIps) != 0 {
 		return fmt.Errorf("excludeIps must be empty for underlay subnet %s without cidrBlock", subnet.Name)
 	}
 	return nil
 }
 
-// validateSubnetCIDR validates the gateway and CIDRBlock format of a subnet that
-// has a CIDR.
 func validateSubnetCIDR(subnet fabricv1.Subnet) error {
 	if subnet.Spec.Gateway != "" {
-		// v6 ip address can not use upper case
 		if ContainsUppercase(subnet.Spec.Gateway) {
 			err := fmt.Errorf("subnet gateway %s v6 ip address can not contain upper case", subnet.Spec.Gateway)
 			klog.Error(err)
@@ -248,10 +232,8 @@ func validateSubnetCIDR(subnet fabricv1.Subnet) error {
 	return nil
 }
 
-// validateSubnetCIDRBlocks validates each CIDR block configured on the subnet.
 func validateSubnetCIDRBlocks(subnet fabricv1.Subnet) error {
 	for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
-		// v6 ip address can not use upper case
 		if ContainsUppercase(subnet.Spec.CIDRBlock) {
 			err := fmt.Errorf("subnet cidr block %s v6 ip address can not contain upper case", subnet.Spec.CIDRBlock)
 			klog.Error(err)
@@ -267,7 +249,7 @@ func validateSubnetCIDRBlocks(subnet fabricv1.Subnet) error {
 			klog.Error(err)
 			return err
 		}
-		// check network mask is 32 in ipv4 or 128 in ipv6
+
 		if err = InvalidNetworkMask(network); err != nil {
 			err = fmt.Errorf("subnet %s cidr %s mask is invalid, due to %w", subnet.Name, cidr, err)
 			klog.Error(err)
@@ -361,7 +343,6 @@ func ValidatePodNetwork(annotations map[string]string) error {
 	}
 
 	if ipAddress := annotations[IPAddressAnnotation]; ipAddress != "" {
-		// The format of IP Annotation in dual-stack is 10.244.0.0/16,fd00:10:244:0:2::/80
 		for ip := range strings.SplitSeq(ipAddress, ",") {
 			if strings.Contains(ip, "/") {
 				if _, _, err := net.ParseCIDR(ip); err != nil {
@@ -409,15 +390,12 @@ func ValidatePodNetwork(annotations map[string]string) error {
 						errors = append(errors, fmt.Errorf("%s in %s is not a valid address", ip, IPPoolAnnotation))
 					}
 
-					// After ns supports multiple subnets, the ippool static addresses can be allocated in any subnets, such as "fabric.cloudyfolks.io/ip_pool: 11.16.10.14,12.26.11.21"
-					// so if anyone ip is included in cidr, return true
 					if cidrStr := annotations[CidrAnnotation]; cidrStr != "" {
 						if CIDRContainIP(cidrStr, ip) {
 							found = true
 							break
 						}
 					} else {
-						// annotation maybe empty when a pod is new created, do not return err in this situation
 						found = true
 						break
 					}
@@ -431,14 +409,6 @@ func ValidatePodNetwork(annotations map[string]string) error {
 		}
 	}
 
-	// Validate rate and burst annotations across both the unscoped keys
-	// (fabric.cloudyfolks.io/{ingress,egress}_{rate,burst}) and any
-	// provider-scoped variants used for multus attachment networks
-	// ({provider}.cloudyfolks.io/{ingress,egress}_{rate,burst}). All forms
-	// share the same suffix, so a single scan covers everything. Rate
-	// annotations historically only validated the unscoped key, leaving
-	// typos on attachment networks silently parsed as 0 and disabling the
-	// limit; treating both rates and bursts uniformly closes that gap.
 	bandwidthSuffixes := []string{
 		".cloudyfolks.io/ingress_rate",
 		".cloudyfolks.io/egress_rate",
@@ -496,10 +466,6 @@ func ipAddressAnnotationsForIPFamily(annotations map[string]string, key string) 
 	return ipAddresses
 }
 
-// ipAddressAnnotationKeysForIPFamily returns the static IP annotation keys that
-// should be checked for an ip_family key. Same-NAD multi-interface pods use
-// <nad>.<ns>.cloudyfolks.io/ip_address.<ifName> for static IPs while the family
-// annotation is scoped by provider as <nad>.<ns>.fabric.<ifName>.cloudyfolks.io/ip_family.
 func ipAddressAnnotationKeysForIPFamily(key string) []string {
 	keys := []string{ipAddressAnnotationKeyForIPFamily(key)}
 	provider, ok := strings.CutSuffix(key, ".cloudyfolks.io/ip_family")
@@ -515,7 +481,6 @@ func ipAddressAnnotationKeysForIPFamily(key string) []string {
 }
 
 func ValidateNetworkBroadcast(cidr, ip string) error {
-	// Skip validation for MAC-only case (empty CIDR / external DHCP)
 	if cidr == "" || ip == "" {
 		return nil
 	}
@@ -533,8 +498,7 @@ func ValidateNetworkBroadcast(cidr, ip string) error {
 			}
 
 			ipStr := IPToString(ipAddr)
-			// IPv6 has no broadcast address (RFC 4291), so the all-ones host
-			// address is a valid unicast IP and must not be rejected here.
+
 			if CheckProtocol(cidrBlock) == fabricv1.ProtocolIPv4 && SubnetBroadcast(cidrBlock) == ipStr {
 				return fmt.Errorf("%s is the broadcast ip in cidr %s", ipStr, cidrBlock)
 			}
@@ -552,7 +516,6 @@ func ValidateCidrConflict(subnet fabricv1.Subnet, subnetList []fabricv1.Subnet) 
 			continue
 		}
 
-		// Skip CIDR conflict check if either subnet has no CIDR (underlay without CIDR)
 		if subnet.Spec.CIDRBlock != "" && sub.Spec.CIDRBlock != "" {
 			if CIDROverlap(sub.Spec.CIDRBlock, subnet.Spec.CIDRBlock) {
 				err := fmt.Errorf("subnet %s cidr %s is conflict with subnet %s cidr %s", subnet.Name, subnet.Spec.CIDRBlock, sub.Name, sub.Spec.CIDRBlock)
@@ -597,7 +560,6 @@ func ValidateVpc(vpc *fabricv1.Vpc) error {
 		}
 
 		if item.Action == fabricv1.PolicyRouteActionReroute {
-			// ecmp policy route may reroute to multiple next hop ips
 			for ipStr := range strings.SplitSeq(item.NextHopIP, ",") {
 				if ip := net.ParseIP(ipStr); ip == nil {
 					return fmt.Errorf("invalid next hop ips: %s", item.NextHopIP)

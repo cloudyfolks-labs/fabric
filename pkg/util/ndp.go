@@ -21,9 +21,8 @@ import (
 )
 
 const (
-	// maximum number of multicast solicitations to send during DAD
 	dadMaxMulticastSolicit = 3
-	// retransmission timer for DAD
+
 	dadRetransTimer = time.Second
 )
 
@@ -43,22 +42,21 @@ var listenNDPPacket = func(ifi *net.Interface) (ndpPacketWriter, error) {
 
 func init() {
 	instructions := []bpf.Instruction{
-		// length must be at least 86 bytes
 		bpf.LoadExtension{Num: bpf.ExtLen},
 		bpf.JumpIf{Cond: bpf.JumpGreaterOrEqual, Val: 14 + 40 + 32, SkipFalse: 8},
-		// L3 protocol must be IPv6
+
 		bpf.LoadExtension{Num: bpf.ExtProto},
 		bpf.JumpIf{Cond: bpf.JumpEqual, Val: unix.ETH_P_IPV6, SkipFalse: 6},
-		// IPv6 L4 protocol must be ICMPv6
+
 		bpf.LoadAbsolute{Off: 14 + 6, Size: 1},
 		bpf.JumpIf{Cond: bpf.JumpEqual, Val: unix.IPPROTO_ICMPV6, SkipFalse: 4},
-		// ICMPv6 type must be Neighbor Advertisement
+
 		bpf.LoadAbsolute{Off: 14 + 40, Size: 1},
 		bpf.JumpIf{Cond: bpf.JumpEqual, Val: uint32(ipv6.ICMPTypeNeighborAdvertisement), SkipFalse: 2},
-		// return this packet
+
 		bpf.LoadExtension{Num: bpf.ExtLen},
 		bpf.RetA{},
-		// skip this packet
+
 		bpf.RetConstant{},
 	}
 
@@ -71,17 +69,6 @@ func init() {
 	}
 }
 
-// DuplicateAddressDetection performs Duplicate Address Detection (DAD) for the given IP address on the specified interface.
-// It sends a Neighbor Solicitation message and waits for a Neighbor Advertisement response.
-// If a Neighbor Advertisement is received with the same target address, it indicates that the address is already in use.
-// If no response is received within the timeout period, it indicates that the address is available for use.
-// Returns true if the address is available, false if it is already in use, and an error if any occurred during the process.
-// Note: This function is designed to work with IPv6 addresses only.
-// Returns:
-// - true if the address is available for use
-// - false if the address is already in use
-// - net.HardwareAddr of the conflicting address if available
-// - error if any occurred during the process
 func DuplicateAddressDetection(iface, ip string) (bool, net.HardwareAddr, error) {
 	target, err := netip.ParseAddr(ip)
 	if err != nil {
@@ -121,7 +108,6 @@ func DuplicateAddressDetection(iface, ip string) (bool, net.HardwareAddr, error)
 	if target.IsLinkLocalUnicast() {
 		srcIP = netip.IPv6Unspecified().AsSlice()
 	} else {
-		// use link local address
 		for _, addr := range addresses {
 			ip, _, err := net.ParseCIDR(addr.String())
 			if err != nil {
@@ -219,11 +205,10 @@ func DuplicateAddressDetection(iface, ip string) (bool, net.HardwareAddr, error)
 						return
 					}
 				}
-				// unexpected NA without link-layer address option
+
 				macChan <- nil
 			}
 			if e, ok := err.(net.Error); ok && e.Timeout() {
-				// No response received, address is available
 				return
 			}
 			klog.Error(err)
@@ -249,7 +234,6 @@ LOOP:
 		select {
 		case <-timer.C:
 			if i == dadMaxMulticastSolicit-1 {
-				// last attempt, wait for response
 				break LOOP
 			}
 		case mac := <-macChan:
@@ -270,7 +254,6 @@ LOOP:
 	}
 }
 
-// AnnounceNDPAddress sends unsolicited Neighbor Advertisements for an IPv6 address.
 func AnnounceNDPAddress(iface, ip string, mac net.HardwareAddr, announceNum int, announceInterval time.Duration) error {
 	target, err := netip.ParseAddr(ip)
 	if err != nil {

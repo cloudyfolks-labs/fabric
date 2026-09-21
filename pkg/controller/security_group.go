@@ -102,9 +102,7 @@ func (c *Controller) syncSecurityGroup() error {
 	return nil
 }
 
-// updateDenyAllSgPorts set lsp to deny which security_groups is not empty
 func (c *Controller) updateDenyAllSgPorts() error {
-	// list all lsp which security_groups is not empty
 	lsps, err := c.OVNNbClient.ListNormalLogicalSwitchPorts(true, map[string]string{sgsKey: ""})
 	if err != nil {
 		klog.Errorf("list logical switch ports with security_groups is not empty: %v", err)
@@ -113,8 +111,6 @@ func (c *Controller) updateDenyAllSgPorts() error {
 
 	addPorts := make([]string, 0, len(lsps))
 	for _, lsp := range lsps {
-		/* skip lsp which security_group does not exist */
-		// sgs format: sg1/sg2/sg3
 		sgs := strings.Split(lsp.ExternalIDs[sgsKey], "/")
 		allNotExist, err := c.securityGroupAllNotExist(sgs)
 		if err != nil {
@@ -144,7 +140,6 @@ func (c *Controller) handleAddOrUpdateSg(key string, force bool) error {
 	defer func() { _ = c.sgKeyMutex.UnlockKey(key) }()
 	klog.Infof("handle add/update security group %s", key)
 
-	// set 'deny all' for port associated with security group
 	if key == util.DenyAllSecurityGroup {
 		if err := c.updateDenyAllSgPorts(); err != nil {
 			klog.Errorf("update sg deny all policy failed. %v", err)
@@ -199,7 +194,6 @@ func (c *Controller) handleAddOrUpdateSg(key string, force bool) error {
 		ingressNeedUpdate = true
 		egressNeedUpdate = true
 	} else {
-		// check md5
 		newIngressMd5 = hex.EncodeToString(structhash.Md5(sg.Spec.IngressRules, 1))
 		if !sg.Status.IngressLastSyncSuccess || newIngressMd5 != sg.Status.IngressMd5 {
 			klog.Infof("ingress need update, sg:%s", sg.Name)
@@ -211,7 +205,6 @@ func (c *Controller) handleAddOrUpdateSg(key string, force bool) error {
 			egressNeedUpdate = true
 		}
 
-		// check allowSameGroupTraffic switch
 		if sg.Status.AllowSameGroupTraffic != sg.Spec.AllowSameGroupTraffic {
 			klog.Infof("both ingress && egress need update, sg:%s", sg.Name)
 			ingressNeedUpdate = true
@@ -219,7 +212,6 @@ func (c *Controller) handleAddOrUpdateSg(key string, force bool) error {
 		}
 	}
 
-	// update sg rule
 	if ingressNeedUpdate {
 		if err = c.OVNNbClient.UpdateSgACL(sg, ovnnb.ACLDirectionToLport); err != nil {
 			sg.Status.IngressLastSyncSuccess = false
@@ -254,7 +246,6 @@ func (c *Controller) handleAddOrUpdateSg(key string, force bool) error {
 		c.patchSgStatus(sg)
 	}
 
-	// update status
 	sg.Status.PortGroup = ovs.GetSgPortGroupName(sg.Name)
 	sg.Status.AllowSameGroupTraffic = sg.Spec.AllowSameGroupTraffic
 	c.patchSgStatus(sg)
@@ -263,7 +254,6 @@ func (c *Controller) handleAddOrUpdateSg(key string, force bool) error {
 }
 
 func (c *Controller) validateSgRule(sg *fabricv1.SecurityGroup) error {
-	// check sg rules
 	allRules := append(sg.Spec.IngressRules, sg.Spec.EgressRules...)
 	if err := util.ValidateSecurityGroupTier(sg.Spec.Tier); err != nil {
 		return err
@@ -396,8 +386,7 @@ func (c *Controller) syncSgLogicalPort(key string) error {
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			klog.Warningf("no security group %s", key)
-			// The security group is gone, trigger an update of the deny-all security group
-			// to re-evaluate which ports should be included.
+
 			c.addOrUpdateSgQueue.Add(util.DenyAllSecurityGroup)
 			return nil
 		}
@@ -476,14 +465,13 @@ func (c *Controller) reconcilePortSg(portName, securityGroups string) error {
 	return nil
 }
 
-// securityGroupAllNotExist return true if all sgs does not exist
 func (c *Controller) securityGroupAllNotExist(sgs []string) (bool, error) {
 	if len(sgs) == 0 {
 		return true, nil
 	}
 
 	notExistsCount := 0
-	// sgs format: sg1/sg2/sg3
+
 	for _, sg := range sgs {
 		ok, err := c.OVNNbClient.PortGroupExists(ovs.GetSgPortGroupName(sg))
 		if err != nil {

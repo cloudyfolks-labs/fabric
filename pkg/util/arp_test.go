@@ -56,10 +56,9 @@ func TestMacEqual(t *testing.T) {
 }
 
 func TestArpResolve(t *testing.T) {
-	// get the default route gw and nic
 	routes, err := netlink.RouteList(nil, unix.AF_UNSPEC)
 	if errors.Is(err, netlink.ErrNotImplemented) {
-		return // skip if not implemented
+		return
 	}
 	if err != nil {
 		t.Fatalf("failed to get routes: %v", err)
@@ -100,7 +99,7 @@ func TestArpResolve(t *testing.T) {
 	if mac == nil {
 		t.Errorf("ARP resolved MAC address is nil: try %d, link name %s, default gw %s", count, linkName, defaultGW)
 	}
-	// invalid link name
+
 	linkName = "invalid"
 	mac, count, err = ArpResolve(linkName, defaultGW, time.Second, maxRetry, done)
 	if err == nil {
@@ -110,7 +109,7 @@ func TestArpResolve(t *testing.T) {
 		t.Errorf("Expect nil MAC address, but got %v: try %d, link name %s, default gw %s", mac, count, linkName, defaultGW)
 	}
 	linkName = link.Attrs().Name
-	// invalid gw
+
 	defaultGW = "x.x.x.x"
 	mac, count, err = ArpResolve(linkName, defaultGW, time.Second, maxRetry, done)
 	if err == nil {
@@ -119,7 +118,7 @@ func TestArpResolve(t *testing.T) {
 	if mac != nil {
 		t.Errorf("Expect nil MAC address, but got %v: try %d, link name %s, default gw %s", mac, count, linkName, defaultGW)
 	}
-	// unreachable gw
+
 	defaultGW = "123.45.67.8"
 	mac, count, err = ArpResolve(linkName, defaultGW, time.Second, maxRetry, done)
 	if err == nil {
@@ -131,10 +130,9 @@ func TestArpResolve(t *testing.T) {
 }
 
 func TestDetectIPConflict(t *testing.T) {
-	// get the default route gw and nic
 	routes, err := netlink.RouteList(nil, unix.AF_UNSPEC)
 	if errors.Is(err, netlink.ErrNotImplemented) {
-		return // skip if not implemented
+		return
 	}
 	if err != nil {
 		t.Fatalf("failed to get routes: %v", err)
@@ -148,7 +146,6 @@ func TestDetectIPConflict(t *testing.T) {
 		}
 	}
 
-	// failed to get nic
 	if nicIndex == 0 {
 		return
 	}
@@ -183,7 +180,7 @@ func TestDetectIPConflict(t *testing.T) {
 	}
 	require.Nil(t, err)
 	require.Nil(t, outMac)
-	// invalid ip
+
 	invalidIP = "x.x.x.x"
 	outMac, err = ArpDetectIPConflict(linkName, invalidIP, inMac)
 	if err != nil {
@@ -194,7 +191,7 @@ func TestDetectIPConflict(t *testing.T) {
 	}
 	require.NotNil(t, err)
 	require.Nil(t, outMac)
-	// invalid nil nic
+
 	linkName = ""
 	outMac, err = ArpDetectIPConflict(linkName, validIP, inMac)
 	if err != nil {
@@ -206,7 +203,6 @@ func TestDetectIPConflict(t *testing.T) {
 	require.NotNil(t, err)
 	require.Nil(t, outMac)
 
-	// invalid mac
 	outMac, err = ArpDetectIPConflict(linkName, validIP, nil)
 	if err != nil {
 		if strings.Contains(err.Error(), "not permitted") {
@@ -219,10 +215,9 @@ func TestDetectIPConflict(t *testing.T) {
 }
 
 func TestAnnounceArpAddress(t *testing.T) {
-	// get the default route gw and nic
 	routes, err := netlink.RouteList(nil, unix.AF_UNSPEC)
 	if errors.Is(err, netlink.ErrNotImplemented) {
-		return // skip if not implemented
+		return
 	}
 	if err != nil {
 		t.Fatalf("failed to get routes: %v", err)
@@ -269,7 +264,7 @@ func TestAnnounceArpAddress(t *testing.T) {
 		}
 	}
 	require.Nil(t, err)
-	// invalid link name
+
 	linkName = "invalid"
 	err = AnnounceArpAddress(linkName, validIP, inMac, maxRetry, time.Second)
 	if err != nil {
@@ -280,7 +275,7 @@ func TestAnnounceArpAddress(t *testing.T) {
 	}
 	require.NotNil(t, err)
 	linkName = link.Attrs().Name
-	// invalid ip
+
 	invalidIP = "x.x.x.x"
 	err = AnnounceArpAddress(linkName, invalidIP, inMac, maxRetry, time.Second)
 	if err != nil {
@@ -290,7 +285,7 @@ func TestAnnounceArpAddress(t *testing.T) {
 		}
 	}
 	require.NotNil(t, err)
-	// invalid mac
+
 	err = AnnounceArpAddress(linkName, validIP, nil, maxRetry, time.Second)
 	if err != nil {
 		if strings.Contains(err.Error(), "not permitted") {

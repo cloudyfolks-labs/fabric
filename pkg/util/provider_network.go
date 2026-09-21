@@ -11,7 +11,6 @@ import (
 	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
-// NodeMatchesSelector checks if a node matches the given label selector
 func NodeMatchesSelector(node *v1.Node, selector *metav1.LabelSelector) (bool, error) {
 	if selector == nil {
 		return true, nil
@@ -25,8 +24,6 @@ func NodeMatchesSelector(node *v1.Node, selector *metav1.LabelSelector) (bool, e
 	return labelSelector.Matches(labels.Set(node.Labels)), nil
 }
 
-// IsNodeExcludedFromProviderNetwork determines if a node should be excluded from a provider network
-// Returns true if the node should be excluded, false otherwise
 func IsNodeExcludedFromProviderNetwork(node *v1.Node, pn *fabricv1.ProviderNetwork) (bool, error) {
 	if pn.Spec.NodeSelector != nil {
 		matched, err := NodeMatchesSelector(node, pn.Spec.NodeSelector)

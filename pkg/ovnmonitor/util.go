@@ -15,7 +15,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnsb"
 )
 
-// IncrementErrorCounter increases the counter of failed queries to OVN server.
 func (e *Exporter) IncrementErrorCounter() {
 	e.errorsLocker.Lock()
 	defer e.errorsLocker.Unlock()
@@ -25,7 +24,6 @@ func (e *Exporter) IncrementErrorCounter() {
 func (e *Exporter) getOvnStatus() map[string]int {
 	result := make(map[string]int)
 
-	// get ovn-northbound status
 	output, err := ovs.OvnDatabaseControl(ovnnb.DatabaseName, "cluster/status", ovnnb.DatabaseName)
 	if err != nil {
 		klog.Errorf("get ovn-northbound status failed, err %v", err)
@@ -33,7 +31,6 @@ func (e *Exporter) getOvnStatus() map[string]int {
 	}
 	result["ovsdb-server-northbound"] = parseDbStatus(output)
 
-	// get ovn-southbound status
 	output, err = ovs.OvnDatabaseControl(ovnsb.DatabaseName, "cluster/status", ovnsb.DatabaseName)
 	if err != nil {
 		klog.Errorf("get ovn-southbound status failed, err %v", err)
@@ -41,7 +38,6 @@ func (e *Exporter) getOvnStatus() map[string]int {
 	}
 	result["ovsdb-server-southbound"] = parseDbStatus(output)
 
-	// get ovn-northd status
 	if output, err = ovs.Appctl("ovn-northd", "status"); err != nil {
 		klog.Errorf("get ovn-northd status failed, err %v", err)
 		result["ovn-northd"] = 0
@@ -63,7 +59,6 @@ func (e *Exporter) getOvnStatus() map[string]int {
 func (e *Exporter) getOvnStatusContent() map[string]string {
 	result := map[string]string{"ovsdb-server-northbound": "", "ovsdb-server-southbound": ""}
 
-	// get ovn-northbound status
 	output, err := ovs.OvnDatabaseControl(ovnnb.DatabaseName, "cluster/status", ovnnb.DatabaseName)
 	if err != nil {
 		klog.Errorf("get ovn-northbound status failed, err %v", err)
@@ -73,7 +68,6 @@ func (e *Exporter) getOvnStatusContent() map[string]string {
 		result["ovsdb-server-northbound"] = servers
 	}
 
-	// get ovn-southbound status
 	output, err = ovs.OvnDatabaseControl(ovnsb.DatabaseName, "cluster/status", ovnsb.DatabaseName)
 	if err != nil {
 		klog.Errorf("get ovn-southbound status failed, err %v", err)
@@ -174,7 +168,7 @@ func getClusterInfo(dbName string) (*OVNDBClusterStatus, error) {
 		}
 		switch line[:idx] {
 		case "Cluster ID":
-			// the value is of the format `45ef (45ef51b9-9401-46e7-810d-6db0fc344ea2)`
+
 			clusterStatus.cid = strings.Trim(strings.Fields(line[idx+2:])[1], "()")
 		case "Server ID":
 			clusterStatus.sid = strings.Trim(strings.Fields(line[idx+2:])[1], "()")
@@ -195,7 +189,7 @@ func getClusterInfo(dbName string) (*OVNDBClusterStatus, error) {
 				clusterStatus.electionTimer = value
 			}
 		case "Log":
-			// the value is of the format [2, 1108]
+
 			values := strings.Split(strings.Trim(line[idx+2:], "[]"), ", ")
 			if value, err := strconv.ParseFloat(values[0], 64); err == nil {
 				clusterStatus.logIndexStart = value
@@ -212,9 +206,8 @@ func getClusterInfo(dbName string) (*OVNDBClusterStatus, error) {
 				clusterStatus.logNotApplied = value
 			}
 		case "Connections":
-			// The value could be nil
+
 			if len(line[idx+1:]) != 0 {
-				// the value is of the format `->0000 (->56d7) <-46ac <-56d7`
 				var connIn, connOut, connInErr, connOutErr float64
 				for conn := range strings.FieldsSeq(line[idx+2:]) {
 					switch {

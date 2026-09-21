@@ -57,10 +57,6 @@ func (c *Controller) tryStartServiceCIDRInformer(stopCh <-chan struct{}) bool {
 	return true
 }
 
-// StartServiceCIDRInformerFactory starts the optional ServiceCIDR informer.
-// On clusters without the API the merged set stays at flag-derived fallback.
-// The 3-second setIPSet/setIptables loop in gateway_linux.go automatically
-// picks up the merged set on each tick — no precise enqueue is needed here.
 func (c *Controller) StartServiceCIDRInformerFactory(stopCh <-chan struct{}) {
 	if c.tryStartServiceCIDRInformer(stopCh) {
 		return

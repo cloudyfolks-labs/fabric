@@ -21,7 +21,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// VpcClient is a struct for vpc client.
 type VpcClient struct {
 	f *Framework
 	v1.VpcInterface
@@ -41,7 +40,6 @@ func (c *VpcClient) Get(name string) *fabricv1.Vpc {
 	return vpc
 }
 
-// Create creates a new vpc according to the framework specifications
 func (c *VpcClient) Create(vpc *fabricv1.Vpc) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 	vpc, err := c.VpcInterface.Create(context.TODO(), vpc, metav1.CreateOptions{})
@@ -49,17 +47,15 @@ func (c *VpcClient) Create(vpc *fabricv1.Vpc) *fabricv1.Vpc {
 	return vpc.DeepCopy()
 }
 
-// CreateSync creates a new vpc according to the framework specifications, and waits for it to be ready.
 func (c *VpcClient) CreateSync(vpc *fabricv1.Vpc) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 
 	vpc = c.Create(vpc)
 	ExpectTrue(c.WaitToBeReady(vpc.Name, timeout))
-	// Get the newest vpc after it becomes ready
+
 	return c.Get(vpc.Name).DeepCopy()
 }
 
-// Patch patches the vpc
 func (c *VpcClient) Patch(original, modified *fabricv1.Vpc) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 
@@ -87,19 +83,16 @@ func (c *VpcClient) Patch(original, modified *fabricv1.Vpc) *fabricv1.Vpc {
 	return nil
 }
 
-// PatchSync patches the vpc and waits for the vpc to be ready for `timeout`.
-// If the vpc doesn't become ready before the timeout, it will fail the test.
 func (c *VpcClient) PatchSync(original, modified *fabricv1.Vpc, timeout time.Duration) *fabricv1.Vpc {
 	ginkgo.GinkgoHelper()
 
 	vpc := c.Patch(original, modified)
 	ExpectTrue(c.WaitToBeUpdated(vpc, timeout))
 	ExpectTrue(c.WaitToBeReady(vpc.Name, timeout))
-	// Get the newest subnet after it becomes ready
+
 	return c.Get(vpc.Name).DeepCopy()
 }
 
-// Delete deletes a vpc if the vpc exists
 func (c *VpcClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.VpcInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -108,26 +101,21 @@ func (c *VpcClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the vpc and waits for the vpc to disappear for `timeout`.
-// If the vpc doesn't disappear before the timeout, it will fail the test.
 func (c *VpcClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for vpc %q to disappear", name)
 }
 
-// WaitToBeReady returns whether the vpc is ready within timeout.
 func (c *VpcClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
 		if c.Get(name).Status.Standby {
-			// standby means the vpc is ready
 			return true
 		}
 	}
 	return false
 }
 
-// WaitToBeUpdated returns whether the vpc is updated within timeout.
 func (c *VpcClient) WaitToBeUpdated(vpc *fabricv1.Vpc, timeout time.Duration) bool {
 	Logf("Waiting up to %v for vpc %s to be updated", timeout, vpc.Name)
 	rv, _ := big.NewInt(0).SetString(vpc.ResourceVersion, 10)
@@ -141,7 +129,6 @@ func (c *VpcClient) WaitToBeUpdated(vpc *fabricv1.Vpc, timeout time.Duration) bo
 	return false
 }
 
-// WaitToDisappear waits the given timeout duration for the specified VPC to disappear.
 func (c *VpcClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*fabricv1.Vpc, error) {
 		vpc, err := c.VpcInterface.Get(ctx, name, metav1.GetOptions{})

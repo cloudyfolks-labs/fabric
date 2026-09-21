@@ -170,9 +170,6 @@ func Test_setUserDefinedNetwork(t *testing.T) {
 	}
 }
 
-// setupHandleDelSLRTest creates a fakeController with a VPC (with LB names in Status)
-// and a Service (with subnet/VPC annotations) pre-populated in both the informer cache
-// and the fake API client.  It also creates a VIP CR so we can verify deletion.
 func setupHandleDelSLRTest(t *testing.T, vpcName, subnetName, slrName, namespace, tcpLBName string) *fakeController {
 	t.Helper()
 	fc := newFakeController(t)
@@ -230,7 +227,6 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 	t.Run("orphaned LBHC with no LB references should be cleaned up", func(t *testing.T) {
 		fc := setupHandleDelSLRTest(t, vpcName, subnetName, slrName, namespace, tcpLBName)
 
-		// First call: find LBHC matching the VIP
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return(
 			[]ovnnb.LoadBalancerHealthCheck{{
 				UUID:        lbhcUUID1,
@@ -238,18 +234,17 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 				ExternalIDs: map[string]string{util.SwitchLBRuleSubnet: subnetName},
 			}}, nil,
 		)
-		// No LB references this LBHC (orphaned)
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancers(gomock.Any()).Return([]ovnnb.LoadBalancer{}, nil)
-		// Expect LBHC to be deleted
+
 		fc.mockOvnClient.EXPECT().DeleteLoadBalancerHealthChecks(gomock.Any()).Return(nil)
-		// Second call: after LBHC deletion, no more LBHCs for this subnet
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return([]ovnnb.LoadBalancerHealthCheck{}, nil)
 
 		info := &SwitchLBRuleInfo{Name: slrName, Namespace: namespace, Vips: []string{vip1}}
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		// VIP should have been deleted
 		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.True(t, k8serrors.IsNotFound(err), "VIP %s should have been deleted", subnetName)
 	})
@@ -264,7 +259,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 				ExternalIDs: map[string]string{util.SwitchLBRuleSubnet: subnetName},
 			}}, nil,
 		)
-		// LB in same VPC references this LBHC
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancers(gomock.Any()).Return(
 			[]ovnnb.LoadBalancer{{
 				Name:        tcpLBName,
@@ -294,16 +289,14 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 				ExternalIDs: map[string]string{util.SwitchLBRuleSubnet: subnetName},
 			}}, nil,
 		)
-		// LB from a DIFFERENT VPC references this LBHC
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancers(gomock.Any()).Return(
 			[]ovnnb.LoadBalancer{{
 				Name:        "vpc-other-tcp-load",
 				HealthCheck: []string{lbhcUUID1},
 			}}, nil,
 		)
-		// No DeleteLoadBalancerHealthChecks expected (LBHC belongs to other VPC)
-		// Fallback path: vips empty → uses service annotation subnet, then checks remaining LBHCs
-		// The LBHC still exists for this subnet, so VIP is not deleted
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return(
 			[]ovnnb.LoadBalancerHealthCheck{{
 				UUID:        lbhcUUID1,
@@ -316,7 +309,6 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		err := fc.fakeController.handleDelSwitchLBRule(info)
 		require.NoError(t, err)
 
-		// VIP should still exist
 		_, err = fc.fakeController.config.FabricClient.FabricV1().Vips().Get(context.Background(), subnetName, metav1.GetOptions{})
 		require.NoError(t, err, "VIP %s should still exist (other VPC owns the LBHC)", subnetName)
 	})
@@ -324,9 +316,8 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 	t.Run("no LBHC found should fallback to service annotation subnet", func(t *testing.T) {
 		fc := setupHandleDelSLRTest(t, vpcName, subnetName, slrName, namespace, tcpLBName)
 
-		// No LBHCs found at all
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return([]ovnnb.LoadBalancerHealthCheck{}, nil)
-		// Fallback: no LBHC for subnet after deletion check
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return([]ovnnb.LoadBalancerHealthCheck{}, nil)
 
 		info := &SwitchLBRuleInfo{Name: slrName, Namespace: namespace, Vips: []string{vip1}}
@@ -340,16 +331,12 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 	t.Run("service missing from lister falls back to info.Subnet", func(t *testing.T) {
 		fc := setupHandleDelSLRTest(t, vpcName, subnetName, slrName, namespace, tcpLBName)
 
-		// Simulate a racing service-delete event that removed the backing service
-		// from both the informer cache and the API before the SLR delete worker ran.
 		svcName := generateSvcName(slrName)
 		svc, err := fc.fakeController.config.KubeClient.CoreV1().Services(namespace).Get(context.Background(), svcName, metav1.GetOptions{})
 		require.NoError(t, err)
 		require.NoError(t, fc.fakeInformers.serviceInformer.Informer().GetStore().Delete(svc))
 		require.NoError(t, fc.fakeController.config.KubeClient.CoreV1().Services(namespace).Delete(context.Background(), svcName, metav1.DeleteOptions{}))
 
-		// With no LBHC matching info.Vips and the service gone, the handler must
-		// still clean up the VIP via the subnet recorded on info.Subnet.
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return([]ovnnb.LoadBalancerHealthCheck{}, nil)
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return([]ovnnb.LoadBalancerHealthCheck{}, nil)
 
@@ -375,9 +362,6 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 		require.NoError(t, fc.fakeInformers.serviceInformer.Informer().GetStore().Delete(svc))
 		require.NoError(t, fc.fakeController.config.KubeClient.CoreV1().Services(namespace).Delete(context.Background(), svcName, metav1.DeleteOptions{}))
 
-		// Matching LBHC is referenced by a DIFFERENT VPC's LB; without info.VPC the
-		// handler would fall back to unscoped deletion and remove a health check
-		// that still belongs to another VPC.  With info.VPC set we must skip it.
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return(
 			[]ovnnb.LoadBalancerHealthCheck{{
 				UUID:        lbhcUUID1,
@@ -391,8 +375,7 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 				HealthCheck: []string{lbhcUUID1},
 			}}, nil,
 		)
-		// Fallback VIP-by-subnet lookup still finds the foreign LBHC, so the VIP
-		// must stay.
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return(
 			[]ovnnb.LoadBalancerHealthCheck{{
 				UUID:        lbhcUUID1,
@@ -418,19 +401,18 @@ func Test_handleDelSwitchLBRule(t *testing.T) {
 	t.Run("multiple orphaned LBHCs for same subnet should all be cleaned up", func(t *testing.T) {
 		fc := setupHandleDelSLRTest(t, vpcName, subnetName, slrName, namespace, tcpLBName)
 
-		// Two orphaned LBHCs for the same subnet
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return(
 			[]ovnnb.LoadBalancerHealthCheck{
 				{UUID: lbhcUUID1, Vip: vip1, ExternalIDs: map[string]string{util.SwitchLBRuleSubnet: subnetName}},
 				{UUID: lbhcUUID2, Vip: vip2, ExternalIDs: map[string]string{util.SwitchLBRuleSubnet: subnetName}},
 			}, nil,
 		)
-		// Both have no LB references
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancers(gomock.Any()).Return([]ovnnb.LoadBalancer{}, nil)
 		fc.mockOvnClient.EXPECT().ListLoadBalancers(gomock.Any()).Return([]ovnnb.LoadBalancer{}, nil)
-		// Both should be deleted
+
 		fc.mockOvnClient.EXPECT().DeleteLoadBalancerHealthChecks(gomock.Any()).Return(nil)
-		// After deletion, no more LBHCs for this subnet
+
 		fc.mockOvnClient.EXPECT().ListLoadBalancerHealthChecks(gomock.Any()).Return([]ovnnb.LoadBalancerHealthCheck{}, nil)
 
 		info := &SwitchLBRuleInfo{Name: slrName, Namespace: namespace, Vips: []string{vip1, vip2}}

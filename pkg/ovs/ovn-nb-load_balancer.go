@@ -21,7 +21,6 @@ import (
 
 const localExternalVIPKeyPrefix = "kube-ovn.io/local-external-vip/"
 
-// CreateLoadBalancer create loadbalancer
 func (c *OVNNbClient) CreateLoadBalancer(lbName, protocol string, selectFields ...string) error {
 	var (
 		exist bool
@@ -32,7 +31,7 @@ func (c *OVNNbClient) CreateLoadBalancer(lbName, protocol string, selectFields .
 		klog.Errorf("failed to get lb: %v", err)
 		return err
 	}
-	// found, ignore
+
 	if exist {
 		return nil
 	}
@@ -67,7 +66,6 @@ func (c *OVNNbClient) CreateLoadBalancer(lbName, protocol string, selectFields .
 	return nil
 }
 
-// UpdateLoadBalancer update load balancer
 func (c *OVNNbClient) UpdateLoadBalancer(lb *ovnnb.LoadBalancer, fields ...any) error {
 	var (
 		ops []ovsdb.Operation
@@ -86,7 +84,6 @@ func (c *OVNNbClient) UpdateLoadBalancer(lb *ovnnb.LoadBalancer, fields ...any) 
 	return nil
 }
 
-// LoadBalancerAddVips adds or updates a vip
 func (c *OVNNbClient) LoadBalancerAddVip(lbName, vip string, backends ...string) error {
 	var (
 		ops []ovsdb.Operation
@@ -143,7 +140,6 @@ func (c *OVNNbClient) LoadBalancerAddVip(lbName, vip string, backends ...string)
 	return nil
 }
 
-// LoadBalancerDeleteVip deletes load balancer vip
 func (c *OVNNbClient) LoadBalancerDeleteVip(lbName, vipEndpoint string, ignoreHealthCheck bool) error {
 	var (
 		ops  []ovsdb.Operation
@@ -161,7 +157,7 @@ func (c *OVNNbClient) LoadBalancerDeleteVip(lbName, vipEndpoint string, ignoreHe
 	}
 	if !ignoreHealthCheck && lbhc != nil {
 		klog.Infof("clean health check for lb %s with vip %s", lbName, vipEndpoint)
-		// delete ip port mapping
+
 		if err = c.LoadBalancerDeleteIPPortMapping(lbName, vipEndpoint); err != nil {
 			klog.Errorf("failed to delete lb ip port mapping: %v", err)
 			return err
@@ -214,9 +210,6 @@ func (c *OVNNbClient) LoadBalancerDeleteVip(lbName, vipEndpoint string, ignoreHe
 	return nil
 }
 
-// SetLoadBalancerVIPExternalTrafficLocal records the node LSP of the chassis
-// announcing an external VIP of a LoadBalancer Service with
-// externalTrafficPolicy=Local.
 func (c *OVNNbClient) SetLoadBalancerVIPExternalTrafficLocal(lbName, vip, vipNodeLSP string) error {
 	key := localExternalVIPKeyPrefix + vip
 	ops, err := c.LoadBalancerOp(lbName, func(lb *ovnnb.LoadBalancer) []model.Mutation {
@@ -261,7 +254,6 @@ func (c *OVNNbClient) SetLoadBalancerVIPExternalTrafficLocal(lbName, vip, vipNod
 	return nil
 }
 
-// SetLoadBalancerAffinityTimeout sets the LB's affinity timeout in seconds
 func (c *OVNNbClient) SetLoadBalancerAffinityTimeout(lbName string, timeout int) error {
 	var (
 		options map[string]string
@@ -291,7 +283,6 @@ func (c *OVNNbClient) SetLoadBalancerAffinityTimeout(lbName string, timeout int)
 	return nil
 }
 
-// SetLoadBalancerPreferLocalBackend sets the LB's affinity timeout in seconds
 func (c *OVNNbClient) SetLoadBalancerPreferLocalBackend(lbName string, preferLocalBackend bool) error {
 	var (
 		options map[string]string
@@ -354,7 +345,6 @@ func (c *OVNNbClient) SetLoadBalancerHairpinSNATIP(lbName, hairpinSNATIP string)
 	return nil
 }
 
-// SetLoadBalancerCtFlush sets the LB's ct_flush option to flush conntrack entries when backends are removed
 func (c *OVNNbClient) SetLoadBalancerCtFlush(lbName string, ctFlush bool) error {
 	var (
 		options map[string]string
@@ -389,7 +379,6 @@ func (c *OVNNbClient) SetLoadBalancerCtFlush(lbName string, ctFlush bool) error 
 	return nil
 }
 
-// DeleteLoadBalancers delete several loadbalancer once
 func (c *OVNNbClient) DeleteLoadBalancers(filter func(lb *ovnnb.LoadBalancer) bool) error {
 	var (
 		ops []ovsdb.Operation
@@ -415,7 +404,6 @@ func (c *OVNNbClient) DeleteLoadBalancers(filter func(lb *ovnnb.LoadBalancer) bo
 	return nil
 }
 
-// DeleteLoadBalancer delete loadbalancer
 func (c *OVNNbClient) DeleteLoadBalancer(lbName string) error {
 	var (
 		ops []ovsdb.Operation
@@ -435,8 +423,6 @@ func (c *OVNNbClient) DeleteLoadBalancer(lbName string) error {
 	return nil
 }
 
-// GetLoadBalancer get load balancer by name,
-// it is because of lack name index that doesn't use OVNNbClient.Get
 func (c *OVNNbClient) GetLoadBalancer(lbName string, ignoreNotFound bool) (*ovnnb.LoadBalancer, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -457,7 +443,6 @@ func (c *OVNNbClient) GetLoadBalancer(lbName string, ignoreNotFound bool) (*ovnn
 	}
 
 	switch {
-	// not found
 	case len(lbList) == 0:
 		if ignoreNotFound {
 			return nil, nil
@@ -476,7 +461,6 @@ func (c *OVNNbClient) LoadBalancerExists(lbName string) (bool, error) {
 	return lrp != nil, err
 }
 
-// ListLoadBalancers list all load balancers
 func (c *OVNNbClient) ListLoadBalancers(filter func(lb *ovnnb.LoadBalancer) bool) ([]ovnnb.LoadBalancer, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -536,7 +520,6 @@ func (c *OVNNbClient) LoadBalancerOp(lbName string, mutationsFunc ...func(lb *ov
 	return ops, nil
 }
 
-// DeleteLoadBalancerOp create operation which delete load balancer
 func (c *OVNNbClient) DeleteLoadBalancerOp(lbName string) ([]ovsdb.Operation, error) {
 	var (
 		ops []ovsdb.Operation
@@ -548,7 +531,7 @@ func (c *OVNNbClient) DeleteLoadBalancerOp(lbName string) ([]ovsdb.Operation, er
 		klog.Error(err)
 		return nil, err
 	}
-	// not found, skip
+
 	if lb == nil {
 		return nil, nil
 	}
@@ -560,7 +543,6 @@ func (c *OVNNbClient) DeleteLoadBalancerOp(lbName string) ([]ovsdb.Operation, er
 	return ops, nil
 }
 
-// LoadBalancerAddIPPortMapping add load balancer ip port mapping
 func (c *OVNNbClient) LoadBalancerAddIPPortMapping(lbName, vipEndpoint string, mappings map[string]string) error {
 	if len(mappings) == 0 {
 		return nil
@@ -594,8 +576,6 @@ func (c *OVNNbClient) LoadBalancerAddIPPortMapping(lbName, vipEndpoint string, m
 	return nil
 }
 
-// LoadBalancerDeleteIPPortMapping deletes IP port mappings for a specific VIP from a load balancer.
-// This function ensures that only backend IPs that are no longer referenced by any VIP are removed.
 func (c *OVNNbClient) LoadBalancerDeleteIPPortMapping(lbName, vipEndpoint string) error {
 	lb, err := c.getLoadBalancerForDeletion(lbName)
 	if err != nil {
@@ -619,7 +599,6 @@ func (c *OVNNbClient) LoadBalancerDeleteIPPortMapping(lbName, vipEndpoint string
 	return c.deleteUnusedIPPortMappings(lbName, vipEndpoint, unusedBackendIPs)
 }
 
-// getLoadBalancerForDeletion retrieves the load balancer and performs initial validation
 func (c *OVNNbClient) getLoadBalancerForDeletion(lbName string) (*ovnnb.LoadBalancer, error) {
 	lb, err := c.GetLoadBalancer(lbName, true)
 	if err != nil {
@@ -640,7 +619,6 @@ func (c *OVNNbClient) getLoadBalancerForDeletion(lbName string) (*ovnnb.LoadBala
 	return lb, nil
 }
 
-// extractBackendIPsFromVIP extracts the backend IPs that are used by a specific VIP
 func (c *OVNNbClient) extractBackendIPsFromVIP(lb *ovnnb.LoadBalancer, vipEndpoint string) (map[string]bool, error) {
 	vipBackends, exists := lb.Vips[vipEndpoint]
 	if !exists {
@@ -660,7 +638,6 @@ func (c *OVNNbClient) extractBackendIPsFromVIP(lb *ovnnb.LoadBalancer, vipEndpoi
 	return backendIPs, nil
 }
 
-// findUnusedBackendIPs identifies which backend IPs are no longer used by any other VIP
 func (c *OVNNbClient) findUnusedBackendIPs(lb *ovnnb.LoadBalancer, targetVIP string, targetBackendIPs map[string]bool) map[string]string {
 	unusedBackendIPs := make(map[string]string)
 
@@ -676,7 +653,6 @@ func (c *OVNNbClient) findUnusedBackendIPs(lb *ovnnb.LoadBalancer, targetVIP str
 	return unusedBackendIPs
 }
 
-// isBackendIPStillUsed checks if a backend IP is still referenced by any other VIP
 func (c *OVNNbClient) isBackendIPStillUsed(lb *ovnnb.LoadBalancer, targetVIP, backendIP string) bool {
 	for otherVIP, otherBackends := range lb.Vips {
 		if otherVIP == targetVIP {
@@ -695,7 +671,6 @@ func (c *OVNNbClient) isBackendIPStillUsed(lb *ovnnb.LoadBalancer, targetVIP, ba
 	return false
 }
 
-// deleteUnusedIPPortMappings performs the actual deletion of unused IP port mappings
 func (c *OVNNbClient) deleteUnusedIPPortMappings(lbName, vipEndpoint string, unusedBackendIPs map[string]string) error {
 	if len(unusedBackendIPs) == 0 {
 		klog.Infof("no unused backend IPs to delete for VIP %s in load balancer %s", vipEndpoint, lbName)
@@ -732,7 +707,6 @@ func (c *OVNNbClient) deleteUnusedIPPortMappings(lbName, vipEndpoint string, unu
 	return nil
 }
 
-// getMapKeys returns the keys of a map as a slice
 func getMapKeys(m map[string]bool) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -741,11 +715,6 @@ func getMapKeys(m map[string]bool) []string {
 	return keys
 }
 
-// LoadBalancerUpdateIPPortMapping update the ip_port_mapping of a loadbalancer.
-// The ipPortMapping received can contain a partial update of the port mapping.
-// You must only pass the port mapping of vipEndpoint, not of every VIP on the LB.
-// Existing port mappings will be overwritten if the LSP changed for a particular IP.
-// The orphaned port mappings (for IPs that are not contained in any backend for any VIP) are deleted on update.
 func (c *OVNNbClient) LoadBalancerUpdateIPPortMapping(lbName, vipEndpoint string, ipPortMappings map[string]string) error {
 	ops, err := c.LoadBalancerOp(
 		lbName,
@@ -753,45 +722,35 @@ func (c *OVNNbClient) LoadBalancerUpdateIPPortMapping(lbName, vipEndpoint string
 			toDelete := make(map[string]string)
 			toInsert := make(map[string]string)
 
-			// Build set of new backend IPs
 			newBackendIPs := make(map[string]bool, len(ipPortMappings))
 			for ip := range ipPortMappings {
 				cleanIP := strings.Trim(ip, "[]")
 				newBackendIPs[cleanIP] = true
 			}
 
-			// Find orphaned mappings: IPs in current mappings that are not in new mappings
-			// AND not used by any other VIP in the load balancer
 			for mappingKey, mappingValue := range lb.IPPortMappings {
 				cleanKey := strings.Trim(mappingKey, "[]")
 
-				// If this IP is not in the new mappings, check if it should be deleted
 				if !newBackendIPs[cleanKey] {
-					// Use the existing isBackendIPStillUsed helper to check all VIPs
 					if !c.isBackendIPStillUsed(lb, vipEndpoint, cleanKey) {
 						toDelete[mappingKey] = mappingValue
 					}
 				}
 			}
 
-			// For each IP in the new mappings, check if it already exists with a different value
 			for ip, newLSP := range ipPortMappings {
 				if len(lb.IPPortMappings) != 0 {
-					// Normalize the IP key for comparison (strip brackets for IPv6)
 					cleanIP := strings.Trim(ip, "[]")
 
-					// Check if an existing mapping exists for this IP (in any key format)
 					var existingKey string
 					var existingLSP string
 					var found bool
 
-					// First try exact match
 					if lsp, exists := lb.IPPortMappings[ip]; exists {
 						existingKey = ip
 						existingLSP = lsp
 						found = true
 					} else {
-						// Try to find the IP with normalized key (check both bracketed/unbracketed forms)
 						for mappingKey, mappingValue := range lb.IPPortMappings {
 							if strings.Trim(mappingKey, "[]") == cleanIP {
 								existingKey = mappingKey
@@ -804,25 +763,21 @@ func (c *OVNNbClient) LoadBalancerUpdateIPPortMapping(lbName, vipEndpoint string
 
 					if found {
 						if existingLSP == newLSP {
-							// Mapping is already correct, skip
 							continue
 						}
-						// Different value, need to delete old and insert new
+
 						toDelete[existingKey] = existingLSP
 						toInsert[ip] = newLSP
 					} else {
-						// New mapping
 						toInsert[ip] = newLSP
 					}
 				} else {
-					// No existing mappings, just insert
 					toInsert[ip] = newLSP
 				}
 			}
 
 			mutations := make([]model.Mutation, 0, 2)
 
-			// Create delete mutation if needed
 			if len(toDelete) > 0 {
 				mutations = append(
 					mutations,
@@ -834,7 +789,6 @@ func (c *OVNNbClient) LoadBalancerUpdateIPPortMapping(lbName, vipEndpoint string
 				)
 			}
 
-			// Create insert mutation if needed
 			if len(toInsert) > 0 {
 				mutations = append(
 					mutations,
@@ -863,7 +817,6 @@ func (c *OVNNbClient) LoadBalancerUpdateIPPortMapping(lbName, vipEndpoint string
 	return nil
 }
 
-// LoadBalancerAddHealthCheck adds health check
 func (c *OVNNbClient) LoadBalancerAddHealthCheck(lbName, vipEndpoint string, ignoreHealthCheck bool, ipPortMapping, externals map[string]string) error {
 	klog.Infof("lb %s health check use ip port mapping %v", lbName, ipPortMapping)
 	if err := c.LoadBalancerUpdateIPPortMapping(lbName, vipEndpoint, ipPortMapping); err != nil {
@@ -880,7 +833,6 @@ func (c *OVNNbClient) LoadBalancerAddHealthCheck(lbName, vipEndpoint string, ign
 	return nil
 }
 
-// LoadBalancerDeleteHealthCheck delete load balancer health check
 func (c *OVNNbClient) LoadBalancerDeleteHealthCheck(lbName, uuid string) error {
 	var (
 		ops []ovsdb.Operation
@@ -920,7 +872,6 @@ func (c *OVNNbClient) LoadBalancerDeleteHealthCheck(lbName, uuid string) error {
 	return nil
 }
 
-// LoadBalancerUpdateHealthCheckOp create operations add to or delete health check from it
 func (c *OVNNbClient) LoadBalancerUpdateHealthCheckOp(lbName string, lbhcUUIDs []string, op ovsdb.Mutator) ([]ovsdb.Operation, error) {
 	if len(lbhcUUIDs) == 0 {
 		return nil, nil

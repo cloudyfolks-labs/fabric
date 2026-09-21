@@ -18,8 +18,6 @@ var (
 	tryConnectCnt = 0
 )
 
-// Exporter collects OVS data from the given server and exports them using
-// the prometheus metrics package.
 type Exporter struct {
 	sync.RWMutex
 	Client       *ovsdb.OvsClient
@@ -29,7 +27,6 @@ type Exporter struct {
 	errorsLocker sync.RWMutex
 }
 
-// NewExporter returns an initialized Exporter.
 func NewExporter(cfg *Configuration) *Exporter {
 	e := Exporter{}
 	e.Client = ovsdb.NewOvsClient()
@@ -65,7 +62,6 @@ func (e *Exporter) initParas(cfg *Configuration) {
 	e.Client.Service.OvnController.File.Pid.Path = cfg.ServiceOvnControllerFilePidPath
 }
 
-// StartConnection connect to database socket
 func (e *Exporter) StartConnection() error {
 	if err := e.Client.Connect(); err != nil {
 		return err
@@ -102,7 +98,6 @@ func (e *Exporter) tryClientConnection() {
 	}
 }
 
-// ovsMetricsUpdate updates the ovs metrics
 func (e *Exporter) ovsMetricsUpdate() {
 	e.exportOvsStatusGauge()
 	e.exportOvsInfoGauge()

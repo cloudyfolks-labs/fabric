@@ -451,7 +451,6 @@ func TestServiceHealthChecksDisabled(t *testing.T) {
 	}
 }
 
-// TestReplaceEndpointAddressesWithSecondaryIPs tests the real controller method
 func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -459,7 +458,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 		pods               []*corev1.Pod
 		networkAttachments []*nadv1.NetworkAttachmentDefinition
 		subnets            []*fabricv1.Subnet
-		expectedChanges    map[string]string // map of original IP to expected new IP
+		expectedChanges    map[string]string
 		expectError        bool
 		description        string
 	}{
@@ -473,7 +472,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
-							Addresses: []string{"10.244.0.5"}, // Primary IP
+							Addresses: []string{"10.244.0.5"},
 							TargetRef: &corev1.ObjectReference{
 								Kind: util.KindPod,
 								Name: "test-pod-1",
@@ -488,9 +487,8 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Name:      "test-pod-1",
 						Namespace: "default",
 						Annotations: map[string]string{
-							// Network attachment annotation to indicate this pod uses net1
 							nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
-							// fabric annotations for net1 provider
+
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
@@ -554,7 +552,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
-							Addresses: []string{"10.244.0.5"}, // Primary IP
+							Addresses: []string{"10.244.0.5"},
 							TargetRef: &corev1.ObjectReference{
 								Kind: util.KindPod,
 								Name: "test-pod-1",
@@ -569,9 +567,8 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Name:      "test-pod-1",
 						Namespace: "default",
 						Annotations: map[string]string{
-							// Network attachment annotation to indicate this pod uses net1
 							nadv1.NetworkAttachmentAnnot: "default/net1",
-							// fabric annotations for net1 provider
+
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
@@ -649,9 +646,8 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-pod-1",
 						Namespace: "default",
-						// No network attachment annotations
+
 						Annotations: map[string]string{
-							// Only default provider annotations
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, util.OvnProvider): "default-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, util.OvnProvider): "ovn-cluster",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, util.OvnProvider):     "10.244.0.5",
@@ -703,13 +699,12 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 						Name:      "test-pod-1",
 						Namespace: "default",
 						Annotations: map[string]string{
-							// Network attachment annotation to indicate this pod uses net1, net2
 							nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}, {"name": "net2"}]`,
-							// fabric annotations for net1 provider
+
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
-							// fabric annotations for net2 provider
+
 							fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net2.default.fabric"): "net2-subnet",
 							fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net2.default.fabric"): "net2-vpc",
 							fmt.Sprintf(util.IPAddressAnnotationTemplate, "net2.default.fabric"):     "192.168.2.10",
@@ -781,7 +776,7 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 					},
 				},
 			},
-			// First provider is net1.default.fabric. We expect changes for its IPs
+
 			expectedChanges: map[string]string{
 				"10.244.0.5": "192.168.1.10",
 			},
@@ -792,7 +787,6 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create controller with proper setup
 			fakeController, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 				NetworkAttachments: tt.networkAttachments,
 				Subnets:            tt.subnets,
@@ -802,7 +796,6 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 
 			controller := fakeController.fakeController
 
-			// Store original addresses for comparison
 			originalAddresses := make(map[string][]string)
 			for i, slice := range tt.endpointSlices {
 				for j, endpoint := range slice.Endpoints {
@@ -812,17 +805,14 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 				}
 			}
 
-			// Call the real controller method
 			err = controller.replaceEndpointAddressesWithSecondaryIPs(tt.endpointSlices, tt.pods)
 
-			// Check for errors
 			if tt.expectError {
 				assert.Error(t, err, "Expected an error but got none")
 				return
 			}
 			require.NoError(t, err, "Unexpected error from replaceEndpointAddressesWithSecondaryIPs")
 
-			// Verify the changes
 			changesFound := make(map[string]string)
 			for i, slice := range tt.endpointSlices {
 				for j, endpoint := range slice.Endpoints {
@@ -837,7 +827,6 @@ func TestReplaceEndpointAddressesWithSecondaryIPs(t *testing.T) {
 				}
 			}
 
-			// Compare expected changes with actual changes
 			assert.Equal(t, len(tt.expectedChanges), len(changesFound),
 				"Number of changes mismatch. Expected: %v, Got: %v", tt.expectedChanges, changesFound)
 

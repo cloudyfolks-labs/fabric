@@ -95,16 +95,9 @@ func (c *Controller) handleAddOrUpdateCsr(key string) (err error) {
 	}
 
 	if len(csr.Status.Certificate) != 0 {
-		// Request already has a certificate. There is nothing
-		// to do as we will, currently, not re-certify or handle any updates to
-		// CSRs.
 		return nil
 	}
 
-	// We will make the assumption that anyone with permission to issue a
-	// certificate signing request to this signer is automatically approved. This
-	// is somewhat protected by permissions on the CSR resource.
-	// TODO: We may need a more robust way to do this later
 	if !isCertificateRequestApproved(csr) {
 		csr.Status.Conditions = append(csr.Status.Conditions, csrv1.CertificateSigningRequestCondition{
 			Type:    csrv1.CertificateApproved,
@@ -112,7 +105,7 @@ func (c *Controller) handleAddOrUpdateCsr(key string) (err error) {
 			Reason:  "AutoApproved",
 			Message: "Automatically approved by " + util.SignerName,
 		})
-		// Update status to "Approved"
+
 		_, err = c.config.KubeClient.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.TODO(), csr.Name, csr, metav1.UpdateOptions{})
 		if err != nil {
 			klog.Errorf("Unable to approve certificate for %v and signer %v: %v", csr.Name, util.SignerName, err)
@@ -121,8 +114,7 @@ func (c *Controller) handleAddOrUpdateCsr(key string) (err error) {
 
 		return nil
 	}
-	// From this point we are dealing with an approved CSR
-	// Get CA in from ovn-ipsec-ca
+
 	caSecret, err := c.config.KubeClient.CoreV1().Secrets(os.Getenv(util.EnvPodNamespace)).Get(context.TODO(), util.DefaultOVNIPSecCA, metav1.GetOptions{})
 	if err != nil {
 		c.signerFailure(csr, "CAFailure",
@@ -130,18 +122,14 @@ func (c *Controller) handleAddOrUpdateCsr(key string) (err error) {
 		return err
 	}
 
-	// Decode the certificate request from PEM format.
 	certReq, err := decodeCertificateRequest(csr.Spec.Request)
 	if err != nil {
-		// We don't degrade the status of the controller as this is due to a
-		// malformed CSR rather than an issue with the controller.
 		if err := c.updateCSRStatusConditions(csr, "CSRDecodeFailure", fmt.Sprintf("Could not decode Certificate Request: %v", err)); err != nil {
 			klog.Error(err)
 		}
 		return nil
 	}
 
-	// Decode the CA certificate from PEM format.
 	caCert, err := decodeCertificate(caSecret.Data["cacert"])
 	if err != nil {
 		c.signerFailure(csr, "CorruptCACert",
@@ -156,8 +144,6 @@ func (c *Controller) handleAddOrUpdateCsr(key string) (err error) {
 		return nil
 	}
 
-	// Create a new certificate using the certificate template and certificate.
-	// We can then sign this using the CA.
 	signedCert, err := signCSR(newCertificateTemplate(certReq), certReq.PublicKey, caCert, caKey)
 	if err != nil {
 		c.signerFailure(csr, "SigningFailure",
@@ -165,7 +151,6 @@ func (c *Controller) handleAddOrUpdateCsr(key string) (err error) {
 		return nil
 	}
 
-	// Encode the certificate into PEM format and add to the status of the CSR
 	csr.Status.Certificate, err = encodeCertificates(signedCert)
 	if err != nil {
 		c.signerFailure(csr, "EncodeFailure",
@@ -181,8 +166,6 @@ func (c *Controller) handleAddOrUpdateCsr(key string) (err error) {
 	return nil
 }
 
-// Something has gone wrong with the signer controller so we update the statusmanager, the csr
-// and log.
 func (c *Controller) signerFailure(csr *csrv1.CertificateSigningRequest, reason, message string) {
 	klog.Errorf("%s: %s", reason, message)
 	if err := c.updateCSRStatusConditions(csr, reason, message); err != nil {
@@ -190,7 +173,6 @@ func (c *Controller) signerFailure(csr *csrv1.CertificateSigningRequest, reason,
 	}
 }
 
-// Update the status conditions on the CSR object
 func (c *Controller) updateCSRStatusConditions(csr *csrv1.CertificateSigningRequest, reason, message string) error {
 	csr.Status.Conditions = append(csr.Status.Conditions, csrv1.CertificateSigningRequestCondition{
 		Type:    csrv1.CertificateFailed,
@@ -206,7 +188,6 @@ func (c *Controller) updateCSRStatusConditions(csr *csrv1.CertificateSigningRequ
 	return nil
 }
 
-// updateCsrStatus updates the status of a CSR using the Update method instead of Patch
 func (c *Controller) updateCsrStatus(csr *csrv1.CertificateSigningRequest) error {
 	if _, err := c.config.KubeClient.CertificatesV1().CertificateSigningRequests().UpdateStatus(context.Background(), csr, metav1.UpdateOptions{}); err != nil {
 		klog.Errorf("failed to update status for csr %s: %v", csr.Name, err)
@@ -215,8 +196,6 @@ func (c *Controller) updateCsrStatus(csr *csrv1.CertificateSigningRequest) error
 	return nil
 }
 
-// isCertificateRequestApproved returns true if a certificate request has the
-// "Approved" condition and no "Denied" conditions; false otherwise.
 func isCertificateRequestApproved(csr *csrv1.CertificateSigningRequest) bool {
 	approved, denied := getCertApprovalCondition(&csr.Status)
 	return approved && !denied
@@ -247,7 +226,7 @@ func newCertificateTemplate(certReq *x509.CertificateRequest) *x509.Certificate 
 		SignatureAlgorithm: x509.SHA512WithRSA,
 
 		NotBefore:    time.Now().Add(-1 * time.Second),
-		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour), // CA expire Time 10 year
+		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
 		SerialNumber: serialNumber,
 
 		DNSNames:              certReq.DNSNames,

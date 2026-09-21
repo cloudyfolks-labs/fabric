@@ -87,7 +87,6 @@ func (c *Controller) needNewCert(p *pkiFiles) (bool, error) {
 		return false, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
-	// get a new certificate if we're over half way through this certificates validity
 	now := time.Now()
 	if now.Before(cert.NotBefore) ||
 		time.Since(cert.NotBefore) > cert.NotAfter.Sub(cert.NotBefore)/2 {
@@ -95,7 +94,6 @@ func (c *Controller) needNewCert(p *pkiFiles) (bool, error) {
 		return true, nil
 	}
 
-	// now check our certificate is signed by our CA
 	caCertBytes, err := os.ReadFile(p.caCertPath)
 	if err != nil {
 		return false, fmt.Errorf("failed to read CA certificate: %w", err)
@@ -141,7 +139,6 @@ func (c *Controller) untilCertRefresh(certPath string) (time.Duration, error) {
 		return 0, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
-	// get a new certificate if we're over half way through this certificates validity
 	refreshTime := cert.NotBefore.Add(cert.NotAfter.Sub(cert.NotBefore) / 2)
 	return time.Until(refreshTime), nil
 }
@@ -180,11 +177,10 @@ func (c *Controller) getCACert(key string) (string, error) {
 	if err != nil {
 		active, _ := isServiceActive("ipsec")
 		if active {
-			// strongSwan is running but rereadcacerts failed — a real error
 			klog.Errorf("failed to reload ipsec ca cert: %v, output: %s", err, output)
 			return "", err
 		}
-		// strongSwan is not running yet; it will auto-load certs from /etc/ipsec.d/cacerts/ on start
+
 		klog.Infof("ipsec rereadcacerts skipped (strongSwan not running yet); certs will be loaded on service start")
 	}
 
@@ -273,7 +269,6 @@ func (c *Controller) getCertManagerSignedCert(ctx context.Context, csrBytes []by
 	}
 
 	defer func() {
-		// clean up the request once it's no longer needed
 		err := c.config.CertManagerClient.CertmanagerV1().CertificateRequests(namespace).Delete(context.Background(), newCR.Name, metav1.DeleteOptions{})
 		if err != nil {
 			klog.Errorf("failed to delete cr: %s; %v", newCR.Name, err)
@@ -325,13 +320,11 @@ func (c *Controller) getSignedCert(ctx context.Context, csrBytes []byte) ([]byte
 	}
 
 	defer func() {
-		// clean up the request once it's no longer needed
 		if err := c.config.KubeClient.CertificatesV1().CertificateSigningRequests().Delete(context.Background(), csr.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Errorf("failed to delete csr: %v", err)
 		}
 	}()
 
-	// Wait until the certificate signing request has been signed.
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
@@ -407,18 +400,14 @@ func clearOVSIPSecConfig() error {
 }
 
 func linkCACertToIPSecDir(ca []byte) error {
-	// strongswan is unable to read chains or trust bundles and will only read the first certificate in the file.
-	// Split out each CA cert into it's own file in the ipsec cacerts directory.
 	if err := os.RemoveAll(ipsecCADir); err != nil {
 		return fmt.Errorf("clearing ipsec CA directory: %w", err)
 	}
 
-	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(ipsecCADir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Split and write individual certificates
 	certificates, err := splitPEMCertificates(ca)
 	if err != nil {
 		return fmt.Errorf("failed to split certificates: %w", err)
@@ -443,7 +432,6 @@ func splitPEMCertificates(data []byte) ([][]byte, error) {
 	var certificates [][]byte
 	var currentCert strings.Builder
 
-	// Split by lines and process each PEM block
 	rest := data
 	for {
 		block, remaining := pem.Decode(rest)
@@ -451,13 +439,11 @@ func splitPEMCertificates(data []byte) ([][]byte, error) {
 			break
 		}
 
-		// Only process certificate blocks
 		if block.Type != "CERTIFICATE" {
 			rest = remaining
 			continue
 		}
 
-		// Validate that it's actually a certificate
 		_, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			klog.Errorf("Warning: Skipping invalid certificate: %v\n", err)
@@ -465,7 +451,6 @@ func splitPEMCertificates(data []byte) ([][]byte, error) {
 			continue
 		}
 
-		// Encode the certificate block back to PEM format
 		currentCert.Reset()
 		if err := pem.Encode(&currentCert, block); err != nil {
 			return nil, fmt.Errorf("failed to encode certificate: %w", err)
@@ -505,7 +490,6 @@ func clearIPSecKeysDir(toKeep pkiFiles) error {
 		toKeep.privateKeyPath:  true,
 	}
 
-	// Get all files in the directory
 	files, err := os.ReadDir(ipsecKeyDir)
 	if err != nil {
 		klog.Errorf("reading ipsec keys directory: %v\n", err)
@@ -514,12 +498,11 @@ func clearIPSecKeysDir(toKeep pkiFiles) error {
 
 	for _, file := range files {
 		if file.IsDir() {
-			continue // Skip directories
+			continue
 		}
 
 		filePath := filepath.Join(ipsecKeyDir, file.Name())
 		if !filesToKeep[filePath] {
-			// Delete the file
 			if err = os.Remove(filePath); err != nil {
 				klog.Errorf("deleting %s: %v\n", filePath, err)
 			}
@@ -573,9 +556,6 @@ func (c *Controller) SyncIPSecKeys(key string) error {
 		}
 	}
 
-	// Always configure OVS with IPSec keys to ensure the OVSDB has
-	// the correct certificate paths, even when the certificate was
-	// not regenerated (e.g., after an OVS restart that cleared OVSDB).
 	if err := configureOVSWithIPSecKeys(pkiFiles); err != nil {
 		klog.Errorf("configure ovs with ipsec keys error: %v", err)
 		return err
@@ -583,14 +563,10 @@ func (c *Controller) SyncIPSecKeys(key string) error {
 
 	if needNewCert {
 		if err := clearIPSecKeysDir(*pkiFiles); err != nil {
-			// don't return here; we've already programmed the new keys
 			klog.Errorf("cleaning old ipsec files: %v", err)
 		}
 	}
 
-	// Start the IPSec service after certificates are configured in OVSDB.
-	// This prevents ovs-monitor-ipsec from seeing tunnels with IPSec
-	// enabled but no certificates configured during the startup window.
 	c.ipsecServiceStarted.Do(func() {
 		if err := c.StartIPSecService(); err != nil {
 			klog.Errorf("starting ipsec service: %v", err)

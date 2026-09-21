@@ -11,7 +11,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// Configuration contains parameters information.
 type Configuration struct {
 	PollTimeout                     int
 	PollInterval                    int
@@ -49,13 +48,11 @@ type Configuration struct {
 	MetricsPort                     int32
 	LogPerm                         string
 
-	// TLS configuration for secure serving
 	TLSMinVersion   string
 	TLSMaxVersion   string
 	TLSCipherSuites []string
 }
 
-// ParseFlags get parameters information.
 func ParseFlags() (*Configuration, error) {
 	var (
 		argPollTimeout   = pflag.Int("ovs.timeout", 2, "Timeout on JSON-RPC requests to OVN.")
@@ -107,7 +104,6 @@ func ParseFlags() (*Configuration, error) {
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 
-	// Sync the glog and klog flags.
 	pflag.CommandLine.VisitAll(func(f1 *pflag.Flag) {
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {

@@ -30,7 +30,6 @@ func (f *Framework) EventClientNS(namespace string) *EventClient {
 	}
 }
 
-// WaitToHaveEvent waits the provided resource to have the specified event(s)
 func (c *EventClient) WaitToHaveEvent(kind, name, eventType, reason, sourceComponent, sourceHost string) []corev1.Event {
 	ginkgo.GinkgoHelper()
 

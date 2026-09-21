@@ -35,15 +35,12 @@ func TestCheckInterfaceExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Call the actual function
 			exists := CheckInterfaceExists(tt.ifaceName)
 
-			// For loopback, we can assert it should exist
 			if tt.ifaceName == "lo" && !exists {
 				t.Errorf("Expected loopback interface 'lo' to exist, but CheckInterfaceExists returned false")
 			}
 
-			// For non-existent, we can assert it should not exist
 			if tt.ifaceName == "nonexistent12345" && exists {
 				t.Errorf("Expected interface 'nonexistent12345' to not exist, but CheckInterfaceExists returned true")
 			}

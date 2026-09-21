@@ -1235,7 +1235,6 @@ func TestValidateNetworkBroadcast(t *testing.T) {
 			err:  "",
 		},
 		{
-			// IPv6 has no broadcast address, the all-ones host is a valid unicast IP
 			name: "allOnesHostV6",
 			cidr: "190:255::1:0/112",
 			ip:   "190:255::1:ffff",
@@ -1248,7 +1247,6 @@ func TestValidateNetworkBroadcast(t *testing.T) {
 			err:  "190:255::1:0 is the network number ip in cidr 190:255::1:0/112",
 		},
 		{
-			// IPv6 all-ones host must be accepted even in a dual-stack subnet
 			name: "allOnesHostDual",
 			cidr: "10.16.0.0/16,190:255::1:0/112",
 			ip:   "10.16.0.1,190:255::1:ffff",

@@ -6,7 +6,6 @@ import (
 )
 
 var (
-	// OVN basic info
 	metricOvnHealthyStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -68,7 +67,6 @@ var (
 		},
 	)
 
-	// OVN Chassis metrics
 	metricChassisInfo = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -184,7 +182,6 @@ var (
 		},
 	)
 
-	// OVN Cluster basic info metrics
 	metricClusterEnabled = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -395,7 +392,6 @@ var (
 		},
 	)
 
-	// Todo: The metrics below are to be implemented
 	metricClusterPeerInConnInfo = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricNamespace,
@@ -514,7 +510,6 @@ var (
 )
 
 func registerOvnMetrics() {
-	// ovn status metrics
 	metrics.Registry.MustRegister(metricOvnHealthyStatus)
 	metrics.Registry.MustRegister(metricOvnHealthyStatusContent)
 	metrics.Registry.MustRegister(metricRequestErrorNums)
@@ -522,7 +517,6 @@ func registerOvnMetrics() {
 	metrics.Registry.MustRegister(metricDBFileSize)
 	metrics.Registry.MustRegister(metricDBStatus)
 
-	// ovn chassis metrics
 	metrics.Registry.MustRegister(metricChassisInfo)
 	metrics.Registry.MustRegister(metricLogicalSwitchInfo)
 	metrics.Registry.MustRegister(metricLogicalSwitchExternalIDs)
@@ -532,7 +526,6 @@ func registerOvnMetrics() {
 	metrics.Registry.MustRegister(metricLogicalSwitchPortInfo)
 	metrics.Registry.MustRegister(metricLogicalSwitchPortTunnelKey)
 
-	// OVN Cluster basic info metrics
 	metrics.Registry.MustRegister(metricClusterEnabled)
 	metrics.Registry.MustRegister(metricClusterRole)
 	metrics.Registry.MustRegister(metricClusterStatus)
@@ -551,7 +544,6 @@ func registerOvnMetrics() {
 	metrics.Registry.MustRegister(metricClusterInConnErrTotal)
 	metrics.Registry.MustRegister(metricClusterOutConnErrTotal)
 
-	// to be implemented
 	metrics.Registry.MustRegister(metricClusterPeerNextIndex)
 	metrics.Registry.MustRegister(metricClusterPeerMatchIndex)
 	metrics.Registry.MustRegister(metricClusterNextIndex)

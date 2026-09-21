@@ -11,8 +11,7 @@ func (suite *OvnClientTestSuite) testOvnIcNbCommand() {
 	ovnLegacyClient := suite.ovnLegacyClient
 	cmd := []string{"--format=csv", "--data=bare", "--no-heading", "--columns=name", "list", "Transit_Switch"}
 	output, err := ovnLegacyClient.ovnIcNbCommand(cmd...)
-	// ovn-ic-nbctl not found
-	// TODO: ic nb db use mock db like nb and sb
+
 	require.Error(t, err)
 	require.Empty(t, output)
 }
@@ -23,8 +22,7 @@ func (suite *OvnClientTestSuite) testGetTsSubnet() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	subnet, err := ovnLegacyClient.GetTsSubnet("ts1")
-	// ovn-ic-nbctl not found
-	// TODO: ic nb db use mock db like nb and sb
+
 	require.Error(t, err)
 	require.Empty(t, subnet)
 }
@@ -35,7 +33,7 @@ func (suite *OvnClientTestSuite) testGetTs() {
 
 	ovnLegacyClient := suite.ovnLegacyClient
 	ts, err := ovnLegacyClient.GetTs()
-	// ovn-ic-nbctl not found
+
 	require.Error(t, err)
 	require.Empty(t, ts)
 }

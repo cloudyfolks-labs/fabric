@@ -45,7 +45,6 @@ func (suite *OvnClientTestSuite) testCreateLogicalRouterStaticRoutes() {
 		require.Contains(t, lr.StaticRoutes, route.UUID)
 	}
 
-	// create logical router static routes for non-exist logical router
 	err = nbClient.CreateLogicalRouterStaticRoutes("non-exist-lrName", append(routes, nil)...)
 	require.ErrorContains(t, err, "generate operations for adding static routes to logical router")
 }
@@ -321,7 +320,6 @@ func (suite *OvnClientTestSuite) testDeleteLogicalRouterStaticRoute() {
 		_, err = nbClient.GetLogicalRouterStaticRoute(lrName, routeTable, policy, ipPrefix, nexthop, false)
 		require.ErrorContains(t, err, "not found")
 
-		// delete non-exist route
 		ipPrefix = "192.168.40.0/24"
 		nexthop = "192.168.40.1"
 		err = nbClient.DeleteLogicalRouterStaticRoute(lrName, &routeTable, &policy, ipPrefix, nexthop)
@@ -362,7 +360,6 @@ func (suite *OvnClientTestSuite) testDeleteLogicalRouterStaticRoute() {
 			require.Contains(t, lr.StaticRoutes, route.UUID)
 		}
 
-		/* delete first route */
 		err = nbClient.DeleteLogicalRouterStaticRoute(lrName, &routeTable, &policy, ipPrefix, nexthops[0])
 		require.NoError(t, err)
 
@@ -376,7 +373,6 @@ func (suite *OvnClientTestSuite) testDeleteLogicalRouterStaticRoute() {
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{route.UUID}, lr.StaticRoutes)
 
-		/* delete second route */
 		err = nbClient.DeleteLogicalRouterStaticRoute(lrName, &routeTable, &policy, ipPrefix, nexthops[1])
 		require.NoError(t, err)
 
@@ -430,7 +426,6 @@ func (suite *OvnClientTestSuite) testClearLogicalRouterStaticRoute() {
 	require.NoError(t, err)
 	require.Empty(t, lr.StaticRoutes)
 
-	// clear logical router static route for non-exist logical router
 	err = nbClient.ClearLogicalRouterStaticRoute("non-exist-lrName")
 	require.ErrorContains(t, err, "not found logical router")
 }
@@ -510,7 +505,6 @@ func (suite *OvnClientTestSuite) testListLogicalRouterStaticRoutes() {
 	err := nbClient.CreateLogicalRouter(lrName)
 	require.NoError(t, err)
 
-	// Create test routes with different external IDs
 	testData := []struct {
 		ipPrefix    string
 		nexthop     string
@@ -887,7 +881,6 @@ func (suite *OvnClientTestSuite) testBatchDeleteLogicalRouterStaticRoute() {
 			require.Contains(t, lr.StaticRoutes, route.UUID)
 		}
 
-		/* delete first route */
 		staticRouter.Nexthop = nexthops[0]
 		err = nbClient.BatchDeleteLogicalRouterStaticRoute(lrName, []*ovnnb.LogicalRouterStaticRoute{staticRouter})
 		require.NoError(t, err)
@@ -902,7 +895,6 @@ func (suite *OvnClientTestSuite) testBatchDeleteLogicalRouterStaticRoute() {
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{route.UUID}, lr.StaticRoutes)
 
-		/* delete second route */
 		staticRouter.Nexthop = nexthops[1]
 		err = nbClient.DeleteLogicalRouterStaticRoute(lrName, &routeTable, &policy, ipPrefix, nexthops[1])
 		require.NoError(t, err)

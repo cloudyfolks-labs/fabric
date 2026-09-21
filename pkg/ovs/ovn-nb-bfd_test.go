@@ -106,7 +106,7 @@ func (suite *OvnClientTestSuite) testListBFD() {
 		failedBFD1, err := failedNbClient.CreateBFD(lrpName, dstIP1, minRx1, minTx1, detectMult1, nil)
 		require.Error(t, err)
 		require.Nil(t, failedBFD1)
-		// cache db should be empty
+
 		bfdList, err := failedNbClient.ListBFDs(lrpName, dstIP1)
 		require.NoError(t, err)
 		require.Len(t, bfdList, 0)
@@ -207,7 +207,7 @@ func (suite *OvnClientTestSuite) testDeleteBFD() {
 		_, err := failedNbClient.CreateBFD(lrpName, dstIP1, minRx1, minTx1, detectMult1, nil)
 		require.Error(t, err)
 		err = failedNbClient.DeleteBFD(string(uuid.NewUUID()))
-		// cache db should be empty
+
 		require.NoError(t, err)
 	})
 }
@@ -266,7 +266,7 @@ func (suite *OvnClientTestSuite) testDeleteBFDByDstIP() {
 		_, err := failedNbClient.CreateBFD(lrpName, dstIP1, minRx1, minTx1, detectMult1, nil)
 		require.Error(t, err)
 		err = failedNbClient.DeleteBFDByDstIP(lrpName, "192.168.124.17")
-		// cache db should be empty
+
 		require.NoError(t, err)
 	})
 }
@@ -289,7 +289,7 @@ func (suite *OvnClientTestSuite) testListDownBFDs() {
 		bfd1, err := nbClient.CreateBFD(lrpName, dstIP1, minRx, minTx, detectMult, nil)
 		require.NoError(t, err)
 		require.NotNil(t, bfd1)
-		// closed server create failed BFD
+
 		failedBFD1, err := failedNbClient.CreateBFD(lrpName, dstIP1, minRx, minTx, detectMult, nil)
 		require.Error(t, err)
 		require.Nil(t, failedBFD1)
@@ -302,7 +302,6 @@ func (suite *OvnClientTestSuite) testListDownBFDs() {
 		require.NoError(t, err)
 		require.NotNil(t, bfd3)
 
-		// Set BFD statuses
 		downStatus := ovnnb.BFDStatusDown
 		adminDownStatus := ovnnb.BFDStatusAdminDown
 		upStatus := ovnnb.BFDStatusUp
@@ -313,18 +312,17 @@ func (suite *OvnClientTestSuite) testListDownBFDs() {
 
 		err = nbClient.UpdateBFD(bfd1)
 		require.NoError(t, err)
-		// closed server update failed BFD
+
 		err = failedNbClient.UpdateBFD(bfd1)
 		require.NoError(t, err)
 		err = nbClient.UpdateBFD(bfd2)
 		require.NoError(t, err)
 		err = nbClient.UpdateBFD(bfd3)
 		require.NoError(t, err)
-		// update not exist bfd
+
 		err = nbClient.UpdateBFD(&ovnnb.BFD{UUID: "not-exist"})
 		require.Error(t, err)
 
-		// Test listing down BFDs for specific IP
 		downBFDs, err := nbClient.ListDownBFDs(dstIP1)
 		require.NoError(t, err)
 		require.Len(t, downBFDs, 1)
@@ -338,7 +336,6 @@ func (suite *OvnClientTestSuite) testListDownBFDs() {
 		require.NoError(t, err)
 		require.Len(t, downBFDs, 0)
 
-		// Test listing down BFDs for non-existent IP
 		nonExistentBFDs, err := nbClient.ListDownBFDs("192.168.124.9")
 		require.NoError(t, err)
 		require.Len(t, nonExistentBFDs, 0)
@@ -347,7 +344,6 @@ func (suite *OvnClientTestSuite) testListDownBFDs() {
 	t.Run("list down BFDs with no down BFDs", func(t *testing.T) {
 		t.Parallel()
 
-		// Create a BFD with UP status
 		bfd, err := nbClient.CreateBFD(lrpName, "192.168.124.10", minRx, minTx, detectMult, nil)
 		require.NoError(t, err)
 		require.NotNil(t, bfd)
@@ -357,7 +353,6 @@ func (suite *OvnClientTestSuite) testListDownBFDs() {
 		err = nbClient.UpdateBFD(bfd)
 		require.NoError(t, err)
 
-		// Try to list down BFDs
 		downBFDs, err := nbClient.ListDownBFDs("192.168.124.10")
 		require.NoError(t, err)
 		require.Len(t, downBFDs, 0)
@@ -784,7 +779,6 @@ func (suite *OvnClientTestSuite) testBfdDelL3HAHandler() {
 
 		nbClient.bfdDelL3HAHandler("WrongTable", bfd)
 
-		// Verify that the BFD is not deleted
 		bfdList, err := nbClient.ListBFDs(lrpName, dstIP)
 		require.NoError(t, err)
 		require.Len(t, bfdList, 1)

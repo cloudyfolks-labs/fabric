@@ -45,7 +45,6 @@ var (
 	setNetemQos           = ovs.SetNetemQos
 )
 
-// ControllerRuntime represents runtime specific controller members
 type ControllerRuntime struct {
 	iptables         map[string]*iptables.IPTables
 	iptablesObsolete map[string]*iptables.IPTables
@@ -57,9 +56,9 @@ type ControllerRuntime struct {
 	nmSyncer  *networkManagerSyncer
 	ovsClient *ovsutil.Client
 
-	flowCache      map[string]map[string][]string // key: bridgeName -> flowKey -> flow rules
+	flowCache      map[string]map[string][]string
 	flowCacheMutex sync.RWMutex
-	flowChan       chan struct{} // channel to trigger immediate flow sync
+	flowChan       chan struct{}
 }
 
 type LbServiceRules struct {
@@ -104,7 +103,6 @@ func (c *Controller) initRuntime() error {
 		return err
 	}
 	if !ok {
-		// iptables works in nft mode, we should migrate iptables rules
 		c.iptablesObsolete = make(map[string]*iptables.IPTables, 2)
 	}
 
@@ -115,7 +113,6 @@ func (c *Controller) initRuntime() error {
 	c.k8sipsets = k8sipset.New()
 	c.ovsClient = ovsutil.New()
 
-	// Initialize OpenFlow flow cache (ovn-kubernetes style)
 	c.flowCache = make(map[string]map[string][]string)
 	c.flowChan = make(chan struct{}, 1)
 
@@ -227,10 +224,6 @@ func (c *Controller) handleEnableExternalLBAddressChange(oldSubnet, newSubnet *f
 	return nil
 }
 
-// handleU2OInterconnectionMACChange handles U2O interconnection MAC address changes.
-// When U2O (Underlay to Overlay) interconnection is enabled, the svc local flow's destination
-// MAC must point to the LRP (Logical Router Port) MAC. Otherwise, without U2O enabled (no LRP exists),
-// the flow would hit the rules created by build_lswitch_dnat_mod_dl_dst_rules instead.
 func (c *Controller) handleU2OInterconnectionMACChange(oldSubnet, newSubnet *fabricv1.Subnet) error {
 	if oldSubnet == nil || newSubnet == nil {
 		return nil
@@ -250,7 +243,6 @@ func (c *Controller) handleU2OInterconnectionMACChange(oldSubnet, newSubnet *fab
 	klog.Infof("U2OInterconnectionMAC changed for subnet %s: %s -> %s",
 		oldSubnet.Name, oldMAC, newMAC)
 
-	// Find all services using this subnet and re-sync them
 	services, err := c.servicesLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("failed to list services: %v", err)
@@ -299,29 +291,28 @@ func (c *Controller) reconcileRouters(event *subnetEvent) error {
 			klog.Errorf("failed to handle u2o interconnection mac change: %v", err)
 			return err
 		}
-		// handle policy routing
+
 		rulesToAdd, rulesToDel, routesToAdd, routesToDel, err := c.diffPolicyRouting(oldSubnet, newSubnet)
 		if err != nil {
 			klog.Errorf("failed to get policy routing difference: %v", err)
 			return err
 		}
-		// add new routes first
+
 		for _, r := range routesToAdd {
 			if err = netlink.RouteReplace(&r); err != nil && !errors.Is(err, syscall.EEXIST) {
 				klog.Errorf("failed to replace route for subnet %s: %v", newSubnet.Name, err)
 				return err
 			}
 		}
-		// next, add new rules
+
 		for _, r := range rulesToAdd {
 			if err = netlink.RuleAdd(&r); err != nil && !errors.Is(err, syscall.EEXIST) {
 				klog.Errorf("failed to add network rule for subnet %s: %v", newSubnet.Name, err)
 				return err
 			}
 		}
-		// then delete old network rules
+
 		for _, r := range rulesToDel {
-			// loop to delete all matched rules
 			for {
 				if err = netlink.RuleDel(&r); err != nil {
 					if !errors.Is(err, syscall.ENOENT) {
@@ -332,7 +323,7 @@ func (c *Controller) reconcileRouters(event *subnetEvent) error {
 				}
 			}
 		}
-		// last, delete old network routes
+
 		for _, r := range routesToDel {
 			if err = netlink.RouteDel(&r); err != nil && !errors.Is(err, syscall.ENOENT) {
 				klog.Errorf("failed to delete route for subnet %s: %v", oldSubnet.Name, err)
@@ -355,7 +346,6 @@ func (c *Controller) reconcileRouters(event *subnetEvent) error {
 	joinCIDR := make([]string, 0, 2)
 	cidrs := make([]string, 0, len(subnets)*2)
 	for _, subnet := range subnets {
-		// The route for overlay subnet cidr via ovn0 should not be deleted even though subnet.Status has changed to not ready
 		if subnet.Spec.Vpc != c.config.ClusterRouter ||
 			(subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway && (!subnet.Spec.U2OInterconnection || (subnet.Spec.EnableLb != nil && *subnet.Spec.EnableLb))) ||
 			!subnet.Status.IsValidated() {
@@ -547,7 +537,6 @@ func (c *Controller) reconcileServices(event *serviceEvent) error {
 		}
 	}
 
-	// check is the lb service IP related subnet's EnableExternalLBAddress
 	isSubnetExternalLBEnabled := false
 	if newService != nil && newService.Annotations[util.ServiceExternalIPFromSubnetAnnotation] != "" {
 		subnet, err := c.subnetsLister.Get(newService.Annotations[util.ServiceExternalIPFromSubnetAnnotation])
@@ -602,7 +591,6 @@ func getNicExistRoutes(nic netlink.Link, gateway string) ([]netlink.Route, error
 }
 
 func routeDiff(nodeNicRoutes, allRoutes []netlink.Route, cidrs, joinCIDR []string, joinIPv4, joinIPv6, gateway string, srcIPv4, srcIPv6 net.IP) (toAdd, toDel []netlink.Route) {
-	// joinIPv6 is not used for now
 	_ = joinIPv6
 
 	for _, route := range nodeNicRoutes {
@@ -617,7 +605,6 @@ func routeDiff(nodeNicRoutes, allRoutes []netlink.Route, cidrs, joinCIDR []strin
 		conflict := false
 		for _, ar := range allRoutes {
 			if ar.Dst != nil && ar.Dst.String() == route.Dst.String() && ar.LinkIndex != route.LinkIndex {
-				// route conflict
 				conflict = true
 				break
 			}
@@ -645,12 +632,10 @@ func routeDiff(nodeNicRoutes, allRoutes []netlink.Route, cidrs, joinCIDR []strin
 		for _, ar := range allRoutes {
 			if ar.Dst != nil && ar.Dst.String() == c {
 				if slices.Contains(joinCIDR, c) {
-					// Only compare Dst for join subnets
 					found = true
 					klog.V(3).Infof("[routeDiff] joinCIDR route already exists in allRoutes: %v", ar)
 					break
 				} else if (ar.Src == nil && src == nil) || (ar.Src != nil && src != nil && ar.Src.Equal(src)) {
-					// For non-join subnets, both Dst and Src must be the same
 					found = true
 					klog.V(3).Infof("[routeDiff] route already exists in allRoutes: %v", ar)
 					break
@@ -788,7 +773,6 @@ func (c *Controller) getPolicyRouting(subnet *fabricv1.Subnet) ([]netlink.Rule, 
 		return nil, nil, nil
 	}
 
-	// rules
 	var rules []netlink.Rule
 	rule := netlink.NewRule()
 	rule.Table = int(subnet.Spec.PolicyRoutingTableID)
@@ -845,7 +829,6 @@ func (c *Controller) getPolicyRouting(subnet *fabricv1.Subnet) ([]netlink.Rule, 
 		}
 	}
 
-	// routes
 	var routes []netlink.Route
 	for i := range protocols {
 		routes = append(routes, netlink.Route{
@@ -886,8 +869,6 @@ func (c *Controller) handleUpdatePod(key string) error {
 		podName = pod.Annotations[fmt.Sprintf(util.VMAnnotationTemplate, util.OvnProvider)]
 	}
 
-	// set default nic bandwidth
-	//  ovsIngress and ovsEgress are derived from the pod's egress and ingress rate annotations respectively, their roles are reversed from the OVS interface perspective.
 	ifaceID := ovs.PodNameToPortName(podName, pod.Namespace, util.OvnProvider)
 	ovsIngress := pod.Annotations[util.EgressRateAnnotation]
 	ovsEgress := pod.Annotations[util.IngressRateAnnotation]
@@ -905,7 +886,7 @@ func (c *Controller) handleUpdatePod(key string) error {
 		c.recorder.Eventf(pod, v1.EventTypeWarning, "PodQoSUpdateFailed", "Failed to update pod QoS: stage=mirror provider=%s interface=%s node=%s: %v", util.OvnProvider, ifaceID, c.config.NodeName, err)
 		return err
 	}
-	// set linux-netem qos
+
 	err = setNetemQos(podName, pod.Namespace, ifaceID, pod.Annotations[util.NetemQosLatencyAnnotation], pod.Annotations[util.NetemQosLimitAnnotation], pod.Annotations[util.NetemQosLossAnnotation], pod.Annotations[util.NetemQosJitterAnnotation])
 	if err != nil {
 		klog.Error(err)
@@ -914,7 +895,6 @@ func (c *Controller) handleUpdatePod(key string) error {
 	}
 	processed := []string{fmt.Sprintf("provider=%s interface=%s", util.OvnProvider, ifaceID)}
 
-	// set multus-nic bandwidth
 	attachNets, err := nadutils.ParsePodNetworkAnnotation(pod)
 	if err != nil {
 		if _, ok := err.(*nadv1.NoK8sNetworkError); !ok {
@@ -992,7 +972,6 @@ func (c *Controller) loopEncapIPCheck() {
 			c.config.tunnelIface = iface.Name
 		}
 
-		// if assigned iface in node annotation is down or with no ip, the error msg should be printed periodically
 		if c.config.Iface == nodeTunnelName {
 			klog.V(3).Infof("node tunnel interface %s not changed", nodeTunnelName)
 			return

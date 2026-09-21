@@ -27,7 +27,6 @@ func ValidateSecurityGroupTier(securityGroupAPITier int) error {
 	return nil
 }
 
-// Assumes securityGroupTier is valid
 func ConvertSGTierToOvnTier(securityGroupTier int) int {
 	return securityGroupTier + SecurityGroupOvnTierBase
 }

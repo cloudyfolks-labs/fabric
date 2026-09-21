@@ -15,7 +15,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// InitOVSBridges initializes OVS bridges
 func InitOVSBridges() (map[string]string, error) {
 	bridges, err := ovs.Bridges()
 	if err != nil {
@@ -50,7 +49,6 @@ func InitOVSBridges() (map[string]string, error) {
 	return mappings, nil
 }
 
-// InitNodeGateway init ovn0
 func InitNodeGateway(config *Configuration) error {
 	var portName, ip, joinCIDR, macAddr, gw, ipAddr string
 	for {
@@ -97,7 +95,7 @@ func InitMirror(config *Configuration) error {
 	return configureEmptyMirror(config.MirrorNic, config.MTU)
 }
 
-func (c *Controller) ovsInitProviderNetwork(provider, nic string, trunks []string, exchangeLinkName bool, vlanInterfaceMap map[string]int) (int, error) { // create and configure external bridge
+func (c *Controller) ovsInitProviderNetwork(provider, nic string, trunks []string, exchangeLinkName bool, vlanInterfaceMap map[string]int) (int, error) {
 	if err := validateProviderVlanInterfaceMap(vlanInterfaceMap); err != nil {
 		return 0, err
 	}
@@ -121,14 +119,12 @@ func (c *Controller) ovsInitProviderNetwork(provider, nic string, trunks []strin
 		return 0, errMsg
 	}
 
-	// init provider chassis mac
 	if err := initProviderChassisMac(provider); err != nil {
 		errMsg := fmt.Errorf("failed to init chassis mac for provider %s, %w", provider, err)
 		klog.Error(errMsg)
 		return 0, errMsg
 	}
 
-	// add host nic to the external bridge
 	klog.Infof("config provider nic %s on bridge %s", nic, brName)
 	mtu, err := c.configProviderNic(nic, brName, trunks)
 	if err != nil {
@@ -137,7 +133,6 @@ func (c *Controller) ovsInitProviderNetwork(provider, nic string, trunks []strin
 		return 0, errMsg
 	}
 
-	// add vlan interfaces to the external bridge
 	if len(vlanInterfaceMap) > 0 {
 		if err = c.configProviderVlanInterfaces(vlanInterfaceMap, brName); err != nil {
 			errMsg := fmt.Errorf("failed to add vlan interfaces to external bridge %s: %w", brName, err)
@@ -158,9 +153,6 @@ func (c *Controller) ovsCleanProviderNetwork(provider, nic string, vlanInterface
 
 	brName := mappings[provider]
 	if brName == "" {
-		// The mapping may have been cleared before cleanup finished (e.g., daemon restart
-		// or race with bridge setup failure). Fall back to the default bridge name to clean
-		// up any orphaned bridge and restore the original NIC name.
 		brName = util.ExternalBridgeName(provider)
 		klog.Infof("no ovn-bridge-mappings entry for provider %s, trying default bridge name %s", provider, brName)
 	}
@@ -173,17 +165,13 @@ func (c *Controller) ovsCleanProviderNetwork(provider, nic string, vlanInterface
 	bridges := strings.Split(output, "\n")
 	if !slices.Contains(bridges, brName) {
 		klog.V(3).Infof("ovs bridge %s not found", brName)
-		// Even if no OVS bridge exists, check if a NIC was renamed to br-<provider>
-		// and needs to be restored (e.g., exchangeLinkName was used but bridge setup failed).
+
 		if br := util.ExternalBridgeName(provider); br != brName {
 			if _, err = c.changeProviderNicName(br, brName); err != nil {
 				klog.Errorf("failed to change provider nic name from %s to %s: %v", br, brName, err)
 				return err
 			}
 		} else if nic != "" {
-			// In exchangeLinkName mode, when mapping was never stored (setup failed before
-			// addOvnMapping), both br and brName equal ExternalBridgeName(provider). The NIC
-			// may have been renamed to br-<provider> and needs to be restored to its original name.
 			if _, err = c.changeProviderNicName(br, nic); err != nil {
 				klog.Errorf("failed to restore provider nic name from %s to %s: %v", br, nic, err)
 				return err
@@ -204,7 +192,6 @@ func (c *Controller) ovsCleanProviderNetwork(provider, nic string, vlanInterface
 			return err
 		}
 
-		// remove OVS bridge
 		klog.Infof("delete external bridge %s", brName)
 		if output, err = ovs.Exec(ovs.IfExists, "del-br", brName); err != nil {
 			klog.Errorf("failed to remove OVS bridge %s, %v: %q", brName, err, output)

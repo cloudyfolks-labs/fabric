@@ -9,7 +9,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
 )
 
-// ListPort lists ovs ports
 func (c *VswitchClient) ListPort(filter func(sw *vswitch.Port) bool) ([]vswitch.Port, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()

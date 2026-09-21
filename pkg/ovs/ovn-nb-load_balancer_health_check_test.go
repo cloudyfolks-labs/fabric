@@ -36,7 +36,6 @@ func (suite *OvnClientTestSuite) testAddLoadBalancerHealthCheck() {
 	require.Equal(t, vip, lbhc.Vip)
 	require.NotEmpty(t, lbhc.UUID)
 
-	// should no err create lbhc repeatedly
 	err = nbClient.AddLoadBalancerHealthCheck(lbName, vip, map[string]string{})
 	require.NoError(t, err)
 
@@ -47,11 +46,9 @@ func (suite *OvnClientTestSuite) testAddLoadBalancerHealthCheck() {
 
 	require.Equal(t, lbhc.UUID, lbhcRepeat.UUID)
 
-	// create lbhc with empty lbName
 	err = nbClient.AddLoadBalancerHealthCheck("", vip, map[string]string{})
 	require.ErrorContains(t, err, "the lb name is required")
 
-	// create lbhc with empty vip
 	err = nbClient.AddLoadBalancerHealthCheck(lbName, "", map[string]string{})
 	require.ErrorContains(t, err, "the vip endpoint is required")
 }
@@ -104,7 +101,6 @@ func (suite *OvnClientTestSuite) testDeleteLoadBalancerHealthCheck() {
 		err      error
 	)
 
-	// delete lbhc for non-exist lb
 	err = nbClient.DeleteLoadBalancerHealthCheck(lbName, vip)
 	require.ErrorContains(t, err, "not found load balancer")
 

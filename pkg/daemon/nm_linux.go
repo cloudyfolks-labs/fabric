@@ -45,7 +45,6 @@ func newNetworkManagerSyncer() *networkManagerSyncer {
 		return syncer
 	}
 
-	// wait for the connection to be closed, so we can create NetworkManager client again
 	<-ctx.Done()
 
 	manager, err := gonetworkmanager.NewNetworkManager()
@@ -248,7 +247,6 @@ func (n *networkManagerSyncer) SetManaged(name string, managed bool) error {
 				continue
 			}
 			if vlanManaged {
-				// After setting device managed=no, the vlan interface will be set down by NetworkManager.
 				klog.Infof(`device %q has a vlan interface %q managed by NetworkManager, will not set the NetworkManager property "managed" to %v`, name, l.Attrs().Name, managed)
 				return nil
 			}
@@ -264,14 +262,11 @@ func (n *networkManagerSyncer) SetManaged(name string, managed bool) error {
 			version = "v" + version
 		}
 
-		// Retrieving DNS configuration requires NetworkManager >= v1.6.0.
-		// Do not set device managed=no if the version is < v1.6.0.
 		if semver.Compare(version, "v1.6.0") < 0 {
 			klog.Infof("NetworkManager version %s is less than v1.6.0", version)
 			return nil
 		}
 
-		// requires NetworkManager >= v1.6
 		dnsManager, err := gonetworkmanager.NewDnsManager()
 		if err != nil {
 			klog.Errorf("failed to initialize NetworkManager DNS manager: %v", err)
@@ -287,9 +282,6 @@ func (n *networkManagerSyncer) SetManaged(name string, managed bool) error {
 		for _, c := range configurations {
 			if c.Interface == name {
 				if len(c.Nameservers) != 0 {
-					// After setting device managed=no on CentOS 7 with NetworkManager v1.18.x,
-					// the DNS servers in /etc/resolv.conf configured on the device will be removed.
-					// We don't want to change the host DNS configuration, so skip this operation.
 					klog.Infof("DNS servers %s are configured on interface %s", strings.Join(c.Nameservers, ","), name)
 					if semver.MajorMinor(version) == "v1.18" {
 						klog.Infof("NetworkManager's version is v1.18.x")

@@ -11,9 +11,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// buildPodIndexer populates an indexer with nPods pods spread evenly across
-// nNodes nodes. A share of pods are left unscheduled to exercise the empty
-// NodeName branch.
 func buildPodIndexer(tb testing.TB, nPods, nNodes int) cache.Indexer {
 	tb.Helper()
 	idx := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{IndexPodByNode: indexPodByNode})
@@ -24,7 +21,7 @@ func buildPodIndexer(tb testing.TB, nPods, nNodes int) cache.Indexer {
 				Namespace: "ns",
 			},
 		}
-		// Leave every 20th pod unscheduled.
+
 		if i%20 != 0 {
 			pod.Spec.NodeName = fmt.Sprintf("node-%d", i%nNodes)
 		}
@@ -35,9 +32,6 @@ func buildPodIndexer(tb testing.TB, nPods, nNodes int) cache.Indexer {
 	return idx
 }
 
-// buildEPSIndexer populates an indexer with nEPS endpointslices spread evenly
-// across nServices services. A share of slices are left without a service
-// label to exercise the orphan branch.
 func buildEPSIndexer(tb testing.TB, nEPS, nServices int) cache.Indexer {
 	tb.Helper()
 	idx := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{IndexEPSByService: indexEPSByService})
@@ -49,7 +43,7 @@ func buildEPSIndexer(tb testing.TB, nEPS, nServices int) cache.Indexer {
 				Labels:    map[string]string{},
 			},
 		}
-		// Leave every 25th slice without a service label.
+
 		if i%25 != 0 {
 			eps.Labels[discoveryv1.LabelServiceName] = fmt.Sprintf("svc-%d", i%nServices)
 		}
@@ -60,8 +54,6 @@ func buildEPSIndexer(tb testing.TB, nEPS, nServices int) cache.Indexer {
 	return idx
 }
 
-// listPodsOnNodeFullScan mirrors the pre-indexer logic: list every pod and
-// filter client-side by NodeName.
 func listPodsOnNodeFullScan(idx cache.Indexer, nodeName string) []*v1.Pod {
 	all := idx.List()
 	out := make([]*v1.Pod, 0)
@@ -74,8 +66,6 @@ func listPodsOnNodeFullScan(idx cache.Indexer, nodeName string) []*v1.Pod {
 	return out
 }
 
-// listEPSForServiceFullScan mirrors the pre-indexer logic: list every
-// endpointslice and filter by the service label.
 func listEPSForServiceFullScan(idx cache.Indexer, namespace, service string) []*discoveryv1.EndpointSlice {
 	all := idx.List()
 	out := make([]*discoveryv1.EndpointSlice, 0)
@@ -109,9 +99,6 @@ func epsNames(epss []*discoveryv1.EndpointSlice) []string {
 	return out
 }
 
-// TestIndexersResultParityWithFullScan asserts that the indexer lookup returns
-// the same set of objects as a full-scan filter across every key, including
-// unscheduled pods and slices without a service label.
 func TestIndexersResultParityWithFullScan(t *testing.T) {
 	const (
 		nPods     = 2000
@@ -155,7 +142,6 @@ func TestIndexersResultParityWithFullScan(t *testing.T) {
 	}
 }
 
-// BenchmarkPodByNode_Indexer measures lookup cost using the secondary index.
 func BenchmarkPodByNode_Indexer(b *testing.B) {
 	idx := buildPodIndexer(b, 10000, 200)
 
@@ -167,8 +153,6 @@ func BenchmarkPodByNode_Indexer(b *testing.B) {
 	}
 }
 
-// BenchmarkPodByNode_FullScan measures the pre-indexer approach: list every
-// pod and filter client-side.
 func BenchmarkPodByNode_FullScan(b *testing.B) {
 	idx := buildPodIndexer(b, 10000, 200)
 
@@ -178,8 +162,6 @@ func BenchmarkPodByNode_FullScan(b *testing.B) {
 	}
 }
 
-// BenchmarkEPSByService_Indexer measures lookup cost using the secondary
-// index.
 func BenchmarkEPSByService_Indexer(b *testing.B) {
 	idx := buildEPSIndexer(b, 10000, 500)
 
@@ -191,8 +173,6 @@ func BenchmarkEPSByService_Indexer(b *testing.B) {
 	}
 }
 
-// BenchmarkEPSByService_FullScan measures the pre-indexer approach for the
-// findEndpointSlicesForServices hot path.
 func BenchmarkEPSByService_FullScan(b *testing.B) {
 	idx := buildEPSIndexer(b, 10000, 500)
 

@@ -36,7 +36,7 @@ func (v *ValidatingHook) DeploymentCreateHook(ctx context.Context, req admission
 	if err := v.decoder.Decode(req, &o); err != nil {
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
 	}
-	// Get pod template static ips
+
 	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
 	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
 	if staticIPSAnno == "" {
@@ -50,7 +50,7 @@ func (v *ValidatingHook) StatefulSetCreateHook(ctx context.Context, req admissio
 	if err := v.decoder.Decode(req, &o); err != nil {
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
 	}
-	// Get pod template static ips
+
 	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
 	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
 	if staticIPSAnno == "" {
@@ -64,7 +64,7 @@ func (v *ValidatingHook) DaemonSetCreateHook(ctx context.Context, req admission.
 	if err := v.decoder.Decode(req, &o); err != nil {
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
 	}
-	// Get pod template static ips
+
 	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
 	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
 	if staticIPSAnno == "" {
@@ -78,7 +78,7 @@ func (v *ValidatingHook) JobCreateHook(ctx context.Context, req admission.Reques
 	if err := v.decoder.Decode(req, &o); err != nil {
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
 	}
-	// Get pod template static ips
+
 	staticIPSAnno := o.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
 	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
 	if staticIPSAnno == "" {
@@ -92,7 +92,7 @@ func (v *ValidatingHook) CronJobCreateHook(ctx context.Context, req admission.Re
 	if err := v.decoder.Decode(req, &o); err != nil {
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
 	}
-	// Get pod template static ips
+
 	staticIPSAnno := o.Spec.JobTemplate.Spec.Template.GetAnnotations()[util.IPPoolAnnotation]
 	klog.V(3).Infof("%s %s@%s, ip_pool: %s", o.Kind, o.GetName(), o.GetNamespace(), staticIPSAnno)
 	if staticIPSAnno == "" {
@@ -118,7 +118,7 @@ func (v *ValidatingHook) PodCreateHook(ctx context.Context, req admission.Reques
 		return ctrlwebhook.Allowed("bypass")
 	}
 	name := o.GetName()
-	// If the pod is created by a VM, we need to get the VM name from owner references
+
 	for _, owner := range o.GetOwnerReferences() {
 		if owner.Kind == util.KindVirtualMachineInstance &&
 			strings.HasPrefix(owner.APIVersion, kubevirtv1.SchemeGroupVersion.Group+"/") {
@@ -183,11 +183,6 @@ func (v *ValidatingHook) validateIPConflict(ctx context.Context, annotations map
 	return nil
 }
 
-// checkIPAddressFamilyUniqueness rejects ip_address annotation values that
-// carry more than one address of the same IP family. The annotation is a
-// single static address per family (optionally one IPv4 + one IPv6 for
-// dual-stack), so values like "10.0.0.1,10.0.0.2" are ambiguous and would
-// silently corrupt IPAM accounting and dual-stack auto-completion downstream.
 func checkIPAddressFamilyUniqueness(ipAddress string) error {
 	var v4Count, v6Count int
 	for ip := range strings.SplitSeq(ipAddress, ",") {
@@ -199,8 +194,6 @@ func checkIPAddressFamilyUniqueness(ipAddress string) error {
 			ipAddr = net.ParseIP(ip)
 		}
 		if ipAddr == nil {
-			// Leave the invalid-IP error to checkIPConflict so the wording
-			// stays consistent across callers.
 			return nil
 		}
 		if ipAddr.To4() != nil {
@@ -236,15 +229,13 @@ func (v *ValidatingHook) checkIPConflict(ipAddress, annoSubnet, name string, ipL
 			}
 
 			v4IP, v6IP := util.SplitStringIP(ipCR.Spec.IPAddress)
-			// v6 ip address can not use upper case
+
 			if util.ContainsUppercase(v6IP) {
 				err := fmt.Errorf("v6 ip address %s can not contain upper case", v6IP)
 				klog.Error(err)
 				return err
 			}
 			if ipAddr.String() == v4IP || ipAddr.String() == v6IP {
-				// The IP's spec podName does not equal the Pod name in the request;
-				// The two names have a containment relationship.
 				if name == ipCR.Spec.PodName {
 					klog.Infof("get same ip crd for %s", name)
 				} else {

@@ -18,7 +18,6 @@ import (
 )
 
 func (csh cniServerHandler) validatePodRequest(_ *request.CniRequest) error {
-	// nothing to do on linux
 	return nil
 }
 
@@ -38,7 +37,7 @@ func createShortSharedDir(pod *v1.Pod, volumeName, socketConsumption, kubeletDir
 	}
 	originSharedDir := fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/%s", kubeletDir, pod.UID, volumeName)
 	newSharedDir := getShortSharedDir(pod.UID, volumeName)
-	// set vhostuser dir 777 for qemu has the permission to create sock
+
 	mask := syscall.Umask(0)
 	defer syscall.Umask(mask)
 	if _, err = os.Stat(newSharedDir); err != nil {
@@ -76,7 +75,6 @@ func removeShortSharedDir(pod *v1.Pod, volumeName, socketConsumption string) (er
 		return nil
 	}
 
-	// keep mount util dpdk sock not used by kubevirt
 	if socketConsumption == util.ConsumptionKubevirt {
 		files, err := os.ReadDir(sharedDir)
 		if err != nil {

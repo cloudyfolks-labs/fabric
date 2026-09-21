@@ -101,10 +101,6 @@ func (csh cniServerHandler) recordCNIPodEvent(pod *v1.Pod, podRequest *request.C
 	csh.Controller.recorder.Eventf(pod, eventType, reason, "%s provider=%s interface=%s node=%s", message, podRequest.Provider, ifName, csh.Config.NodeName)
 }
 
-// gatewayForCNIIPFamily returns only the gateway entries matching the address
-// families configured on the container interface. A single-family pod can still
-// carry a dual-stack subnet gateway annotation, but CNI route and gateway checks
-// must use only gateways that the interface can actually reach.
 func gatewayForCNIIPFamily(ipAddr, gateway string) string {
 	if ipAddr == "" || gateway == "" || util.CheckProtocol(gateway) != fabricv1.ProtocolDual {
 		return gateway
@@ -137,9 +133,7 @@ func (csh cniServerHandler) providerExists(provider, ifName string) (*fabricv1.S
 		klog.Errorf("failed to list subnets while checking provider %s: %v", provider, err)
 		return nil, true
 	}
-	// for multi interface attachments the ifname is included in provider, for example, vm-overlay.default.fabric.net1
-	// as a result if ifname is set, we need to append it to subnet provider when comparing with request provider
-	// else no subnet will be found
+
 	providerName, _ := strings.CutSuffix(provider, fmt.Sprintf(".%s", ifName))
 	for _, subnet := range subnets {
 		if subnet.Spec.Provider == providerName {
@@ -149,10 +143,6 @@ func (csh cniServerHandler) providerExists(provider, ifName string) (*fabricv1.S
 	return nil, false
 }
 
-// isMacOnlyAllocation reports whether the controller allocated only a MAC address
-// for the given provider/interface (BYO-DHCP / external DHCP on an underlay subnet
-// without a CIDR): the pod is marked allocated and has a MAC, but no IP or CIDR.
-// Such NICs must not block on the address/route wait loops in handleAdd.
 func isMacOnlyAllocation(annotations map[string]string, provider, ifName string, appendIfName bool) bool {
 	return util.GetAnnotationWithIfNameOverride(annotations, provider, ifName, util.IPAddressAnnotationTemplate, appendIfName) == "" &&
 		util.GetAnnotationWithIfNameOverride(annotations, provider, ifName, util.AllocatedAnnotationTemplate, appendIfName) == "true" &&
@@ -218,21 +208,17 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 		}
 		eventPod = pod
 
-		// in case of multiple nics from same subnet
 		_, ok := pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, providerWithIfName)]
 		if ok {
 			appendIfName = true
 		}
 
 		ip = util.GetAnnotationWithIfNameOverride(pod.Annotations, podRequest.Provider, podRequest.IfName, util.IPAddressAnnotationTemplate, appendIfName)
-		// MAC-only mode (BYO-DHCP / external DHCP): for an underlay subnet without a CIDR,
-		// the controller allocates only a MAC address, leaving the IP and CIDR annotations
-		// empty while still marking the pod as allocated. Such pods must not block on the
-		// address/route wait loops below.
+
 		macOnly = isMacOnlyAllocation(pod.Annotations, podRequest.Provider, podRequest.IfName, appendIfName)
 		if ip == "" && !macOnly {
 			klog.Infof("wait address for pod %s/%s provider %s", podRequest.PodNamespace, podRequest.PodName, podRequest.Provider)
-			// wait controller assign an address
+
 			cniWaitAddressResult.WithLabelValues(nodeName).Inc()
 			time.Sleep(1 * time.Second)
 			continue
@@ -240,7 +226,7 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 
 		if err := util.ValidatePodNetwork(pod.Annotations); err != nil {
 			klog.Errorf("validate pod %s/%s failed, %v", podRequest.PodNamespace, podRequest.PodName, err)
-			// wait controller assign an address
+
 			cniWaitAddressResult.WithLabelValues(nodeName).Inc()
 			time.Sleep(1 * time.Second)
 			continue
@@ -287,7 +273,6 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 			ifName = "eth0"
 		}
 
-		// To support KubeVirt hotplug dpdk nic, forbidden set the volume name
 		if podRequest.VhostUserSocketConsumption == util.ConsumptionKubevirt {
 			podRequest.VhostUserSocketVolumeName = util.VhostUserSocketVolumeName
 		}
@@ -392,7 +377,7 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 
 		var vmMigration bool
 		subnetHasVlan := podSubnet.Spec.Vlan != ""
-		// skip ping check gateway for pods during live migration
+
 		if pod.Annotations[kubevirtv1.MigrationJobNameAnnotation] == "" {
 			if subnetHasVlan && !podSubnet.Spec.LogicalGateway {
 				if podSubnet.Spec.DisableGatewayCheck {
@@ -450,9 +435,6 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 			}
 		}
 
-		// Warn but keep the configured value: the provider-network or subnet
-		// MTU reflects the real link MTU, and inflating it would push pods
-		// to emit packets that the underlay cannot carry, breaking IPv4 too.
 		if mtu > 0 && mtu < util.IPv6MinMTU {
 			subnetProtocol := util.CheckProtocol(podSubnet.Spec.CIDRBlock)
 			if subnetProtocol == fabricv1.ProtocolIPv6 || subnetProtocol == fabricv1.ProtocolDual {
@@ -530,7 +512,6 @@ func (csh cniServerHandler) handleAdd(req *restful.Request, resp *restful.Respon
 			}
 		}
 		if len(hasDefaultRoute) != 0 {
-			// remove existing default route so other CNI plugins, such as macvlan, can add the new default route correctly
 			if err = csh.removeDefaultRoute(podRequest.NetNs, hasDefaultRoute[fabricv1.ProtocolIPv4], hasDefaultRoute[fabricv1.ProtocolIPv6]); err != nil {
 				errMsg := fmt.Errorf("failed to remove existing default route for interface %s of pod %s/%s: %w", podRequest.IfName, podRequest.PodNamespace, podRequest.PodName, err)
 				klog.Error(errMsg)
@@ -584,7 +565,6 @@ func (csh cniServerHandler) UpdateIPCR(podRequest request.CniRequest, subnet, ip
 	klog.V(4).Infof("found subnet %s", subnet)
 	ipCRName := ovs.PodNameToPortName(podRequest.PodName, podRequest.PodNamespace, podRequest.Provider)
 
-	// for backward compatibility we will check if annotation ip address exists with ifName first and subsequently with ifname
 	if appendIfName {
 		ipCRName = fmt.Sprintf("%s.%s", ipCRName, podRequest.IfName)
 	}
@@ -592,7 +572,7 @@ func (csh cniServerHandler) UpdateIPCR(podRequest request.CniRequest, subnet, ip
 		ipCR, err := csh.FabricClient.FabricV1().IPs().Get(context.Background(), ipCRName, metav1.GetOptions{})
 		if err != nil {
 			err = fmt.Errorf("failed to get ip crd for %s, %w", ip, err)
-			// maybe create a backup pod with previous annotations
+
 			klog.Error(err)
 		} else if ipCR.Spec.NodeName != csh.Config.NodeName {
 			ipCR := ipCR.DeepCopy()
@@ -619,7 +599,7 @@ func (csh cniServerHandler) UpdateIPCR(podRequest request.CniRequest, subnet, ip
 			return nil
 		}
 	}
-	// update ip spec node is not that necessary, so we just log the error
+
 	return nil
 }
 
@@ -640,7 +620,6 @@ func (csh cniServerHandler) handleDel(req *restful.Request, resp *restful.Respon
 		csh.recordCNIPodEvent(eventPod, &podRequest, v1.EventTypeWarning, "PodNetworkRemoveFailed", fmt.Sprintf("stage=%s error=%v", stage, err))
 	}
 
-	// Try to get the Pod, but if it fails due to not being found, log a warning and continue.
 	pod, err := csh.Controller.podsLister.Pods(podRequest.PodNamespace).Get(podRequest.PodName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		errMsg := fmt.Errorf("failed to retrieve Pod %s/%s: %w", podRequest.PodNamespace, podRequest.PodName, err)
@@ -675,7 +654,6 @@ func (csh cniServerHandler) handleDel(req *restful.Request, resp *restful.Respon
 	var nicType string
 	var vmName string
 
-	// If the Pod was found, process its annotations and labels.
 	if pod != nil {
 		if pod.Annotations != nil && (util.IsOvnProvider(podRequest.Provider) || podRequest.CniType == util.CniTypeName) {
 			_, ok := pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, providerWithIfName)]
@@ -719,7 +697,6 @@ func (csh cniServerHandler) handleDel(req *restful.Request, resp *restful.Respon
 			}
 		}
 	} else {
-		// If the Pod is not found, assign a default value.
 		klog.Warningf("Pod %s not found, proceeding with NIC deletion using ContainerID and NetNs", podRequest.PodName)
 		switch {
 		case podRequest.DeviceID != "":
@@ -731,12 +708,10 @@ func (csh cniServerHandler) handleDel(req *restful.Request, resp *restful.Respon
 		}
 	}
 
-	// To support KubeVirt hotplug dpdk nic, forbidden set the volume name
 	if podRequest.VhostUserSocketConsumption == util.ConsumptionKubevirt {
 		podRequest.VhostUserSocketVolumeName = util.VhostUserSocketVolumeName
 	}
 
-	// Proceed to delete the NIC regardless of whether the Pod was found or not.
 	err = csh.deleteNic(podRequest.PodName, podRequest.PodNamespace, podRequest.ContainerID, podRequest.NetNs, podRequest.DeviceID, podRequest.IfName, nicType)
 	if err != nil {
 		errMsg := fmt.Errorf("del nic failed %w", err)

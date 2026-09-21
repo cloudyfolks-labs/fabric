@@ -35,7 +35,6 @@ func init() {
 
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)
@@ -73,7 +72,6 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 		ginkgo.By("Deleting vm " + vmName)
 		vmClient.DeleteSync(vmName)
 
-		// Wait for the VM's IP CRD to be fully cleaned up before deleting subnet
 		portName := ovs.PodNameToPortName(vmName, namespaceName, util.OvnProvider)
 		ginkgo.By("Waiting for IP " + portName + " to be cleaned up")
 		err := ipClient.WaitToDisappear(portName, time.Second, 2*time.Minute)
@@ -144,13 +142,12 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 
 		portName := ovs.PodNameToPortName(vmName, namespaceName, util.OvnProvider)
 		ginkgo.By("Check ip resource " + portName)
-		// the ip should exist after vm is stopped
+
 		oldVMIP := ipClient.Get(portName)
 		framework.ExpectNil(oldVMIP.DeletionTimestamp)
 		ginkgo.By("Starting vm " + vmName)
 		vmClient.StartSync(vmName)
 
-		// new ip name is the same as the old one
 		ginkgo.By("Check ip resource " + portName)
 		newVMIP := ipClient.Get(portName)
 		framework.ExpectEqual(oldVMIP.Spec, newVMIP.Spec)
@@ -173,10 +170,6 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 	})
 
 	framework.ConformanceIt("should be able to handle vm restart when subnet changes before the vm is stopped", func() {
-		// create a vm within a namespace, the namespace has no subnet, so the vm use ovn-default subnet
-		// create a subnet in the namespace later, the vm should use its own subnet
-		// stop the vm, the vm should delete the vm ip, because of the namespace only has one subnet but not ovn-default
-		// start the vm, the vm should use the namespace owned subnet
 		ginkgo.By("Creating subnet " + subnetName)
 		cidr := framework.RandomCIDR(f.ClusterIPFamily)
 		subnet := framework.MakeSubnet(subnetName, "", cidr, "", "", "", nil, nil, []string{namespaceName})
@@ -200,7 +193,6 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 		ginkgo.By("Stopping vm " + vmName)
 		vmClient.StopSync(vmName)
 
-		// the ip is deleted
 		portName := ovs.PodNameToPortName(vmName, namespaceName, util.OvnProvider)
 		err = ipClient.WaitToDisappear(portName, time.Second, 2*time.Minute)
 		framework.ExpectNoError(err)
@@ -284,10 +276,6 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 	})
 
 	framework.ConformanceIt("restart vm should be able to change vm subnet after deleting the old ip", func() {
-		// case: test change vm subnet after stop vm and delete old ip
-		// stop vm, delete the ip.
-		// create new subnet in the namespace.
-		// make sure ip changed after vm started
 		ginkgo.By("Getting pod of vm " + vmName)
 		labelSelector := fmt.Sprintf("%s=%s", v1.VirtualMachineInstanceIDLabel, vmName)
 		podList, err := podClient.List(context.TODO(), metav1.ListOptions{
@@ -304,12 +292,10 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 		ginkgo.By("Stopping vm " + vmName)
 		vmClient.StopSync(vmName)
 
-		// make sure the vm ip is still exist
 		portName := ovs.PodNameToPortName(vmName, namespaceName, util.OvnProvider)
 		oldVMIP := ipClient.Get(portName)
 		framework.ExpectNotEmpty(oldVMIP.Spec.IPAddress)
 		ipClient.DeleteSync(portName)
-		// delete old ip to create the same name ip in other subnet
 
 		ginkgo.By("Creating subnet " + subnetName)
 		cidr := framework.RandomCIDR(f.ClusterIPFamily)
@@ -317,10 +303,9 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 		subnet = subnetClient.CreateSync(subnet)
 		ginkgo.By("Updating vm " + vmName + " to use new subnet " + subnet.Name)
 
-		// the vm should use the new subnet in the namespace
 		ginkgo.By("Starting vm " + vmName)
 		vmClient.StartSync(vmName)
-		// new ip name is the same as the old one
+
 		newVMIP := ipClient.Get(portName)
 		framework.ExpectNotEmpty(newVMIP.Spec.IPAddress)
 
@@ -433,9 +418,6 @@ var _ = framework.Describe("[group:kubevirt]", func() {
 		framework.ExpectEqual(oldAttachIPAddr, newAttachIP.Spec.IPAddress)
 	})
 
-	// This test exercises the stop→patch NAD→start workflow. The old pod deletion
-	// is processed before the NAD patch, so stale attachment IPs are cleaned up
-	// during new pod creation (cleanStaleVMAttachmentIPs in reconcileAllocateSubnets).
 	framework.ConformanceIt("should release old attachment ip and allocate new one when VM NAD is changed", func() {
 		f.SkipVersionPriorTo(1, 16, "This feature was introduced in v1.16.")
 		providerA := fmt.Sprintf("%s.%s.fabric", nadNameA, namespaceName)

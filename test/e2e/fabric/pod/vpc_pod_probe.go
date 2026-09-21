@@ -56,18 +56,15 @@ var _ = framework.SerialDescribe("[group:pod]", func() {
 		subnet = subnetClient.CreateSync(subnet)
 	})
 	ginkgo.AfterEach(func() {
-		// Level 1: Delete pod
 		ginkgo.By("Deleting pod " + podName)
 		podClient.DeleteSync(podName)
 
-		// Level 2: Delete subnets in parallel
 		ginkgo.By("Deleting subnet " + subnetName + " and " + custVPCSubnetName)
 		subnetClient.Delete(subnetName)
 		subnetClient.Delete(custVPCSubnetName)
 		framework.ExpectNoError(subnetClient.WaitToDisappear(subnetName, 0, 2*time.Minute))
 		framework.ExpectNoError(subnetClient.WaitToDisappear(custVPCSubnetName, 0, 2*time.Minute))
 
-		// Level 3: VPC (needs subnets gone)
 		ginkgo.By("Deleting VPC " + vpcName)
 		vpcClient.DeleteSync(vpcName)
 	})

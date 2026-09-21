@@ -43,10 +43,9 @@ func emptyNbDatabaseModel() (model.ClientDBModel, error) {
 
 func (suite *OvnClientTestSuite) SetupSuite() {
 	fmt.Println("set up ovn client test suite")
-	// setup ovn nb client schema
+
 	nbClientSchema := ovnnb.Schema()
 
-	// setup failed case ovn nb client
 	emptyNbDBModel, err := emptyNbDatabaseModel()
 	require.NoError(suite.T(), err)
 
@@ -56,11 +55,10 @@ func (suite *OvnClientTestSuite) SetupSuite() {
 	failedOvnNBClient, err := newOvnNbClient(suite.T(), nbEndpoint1, 10)
 	require.NoError(suite.T(), err)
 	suite.failedOvnNBClient = failedOvnNBClient
-	// close the server to simulate the failed case
+
 	fakeNBServer.Close()
 	require.NoFileExists(suite.T(), nbSock1)
 
-	// setup ovn nb client
 	nbClientDBModel, err := ovnnb.FullDatabaseModel()
 	require.NoError(suite.T(), err)
 
@@ -72,7 +70,6 @@ func (suite *OvnClientTestSuite) SetupSuite() {
 	require.NoError(suite.T(), err)
 	suite.ovnNBClient = ovnNBClient
 
-	// setup ovn sb client
 	sbClientSchema := ovnsb.Schema()
 	sbClientDBModel, err := ovnsb.FullDatabaseModel()
 	require.NoError(suite.T(), err)
@@ -85,20 +82,15 @@ func (suite *OvnClientTestSuite) SetupSuite() {
 	require.NoError(suite.T(), err)
 	suite.ovnSBClient = ovnSBClient
 
-	// setup ovn legacy client
 	suite.ovnLegacyClient = newLegacyClient(10)
 
-	// ovs-ctl ut use ovs-sandbox
 	suite.ovsSocket = "--db=unix:/tmp/sandbox/db.sock"
 }
 
-// In order for 'go test' to run this suite, we need to create
-// a normal test function and pass our suite to suite.Run
 func TestOvnClientTestSuite(t *testing.T) {
 	suite.Run(t, new(OvnClientTestSuite))
 }
 
-/* nb_global unit test */
 func (suite *OvnClientTestSuite) Test_GetNbGlobal() {
 	suite.testGetNbGlobal()
 }
@@ -143,7 +135,6 @@ func (suite *OvnClientTestSuite) Test_SetNodeLocalDNSIP() {
 	suite.testSetNodeLocalDNSIP()
 }
 
-/* logical_switch unit test */
 func (suite *OvnClientTestSuite) Test_CreateLogicalSwitch() {
 	suite.testCreateLogicalSwitch()
 }
@@ -200,7 +191,6 @@ func (suite *OvnClientTestSuite) Test_LogicalSwitchUpdateOtherConfigOp() {
 	suite.testLogicalSwitchUpdateOtherConfigOp()
 }
 
-/* logical_switch_port unit test */
 func (suite *OvnClientTestSuite) Test_CreateLogicalSwitchPort() {
 	suite.testCreateLogicalSwitchPort()
 }
@@ -325,7 +315,6 @@ func (suite *OvnClientTestSuite) Test_testCleanLogicalSwitchPortMigrateOptions()
 	suite.testCleanLogicalSwitchPortMigrateOptions()
 }
 
-/* logical_router unit test */
 func (suite *OvnClientTestSuite) Test_CreateLogicalRouter() {
 	suite.testCreateLogicalRouter()
 }
@@ -370,7 +359,6 @@ func (suite *OvnClientTestSuite) Test_LogicalRouterOp() {
 	suite.testLogicalRouterOp()
 }
 
-/* logical_router_port unit test */
 func (suite *OvnClientTestSuite) Test_CreatePeerRouterPort() {
 	suite.testCreatePeerRouterPort()
 }
@@ -431,7 +419,6 @@ func (suite *OvnClientTestSuite) Test_LogicalRouterPortUpdateGatewayChassisOp() 
 	suite.testLogicalRouterPortUpdateGatewayChassisOp()
 }
 
-/* bfd unit test */
 func (suite *OvnClientTestSuite) Test_CreateBFD() {
 	suite.testCreateBFD()
 }
@@ -480,7 +467,6 @@ func (suite *OvnClientTestSuite) Test_MonitorBFDs() {
 	suite.testMonitorBFDs()
 }
 
-/* gateway_chassis unit test */
 func (suite *OvnClientTestSuite) Test_UpdateGatewayChassises() {
 	suite.testUpdateGatewayChassises()
 }
@@ -497,7 +483,6 @@ func (suite *OvnClientTestSuite) Test_UpdateGatewayChassis() {
 	suite.testUpdateGatewayChassis()
 }
 
-/* ha_chassis_group unit test */
 func (suite *OvnClientTestSuite) Test_CreateHAChassisGroup() {
 	suite.testCreateHAChassisGroup()
 }
@@ -510,7 +495,6 @@ func (suite *OvnClientTestSuite) Test_DeleteHAChassisGroup() {
 	suite.testDeleteHAChassisGroup()
 }
 
-/* load_balancer unit test */
 func (suite *OvnClientTestSuite) Test_CreateLoadBalancer() {
 	suite.testCreateLoadBalancer()
 }
@@ -587,7 +571,6 @@ func (suite *OvnClientTestSuite) Test_LoadBalancerUpdateHealthCheckOp() {
 	suite.testLoadBalancerUpdateHealthCheckOp()
 }
 
-/* load_balancer health check unit test */
 func (suite *OvnClientTestSuite) Test_CreateLoadBalancerHealthCheck() {
 	suite.testAddLoadBalancerHealthCheck()
 }
@@ -620,7 +603,6 @@ func (suite *OvnClientTestSuite) Test_DeleteLoadBalancerHealthCheckOp() {
 	suite.testDeleteLoadBalancerHealthCheckOp()
 }
 
-/* port_group unit test */
 func (suite *OvnClientTestSuite) Test_CreatePortGroup() {
 	suite.testCreatePortGroup()
 }
@@ -673,7 +655,6 @@ func (suite *OvnClientTestSuite) Test_removePortFromPortGroups() {
 	suite.testRemovePortFromPortGroups()
 }
 
-/* address_set unit test */
 func (suite *OvnClientTestSuite) Test_CreateAddressSet() {
 	suite.testCreateAddressSet()
 }
@@ -706,7 +687,6 @@ func (suite *OvnClientTestSuite) Test_BatchDeleteAddressSetByNames() {
 	suite.testBatchDeleteAddressSetByNames()
 }
 
-/* acl unit test */
 func (suite *OvnClientTestSuite) Test_testUpdateDefaultBlockAclOps() {
 	suite.testUpdateDefaultBlockACLOps()
 }
@@ -839,7 +819,6 @@ func (suite *OvnClientTestSuite) Test_UpdateACL() {
 	suite.testUpdateACL()
 }
 
-/* logical_router_policy unit test */
 func (suite *OvnClientTestSuite) Test_AddLogicalRouterPolicy() {
 	suite.testAddLogicalRouterPolicy()
 }
@@ -904,7 +883,6 @@ func (suite *OvnClientTestSuite) Test_BatchDeleteLogicalRouterPolicy() {
 	suite.testBatchDeleteLogicalRouterPolicy()
 }
 
-/* nat unit test */
 func (suite *OvnClientTestSuite) Test_CreateNats() {
 	suite.testCreateNats()
 }
@@ -973,7 +951,6 @@ func (suite *OvnClientTestSuite) Test_GetNatValidations() {
 	suite.testGetNatValidations()
 }
 
-/* logical_router_static_route unit test */
 func (suite *OvnClientTestSuite) Test_CreateLogicalRouterStaticRoutes() {
 	suite.testCreateLogicalRouterStaticRoutes()
 }
@@ -1026,7 +1003,6 @@ func (suite *OvnClientTestSuite) Test_tBatchDeleteLogicalRouterStaticRoute() {
 	suite.testBatchDeleteLogicalRouterStaticRoute()
 }
 
-/* dhcp options unit test */
 func (suite *OvnClientTestSuite) Test_UpdateDHCPOptions() {
 	suite.testUpdateDHCPOptions()
 }
@@ -1071,7 +1047,6 @@ func (suite *OvnClientTestSuite) Test_CreateDHCPOptions() {
 	suite.testCreateDHCPOptions()
 }
 
-/* mixed operations unit test */
 func (suite *OvnClientTestSuite) Test_CreateGatewayLogicalSwitch() {
 	suite.testCreateGatewayLogicalSwitch()
 }
@@ -1104,7 +1079,6 @@ func (suite *OvnClientTestSuite) Test_NewOvnSbClient() {
 	suite.testNewOvnSbClient()
 }
 
-/* migration unit test */
 func (suite *OvnClientTestSuite) Test_MigrateVendorExternalIDs() {
 	suite.testMigrateVendorExternalIDs()
 }
@@ -1125,7 +1099,6 @@ func (suite *OvnClientTestSuite) Test_MigrateVendorExternalIDsSkipsNonFabric() {
 	suite.testMigrateVendorExternalIDsSkipsNonFabric()
 }
 
-/* sb chassis unit test */
 func (suite *OvnClientTestSuite) Test_GetChassis() {
 	suite.testGetChassis()
 }
@@ -1158,7 +1131,6 @@ func (suite *OvnClientTestSuite) Test_GetFabricChassises() {
 	suite.testGetFabricChassises()
 }
 
-// ovn ic
 func (suite *OvnClientTestSuite) Test_OvnIcNbCommand() {
 	suite.testOvnIcNbCommand()
 }
@@ -1215,7 +1187,6 @@ func (suite *OvnClientTestSuite) Test_DestroyChassis() {
 	suite.testDestroyChassis()
 }
 
-// ovs
 func (suite *OvnClientTestSuite) Test_SetInterfaceBandwidth() {
 	suite.testSetInterfaceBandwidth()
 }
@@ -1410,7 +1381,6 @@ func newOvnNbClient(t testing.TB, ovnNbAddr string, ovnNbTimeout int) (*OVNNbCli
 	}, nil
 }
 
-// newLegacyClient init a legacy ovn client
 func newLegacyClient(timeout int) *LegacyClient {
 	return &LegacyClient{
 		OvnTimeout: timeout,

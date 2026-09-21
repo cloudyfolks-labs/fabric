@@ -36,7 +36,6 @@ func (suite *OvnClientTestSuite) testCreateHAChassisGroup() {
 		require.Equal(t, chassis.ExternalIDs, map[string]string{"group": name, "vendor": util.VendorTag})
 	}
 
-	// update the ha chassis group
 	chassises[1], chassises[2] = chassises[2], string(uuid.NewUUID())
 	err = nbClient.CreateHAChassisGroup(name, chassises, map[string]string{"k2": "v2"})
 	require.NoError(t, err)

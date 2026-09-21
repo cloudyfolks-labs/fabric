@@ -216,7 +216,6 @@ func (c *Controller) getEgressNatIPByNode(subnets []*fabricv1.Subnet, nodeName s
 		}
 
 		for cidr := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
-			// check format like 'fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3'
 			for gw := range strings.SplitSeq(subnet.Spec.GatewayNode, ",") {
 				if strings.Contains(gw, ":") && util.GatewayContains(gw, nodeName) && util.CheckProtocol(cidr) == util.CheckProtocol(strings.Split(gw, ":")[1]) {
 					if subnet.Spec.EnableEcmp {
@@ -232,17 +231,12 @@ func (c *Controller) getEgressNatIPByNode(subnets []*fabricv1.Subnet, nodeName s
 	return subnetsNatIP
 }
 
-// getPodPrimaryNetworkProvider returns the fabric network provider whose allocated
-// IP addresses cover all the pod's primary network IPs, i.e. the network kubelet
-// probes go through. It returns false if the pod's primary network is not managed
-// by fabric, e.g. when fabric works as a secondary CNI.
 func getPodPrimaryNetworkProvider(pod *v1.Pod) (string, bool) {
 	podIPs := util.PodIPs(*pod)
 	if len(podIPs) == 0 {
 		return "", false
 	}
 
-	// check the default provider first so that the common case is deterministic
 	if providerCoversIPs(pod, util.OvnProvider, podIPs) {
 		return util.OvnProvider, true
 	}
@@ -263,8 +257,6 @@ func getPodPrimaryNetworkProvider(pod *v1.Pod) (string, bool) {
 	return "", false
 }
 
-// providerCoversIPs returns true if every IP in podIPs is allocated by the given
-// provider according to the pod's ip_address annotation.
 func providerCoversIPs(pod *v1.Pod, provider string, podIPs []string) bool {
 	annotatedIPs := strings.Split(pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, provider)], ",")
 	allocated := make([]net.IP, 0, len(annotatedIPs))
@@ -291,9 +283,6 @@ func (c *Controller) getTProxyConditionPod(pods []*v1.Pod, needSort bool) ([]*v1
 	for _, pod := range pods {
 		provider, ok := getPodPrimaryNetworkProvider(pod)
 		if !ok {
-			// The pod's primary network is not managed by fabric, e.g. fabric works
-			// as a secondary CNI. Kubelet probes go through the primary CNI in that case,
-			// so tproxy must not intercept them.
 			continue
 		}
 

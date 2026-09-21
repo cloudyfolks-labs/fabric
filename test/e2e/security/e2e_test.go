@@ -32,7 +32,6 @@ import (
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)
@@ -82,7 +81,6 @@ func checkPods(f *framework.Framework, pods []corev1.Pod, process string, ports 
 	if listenPodIP &&
 		(len(pods[0].Status.PodIPs) != 1 && (!strings.HasPrefix(process, "fabric-") || f.VersionPriorTo(1, 13))) &&
 		(process != "ovsdb-server" || f.VersionPriorTo(1, 12)) {
-		// ovn db processes support listening on both ipv4 and ipv6 addresses in versions >= 1.12
 		listenPodIP = false
 	}
 

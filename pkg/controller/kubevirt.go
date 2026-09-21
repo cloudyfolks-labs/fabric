@@ -116,7 +116,6 @@ func (c *Controller) handleAddOrUpdateVMIMigration(key string) error {
 		return err
 	}
 
-	// use VirtualMachineInstance's MigrationState because VirtualMachineInstanceMigration's MigrationState is not updated until migration finished
 	var srcNodeName, targetNodeName string
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == vmiMigration.UID {
 		klog.Infof("current vmiMigration %s status %s, target Node %s, source Node %s, target Pod %s, source Pod %s", key,
@@ -133,8 +132,7 @@ func (c *Controller) handleAddOrUpdateVMIMigration(key string) error {
 		} else {
 			klog.Infof("current vmiMigration %s status %s, vmi MigrationState is nil", key, vmiMigration.Status.Phase)
 		}
-		// If we're at an end state and the vmi migration state is stale or nil, we're probably looking at an old migration
-		// either way, we can't proceed since we don't have the source and target nodes for resetting the migrate options
+
 		if vmiMigration.Status.Phase == kubevirtv1.MigrationSucceeded || vmiMigration.Status.Phase == kubevirtv1.MigrationFailed {
 			klog.V(3).Infof("VirtualMachineInstanceMigration %s migration state is Succeeded/Failed but VMI migration state is stale or nil, skipping", key)
 			return nil
@@ -176,8 +174,7 @@ func (c *Controller) handleAddOrUpdateVMIMigration(key string) error {
 
 		if len(pods) > 0 {
 			targetPod := pods[0]
-			// During MigrationScheduling phase, use vmi.Status.NodeName if SourceNode is empty
-			// because vmi.Status.MigrationState may not be fully synchronized yet
+
 			sourceNode := srcNodeName
 			if sourceNode == "" {
 				sourceNode = vmi.Status.NodeName

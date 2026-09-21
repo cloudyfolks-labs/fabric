@@ -12,12 +12,10 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/vswitch"
 )
 
-// VswitchClient is a client for interacting with the vswitch database
 type VswitchClient struct {
 	ovsDbClient
 }
 
-// NewVswitchClient creates a new vswitch client
 func NewVswitchClient(addr string, connTimeout, transactTimeout int) (*VswitchClient, error) {
 	dbModel, err := model.NewClientDBModel(vswitch.DatabaseName, map[string]model.Model{
 		vswitch.BridgeTable:      &vswitch.Bridge{},

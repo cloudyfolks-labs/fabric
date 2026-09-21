@@ -35,7 +35,7 @@ func TestBigInt_DeepCopyInto(t *testing.T) {
 		{"zero", 0},
 		{"positive", 12345},
 		{"negative", -42},
-		{"large", 1<<53 + 1}, // exceeds float64 exact range
+		{"large", 1<<53 + 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -43,10 +43,8 @@ func TestBigInt_DeepCopyInto(t *testing.T) {
 			var copied BigInt
 			original.DeepCopyInto(&copied)
 
-			// Values must be equal
 			assert.Equal(t, 0, original.Cmp(copied), "copied value should equal original")
 
-			// Must be independent: mutating copy must not affect original
 			copied.SetInt64(999)
 			assert.Equal(t, tt.value, original.Int64(), "original must be unchanged after mutating copy")
 		})
@@ -71,7 +69,6 @@ func TestBigInt_Equal(t *testing.T) {
 	assert.True(t, a.Equal(b))
 	assert.False(t, a.Equal(c))
 
-	// Zero from different origins
 	z1 := BigInt{}
 	z2 := BigInt{*big.NewInt(0)}
 	z3 := BigInt{*new(big.Int).Sub(big.NewInt(5), big.NewInt(5))}
@@ -99,7 +96,7 @@ func TestBigInt_Add(t *testing.T) {
 	b := BigInt{*big.NewInt(20)}
 	result := a.Add(b)
 	assert.True(t, result.EqualInt64(30))
-	// Original unchanged
+
 	assert.True(t, a.EqualInt64(10))
 }
 
@@ -129,7 +126,7 @@ func TestBigInt_Float64(t *testing.T) {
 	assert.Equal(t, float64(0), BigInt{}.Float64())
 	assert.Equal(t, float64(42), BigInt{*big.NewInt(42)}.Float64())
 	assert.Equal(t, float64(-1), BigInt{*big.NewInt(-1)}.Float64())
-	// Large value within float64 exact range
+
 	assert.Equal(t, float64(1<<53), BigInt{*big.NewInt(1 << 53)}.Float64())
 }
 
@@ -204,13 +201,10 @@ func TestBigInt_MarshalUnmarshalRoundTrip(t *testing.T) {
 	assert.True(t, original.Equal(restored))
 }
 
-// TestBigInt_UpgradeFromFloat64 verifies that BigInt can unmarshal JSON values
-// produced by the old float64-based SubnetStatus fields. During upgrade, etcd
-// contains numbers serialized by encoding/json from float64 (e.g. 254, 0, 1e+20).
 func TestBigInt_UpgradeFromFloat64(t *testing.T) {
 	tests := []struct {
 		name     string
-		json     string // raw JSON as stored in etcd from old float64 fields
+		json     string
 		expected int64
 	}{
 		{"zero", "0", 0},
@@ -227,12 +221,7 @@ func TestBigInt_UpgradeFromFloat64(t *testing.T) {
 	}
 }
 
-// TestBigInt_UpgradeSubnetStatusJSON simulates reading a full SubnetStatus JSON
-// object as stored in etcd by the old controller (float64 fields) and verifying
-// it can be unmarshaled into the new struct (BigInt fields).
 func TestBigInt_UpgradeSubnetStatusJSON(t *testing.T) {
-	// This JSON represents what the old controller wrote to etcd:
-	// v4availableIPs/v4usingIPs etc. were float64, serialized as JSON numbers.
 	oldJSON := `{
 		"v4availableIPs": 254,
 		"v4usingIPs": 10,
@@ -254,7 +243,6 @@ func TestBigInt_UpgradeSubnetStatusJSON(t *testing.T) {
 	assert.True(t, s.V6AvailableIPs.EqualInt64(0))
 	assert.True(t, s.V6UsingIPs.EqualInt64(0))
 
-	// Verify re-marshaling produces valid JSON that can round-trip
 	data, err := json.Marshal(s)
 	require.NoError(t, err)
 

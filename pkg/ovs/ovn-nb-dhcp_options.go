@@ -32,7 +32,6 @@ func (c *OVNNbClient) UpdateDHCPOptions(subnet *fabricv1.Subnet, mtu int) (*DHCP
 	}
 	enableDHCP := subnet.Spec.EnableDHCP
 
-	/* delete dhcp options */
 	if !enableDHCP {
 		if err := c.DeleteDHCPOptions(lsName, subnet.Spec.Protocol); err != nil {
 			klog.Error(err)
@@ -41,7 +40,6 @@ func (c *OVNNbClient) UpdateDHCPOptions(subnet *fabricv1.Subnet, mtu int) (*DHCP
 		return &DHCPOptionsUUIDs{}, nil
 	}
 
-	/* update dhcp options*/
 	var v4CIDR, v6CIDR string
 	var v4Gateway string
 	switch util.CheckProtocol(cidrBlock) {
@@ -79,12 +77,6 @@ func (c *OVNNbClient) UpdateDHCPOptions(subnet *fabricv1.Subnet, mtu int) (*DHCP
 	return dhcpOptionsUUIDs, nil
 }
 
-// UpdateDHCPOptionsForPort creates or updates per-port DHCP_Options for a logical switch port.
-// cidrBlock and gateway may be comma-separated dual-stack values.
-// v4Options/v6Options are the annotation values that fully override the subnet-level options.
-// A family is only processed when its options string is non-empty, which signals that the
-// corresponding per-pod annotation was set. At least one of v4Options/v6Options must be
-// non-empty. Unset families return an empty UUID so callers can fall back to subnet-level.
 func (c *OVNNbClient) UpdateDHCPOptionsForPort(lsName, portName, cidrBlock, gateway, v4Options, v6Options string, mtu int) (*DHCPOptionsUUIDs, error) {
 	if lsName == "" {
 		return nil, errors.New("the logical switch name is required")
@@ -114,7 +106,7 @@ func (c *OVNNbClient) UpdateDHCPOptionsForPort(lsName, portName, cidrBlock, gate
 	}
 
 	dhcpOptionsUUIDs := &DHCPOptionsUUIDs{}
-	// Only process a family when the corresponding annotation is set (options non-empty).
+
 	if len(v4CIDR) != 0 && v4Options != "" {
 		uuid, err := c.updateDHCPv4Options(lsName, portName, v4CIDR, v4Gateway, v4Options, mtu)
 		if err != nil {
@@ -136,8 +128,6 @@ func (c *OVNNbClient) UpdateDHCPOptionsForPort(lsName, portName, cidrBlock, gate
 	return dhcpOptionsUUIDs, nil
 }
 
-// updateDHCPv4Options creates or updates a DHCPv4 DHCP_Options record.
-// When portName is empty the record is subnet-scoped; when non-empty it is per-port.
 func (c *OVNNbClient) updateDHCPv4Options(lsName, portName, cidr, gateway, options string, mtu int) (string, error) {
 	necessaryV4DHCPOptions := []string{"lease_time", "router", "server_id", "server_mac", "mtu"}
 
@@ -152,7 +142,6 @@ func (c *OVNNbClient) updateDHCPv4Options(lsName, portName, cidr, gateway, optio
 		return "", err
 	}
 
-	/* update */
 	if dhcpOpt != nil {
 		mac := dhcpOpt.Options["server_mac"]
 		dhcpOpt.Cidr = cidr
@@ -160,7 +149,6 @@ func (c *OVNNbClient) updateDHCPv4Options(lsName, portName, cidr, gateway, optio
 		return dhcpOpt.UUID, c.updateDHCPOptions(dhcpOpt, &dhcpOpt.Cidr, &dhcpOpt.Options)
 	}
 
-	/* create */
 	mac := util.GenerateMac()
 	optStr := formatDHCPOptions(buildDHCPv4Options(options, gateway, mac, mtu, necessaryV4DHCPOptions))
 	if err := c.createDHCPEntry(lsName, portName, cidr, optStr); err != nil {
@@ -177,8 +165,6 @@ func (c *OVNNbClient) updateDHCPv4Options(lsName, portName, cidr, gateway, optio
 	return dhcpOpt.UUID, nil
 }
 
-// updateDHCPv6Options creates or updates a DHCPv6 DHCP_Options record.
-// When portName is empty the record is subnet-scoped; when non-empty it is per-port.
 func (c *OVNNbClient) updateDHCPv6Options(lsName, portName, cidr, options string) (string, error) {
 	necessaryV6DHCPOptions := []string{"server_id"}
 
@@ -193,7 +179,6 @@ func (c *OVNNbClient) updateDHCPv6Options(lsName, portName, cidr, options string
 		return "", err
 	}
 
-	/* update */
 	if dhcpOpt != nil {
 		mac := dhcpOpt.Options["server_id"]
 		dhcpOpt.Cidr = cidr
@@ -201,7 +186,6 @@ func (c *OVNNbClient) updateDHCPv6Options(lsName, portName, cidr, options string
 		return dhcpOpt.UUID, c.updateDHCPOptions(dhcpOpt, &dhcpOpt.Cidr, &dhcpOpt.Options)
 	}
 
-	/* create */
 	mac := util.GenerateMac()
 	optStr := formatDHCPOptions(buildDHCPv6Options(options, mac, necessaryV6DHCPOptions))
 	if err := c.createDHCPEntry(lsName, portName, cidr, optStr); err != nil {
@@ -218,7 +202,6 @@ func (c *OVNNbClient) updateDHCPv6Options(lsName, portName, cidr, options string
 	return dhcpOpt.UUID, nil
 }
 
-// updateDHCPOptions update dhcp options
 func (c *OVNNbClient) updateDHCPOptions(dhcpOpt *ovnnb.DHCPOptions, fields ...any) error {
 	if dhcpOpt == nil {
 		return errors.New("dhcp_options is nil")
@@ -238,7 +221,6 @@ func (c *OVNNbClient) updateDHCPOptions(dhcpOpt *ovnnb.DHCPOptions, fields ...an
 	return nil
 }
 
-// DeleteDHCPOptionsByUUIDs delete dhcp options by uuid
 func (c *OVNNbClient) DeleteDHCPOptionsByUUIDs(uuidList ...string) error {
 	ops := make([]ovsdb.Operation, 0, len(uuidList))
 	for _, uuid := range uuidList {
@@ -262,14 +244,13 @@ func (c *OVNNbClient) DeleteDHCPOptionsByUUIDs(uuidList ...string) error {
 	return nil
 }
 
-// DeleteDHCPOptions delete dhcp options which belongs to logical switch
 func (c *OVNNbClient) DeleteDHCPOptions(lsName, protocol string) error {
 	if protocol == fabricv1.ProtocolDual {
 		protocol = ""
 	}
 	externalIDs := map[string]string{
 		LogicalSwitchKey: lsName,
-		"protocol":       protocol, // list all protocol dhcp options when protocol is ""
+		"protocol":       protocol,
 	}
 
 	op, err := c.WhereCache(dhcpOptionsFilter(true, externalIDs)).Delete()
@@ -286,7 +267,6 @@ func (c *OVNNbClient) DeleteDHCPOptions(lsName, protocol string) error {
 	return nil
 }
 
-// DeleteDHCPOptionsForPort deletes all per-port DHCP_Options entries for the given port.
 func (c *OVNNbClient) DeleteDHCPOptionsForPort(portName string) error {
 	if portName == "" {
 		return errors.New("the port name is required")
@@ -308,9 +288,6 @@ func (c *OVNNbClient) DeleteDHCPOptionsForPort(portName string) error {
 	return nil
 }
 
-// GetDHCPOptions get dhcp options,
-// a dhcp options is uniquely identified by switch(lsName) and protocol.
-// Per-port DHCP options (those with PortKey in ExternalIDs) are excluded.
 func (c *OVNNbClient) GetDHCPOptions(lsName, protocol string, ignoreNotFound bool) (*ovnnb.DHCPOptions, error) {
 	if len(lsName) == 0 {
 		return nil, errors.New("the logical switch name is required")
@@ -323,9 +300,6 @@ func (c *OVNNbClient) GetDHCPOptions(lsName, protocol string, ignoreNotFound boo
 	return c.getDHCPOptionsEntry(lsName, "", protocol, ignoreNotFound)
 }
 
-// getDHCPOptionsEntry is the unified internal getter for both subnet-level and per-port DHCP_Options.
-// When portName is empty, it returns the subnet-level entry (excludes per-port entries).
-// When portName is non-empty, it returns the per-port entry for that specific port.
 func (c *OVNNbClient) getDHCPOptionsEntry(lsName, portName, protocol string, ignoreNotFound bool) (*ovnnb.DHCPOptions, error) {
 	if portName == "" && len(lsName) == 0 {
 		return nil, errors.New("the logical switch name is required")
@@ -344,7 +318,6 @@ func (c *OVNNbClient) getDHCPOptionsEntry(lsName, portName, protocol string, ign
 		return nil, fmt.Errorf("get %s dhcp options (ls=%s port=%s): %w", protocol, lsName, portName, err)
 	}
 
-	// For subnet-level queries, exclude per-port entries that share the same ls+protocol.
 	if portName == "" {
 		n := 0
 		for _, opt := range dhcpOptList {
@@ -376,7 +349,6 @@ func (c *OVNNbClient) getDHCPOptionsEntry(lsName, portName, protocol string, ign
 	return &dhcpOptList[0], nil
 }
 
-// ListDHCPOptions list dhcp options which match the given externalIDs
 func (c *OVNNbClient) ListDHCPOptions(needVendorFilter bool, externalIDs map[string]string) ([]ovnnb.DHCPOptions, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -391,8 +363,6 @@ func (c *OVNNbClient) ListDHCPOptions(needVendorFilter bool, externalIDs map[str
 	return dhcpOptList, nil
 }
 
-// createDHCPEntry creates a DHCP_Options row.
-// When portName is empty the entry is subnet-scoped; when non-empty it is per-port.
 func (c *OVNNbClient) createDHCPEntry(lsName, portName, cidr, options string) error {
 	dhcpOpt, err := newDHCPOptionsEntry(lsName, portName, cidr, options)
 	if err != nil {
@@ -414,8 +384,6 @@ func (c *OVNNbClient) createDHCPEntry(lsName, portName, cidr, options string) er
 	return nil
 }
 
-// newDHCPOptionsEntry returns a DHCP_Options struct.
-// When portName is empty the entry is subnet-scoped; when non-empty it is per-port.
 func newDHCPOptionsEntry(lsName, portName, cidr, options string) (*ovnnb.DHCPOptions, error) {
 	if len(cidr) == 0 || len(lsName) == 0 {
 		return nil, fmt.Errorf("logical switch name %s and cidr %s is required", lsName, cidr)
@@ -442,9 +410,6 @@ func newDHCPOptionsEntry(lsName, portName, cidr, options string) (*ovnnb.DHCPOpt
 	}, nil
 }
 
-// dhcpOptionsFilter filter dhcp options which match the given externalIDs,
-// result should include all dhcp options when externalIDs is empty,
-// result should include all dhcp options which externalIDs[key] is not empty when externalIDs[key] is ""
 func dhcpOptionsFilter(needVendorFilter bool, externalIDs map[string]string) func(dhcpOpt *ovnnb.DHCPOptions) bool {
 	return func(dhcpOpt *ovnnb.DHCPOptions) bool {
 		if needVendorFilter && (len(dhcpOpt.ExternalIDs) == 0 || dhcpOpt.ExternalIDs["vendor"] != util.VendorTag) {
@@ -457,8 +422,6 @@ func dhcpOptionsFilter(needVendorFilter bool, externalIDs map[string]string) fun
 
 		if len(dhcpOpt.ExternalIDs) != 0 {
 			for k, v := range externalIDs {
-				// if only key exist but not value in externalIDs, we should include this dhcp options,
-				// it's equal to shell command `ovn-nbctl --columns=xx find dhcp_options external_ids:key!=\"\"`
 				if len(v) == 0 {
 					if len(dhcpOpt.ExternalIDs[k]) == 0 {
 						return false

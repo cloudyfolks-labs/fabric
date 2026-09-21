@@ -33,8 +33,6 @@ const (
 	GatewayAnnotation         = "fabric.cloudyfolks.io/gateway"
 	IPPoolAnnotation          = "fabric.cloudyfolks.io/ip_pool"
 
-	// LoadBalancerOwnerLabel marks a SwitchLBRule or RouterLBRule as the
-	// translated child of a LoadBalancer object.
 	LoadBalancerOwnerLabel       = "fabric.cloudyfolks.io/loadbalancer"
 	BgpAnnotation                = "fabric.cloudyfolks.io/bgp"
 	FipFinalizer                 = "fabric.cloudyfolks.io/fip"
@@ -164,13 +162,11 @@ const (
 	VxlanNic  = "vxlan_sys_4789"
 	GeneveNic = "genev_sys_6081"
 
-	// Allow 16384 priorities with base set to 2100.
 	SecurityGroupHighestPriority = "18484"
 	SecurityGroupBasePriority    = "2005"
 	SecurityGroupAllowPriority   = "2004"
 	SecurityGroupDropPriority    = "2003"
 
-	// SecurityGroup API limits for priority and tier
 	SecurityGroupPriorityMax = 16384
 	SecurityGroupPriorityMin = 1
 
@@ -191,7 +187,6 @@ const (
 
 	GwChassisMaxPriority = 100
 
-	// ClusterNetworkPolicy
 	CnpMaxRules       = 25
 	CnpMaxPriority    = 399
 	CnpACLMaxPriority = 30000
@@ -210,9 +205,7 @@ const (
 	GeneveHeaderLength = 100
 	VxlanHeaderLength  = 50
 	TCPIPHeaderLength  = 40
-	// IPv6MinMTU is the minimum MTU required by IPv6 (RFC 8200).
-	// Linux refuses to initialize inet6_dev on interfaces below this value,
-	// silently dropping every IPv6 packet.
+
 	IPv6MinMTU = 1280
 
 	OvnProvider                         = "fabric"
@@ -336,7 +329,7 @@ const (
 	TProxyPreroutingMark = 0x90004
 	TProxyPreroutingMask = 0x90004
 
-	HealthCheckNamedVipTemplate = "%s:%s" // ip name, health check vip
+	HealthCheckNamedVipTemplate = "%s:%s"
 
 	ConsumptionKubevirt       = "kubevirt"
 	VhostUserSocketVolumeName = "vhostuser-sockets"
@@ -405,7 +398,6 @@ const (
 	AcceptContentTypes  = runtime.ContentTypeProtobuf + "," + "application/json"
 )
 
-// Readonly kinds of Kubernetes objects
 var (
 	KindNode = ObjectKind[*corev1.Node]()
 	KindPod  = ObjectKind[*corev1.Pod]()

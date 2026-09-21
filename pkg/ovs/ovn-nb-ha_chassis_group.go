@@ -17,7 +17,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// CreateHAChassisGroup adds or updates the ha chassis group
 func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, externalIDs map[string]string) error {
 	group, err := c.GetHAChassisGroup(name, true)
 	if err != nil {
@@ -73,7 +72,6 @@ func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, exte
 		if priority, ok := priorityMap[chassis.ChassisName]; ok {
 			delete(priorityMap, chassis.ChassisName)
 			if chassis.Priority != priority {
-				// update ha chassis priority
 				chassis.Priority = priority
 				updateOps, err := c.Where(chassis).Update(chassis, &chassis.Priority)
 				if err != nil {
@@ -87,7 +85,6 @@ func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, exte
 		}
 	}
 	if len(uuids) != 0 {
-		// delete ha chassis from the group
 		deleteOps, err := c.Where(group).Mutate(group, model.Mutation{
 			Field:   &group.HaChassis,
 			Value:   uuids,
@@ -100,7 +97,6 @@ func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, exte
 		ops = append(ops, deleteOps...)
 	}
 
-	// add new ha chassis to the group
 	for chassis, priority := range priorityMap {
 		haChassis := &ovnnb.HAChassis{
 			UUID:        ovsclient.NamedUUID(),
@@ -134,7 +130,6 @@ func (c *OVNNbClient) CreateHAChassisGroup(name string, chassises []string, exte
 	return nil
 }
 
-// GetHAChassisGroup gets the ha chassis group
 func (c *OVNNbClient) GetHAChassisGroup(name string, ignoreNotFound bool) (*ovnnb.HAChassisGroup, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -151,7 +146,6 @@ func (c *OVNNbClient) GetHAChassisGroup(name string, ignoreNotFound bool) (*ovnn
 	return group, nil
 }
 
-// DeleteHAChassisGroup deletes the ha chassis group
 func (c *OVNNbClient) DeleteHAChassisGroup(name string) error {
 	group, err := c.GetHAChassisGroup(name, true)
 	if err != nil {

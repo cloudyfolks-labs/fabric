@@ -96,8 +96,6 @@ func TestNatGatewayPort(t *testing.T) {
 }
 
 func Test_getOvnEipNat(t *testing.T) {
-	// NAT rules always carry an eip_v4_ip label, so a pure-IPv6 rule still has
-	// eip_v4_ip="" together with its own eip_v6_ip label.
 	ipv6Dnat := &fabricv1.OvnDnatRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "dnat-v6",
@@ -126,10 +124,6 @@ func Test_getOvnEipNat(t *testing.T) {
 		},
 	}
 
-	// Regression: a pure-IPv6 EIP (V4Ip="") must not be considered "in use" by
-	// an unrelated IPv6 NAT rule just because both carry an empty eip_v4_ip
-	// label. Previously getOvnEipNat queried with {eip_v4_ip: ""}, matching
-	// every IPv6-only NAT rule and blocking the EIP from ever being deleted.
 	t.Run("pure IPv6 EIP does not match unrelated IPv6 NAT via empty v4 label", func(t *testing.T) {
 		fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 			OvnDnatRules: []*fabricv1.OvnDnatRule{ipv6Dnat},
@@ -183,9 +177,6 @@ func Test_getOvnEipNat(t *testing.T) {
 	})
 }
 
-// assertEnqueueAddRoutingWithFinalizer checks the OVN add-path routing: a live object goes to the
-// add queue, a terminating object with a finalizer goes to the update queue (deletion cleanup), and
-// a terminating object whose finalizer is already gone is skipped (cleanup done, awaiting deletion).
 func assertEnqueueAddRoutingWithFinalizer(
 	t *testing.T,
 	addQueue, updateQueue workqueue.TypedRateLimitingInterface[string],
@@ -275,9 +266,6 @@ func TestEnqueueAddOvnSnatRule(t *testing.T) {
 	)
 }
 
-// TestEnqueueAddOvnEipRequeuesRouterLBRules verifies that enqueueAddOvnEip re-queues an EIP's
-// RouterLBRules even when the EIP is terminating (the side effect must run before the terminating
-// route returns, so LB rules react to the EIP going away).
 func TestEnqueueAddOvnEipRequeuesRouterLBRules(t *testing.T) {
 	t.Parallel()
 	fc, err := newFakeControllerWithOptions(t, &FakeControllerOptions{

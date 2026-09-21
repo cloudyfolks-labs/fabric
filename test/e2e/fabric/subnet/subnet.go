@@ -32,8 +32,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/test/e2e/framework/kind"
 )
 
-// expectSubnetIPsAvailable checks that a subnet has zero using IPs and that the available
-// IPs equal AddressCount - excludeCount - 1 (for gateway) per address family.
 func expectSubnetIPsAvailable(subnet *apiv1.Subnet, cidrV4, cidrV6 string, excludeV4, excludeV6 []string) {
 	ginkgo.GinkgoHelper()
 
@@ -175,7 +173,6 @@ var _ = framework.Describe("[group:subnet]", func() {
 		}
 	})
 	ginkgo.AfterEach(func() {
-		// Level 1: Delete all workloads in parallel
 		ginkgo.By("Deleting deployment " + deployName)
 		deployClient.Delete(deployName)
 
@@ -194,7 +191,6 @@ var _ = framework.Describe("[group:subnet]", func() {
 		}
 		podClient.WaitForNotFound(podName)
 
-		// Level 2: Delete subnets in parallel
 		ginkgo.By("Deleting subnet " + fakeSubnetName + " and " + subnetName)
 		subnetClient.Delete(fakeSubnetName)
 		subnetClient.Delete(subnetName)
@@ -225,8 +221,6 @@ var _ = framework.Describe("[group:subnet]", func() {
 		ginkgo.By("Validating subnet status fields")
 		framework.ExpectEmpty(subnet.Status.ActivateGateway)
 		expectSubnetIPsAvailable(subnet, cidrV4, cidrV6, nil, nil)
-
-		// TODO: check routes on ovn0
 	})
 
 	framework.ConformanceIt("should format subnet cidr", func() {
@@ -269,8 +263,6 @@ var _ = framework.Describe("[group:subnet]", func() {
 		ginkgo.By("Validating subnet status fields")
 		framework.ExpectEmpty(subnet.Status.ActivateGateway)
 		expectSubnetIPsAvailable(subnet, cidrV4, cidrV6, nil, nil)
-
-		// TODO: check routes on ovn0
 	})
 
 	framework.ConformanceIt("should create subnet with exclude ips", func() {
@@ -332,7 +324,6 @@ var _ = framework.Describe("[group:subnet]", func() {
 		sumAvailableIPs := smallSubnet.Status.V4AvailableIPs.Add(smallSubnet.Status.V6AvailableIPs)
 		framework.ExpectTrue(sumAvailableIPs.EqualInt64(0))
 
-		// Test cases: both fixed IP and IP pool annotations
 		testCases := []struct {
 			name            string
 			annotationKey   string
@@ -1420,7 +1411,6 @@ var _ = framework.Describe("[group:subnet]", func() {
 		subnet = subnetClient.Get(subnetName)
 		framework.ExpectNotNil(subnet)
 
-		// Get the router port name to find gateway MAC
 		routerPortName := fmt.Sprintf("%s-%s", subnet.Spec.Vpc, subnetName)
 		if subnet.Spec.Vpc == "" {
 			routerPortName = fmt.Sprintf("ovn-cluster-%s", subnetName)
@@ -1435,7 +1425,6 @@ var _ = framework.Describe("[group:subnet]", func() {
 			ginkgo.Skip("Could not get gateway MAC, skipping test")
 		}
 
-		// Extract MAC address from the output string
 		macRegex := regexp.MustCompile(`([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}`)
 		gatewayMAC := macRegex.FindString(string(output))
 
@@ -1448,7 +1437,7 @@ var _ = framework.Describe("[group:subnet]", func() {
 		ginkgo.By("Creating pod with static MAC that conflicts with gateway MAC")
 		annotations := map[string]string{
 			util.LogicalSwitchAnnotation: subnetName,
-			util.MacAddressAnnotation:    gatewayMAC, // Use the same MAC as gateway
+			util.MacAddressAnnotation:    gatewayMAC,
 		}
 
 		pod := framework.MakePod(namespaceName, podName, nil, annotations, "", nil, nil)
@@ -1495,7 +1484,6 @@ func checkNatPolicyIPsets(f *framework.Framework, cs clientset.Interface, subnet
 	framework.ExpectNoError(err)
 	framework.ExpectNotEmpty(nodes.Items)
 
-	// Build expected ipsets once (same for all nodes)
 	var expectedIPsets []string
 	if cidrV4 != "" && shouldExist {
 		expectedIPsets = append(expectedIPsets, "ovn40subnets-nat-policy")
@@ -1529,7 +1517,6 @@ func checkNatPolicyIPsets(f *framework.Framework, cs clientset.Interface, subnet
 		}
 	}
 
-	// Check all nodes in parallel
 	var wg sync.WaitGroup
 	for _, node := range nodes.Items {
 		wg.Add(1)
@@ -1550,7 +1537,6 @@ func checkNatPolicyRules(f *framework.Framework, cs clientset.Interface, subnet 
 	framework.ExpectNoError(err)
 	framework.ExpectNotEmpty(nodes.Items)
 
-	// Build expected rules once (same for all nodes)
 	var expectV4Rules, expectV6Rules, staticV4Rules, staticV6Rules []string
 	if cidrV4 != "" {
 		staticV4Rules = append(staticV4Rules, "-A OVN-POSTROUTING -m set --match-set ovn40subnets-nat-policy src -m set ! --match-set ovn40subnets dst -j OVN-NAT-POLICY")
@@ -1603,7 +1589,6 @@ func checkNatPolicyRules(f *framework.Framework, cs clientset.Interface, subnet 
 		}
 	}
 
-	// Check all nodes in parallel
 	var wg sync.WaitGroup
 	for _, node := range nodes.Items {
 		wg.Add(1)

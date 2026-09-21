@@ -173,8 +173,6 @@ func CheckPodEgressRoutes(ns, pod string, ipv4, ipv6 bool, ttl int, expectedHops
 		ginkgo.By(fmt.Sprintf("Checking IPv%d egress routes for pod %s/%s", af, ns, pod))
 		cmd := fmt.Sprintf("traceroute -%d -n -f%d -m%d %s", af, ttl, ttl, dst[i])
 		WaitUntil(3*time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
-			// traceroute to 1.1.1.1 (1.1.1.1), 2 hops max, 60 byte packets
-			// 2  172.19.0.2  0.663 ms  0.613 ms  0.605 ms
 			output, err := e2epodoutput.RunHostCmd(ns, pod, cmd)
 			if err != nil {
 				return false, nil

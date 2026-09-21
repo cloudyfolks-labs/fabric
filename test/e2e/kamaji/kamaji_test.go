@@ -36,8 +36,6 @@ func TestE2E(t *testing.T) {
 	e2e.RunE2ETests(t)
 }
 
-// controllerEnv returns the fabric-controller environment variables from the
-// tenant cluster behind --kubeconfig.
 func controllerEnv(f *framework.Framework) map[string]string {
 	ginkgo.GinkgoHelper()
 
@@ -58,8 +56,6 @@ func controllerEnv(f *framework.Framework) map[string]string {
 	return nil
 }
 
-// usesHostedOVNCentralAddresses reports whether the tenant cluster workloads
-// use explicit hosted OVN DB addresses instead of the in-cluster OVN_DB_IPS.
 func usesHostedOVNCentralAddresses(f *framework.Framework) bool {
 	env := controllerEnv(f)
 	return env["OVN_NB_ADDR"] != "" && env["OVN_SB_ADDR"] != "" && env["OVN_DB_IPS"] == ""

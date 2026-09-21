@@ -177,7 +177,7 @@ func (c *Controller) patchIPPoolStatusCondition(ippool *fabricv1.IPPool, reason,
 		c.recorder.Eventf(ippool, corev1.EventTypeWarning, reason, "%s", errMsg)
 	} else {
 		ippool.Status.Ready(reason, "")
-		// to observe ippool status change to normal
+
 		c.recorder.Eventf(ippool, corev1.EventTypeNormal, reason, "")
 	}
 

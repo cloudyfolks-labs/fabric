@@ -15,28 +15,20 @@ import (
 )
 
 const (
-	// fabricVersionKey is the key used to store fabric version in NBGlobal ExternalIDs
 	fabricVersionKey = "fabric-version"
 )
 
-// Naming patterns used by fabric resources
 var (
-	// Security group port group pattern: ovn.sg.{name} (with dashes replaced by dots)
-	// Requires at least one character after "ovn.sg."
 	sgPortGroupPattern = regexp.MustCompile(`^ovn\.sg\..+`)
 
-	// Security group address set patterns: ovn.sg.{name}.associated.v4/v6
 	sgAddressSetPattern = regexp.MustCompile(`^ovn\.sg\..+\.associated\.v[46]$`)
 
-	// Network policy address set patterns: {name}.{namespace}.{ingress|egress}.{allow|except}.{ip4|ip6|all}.{index}
 	npAddressSetPattern = regexp.MustCompile(`\.(ingress|egress)\.(allow|except)\.(ip[46]|all)(\.\d+)?$`)
 
-	// fabric load balancer patterns
 	clusterLBPattern = regexp.MustCompile(`^cluster-(tcp|udp|sctp)(-session)?-loadbalancer$`)
 	vpcLBPattern     = regexp.MustCompile(`^vpc-.+-(tcp|udp|sctp)-(load|sess-load)$`)
 )
 
-// GetFabricVersion retrieves the stored fabric version from NBGlobal ExternalIDs
 func (c *OVNNbClient) GetFabricVersion() (string, error) {
 	nbGlobal, err := c.GetNbGlobal()
 	if err != nil {
@@ -50,7 +42,6 @@ func (c *OVNNbClient) GetFabricVersion() (string, error) {
 	return nbGlobal.ExternalIDs[fabricVersionKey], nil
 }
 
-// SetFabricVersion stores the fabric version in NBGlobal ExternalIDs
 func (c *OVNNbClient) SetFabricVersion(version string) error {
 	nbGlobal, err := c.GetNbGlobal()
 	if err != nil {
@@ -62,7 +53,7 @@ func (c *OVNNbClient) SetFabricVersion(version string) error {
 	}
 
 	if nbGlobal.ExternalIDs[fabricVersionKey] == version {
-		return nil // already set to current version
+		return nil
 	}
 
 	nbGlobal.ExternalIDs[fabricVersionKey] = version
@@ -74,35 +65,25 @@ func (c *OVNNbClient) SetFabricVersion(version string) error {
 	return nil
 }
 
-// needsVendorMigration checks if vendor migration is needed based on version comparison.
-// Migration is needed if:
-// 1. No version is stored (fresh install or upgrade from very old version)
-// 2. Stored version is older than the version that introduced vendor tagging (v1.15.0)
 func (c *OVNNbClient) needsVendorMigration() (bool, error) {
 	storedVersion, err := c.GetFabricVersion()
 	if err != nil {
 		return false, err
 	}
 
-	// No version stored - this is either a fresh install or an upgrade from an old version
-	// In either case, we should run migration (it's idempotent and will skip if nothing to do)
 	if storedVersion == "" {
 		klog.Info("no fabric version found in NBGlobal, migration may be needed")
 		return true, nil
 	}
 
-	// If stored version matches current version, no migration needed
-	// This handles the case where version is "unknown" during tests
 	if storedVersion == versions.VERSION {
 		klog.Infof("stored version %s matches current version, skipping vendor migration", storedVersion)
 		return false, nil
 	}
 
-	// Strip 'v' prefix if present for comparison
 	stored := strings.TrimPrefix(storedVersion, "v")
-	vendorTagVersion := "1.15.0" // version that introduced vendor tagging
+	vendorTagVersion := "1.15.0"
 
-	// If stored version is older than v1.15.0, we need to migrate
 	if util.CompareVersion(stored, vendorTagVersion) < 0 {
 		klog.Infof("stored version %s is older than %s, vendor migration needed", storedVersion, vendorTagVersion)
 		return true, nil
@@ -112,26 +93,7 @@ func (c *OVNNbClient) needsVendorMigration() (bool, error) {
 	return false, nil
 }
 
-// MigrateVendorExternalIDs adds vendor=VendorTag externalID to existing fabric OVN resources
-// that don't already have it. This is called during controller initialization to handle
-// upgrades from versions prior to vendor tagging (v1.15.0).
-//
-// The migration only runs when:
-// 1. No version is stored in NBGlobal (fresh install or very old upgrade)
-// 2. Stored version is older than v1.15.0 (when vendor tagging was introduced)
-//
-// The migration uses several strategies to identify fabric resources:
-// 1. Resources with existing fabric-specific externalIDs (lr, ls, parent, sg, etc.)
-// 2. Resources with fabric naming patterns
-// 3. Resources associated with known fabric logical routers/switches
-//
-// Resources that cannot be positively identified as fabric resources are left untouched
-// to avoid interfering with external systems like OpenStack Neutron.
-//
-// After successful migration, the current version is stored in NBGlobal to prevent
-// re-running on subsequent restarts.
 func (c *OVNNbClient) MigrateVendorExternalIDs() error {
-	// Check if migration is needed based on version
 	needsMigration, err := c.needsVendorMigration()
 	if err != nil {
 		klog.Errorf("failed to check if vendor migration is needed: %v", err)
@@ -139,13 +101,11 @@ func (c *OVNNbClient) MigrateVendorExternalIDs() error {
 	}
 
 	if !needsMigration {
-		// Still update version to current if it changed (e.g., patch upgrade within same major)
 		return c.SetFabricVersion(versions.VERSION)
 	}
 
 	klog.Info("starting migration of vendor externalIDs to fabric resources")
 
-	// Get all fabric logical routers (they already have vendor tag from CreateLogicalRouter)
 	fabricRouters, err := c.getFabricRouterNames()
 	if err != nil {
 		klog.Errorf("failed to get fabric router names: %v", err)
@@ -153,7 +113,6 @@ func (c *OVNNbClient) MigrateVendorExternalIDs() error {
 	}
 	klog.Infof("found %d fabric logical routers", len(fabricRouters))
 
-	// Get all fabric logical switches (they already have vendor tag)
 	fabricSwitches, err := c.getFabricSwitchNames()
 	if err != nil {
 		klog.Errorf("failed to get fabric switch names: %v", err)
@@ -161,7 +120,6 @@ func (c *OVNNbClient) MigrateVendorExternalIDs() error {
 	}
 	klog.Infof("found %d fabric logical switches", len(fabricSwitches))
 
-	// Migrate resources in order of dependencies
 	if err := c.migrateLogicalRouterPorts(fabricRouters); err != nil {
 		return err
 	}
@@ -184,7 +142,6 @@ func (c *OVNNbClient) MigrateVendorExternalIDs() error {
 
 	klog.Info("completed migration of vendor externalIDs")
 
-	// Store the current version to prevent re-running migration on next startup
 	if err := c.SetFabricVersion(versions.VERSION); err != nil {
 		klog.Errorf("failed to store fabric version after migration: %v", err)
 		return err
@@ -193,14 +150,12 @@ func (c *OVNNbClient) MigrateVendorExternalIDs() error {
 	return nil
 }
 
-// getFabricRouterNames returns names of logical routers that belong to fabric
 func (c *OVNNbClient) getFabricRouterNames() (map[string]bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var lrList []ovnnb.LogicalRouter
 	if err := c.ovsDbClient.WhereCache(func(lr *ovnnb.LogicalRouter) bool {
-		// Include routers that already have vendor=VendorTag
 		if len(lr.ExternalIDs) > 0 && lr.ExternalIDs["vendor"] == util.VendorTag {
 			return true
 		}
@@ -216,14 +171,12 @@ func (c *OVNNbClient) getFabricRouterNames() (map[string]bool, error) {
 	return names, nil
 }
 
-// getFabricSwitchNames returns names of logical switches that belong to fabric
 func (c *OVNNbClient) getFabricSwitchNames() (map[string]bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var lsList []ovnnb.LogicalSwitch
 	if err := c.ovsDbClient.WhereCache(func(ls *ovnnb.LogicalSwitch) bool {
-		// Include switches that already have vendor=VendorTag
 		if len(ls.ExternalIDs) > 0 && ls.ExternalIDs["vendor"] == util.VendorTag {
 			return true
 		}
@@ -239,18 +192,16 @@ func (c *OVNNbClient) getFabricSwitchNames() (map[string]bool, error) {
 	return names, nil
 }
 
-// migrateLogicalRouterPorts adds vendor tag to LRPs that belong to fabric routers
 func (c *OVNNbClient) migrateLogicalRouterPorts(fabricRouters map[string]bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var lrpList []ovnnb.LogicalRouterPort
 	if err := c.ovsDbClient.WhereCache(func(lrp *ovnnb.LogicalRouterPort) bool {
-		// Skip if already has vendor tag
 		if len(lrp.ExternalIDs) > 0 && lrp.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
-		// Include if it has 'lr' externalID pointing to a fabric router
+
 		if len(lrp.ExternalIDs) > 0 {
 			if lrName, ok := lrp.ExternalIDs[logicalRouterKey]; ok && fabricRouters[lrName] {
 				return true
@@ -296,24 +247,20 @@ func (c *OVNNbClient) migrateLogicalRouterPorts(fabricRouters map[string]bool) e
 	return nil
 }
 
-// migratePortGroups adds vendor tag to port groups that match fabric patterns
 func (c *OVNNbClient) migratePortGroups() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var pgList []ovnnb.PortGroup
 	if err := c.ovsDbClient.WhereCache(func(pg *ovnnb.PortGroup) bool {
-		// Skip if already has vendor tag
 		if len(pg.ExternalIDs) > 0 && pg.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
-		// Security group port groups: ovn.sg.{name}
 		if sgPortGroupPattern.MatchString(pg.Name) {
 			return true
 		}
 
-		// Port groups with 'sg' or 'type' externalID (fabric specific)
 		if len(pg.ExternalIDs) > 0 {
 			if _, hasSg := pg.ExternalIDs[sgKey]; hasSg {
 				return true
@@ -322,10 +269,6 @@ func (c *OVNNbClient) migratePortGroups() error {
 				return true
 			}
 		}
-
-		// Network policy port groups have fabric specific externalIDs
-		// Don't use name patterns alone as they're too broad and risk mis-tagging
-		// resources from other systems
 
 		return false
 	}).List(ctx, &pgList); err != nil {
@@ -367,29 +310,24 @@ func (c *OVNNbClient) migratePortGroups() error {
 	return nil
 }
 
-// migrateAddressSets adds vendor tag to address sets that match fabric patterns
 func (c *OVNNbClient) migrateAddressSets() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var asList []ovnnb.AddressSet
 	if err := c.ovsDbClient.WhereCache(func(as *ovnnb.AddressSet) bool {
-		// Skip if already has vendor tag
 		if len(as.ExternalIDs) > 0 && as.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
-		// Security group address sets: ovn.sg.{name}.associated.v4/v6
 		if sgAddressSetPattern.MatchString(as.Name) {
 			return true
 		}
 
-		// Network policy address sets: {name}.{namespace}.{direction}.{type}.{protocol}
 		if npAddressSetPattern.MatchString(as.Name) {
 			return true
 		}
 
-		// Address sets with 'sg' externalID (fabric specific)
 		if len(as.ExternalIDs) > 0 {
 			if _, hasSg := as.ExternalIDs[sgKey]; hasSg {
 				return true
@@ -436,24 +374,20 @@ func (c *OVNNbClient) migrateAddressSets() error {
 	return nil
 }
 
-// migrateLoadBalancers adds vendor tag to load balancers that match fabric patterns
 func (c *OVNNbClient) migrateLoadBalancers() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
 	var lbList []ovnnb.LoadBalancer
 	if err := c.ovsDbClient.WhereCache(func(lb *ovnnb.LoadBalancer) bool {
-		// Skip if already has vendor tag
 		if len(lb.ExternalIDs) > 0 && lb.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
-		// Cluster load balancers: cluster-{protocol}-loadbalancer or cluster-{protocol}-session-loadbalancer
 		if clusterLBPattern.MatchString(lb.Name) {
 			return true
 		}
 
-		// VPC load balancers: vpc-{name}-{protocol}-load or vpc-{name}-{protocol}-sess-load
 		if vpcLBPattern.MatchString(lb.Name) {
 			return true
 		}
@@ -498,20 +432,17 @@ func (c *OVNNbClient) migrateLoadBalancers() error {
 	return nil
 }
 
-// migrateACLs adds vendor tag to ACLs that belong to fabric
 func (c *OVNNbClient) migrateACLs(fabricSwitches map[string]bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	// First, get all port groups that belong to fabric (either already tagged or matching patterns)
 	fabricPortGroups := make(map[string]bool)
 	var pgList []ovnnb.PortGroup
 	if err := c.ovsDbClient.WhereCache(func(pg *ovnnb.PortGroup) bool {
-		// Include port groups with vendor tag
 		if len(pg.ExternalIDs) > 0 && pg.ExternalIDs["vendor"] == util.VendorTag {
 			return true
 		}
-		// Include port groups matching fabric patterns
+
 		if sgPortGroupPattern.MatchString(pg.Name) {
 			return true
 		}
@@ -523,8 +454,7 @@ func (c *OVNNbClient) migrateACLs(fabricSwitches map[string]bool) error {
 				return true
 			}
 		}
-		// Network policy port groups have fabric specific externalIDs
-		// Don't use name patterns alone as they're too broad
+
 		return false
 	}).List(ctx, &pgList); err != nil {
 		return fmt.Errorf("failed to list port groups: %w", err)
@@ -536,19 +466,17 @@ func (c *OVNNbClient) migrateACLs(fabricSwitches map[string]bool) error {
 
 	var aclList []ovnnb.ACL
 	if err := c.ovsDbClient.WhereCache(func(acl *ovnnb.ACL) bool {
-		// Skip if already has vendor tag
 		if len(acl.ExternalIDs) > 0 && acl.ExternalIDs["vendor"] == util.VendorTag {
 			return false
 		}
 
-		// ACLs with 'parent' externalID pointing to fabric port group or switch
 		if len(acl.ExternalIDs) > 0 {
 			if parent, ok := acl.ExternalIDs[aclParentKey]; ok {
 				if fabricPortGroups[parent] || fabricSwitches[parent] {
 					return true
 				}
 			}
-			// ACLs with 'subnet' externalID pointing to fabric switch
+
 			if subnet, ok := acl.ExternalIDs["subnet"]; ok && fabricSwitches[subnet] {
 				return true
 			}

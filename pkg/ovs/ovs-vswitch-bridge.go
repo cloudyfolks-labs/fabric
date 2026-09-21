@@ -10,7 +10,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// ListBridge lists ovs bridges
 func (c *VswitchClient) ListBridge(needVendorFilter bool, filter func(bridge *vswitch.Bridge) bool) ([]vswitch.Bridge, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()

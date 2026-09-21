@@ -136,7 +136,6 @@ var _ = framework.Describe("[group:ipam]", func() {
 		subnet = subnetClient.CreateSync(subnet)
 	})
 	ginkgo.AfterEach(func() {
-		// Level 1: Delete all workloads in parallel
 		ginkgo.By("Deleting pod " + podName + ", deployment " + deployName + ", statefulsets " + stsName + " and " + stsName2)
 		podClient.DeleteGracefully(podName)
 		deployClient.Delete(deployName)
@@ -148,14 +147,12 @@ var _ = framework.Describe("[group:ipam]", func() {
 		framework.ExpectNoError(stsClient.WaitToDisappear(stsName, 0, 2*time.Minute))
 		framework.ExpectNoError(stsClient.WaitToDisappear(stsName2, 0, 2*time.Minute))
 
-		// Level 2: Delete ippools in parallel (needs workloads gone)
 		ginkgo.By("Deleting ippool " + ippoolName + " and " + ippoolName2)
 		ippoolClient.Delete(ippoolName)
 		ippoolClient.Delete(ippoolName2)
 		framework.ExpectNoError(ippoolClient.WaitToDisappear(ippoolName, 0, 2*time.Minute))
 		framework.ExpectNoError(ippoolClient.WaitToDisappear(ippoolName2, 0, 2*time.Minute))
 
-		// Level 3: Delete subnets in parallel (needs ippools gone)
 		ginkgo.By("Deleting subnet " + subnetName + " and " + subnetName2)
 		subnetClient.Delete(subnetName)
 		subnetClient.Delete(subnetName2)
@@ -501,7 +498,6 @@ var _ = framework.Describe("[group:ipam]", func() {
 		}
 	})
 
-	// separate ippool annotation by comma
 	framework.ConformanceIt("should allocate static ip for statefulset with ippool separated by comma", func() {
 		if f.IsDual() {
 			ginkgo.Skip("Comma separated ippool is not supported for dual stack")
@@ -1119,7 +1115,7 @@ var _ = framework.Describe("[group:ipam]", func() {
 		f.SkipVersionPriorTo(1, 15, "This feature was introduced in v1.15")
 
 		ginkgo.By("Creating ippool " + ippoolName + " with EnableAddressSet enabled")
-		// Use only IPv4 or IPv6 addresses to avoid mixed IP family issue in OVN address set
+
 		cidrV4, cidrV6 := util.SplitStringIP(cidr)
 		var poolCIDR string
 		if cidrV4 != "" {
@@ -1137,7 +1133,7 @@ var _ = framework.Describe("[group:ipam]", func() {
 		framework.WaitForAddressSetIPs(ippoolName, poolIPs)
 
 		ginkgo.By("Updating ippool to remove one IP entry")
-		// Get the latest version to avoid resourceVersion conflict
+
 		updated := ippoolClient.Get(ippoolName)
 		updated.Spec.IPs = updated.Spec.IPs[:len(updated.Spec.IPs)-1]
 		updated = ippoolClient.UpdateSync(updated, metav1.UpdateOptions{}, ippoolUpdateTimeout)
@@ -1146,7 +1142,7 @@ var _ = framework.Describe("[group:ipam]", func() {
 		framework.WaitForAddressSetIPs(ippoolName, updated.Spec.IPs)
 
 		ginkgo.By("Disabling EnableAddressSet to trigger address set deletion")
-		// Get the latest version to avoid resourceVersion conflict
+
 		updated = ippoolClient.Get(ippoolName)
 		updated.Spec.EnableAddressSet = false
 		_ = ippoolClient.UpdateSync(updated, metav1.UpdateOptions{}, ippoolUpdateTimeout)

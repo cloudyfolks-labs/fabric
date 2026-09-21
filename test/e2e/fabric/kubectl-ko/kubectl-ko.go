@@ -64,7 +64,6 @@ var _ = framework.Describe("[group:kubectl-ko]", func() {
 	ginkgo.AfterEach(func() {
 		k8sframework.TestContext.KubeConfig = kubectlConfig
 
-		// All resources are independent (no subnet dependency), delete in parallel
 		ginkgo.By("Deleting network policy " + netpolName + ", service " + serviceName + ", pods " + pod2Name + " and " + podName)
 		netpolClient.Delete(netpolName)
 		serviceClient.Delete(serviceName)
@@ -131,7 +130,6 @@ var _ = framework.Describe("[group:kubectl-ko]", func() {
 		for _, db := range databases {
 			for _, action := range actions {
 				execOrDie(fmt.Sprintf("ko %s %s", db, action))
-				// TODO: verify backup files are present
 			}
 		}
 	})
@@ -376,7 +374,7 @@ var _ = framework.Describe("[group:kubectl-ko]", func() {
 				} else {
 					match = matchPod
 				}
-				// Retry Service ClusterIP trace to allow OVN LB rules to be synced
+
 				framework.WaitUntil(time.Second, 30*time.Second, func(_ context.Context) (bool, error) {
 					ginkgo.By(fmt.Sprintf("Executing \"kubectl %s\"", cmd))
 					output := e2ekubectl.NewKubectlCommand("", strings.Fields(cmd)...).ExecOrDie("")

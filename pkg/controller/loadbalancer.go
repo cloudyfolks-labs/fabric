@@ -14,12 +14,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// The LoadBalancer CR is the one public L4 balancer object: its
-// frontend field picks the OVN realization. The controller translates
-// it into an owned SwitchLBRule (literal vip, switch-attached) or
-// RouterLBRule (ovnEip, router-attached) child, so the two engines
-// stay single-purpose while the API stops carrying two shapes.
-
 func lbChildName(name string) string {
 	return "flb-" + name
 }
@@ -59,8 +53,6 @@ func (c *Controller) enqueueDeleteLoadBalancer(obj any) {
 	c.delLoadBalancerQueue.Add(lb.Name)
 }
 
-// enqueueLoadBalancerForChild re-reconciles the owner when a child
-// rule's status moves, so the LoadBalancer status follows.
 func (c *Controller) enqueueLoadBalancerForChild(obj any) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 		obj = unknown.Obj
@@ -100,10 +92,7 @@ func (c *Controller) handleAddOrUpdateLoadBalancer(name string) error {
 			return err
 		}
 		vip := lb.Spec.Frontend.Vip
-		// No network annotations: the endpoint funnel resolves the VPC
-		// and the backends' subnet from the endpoint targets, which is
-		// exactly the placement the old annotation contract asked the
-		// caller to know.
+
 		desired := &fabricv1.SwitchLBRule{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   child,

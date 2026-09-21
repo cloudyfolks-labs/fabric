@@ -31,7 +31,6 @@ const (
 )
 
 type ChangedName struct {
-	// the rule name can be omitted default, add isMatch to append check for rule update
 	isMatch     bool
 	curRuleName string
 }
@@ -74,20 +73,14 @@ func (c *Controller) enqueueUpdateAnp(oldObj, newObj any) {
 	oldAnpObj := oldObj.(*v1alpha1.AdminNetworkPolicy)
 	newAnpObj := newObj.(*v1alpha1.AdminNetworkPolicy)
 
-	// All the acls should be recreated with the following situations
 	if oldAnpObj.Spec.Priority != newAnpObj.Spec.Priority || len(oldAnpObj.Spec.Ingress) != len(newAnpObj.Spec.Ingress) || len(oldAnpObj.Spec.Egress) != len(newAnpObj.Spec.Egress) {
 		c.addAnpQueue.Add(newAnpObj.Name)
 		return
 	}
 
-	// ACLs should be updated when the name, action, or ports of an ingress/egress rule have changed.
-	// The rule name is part of both the ACL name and the address set name referenced by the ACL match,
-	// so a renamed rule requires the ACLs to be recreated together with the address sets.
 	for index, rule := range newAnpObj.Spec.Ingress {
 		oldRule := oldAnpObj.Spec.Ingress[index]
 		if oldRule.Name != rule.Name || oldRule.Action != rule.Action || !reflect.DeepEqual(oldRule.Ports, rule.Ports) {
-			// It's difficult to distinguish which rule has changed and update acls for that rule, so go through the anp add process to recreate acls.
-			// If we want to get fine-grained changes over rule, maybe it's a better way to add a new queue to process the change
 			c.addAnpQueue.Add(newAnpObj.Name)
 			return
 		}
@@ -107,13 +100,10 @@ func (c *Controller) enqueueUpdateAnp(oldObj, newObj any) {
 	}
 	klog.V(3).Infof("enqueue update anp %s", newAnpObj.Name)
 
-	// The remaining changes do not affect the acls. The port-group or address-set should be updated.
-	// The port-group for anp should be updated
 	if !reflect.DeepEqual(oldAnpObj.Spec.Subject, newAnpObj.Spec.Subject) {
 		c.updateAnpQueue.Add(&AdminNetworkPolicyChangedDelta{key: newAnpObj.Name, field: ChangedSubject})
 	}
 
-	// Peer selector in ingress/egress rule has changed, the corresponding address-set need be updated
 	ruleChanged := false
 	var changedIngressRuleNames, changedEgressRuleNames [util.AnpMaxRules]ChangedName
 	for index, rule := range newAnpObj.Spec.Ingress {
@@ -162,10 +152,9 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 		return err
 	}
 	if priority, exist := c.anpNamePrioMap[anp.Name]; exist && priority != anp.Spec.Priority {
-		// anp spec's priority has been changed
 		delete(c.anpPrioNameMap, priority)
 	}
-	// record new created anp after validation
+
 	c.anpPrioNameMap[anp.Spec.Priority] = anp.Name
 	c.anpNamePrioMap[anp.Name] = anp.Spec.Priority
 	c.priorityMapMutex.Unlock()
@@ -176,9 +165,6 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 		logActions = strings.Split(anp.Annotations[util.ACLActionsLogAnnotation], ",")
 	}
 
-	// ovn portGroup/addressSet doesn't support name with '-', so we replace '-' by '.'.
-	// This may cause conflict if two anp with name test-anp and test.anp, maybe hash is a better solution, but we do not want to lost the readability now.
-	// Make sure all create operations are reentrant.
 	pgName := strings.ReplaceAll(anpName, "-", ".")
 	if err = c.OVNNbClient.CreatePortGroup(pgName, map[string]string{adminNetworkPolicyKey: anpName}); err != nil {
 		klog.Errorf("failed to create port group for anp %s: %v", key, err)
@@ -210,14 +196,12 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 	desiredIngressAddrSet := strset.NewWithSize(len(anp.Spec.Ingress) * 2)
 	desiredEgressAddrSet := strset.NewWithSize(len(anp.Spec.Egress) * 2)
 
-	// create ingress acl
 	for index, anpr := range anp.Spec.Ingress {
-		// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
 		ingressAsV4Name, ingressAsV6Name := getAnpAddressSetName(pgName, anpr.Name, index, true)
 		desiredIngressAddrSet.Add(ingressAsV4Name, ingressAsV6Name)
 
 		var v4Addrs, v4Addr, v6Addrs, v6Addr []string
-		// This field must be defined and contain at least one item.
+
 		for _, anprpeer := range anpr.From {
 			if v4Addr, v6Addr, err = c.fetchIngressSelectedAddresses(&anprpeer); err != nil {
 				klog.Errorf("failed to fetch admin network policy selected addresses, %v", err)
@@ -288,15 +272,13 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 	}
 	c.domainResolver.setPolicyDomains(anpName, allDomainNames)
 
-	// create egress acl
 	for index, anpr := range anp.Spec.Egress {
-		// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
 		egressAsV4Name, egressAsV6Name := getAnpAddressSetName(pgName, anpr.Name, index, false)
 		desiredEgressAddrSet.Add(egressAsV4Name, egressAsV6Name)
 
 		var v4Addrs, v4Addr, v6Addrs, v6Addr []string
 		hasDomainNames := false
-		// This field must be defined and contain at least one item.
+
 		for _, anprpeer := range anpr.To {
 			if v4Addr, v6Addr, err = c.fetchEgressSelectedAddresses(&anprpeer); err != nil {
 				klog.Errorf("failed to fetch admin network policy selected addresses, %v", err)
@@ -305,7 +287,6 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 			v4Addrs = append(v4Addrs, v4Addr...)
 			v6Addrs = append(v6Addrs, v6Addr...)
 
-			// Check if this peer has domain names
 			hasDomainNames = hasDomainNames || len(anprpeer.DomainNames) > 0
 		}
 		klog.Infof("anp %s, egress rule %s, selected v4 address %v, v6 address %v", anpName, anpr.Name, v4Addrs, v6Addrs)
@@ -326,8 +307,6 @@ func (c *Controller) handleAddAnp(key string) (err error) {
 			rulePorts = *anpr.Ports
 		}
 
-		// Create ACL rules if we have IP addresses OR domain names
-		// Domain names may not be resolved initially but will be updated later
 		if len(v4Addrs) != 0 || hasDomainNames {
 			aclName := fmt.Sprintf("anp/%s/egress/%s/%d", anpName, fabricv1.ProtocolIPv4, index)
 			ops, err := c.OVNNbClient.UpdateAnpRuleACLOps(pgName, egressAsV4Name, fabricv1.ProtocolIPv4, aclName, aclPriority, aclAction, logActions, rulePorts, false, false)
@@ -371,7 +350,6 @@ func (c *Controller) handleDeleteAnp(anp *v1alpha1.AdminNetworkPolicy) error {
 
 	anpName := getAnpName(anp.Name)
 
-	// ACLs related to port_group will be deleted automatically when port_group is deleted
 	pgName := strings.ReplaceAll(anpName, "-", ".")
 	if err := c.OVNNbClient.DeletePortGroup(pgName); err != nil {
 		klog.Errorf("failed to delete port group for anp %s: %v", anpName, err)
@@ -399,7 +377,6 @@ func (c *Controller) handleDeleteAnp(anp *v1alpha1.AdminNetworkPolicy) error {
 }
 
 func (c *Controller) handleUpdateAnp(changed *AdminNetworkPolicyChangedDelta) error {
-	// Only handle updates that do not affect acls.
 	c.anpKeyMutex.LockKey(changed.key)
 	defer func() { _ = c.anpKeyMutex.UnlockKey(changed.key) }()
 
@@ -420,9 +397,7 @@ func (c *Controller) handleUpdateAnp(changed *AdminNetworkPolicyChangedDelta) er
 	anpName := getAnpName(desiredAnp.Name)
 	pgName := strings.ReplaceAll(anpName, "-", ".")
 
-	// The port-group for anp should be updated
 	if changed.field == ChangedSubject {
-		// The port-group must exist when update anp, this check should never be matched.
 		if ok, err := c.OVNNbClient.PortGroupExists(pgName); !ok || err != nil {
 			klog.Errorf("port-group for anp %s does not exist when update anp", desiredAnp.Name)
 			return err
@@ -440,10 +415,8 @@ func (c *Controller) handleUpdateAnp(changed *AdminNetworkPolicyChangedDelta) er
 		}
 	}
 
-	// Peer selector in ingress/egress rule has changed, so the corresponding address-set need be updated
 	if changed.field == ChangedIngressRule {
 		for index, rule := range desiredAnp.Spec.Ingress {
-			// Make sure the rule is changed and go on update
 			if rule.Name == changed.ruleNames[index].curRuleName || changed.ruleNames[index].isMatch {
 				if err := c.setAddrSetForAnpRule(anpName, pgName, rule.Name, index, rule.From, []v1alpha1.AdminNetworkPolicyEgressPeer{}, true, false); err != nil {
 					klog.Errorf("failed to set ingress address-set for anp rule %s/%s, %v", anpName, rule.Name, err)
@@ -455,10 +428,8 @@ func (c *Controller) handleUpdateAnp(changed *AdminNetworkPolicyChangedDelta) er
 
 	if changed.field == ChangedEgressRule {
 		for index, rule := range desiredAnp.Spec.Egress {
-			// Check if we need to update address sets (rule changed or DNS reconciliation needed)
 			needAddrSetUpdate := rule.Name == changed.ruleNames[index].curRuleName || changed.ruleNames[index].isMatch || changed.DNSReconcileDone
 
-			// Check if we need to reconcile DNS resolvers (DNS feature enabled and not already done)
 			needDNSReconcile := !changed.DNSReconcileDone
 
 			if needAddrSetUpdate {
@@ -485,7 +456,6 @@ func (c *Controller) handleUpdateAnp(changed *AdminNetworkPolicyChangedDelta) er
 }
 
 func (c *Controller) validateAnpConfig(anp *v1alpha1.AdminNetworkPolicy) error {
-	// The behavior is undefined if two ANP objects have same priority.
 	if anpName, exist := c.anpPrioNameMap[anp.Spec.Priority]; exist && anpName != anp.Name {
 		err := fmt.Errorf("can not create anp with same priority %d, exist one is %s, new created is %s", anp.Spec.Priority, anpName, anp.Name)
 		klog.Error(err)
@@ -512,7 +482,6 @@ func (c *Controller) validateAnpConfig(anp *v1alpha1.AdminNetworkPolicy) error {
 func (c *Controller) fetchSelectedPods(anpSubject *v1alpha1.AdminNetworkPolicySubject) ([]string, error) {
 	var ports []string
 
-	// Exactly one field must be set.
 	if anpSubject.Namespaces != nil {
 		nsSelector, err := metav1.LabelSelectorAsSelector(anpSubject.Namespaces)
 		if err != nil {
@@ -600,7 +569,6 @@ func (c *Controller) fetchPods(nsSelector, podSelector labels.Selector) ([]strin
 func (c *Controller) fetchIngressSelectedAddresses(ingressPeer *v1alpha1.AdminNetworkPolicyIngressPeer) ([]string, []string, error) {
 	var v4Addresses, v6Addresses []string
 
-	// Exactly one of the selector pointers must be set for a given peer.
 	if ingressPeer.Namespaces != nil {
 		nsSelector, err := metav1.LabelSelectorAsSelector(ingressPeer.Namespaces)
 		if err != nil {
@@ -641,7 +609,6 @@ func (c *Controller) fetchBaselineEgressSelectedAddresses(egressPeer *v1alpha1.B
 func (c *Controller) fetchEgressSelectedAddressesCommon(namespaces *metav1.LabelSelector, pods *v1alpha1.NamespacedPod, nodes *metav1.LabelSelector, networks []v1alpha1.CIDR, domainNames []v1alpha1.DomainName) ([]string, []string, error) {
 	var v4Addresses, v6Addresses []string
 
-	// Exactly one of the selector pointers must be set for a given peer.
 	switch {
 	case namespaces != nil:
 		nsSelector, err := metav1.LabelSelectorAsSelector(namespaces)
@@ -728,7 +695,6 @@ func (c *Controller) getCurrentAddrSetByName(anpName string, isBanp bool) (*strs
 	var ass []ovnnb.AddressSet
 	var err error
 
-	// anp and banp can use same name, so depends on the external_ids key field to distinguish
 	if isBanp {
 		ass, err = c.OVNNbClient.ListAddressSets(map[string]string{
 			baselineAdminNetworkPolicyKey: fmt.Sprintf("%s/%s", anpName, "ingress"),
@@ -788,8 +754,6 @@ func (c *Controller) setAddrSetForBaselineAnpRule(anpName, pgName, ruleName stri
 }
 
 func (c *Controller) setAddrSetForAnpRuleCommon(anpName, pgName, ruleName string, index int, from []v1alpha1.AdminNetworkPolicyIngressPeer, to []v1alpha1.AdminNetworkPolicyEgressPeer, baselineTo []v1alpha1.BaselineAdminNetworkPolicyEgressPeer, isIngress, isBanp bool) error {
-	// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
-
 	var v4Addrs, v4Addr, v6Addrs, v6Addr []string
 	var err error
 	if isIngress {
@@ -907,7 +871,6 @@ func (c *Controller) updateAnpsByLabelsMatch(nsLabels, podLabels map[string]stri
 }
 
 func isLabelsMatch(namespaces *metav1.LabelSelector, pods *v1alpha1.NamespacedPod, nsLabels, podLabels map[string]string) bool {
-	// Exactly one field of namespaces/pods must be set.
 	if namespaces != nil {
 		nsSelector, _ := metav1.LabelSelectorAsSelector(namespaces)
 		klog.V(3).Infof("namespaces is not nil, nsSelector %s", nsSelector.String())
@@ -1011,7 +974,6 @@ func getAnpName(name string) string {
 func getAnpAddressSetName(pgName, ruleName string, index int, isIngress bool) (string, string) {
 	var asV4Name, asV6Name string
 	if isIngress {
-		// In case ruleName is omitted, add direction and index to distinguish address-set
 		asV4Name = strings.ReplaceAll(fmt.Sprintf("%s.ingress.%d.%s.%s", pgName, index, ruleName, fabricv1.ProtocolIPv4), "-", ".")
 		asV6Name = strings.ReplaceAll(fmt.Sprintf("%s.ingress.%d.%s.%s", pgName, index, ruleName, fabricv1.ProtocolIPv6), "-", ".")
 	} else {
@@ -1036,7 +998,6 @@ func anpACLAction(action v1alpha1.AdminNetworkPolicyRuleAction) ovnnb.ACLAction 
 
 func isRulesArrayEmpty(ruleNames [util.AnpMaxRules]ChangedName) bool {
 	for _, ruleName := range ruleNames {
-		// The ruleName can be omitted default
 		if ruleName.curRuleName != "" || ruleName.isMatch {
 			return false
 		}

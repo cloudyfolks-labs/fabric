@@ -33,7 +33,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		pg, err := nbClient.GetPortGroup(pgName, false)
 		require.NoError(t, err)
 		require.Equal(t, pgName, pg.Name)
-		// vendor is automatically added by CreatePortGroup
+
 		expectedExternalIDs := map[string]string{
 			"type":   "test",
 			"key":    "value",
@@ -59,7 +59,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		pg, err := nbClient.GetPortGroup(pgName, false)
 		require.NoError(t, err)
 		require.Equal(t, pgName, pg.Name)
-		// vendor is automatically added by CreatePortGroup
+
 		expectedExternalIDs := map[string]string{
 			"new":    "data",
 			"vendor": util.VendorTag,
@@ -75,7 +75,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		pg, err := nbClient.GetPortGroup(pgName, false)
 		require.NoError(t, err)
 		require.Equal(t, pgName, pg.Name)
-		// vendor is automatically added by CreatePortGroup even with nil input
+
 		require.Equal(t, map[string]string{"vendor": util.VendorTag}, pg.ExternalIDs)
 	})
 
@@ -87,7 +87,7 @@ func (suite *OvnClientTestSuite) testCreatePortGroup() {
 		pg, err := nbClient.GetPortGroup(pgName, false)
 		require.NoError(t, err)
 		require.Equal(t, pgName, pg.Name)
-		// vendor is automatically added by CreatePortGroup even with empty input
+
 		require.Equal(t, map[string]string{"vendor": util.VendorTag}, pg.ExternalIDs)
 	})
 }
@@ -176,7 +176,6 @@ func (suite *OvnClientTestSuite) testPortGroupUpdatePorts() {
 	})
 
 	t.Run("should no err when add non-existent ports to port group", func(t *testing.T) {
-		// add a non-existent ports
 		err = nbClient.PortGroupUpdatePorts(pgName, ovsdb.MutateOperationInsert, "test-add-lsp-non-existent")
 		require.NoError(t, err)
 	})
@@ -192,7 +191,6 @@ func (suite *OvnClientTestSuite) testPortGroupUpdatePorts() {
 			lsp, err := nbClient.GetLogicalSwitchPort(lspName, false)
 			require.NoError(t, err)
 
-			// port group contains the last ports
 			if i == 2 {
 				require.Contains(t, pg.Ports, lsp.UUID)
 				continue
@@ -202,7 +200,6 @@ func (suite *OvnClientTestSuite) testPortGroupUpdatePorts() {
 	})
 
 	t.Run("del non-existent ports from port group", func(t *testing.T) {
-		// del a non-existent ports
 		err = nbClient.PortGroupUpdatePorts(pgName, ovsdb.MutateOperationDelete, "test-del-lsp-non-existent")
 		require.NoError(t, err)
 	})

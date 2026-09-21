@@ -21,7 +21,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// SwitchLBRuleClient is a struct for switch-lb-rule client.
 type SwitchLBRuleClient struct {
 	f *Framework
 	v1.SwitchLBRuleInterface
@@ -47,7 +46,6 @@ func (c *SwitchLBRuleClient) Get(name string) *apiv1.SwitchLBRule {
 	return rules
 }
 
-// Create creates a new switch-lb-rule according to the framework specifications
 func (c *SwitchLBRuleClient) Create(rule *apiv1.SwitchLBRule) *apiv1.SwitchLBRule {
 	ginkgo.GinkgoHelper()
 	e, err := c.SwitchLBRuleInterface.Create(context.TODO(), rule, metav1.CreateOptions{})
@@ -55,14 +53,12 @@ func (c *SwitchLBRuleClient) Create(rule *apiv1.SwitchLBRule) *apiv1.SwitchLBRul
 	return e.DeepCopy()
 }
 
-// CreateSync creates a new switch-lb-rule according to the framework specifications, and waits for it to be updated.
 func (c *SwitchLBRuleClient) CreateSync(rule *apiv1.SwitchLBRule, cond func(s *apiv1.SwitchLBRule) (bool, error), condDesc string) *apiv1.SwitchLBRule {
 	ginkgo.GinkgoHelper()
 	_ = c.Create(rule)
 	return c.WaitUntil(rule.Name, cond, condDesc, poll, timeout)
 }
 
-// Patch patches the switch-lb-rule
 func (c *SwitchLBRuleClient) Patch(original, modified *apiv1.SwitchLBRule) *apiv1.SwitchLBRule {
 	ginkgo.GinkgoHelper()
 
@@ -90,14 +86,12 @@ func (c *SwitchLBRuleClient) Patch(original, modified *apiv1.SwitchLBRule) *apiv
 	return nil
 }
 
-// PatchSync patches the switch-lb-rule and waits the switch-lb-rule to meet the condition
 func (c *SwitchLBRuleClient) PatchSync(original, modified *apiv1.SwitchLBRule, cond func(s *apiv1.SwitchLBRule) (bool, error), condDesc string) *apiv1.SwitchLBRule {
 	ginkgo.GinkgoHelper()
 	_ = c.Patch(original, modified)
 	return c.WaitUntil(original.Name, cond, condDesc, poll, timeout)
 }
 
-// Delete deletes a switch-lb-rule if the switch-lb-rule exists
 func (c *SwitchLBRuleClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.SwitchLBRuleInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -106,15 +100,12 @@ func (c *SwitchLBRuleClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the switch-lb-rule and waits for the switch-lb-rule to disappear for `timeout`.
-// If the switch-lb-rule doesn't disappear before the timeout, it will fail the test.
 func (c *SwitchLBRuleClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for switch-lb-rule %q to disappear", name)
 }
 
-// WaitUntil waits the given timeout duration for the specified condition to be met.
 func (c *SwitchLBRuleClient) WaitUntil(name string, cond func(s *apiv1.SwitchLBRule) (bool, error), condDesc string, _, timeout time.Duration) *apiv1.SwitchLBRule {
 	ginkgo.GinkgoHelper()
 
@@ -145,7 +136,6 @@ func (c *SwitchLBRuleClient) WaitUntil(name string, cond func(s *apiv1.SwitchLBR
 	return nil
 }
 
-// WaitToDisappear waits the given timeout duration for the specified switch-lb-rule to disappear.
 func (c *SwitchLBRuleClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.SwitchLBRule, error) {
 		svc, err := c.SwitchLBRuleInterface.Get(ctx, name, metav1.GetOptions{})

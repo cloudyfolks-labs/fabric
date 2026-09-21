@@ -44,7 +44,6 @@ func (v *ValidatingHook) IPUpdateHook(ctx context.Context, req admission.Request
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
 	}
 
-	// ip can not change these specs below
 	if ipOld.Spec.Subnet != "" && ipNew.Spec.Subnet != ipOld.Spec.Subnet {
 		err := fmt.Errorf("ip %s subnet can not change", ipNew.Name)
 		return ctrlwebhook.Errored(http.StatusBadRequest, err)
@@ -102,7 +101,6 @@ func (v *ValidatingHook) ValidateIP(ctx context.Context, ip *ovnv1.IP) error {
 	}
 
 	if ip.Spec.V6IPAddress != "" {
-		// v6 ip address can not use upper case
 		if util.ContainsUppercase(ip.Spec.V6IPAddress) {
 			err := fmt.Errorf("ip %s v6 ip address can not contain upper case", ip.Name)
 			return err

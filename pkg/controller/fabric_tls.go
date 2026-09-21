@@ -89,8 +89,6 @@ func (c *Controller) reconcileFabricTLS(ctx context.Context) error {
 		return err
 	}
 
-	// fabric-tls keeps the legacy cacert/cert/key schema. The manager only
-	// adds metadata on first adoption so upgrades do not restart OVN workloads.
 	hash, err := fabricTLSHash(secret.Data)
 	if err != nil {
 		return err

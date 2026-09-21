@@ -65,7 +65,6 @@ func (c *Controller) enqueueUpdateVpc(oldObj, newObj any) {
 		vpcBFDPortChanged(oldVpc.Spec.BFDPort, newVpc.Spec.BFDPort) ||
 		!reflect.DeepEqual(oldVpc.Spec.DynamicRouting, newVpc.Spec.DynamicRouting) ||
 		!slices.Equal(oldVpc.Status.Subnets, newVpc.Status.Subnets) {
-		// recode last policies
 		c.vpcLastPoliciesMap.Store(newVpc.Name, convertPolicies(oldVpc.Spec.PolicyRoutes))
 
 		key := cache.MetaObjectToName(newVpc).String()
@@ -100,7 +99,6 @@ func (c *Controller) handleDelVpc(vpc *fabricv1.Vpc) error {
 	defer func() { _ = c.vpcKeyMutex.UnlockKey(vpc.Name) }()
 	klog.Infof("handle delete vpc %s", vpc.Name)
 
-	// should delete vpc subnets first
 	var err error
 	for _, subnet := range vpc.Status.Subnets {
 		if _, err = c.subnetsLister.Get(subnet); err != nil {
@@ -115,7 +113,6 @@ func (c *Controller) handleDelVpc(vpc *fabricv1.Vpc) error {
 		return err
 	}
 
-	// clean up vpc last policies cached
 	c.vpcLastPoliciesMap.Delete(vpc.Name)
 
 	if err := c.handleDelVpcExternalSubnet(vpc.Name, c.config.ExternalGatewaySwitch); err != nil {
@@ -313,7 +310,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		}
 	}
 
-	// handle static route
 	var (
 		staticExistedRoutes []*ovnnb.LogicalRouterStaticRoute
 		staticTargetRoutes  []*fabricv1.StaticRoute
@@ -321,7 +317,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		externalIDs         = map[string]string{"vendor": util.VendorTag}
 	)
 
-	// only manage static routes which are fabric managed, by filtering for vendor util.VendorTag
 	staticExistedRoutes, err = c.OVNNbClient.ListLogicalRouterStaticRoutes(vpc.Name, nil, nil, "", externalIDs)
 	if err != nil {
 		klog.Errorf("failed to get vpc %s static route list, %v", vpc.Name, err)
@@ -335,7 +330,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		klog.V(3).Infof("failed to get external subnet %s: %v", c.config.ExternalGatewaySwitch, err)
 	} else {
 		if !externalSubnet.Spec.LogicalGateway {
-			// logical gw external subnet can not access external
 			externalSubnetExist = true
 			externalSubnetGW = externalSubnet.Spec.Gateway
 		} else {
@@ -360,8 +354,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			return nil
 		}
 
-		// Ensure the join subnet's OVN Logical Switch (and its LRP) has been created
-		// before adding default routes. Otherwise, OVN northd will warn about unreachable next hops.
 		if exist, err := c.OVNNbClient.LogicalSwitchExists(c.config.NodeSwitch); err != nil {
 			klog.Errorf("failed to check logical switch %s existence: %v", c.config.NodeSwitch, err)
 			return err
@@ -403,7 +395,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			klog.Error(err)
 			return err
 		}
-		// Add static routes created by addCustomVPCStaticRouteForSubnet
+
 		for _, subnet := range subnets {
 			if subnet.Spec.Vpc == key {
 				v4Gw, v6Gw := util.SplitStringIP(subnet.Spec.Gateway)
@@ -459,7 +451,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 		}
 	}
 
-	// handle policy route
 	var (
 		policyRouteExisted, policyRouteNeedDel, policyRouteNeedAdd []*fabricv1.PolicyRoute
 		policyRouteLogical                                         []*ovnnb.LogicalRouterPolicy
@@ -468,7 +459,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 	if vpc.Name == c.config.ClusterRouter {
 		lastPolicies, _ := c.vpcLastPoliciesMap.Load(vpc.Name)
 		policyRouteExisted = reversePolicies(lastPolicies)
-		// diff list
+
 		policyRouteNeedDel, policyRouteNeedAdd = diffPolicyRouteWithExisted(policyRouteExisted, vpc.Spec.PolicyRoutes)
 	} else {
 		policyRouteLogical, err = c.OVNNbClient.ListLogicalRouterPolicies(vpc.Name, -1, nil, true)
@@ -476,10 +467,10 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			klog.Errorf("failed to get vpc %s policy route list, %v", vpc.Name, err)
 			return err
 		}
-		// diff vpc policy route
+
 		policyRouteNeedDel, policyRouteNeedAdd = diffPolicyRouteWithLogical(policyRouteLogical, vpc.Spec.PolicyRoutes)
 	}
-	// delete policies non-exist
+
 	for _, item := range policyRouteNeedDel {
 		klog.Infof("delete policy route for router: %s, priority: %d, match %s", vpc.Name, item.Priority, item.Match)
 		if err = c.OVNNbClient.DeleteLogicalRouterPolicy(vpc.Name, item.Priority, item.Match); err != nil {
@@ -487,7 +478,7 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 			return err
 		}
 	}
-	// add new policies
+
 	for _, item := range policyRouteNeedAdd {
 		klog.Infof("add policy route for router: %s, match %s, action %s, nexthop %s, externalID %v", vpc.Name, item.Match, string(item.Action), item.NextHopIP, externalIDs)
 		if err = c.addPolicyRouteToVpc(vpc.Name, item, externalIDs); err != nil {
@@ -538,8 +529,6 @@ func (c *Controller) handleAddOrUpdateVpc(key string) error {
 	custVpcEnableExternalEcmp := false
 	for _, subnet := range subnets {
 		if subnet.Spec.Vpc == key {
-			// Accelerate subnet update when vpc config is updated.
-			// In case VPC not set namespaces, subnet will backoff and may take long time to back to ready.
 			if subnet.Status.IsNotReady() {
 				c.addOrUpdateSubnetQueue.Add(subnet.Name)
 			}
@@ -618,22 +607,18 @@ func (c *Controller) handleUpdateVpcExternal(vpc *fabricv1.Vpc, custVpcEnableExt
 		return err
 	}
 
-	// custom vpc enable bfd
 	if vpc.Spec.EnableBfd && vpc.Name != util.DefaultVpc && defaultExternalSubnetExist {
-		// create bfd between lrp and physical switch gw
-		// bfd status down means current lrp binding chassis node external nic lost external network connectivity
-		// should switch lrp to another node
 		lrpEipName := fmt.Sprintf("%s-%s", vpc.Name, c.config.ExternalGatewaySwitch)
 		v4ExtGw, _ := util.SplitStringIP(externalSubnetGW)
-		// TODO: dualstack
+
 		if _, err := c.OVNNbClient.CreateBFD(lrpEipName, v4ExtGw, c.config.BfdMinRx, c.config.BfdMinTx, c.config.BfdDetectMult, nil); err != nil {
 			klog.Error(err)
 			return err
 		}
-		// TODO: support multi external nic
+
 		if custVpcEnableExternalEcmp {
 			klog.Infof("remove normal static ecmp route for vpc %s", vpc.Name)
-			// auto remove normal type static route, if using ecmp based bfd
+
 			if err := c.reconcileCustomVpcDelNormalStaticRoute(vpc.Name); err != nil {
 				klog.Errorf("failed to reconcile del vpc %q normal static route", vpc.Name)
 				return err
@@ -882,7 +867,7 @@ func diffPolicyRouteWithExisted(exists, target []*fabricv1.PolicyRoute) ([]*fabr
 	for _, item := range exists {
 		existsMap[getPolicyRouteItemKey(item)] = item
 	}
-	// load policies to add
+
 	for _, item := range target {
 		key = getPolicyRouteItemKey(item)
 
@@ -892,7 +877,7 @@ func diffPolicyRouteWithExisted(exists, target []*fabricv1.PolicyRoute) ([]*fabr
 			adds = append(adds, item)
 		}
 	}
-	// load policies to delete
+
 	for _, item := range existsMap {
 		dels = append(dels, item)
 	}
@@ -1019,7 +1004,6 @@ func getStaticRouteItemKey(item *fabricv1.StaticRoute) string {
 func (c *Controller) formatVpc(vpc *fabricv1.Vpc) (*fabricv1.Vpc, error) {
 	var changed bool
 	for _, item := range vpc.Spec.StaticRoutes {
-		// check policy
 		if item.Policy == "" {
 			item.Policy = fabricv1.PolicyDst
 			changed = true
@@ -1027,7 +1011,7 @@ func (c *Controller) formatVpc(vpc *fabricv1.Vpc) (*fabricv1.Vpc, error) {
 		if item.Policy != fabricv1.PolicyDst && item.Policy != fabricv1.PolicySrc {
 			return nil, fmt.Errorf("unknown policy type: %q", item.Policy)
 		}
-		// check cidr
+
 		if strings.Contains(item.CIDR, "/") {
 			if _, _, err := net.ParseCIDR(item.CIDR); err != nil {
 				return nil, fmt.Errorf("invalid cidr %q: %w", item.CIDR, err)
@@ -1035,7 +1019,7 @@ func (c *Controller) formatVpc(vpc *fabricv1.Vpc) (*fabricv1.Vpc, error) {
 		} else if ip := net.ParseIP(item.CIDR); ip == nil {
 			return nil, fmt.Errorf("invalid ip %q", item.CIDR)
 		}
-		// check next hop ip
+
 		if ip := net.ParseIP(item.NextHopIP); ip == nil {
 			return nil, fmt.Errorf("invalid next hop ip %q", item.NextHopIP)
 		}
@@ -1048,7 +1032,6 @@ func (c *Controller) formatVpc(vpc *fabricv1.Vpc) (*fabricv1.Vpc, error) {
 				changed = true
 			}
 		} else {
-			// ecmp policy route may reroute to multiple next hop ips
 			for ipStr := range strings.SplitSeq(route.NextHopIP, ",") {
 				if ip := net.ParseIP(ipStr); ip == nil {
 					err := fmt.Errorf("invalid next hop ips: %s", route.NextHopIP)
@@ -1156,7 +1139,6 @@ func (c *Controller) getVpcSubnets(vpc *fabricv1.Vpc) (subnets []string, default
 	return subnets, defaultSubnet, err
 }
 
-// createVpcRouter create router to connect logical switches in vpc
 func (c *Controller) createVpcRouter(vpc *fabricv1.Vpc, learnFromARPRequest bool) error {
 	lr := vpc.Name
 	if err := c.OVNNbClient.CreateLogicalRouter(lr); err != nil {
@@ -1200,7 +1182,6 @@ func (c *Controller) createVpcRouter(vpc *fabricv1.Vpc, learnFromARPRequest bool
 	return nil
 }
 
-// deleteVpcRouter delete router to connect logical switches in vpc
 func (c *Controller) deleteVpcRouter(lr string) error {
 	return c.OVNNbClient.DeleteLogicalRouter(lr)
 }
@@ -1319,7 +1300,6 @@ func (c *Controller) reconcileVpcExternalGatewayChassis(vpc *fabricv1.Vpc) error
 			continue
 		}
 		if vpc.Spec.EnableBfd {
-			// the BFD status handler owns the priorities of this lrp
 			err = c.OVNNbClient.UpdateGatewayChassisMembers(lrpName, chassises)
 		} else {
 			err = c.OVNNbClient.UpdateGatewayChassises(lrpName, chassises)
@@ -1469,7 +1449,7 @@ func (c *Controller) handleDeleteVpcStaticRoute(key string) error {
 		}
 		newStaticRoutes = append(newStaticRoutes, route)
 	}
-	// keep routes except bfd ecmp routes
+
 	if needUpdate {
 		vpc.Spec.StaticRoutes = newStaticRoutes
 		if _, err = c.config.FabricClient.FabricV1().Vpcs().Update(context.Background(), vpc, metav1.UpdateOptions{}); err != nil {

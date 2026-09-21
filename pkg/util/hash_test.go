@@ -49,7 +49,6 @@ func TestSha256HashGatewayChassisDistribution(t *testing.T) {
 		return sorted[0]
 	}
 
-	// deterministic: same VPC always gets same result
 	first := getFirstChassis("vpc-a")
 	for range 10 {
 		if getFirstChassis("vpc-a") != first {
@@ -57,7 +56,6 @@ func TestSha256HashGatewayChassisDistribution(t *testing.T) {
 		}
 	}
 
-	// distributed: not all VPCs get the same chassis
 	results := map[string]int{}
 	vpcs := []string{"vpc-a", "vpc-b", "vpc-c", "vpc-d", "vpc-e", "vpc-f", "vpc-g", "vpc-h", "vpc-i", "vpc-j"}
 	for _, vpc := range vpcs {

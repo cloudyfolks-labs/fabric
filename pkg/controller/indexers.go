@@ -49,10 +49,6 @@ func indexVpcByBFDPort(obj any) ([]string, error) {
 	return []string{IndexVpcBFDPortEnabled}, nil
 }
 
-// indexIPBySubnet indexes an IP CR by its primary subnet plus any attach
-// subnets, mirroring the subnets enqueued to updateSubnetStatusQueue on IP
-// add/update/delete. This lets calcSubnetStatusIP look up the IPs of a single
-// subnet in O(matched) instead of scanning the whole IP store.
 func indexIPBySubnet(obj any) ([]string, error) {
 	ip, ok := obj.(*fabricv1.IP)
 	if !ok {
@@ -70,9 +66,6 @@ func indexIPBySubnet(obj any) ([]string, error) {
 	return subnets, nil
 }
 
-// setupIndexers registers custom informer indexers used by hot-path
-// reconciliation loops to avoid O(N) full-store scans. Must be called before
-// the informer factory is started.
 func (c *Controller) setupIndexers(vpcInformer, podInformer, epsInformer, ipInformer cache.SharedIndexInformer) error {
 	if err := vpcInformer.AddIndexers(cache.Indexers{IndexVpcByBFDPort: indexVpcByBFDPort}); err != nil {
 		return err

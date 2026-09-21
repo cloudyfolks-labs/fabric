@@ -54,7 +54,7 @@ func TestGetPodFabricNetsNonPrimaryCNI(t *testing.T) {
 					Namespace: "default",
 					Annotations: map[string]string{
 						nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
-						// fabric annotations for net1 provider
+
 						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 						fmt.Sprintf(util.LogicalRouterAnnotationTemplate, "net1.default.fabric"): "net1-vpc",
 						fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
@@ -102,7 +102,7 @@ func TestGetPodFabricNetsNonPrimaryCNI(t *testing.T) {
 					Namespace: "default",
 					Annotations: map[string]string{
 						nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
-						// Both custom and default provider annotations
+
 						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "net1.default.fabric"): "net1-subnet",
 						fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, util.OvnProvider):      "ovn-default",
 						fmt.Sprintf(util.IPAddressAnnotationTemplate, "net1.default.fabric"):     "192.168.1.10",
@@ -148,8 +148,8 @@ func TestGetPodFabricNetsNonPrimaryCNI(t *testing.T) {
 					},
 				},
 			},
-			enableNonPrimaryCNI: false, // This test will verify both modes
-			expectedNetCount:    2,     // Both networks in primary mode
+			enableNonPrimaryCNI: false,
+			expectedNetCount:    2,
 			expectError:         false,
 			description:         "Should handle both network attachments and default network differently in primary vs non-primary modes",
 		},
@@ -157,7 +157,6 @@ func TestGetPodFabricNetsNonPrimaryCNI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create controller with proper setup
 			fakeController, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
 				NetworkAttachments: tt.networkAttachments,
 				Subnets:            tt.subnets,
@@ -166,23 +165,18 @@ func TestGetPodFabricNetsNonPrimaryCNI(t *testing.T) {
 			require.NoError(t, err, "Failed to create fake controller")
 			controller := fakeController.fakeController
 
-			// Set the non-primary CNI mode
 			controller.config.EnableNonPrimaryCNI = tt.enableNonPrimaryCNI
 
-			// Call the method under test
 			nets, err := controller.getPodFabricNets(tt.pod)
 
-			// Check for errors
 			if tt.expectError {
 				assert.Error(t, err, "Expected an error but got none: %s", tt.description)
 				return
 			}
 			require.NoError(t, err, "Unexpected error: %s", tt.description)
 
-			// Verify network count
 			assert.Equal(t, tt.expectedNetCount, len(nets), "Network count mismatch: %s", tt.description)
 
-			// For the comparison test, also test non-primary mode
 			if tt.name == "Primary CNI mode vs Non-primary CNI behavior" {
 				controller.config.EnableNonPrimaryCNI = true
 				netsNonPrimary, err := controller.getPodFabricNets(tt.pod)
@@ -434,14 +428,6 @@ func TestAcquireAddressWithSpecifiedSubnet(t *testing.T) {
 }
 
 func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
-	// This test verifies that when acquireStaticAddressHelper allocates a static IP
-	// for a per-interface NAD (with NadName, NadNamespace, and InterfaceName all set),
-	// the IP is registered in IPAM under the original pod key ("namespace/podName"),
-	// NOT under the annotation key ("nadName.nadNs.cloudyfolks.io/ip_address.ifaceName").
-	//
-	// If the IPAM key is wrong, ReleaseAddressByNic (called on pod deletion with the pod key)
-	// will fail to find and release the IP, causing an IP leak.
-
 	subnetName := "test-subnet"
 	testSubnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{Name: subnetName},
@@ -488,28 +474,22 @@ func TestAcquireStaticAddressHelperPerInterfaceIPAMKey(t *testing.T) {
 	ctrl := fakeCtrl.fakeController
 	ctrl.ipam = newIPAMForTest([]*fabricv1.Subnet{testSubnet})
 
-	// Allocate static IP via the per-interface path
 	v4IP, _, _, subnet, err := ctrl.acquireStaticAddressHelper(pod, podNet, portName, nil, "", nsNets, false, podKey, "")
 	require.NoError(t, err)
 	assert.Equal(t, staticIP, v4IP)
 	assert.Equal(t, subnetName, subnet.Name)
 
-	// Verify: IPAM should have the IP registered under the pod key, not the annotation key
 	ipamSubnet := ctrl.ipam.Subnets[subnetName]
 	require.NotNil(t, ipamSubnet)
 
-	// PodToNicList should have an entry for podKey
 	assert.NotEmpty(t, ipamSubnet.PodToNicList[podKey],
 		"IPAM should register the IP under pod key %q, but PodToNicList has no entry for it", podKey)
 
-	// PodToNicList should NOT have an entry for the annotation key
 	assert.Empty(t, ipamSubnet.PodToNicList[annotationKey],
 		"IPAM should NOT register the IP under annotation key %q, but PodToNicList has an entry for it (variable shadowing bug)", annotationKey)
 
-	// Verify that ReleaseAddressByNic with pod key actually releases the IP
 	ctrl.ipam.ReleaseAddressByNic(podKey, portName, subnetName)
 
-	// After release, the IP should no longer be tracked
 	assert.Empty(t, ipamSubnet.PodToNicList[podKey],
 		"After ReleaseAddressByNic with pod key, PodToNicList should be empty for %q", podKey)
 	assert.Empty(t, ipamSubnet.V4IPToPod[staticIP],
@@ -876,7 +856,6 @@ func TestGetNamedPortByNsReturnsCopy(t *testing.T) {
 	require.NotNil(t, result)
 	assert.Contains(t, result, "http")
 
-	// Mutating the returned map should not affect internal state
 	delete(result, "http")
 
 	result2 := np.GetNamedPortByNs("test-ns")
@@ -1025,12 +1004,6 @@ func TestHasAliveSiblingVMPod(t *testing.T) {
 	}
 }
 
-// TestGetPodAttachmentNetDefaultSubnetGone guards against a nil pointer panic:
-// for a terminating pod whose OVN attachment network resolves to no subnet
-// (no per-provider logical_switch annotation and no matching Subnet.Spec.Provider),
-// getPodAttachmentNet falls back to getPodDefaultSubnet, which returns (nil, nil)
-// when the pod's top-level logical_switch annotation points at an already-deleted
-// subnet. The attachment must be skipped so gc can clean its ip cr.
 func TestGetPodAttachmentNetDefaultSubnetGone(t *testing.T) {
 	now := metav1.Now()
 	grace := int64(0)
@@ -1042,16 +1015,13 @@ func TestGetPodAttachmentNetDefaultSubnetGone(t *testing.T) {
 			DeletionGracePeriodSeconds: &grace,
 			Annotations: map[string]string{
 				nadv1.NetworkAttachmentAnnot: `[{"name": "net1"}]`,
-				// top-level default subnet points at a subnet that no longer exists
+
 				util.LogicalSwitchAnnotation: "deleted-subnet",
-				// no per-provider net1.default.fabric logical_switch annotation, so the
-				// attachment cannot resolve a subnet and falls back to the default
 			},
 		},
 	}
 
 	fakeController, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		// NAD is an OVN network but no Subnet has Provider == net1.default.fabric
 		NetworkAttachments: []*nadv1.NetworkAttachmentDefinition{
 			{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1067,18 +1037,11 @@ func TestGetPodAttachmentNetDefaultSubnetGone(t *testing.T) {
 	require.NoError(t, err)
 	controller := fakeController.fakeController
 
-	// must not panic; the unresolvable attachment is skipped
 	nets, err := controller.getPodAttachmentNet(pod)
 	require.NoError(t, err)
 	assert.Empty(t, nets)
 }
 
-// TestGetPodAttachmentNetIPAMOnlyNADGone reproduces issue #6943: when an IPAM-only
-// attachment (e.g. ipvlan with ipam.type fabric) is deleted after its NAD has
-// already been removed, the cleanup path must still resolve the attachment to its
-// subnet so the IP is released. The subnet provider is "<nad>.<namespace>" without
-// the ".fabric" suffix, so the returned net must carry that exact provider name so the
-// released IP CR name matches what was allocated.
 func TestGetPodAttachmentNetIPAMOnlyNADGone(t *testing.T) {
 	now := metav1.Now()
 	grace := int64(0)
@@ -1095,13 +1058,12 @@ func TestGetPodAttachmentNetIPAMOnlyNADGone(t *testing.T) {
 	}
 
 	fakeController, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
-		// NAD intentionally absent: it was deleted before the pod.
 		Subnets: []*fabricv1.Subnet{
 			{
 				ObjectMeta: metav1.ObjectMeta{Name: "ipam-net1"},
 				Spec: fabricv1.SubnetSpec{
 					CIDRBlock: "10.1.0.0/16",
-					// IPAM-only provider: no ".fabric" suffix
+
 					Provider: "net1.default",
 				},
 			},

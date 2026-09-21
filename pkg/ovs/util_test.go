@@ -166,7 +166,6 @@ func Test_AndAclMatch_Match(t *testing.T) {
 	t.Run("generate acl match rule", func(t *testing.T) {
 		t.Parallel()
 
-		/* match several tcp port traffic */
 		match := NewAndACLMatch(
 			NewACLMatch("inport", "==", "@ovn.sg.test_sg", ""),
 			NewACLMatch("ip", "", "", ""),
@@ -198,7 +197,6 @@ func Test_OrAclMatch_Match(t *testing.T) {
 	t.Run("has one rule", func(t *testing.T) {
 		t.Parallel()
 
-		/* match several tcp port traffic */
 		match := NewOrACLMatch(
 			NewAndACLMatch(
 				NewACLMatch("ip4.src", "==", "10.250.0.0/16", ""),
@@ -217,7 +215,6 @@ func Test_OrAclMatch_Match(t *testing.T) {
 	t.Run("has several rules", func(t *testing.T) {
 		t.Parallel()
 
-		/* match several tcp port traffic */
 		match := NewOrACLMatch(
 			NewAndACLMatch(
 				NewACLMatch("ip4.src", "==", "10.250.0.0/16", ""),

@@ -89,7 +89,6 @@ func (c *Controller) enqueueUpdateNamespace(oldObj, newObj any) {
 		}
 	}
 
-	// in case annotations are removed by other controllers
 	if newNs.Annotations == nil || newNs.Annotations[util.LogicalSwitchAnnotation] == "" {
 		klog.Warningf("no logical switch annotation for ns %s", newNs.Name)
 		c.addNamespaceQueue.Add(newNs.Name)
@@ -124,7 +123,6 @@ func (c *Controller) handleAddNamespace(key string) error {
 		return err
 	}
 
-	// check if subnet bind ns
 	for _, s := range subnets {
 		if slices.Contains(s.Spec.Namespaces, key) {
 			lss = append(lss, s.Name)
@@ -132,7 +130,6 @@ func (c *Controller) handleAddNamespace(key string) error {
 			excludeIps = append(excludeIps, strings.Join(s.Spec.ExcludeIps, ","))
 		}
 
-		// bind subnet with namespaceLabelSelector which select the namespace
 		for _, nsSelector := range s.Spec.NamespaceSelectors {
 			matchSelector, err := metav1.LabelSelectorAsSelector(&nsSelector)
 			if err != nil {
@@ -151,13 +148,10 @@ func (c *Controller) handleAddNamespace(key string) error {
 			}
 		}
 
-		// check if subnet is in custom vpc with configured defaultSubnet, then annotate the namespace with this subnet
 		if s.Spec.Vpc != "" && s.Spec.Vpc != c.config.ClusterRouter {
 			vpc, err := c.vpcsLister.Get(s.Spec.Vpc)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					// this subnet is broken (it references a non-existent VPC) - we just ignore it
-					// and keep evaluating the remaining subnets.
 					klog.Errorf("vpc %q is not found. Ignoring subnet %q: %v", s.Spec.Vpc, s.Name, err)
 					continue
 				}
@@ -179,7 +173,6 @@ func (c *Controller) handleAddNamespace(key string) error {
 	}
 
 	if lss == nil {
-		// If NS does not belong to any custom VPC, then this NS belongs to the default VPC
 		vpc, err := c.vpcsLister.Get(c.config.ClusterRouter)
 		if err != nil {
 			klog.Errorf("failed to get default vpc %v", err)
@@ -246,7 +239,6 @@ func (c *Controller) getNsExpectSubnets(newNs *v1.Namespace) ([]string, error) {
 		return expectSubnets, err
 	}
 	for _, subnet := range subnets {
-		// ns labels match subnet's selector
 		for _, nsSelector := range subnet.Spec.NamespaceSelectors {
 			matchSelector, err := metav1.LabelSelectorAsSelector(&nsSelector)
 			if err != nil {
@@ -260,7 +252,6 @@ func (c *Controller) getNsExpectSubnets(newNs *v1.Namespace) ([]string, error) {
 			}
 		}
 
-		// ns included in subnet's namespaces
 		if slices.Contains(subnet.Spec.Namespaces, newNs.Name) && !slices.Contains(expectSubnets, subnet.Name) {
 			expectSubnets = append(expectSubnets, subnet.Name)
 		}

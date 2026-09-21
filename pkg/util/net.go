@@ -46,7 +46,6 @@ func GenerateMac() string {
 		klog.Errorf("Unable to retrieve 6 rnd bytes: %v", err)
 	}
 
-	// Set locally administered addresses bit and reset multicast bit
 	buf[0] = (buf[0] | 0x02) & 0xfe
 
 	return net.HardwareAddr(buf).String()
@@ -107,14 +106,13 @@ func SubnetBroadcast(subnet string) string {
 	return BigInt2Ip(ipInt.Add(ipInt, size))
 }
 
-// FirstIP returns first usable ip address in the subnet
 func FirstIP(subnet string) (string, error) {
 	_, cidr, err := net.ParseCIDR(subnet)
 	if err != nil {
 		klog.Error(err)
 		return "", fmt.Errorf("%s is not a valid cidr", subnet)
 	}
-	// Handle ptp network case specially
+
 	if ones, bits := cidr.Mask.Size(); ones+1 == bits {
 		return cidr.IP.String(), nil
 	}
@@ -122,7 +120,6 @@ func FirstIP(subnet string) (string, error) {
 	return BigInt2Ip(ipInt.Add(ipInt, big.NewInt(1))), nil
 }
 
-// LastIP returns last usable ip address in the subnet
 func LastIP(subnet string) (string, error) {
 	_, cidr, err := net.ParseCIDR(subnet)
 	if err != nil {
@@ -182,7 +179,7 @@ func CIDRContainIP(cidrStr, ipStr string) bool {
 			}
 		}
 	}
-	// v4 and v6 address should be both matched for dualstack check
+
 	return true
 }
 
@@ -222,7 +219,6 @@ func CheckProtocol(address string) string {
 		return fabricv1.ProtocolIPv6
 	}
 
-	// cidr format error
 	err := fmt.Errorf("invalid address %q", address)
 	klog.Error(err)
 	return ""
@@ -232,7 +228,7 @@ func AddressCountBigInt(network *net.IPNet) internal.BigInt {
 	prefixLen, bits := network.Mask.Size()
 	zeros := uint(bits - prefixLen) // #nosec G115
 	count := big.NewInt(0).Lsh(big.NewInt(1), zeros)
-	// Special case handling for /31 and /32 subnets.
+
 	if bits-prefixLen >= 2 {
 		count.Sub(count, big.NewInt(2))
 	}
@@ -347,15 +343,8 @@ func GetStringIP(v4IP, v6IP string) string {
 	return strings.Join(ipList, ",")
 }
 
-// GetIPAddrWithMaskForCNI returns IP address with mask for CNI plugin.
-// When ip is empty, it indicates no-IPAM mode (e.g., NAT gateway macvlan without default EIP).
-// When cidr is dual-stack, the CNI path uses the actual allocated IP families
-// and selects the matching mask instead of requiring the pod IP itself to be dual-stack.
-// Returns (ipAddr, noIPAM, error) where noIPAM is true when IP allocation is skipped.
 func GetIPAddrWithMaskForCNI(ip, cidr string) (string, bool, error) {
 	if ip == "" {
-		// Network attachment definition using no-IPAM plugin (e.g., NAT gateway net1 macvlan with no default EIP)
-		// IP is not allocated by fabric, but cidr still comes from subnet configuration
 		klog.V(3).Infof("skipping IP allocation: ip is empty for cidr %s (no-IPAM mode)", cidr)
 		return "", true, nil
 	}
@@ -444,7 +433,6 @@ func SplitStringIP(ipStr string) (string, string) {
 	return v4IP, v6IP
 }
 
-// ExpandExcludeIPs used to get exclude ips in range of subnet cidr, excludes cidr addr and broadcast addr
 func ExpandExcludeIPs(excludeIPs []string, cidr string) []string {
 	rv := []string{}
 	for _, excludeIP := range excludeIPs {
@@ -488,9 +476,7 @@ func ExpandExcludeIPs(excludeIPs []string, cidr string) []string {
 			}
 		} else {
 			for cidrBlock := range strings.SplitSeq(cidr, ",") {
-				// exclude ip should be the same protocol with cidr
 				if CheckProtocol(cidrBlock) == CheckProtocol(excludeIP) {
-					// exclude ip should be in the range of cidr and not cidr addr and broadcast addr
 					if CIDRContainIP(cidrBlock, excludeIP) && excludeIP != SubnetNumber(cidrBlock) && excludeIP != SubnetBroadcast(cidrBlock) {
 						rv = append(rv, excludeIP)
 						break
@@ -537,7 +523,6 @@ func CountIPNumsBigInt(excludeIPs []string) internal.BigInt {
 }
 
 func GatewayContains(gatewayNodeStr, gateway string) bool {
-	// the format of gatewayNodeStr can be like 'fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3', which consists of node name and designative egress ip
 	for gw := range strings.SplitSeq(gatewayNodeStr, ",") {
 		if strings.Contains(gw, ":") {
 			gw = strings.TrimSpace(strings.Split(gw, ":")[0])
@@ -588,11 +573,6 @@ func CIDROverlap(a, b string) bool {
 	return false
 }
 
-// CIDRContainsCIDR checks whether CIDR a contains CIDR b
-// if a and b are not the same protocol, return an error directly
-// if a and b are the same protocol, but a doesn't contain b, return false
-// if a contains b, return true
-// if a and b are the same CIDR, return true
 func CIDRContainsCIDR(a, b string) (bool, error) {
 	_, ca, err := net.ParseCIDR(a)
 	if err != nil {
@@ -670,8 +650,6 @@ func CheckNodeDNSIP(nodeLocalDNSIP string) error {
 	return nil
 }
 
-// GetExternalNetwork returns the external network name
-// if the external network is not specified, return the default external network name
 func GetExternalNetwork(externalNet string) string {
 	if externalNet == "" {
 		return vpcExternalNet
@@ -809,7 +787,6 @@ func ContainsUppercase(s string) bool {
 }
 
 func InvalidSpecialCIDR(s string) error {
-	// 0.0.0.0 and 255.255.255.255 only using in special case
 	if strings.HasPrefix(s, "0.0.0.0") {
 		err := fmt.Errorf("invalid zero cidr %q", s)
 		klog.Error(err)
@@ -832,11 +809,7 @@ func InvalidNetworkMask(network *net.IPNet) error {
 	return nil
 }
 
-// GetAnnotationWithIfNameOverride returns the annotation value with interface name override if ifName is provided, otherwise return the annotation value without interface name.
 func GetAnnotationWithIfNameOverride(annotations map[string]string, provider, ifName, annotationTemplate string, appendIfName bool) string {
-	// default behaviour when no interface name is specified
-	// verify if a custom ifname is provided then annotation will be of form
-	// vm-overlay.default.fabric.net1.cloudyfolks.io/xxx: xxx
 	if appendIfName {
 		provider = fmt.Sprintf("%s.%s", provider, ifName)
 	}

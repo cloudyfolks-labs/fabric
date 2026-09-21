@@ -47,13 +47,11 @@ func NewACLError(errType ACLErrorType, msg string) *ACLError {
 
 func setACLName(acl *ovnnb.ACL, name string) {
 	if len(name) > 63 {
-		// ACL name length limit is 63
 		name = name[:60] + "..."
 	}
 	acl.Name = new(name)
 }
 
-// UpdateDefaultBlockACLOps returns operations to update/create the default block ACL
 func (c *OVNNbClient) UpdateDefaultBlockACLOps(npName, pgName, direction string, loggingEnabled, lax bool, logRate int) ([]ovsdb.Operation, error) {
 	portDirection := "outport"
 	priority := util.IngressDefaultDrop
@@ -67,13 +65,11 @@ func (c *OVNNbClient) UpdateDefaultBlockACLOps(npName, pgName, direction string,
 	var match ACLMatch
 
 	if lax {
-		// This is the "lax" enforcement mode, we block only TCP/UDP/SCTP
 		match = NewAndACLMatch(
 			NewACLMatch(portDirection, "==", "@"+pgName, ""),
 			NewACLMatch("(tcp || udp || sctp)", "", "", ""),
 		)
 	} else {
-		// This is the "standard" enforcement mode, we block everything IP related (IPv4/IPv6/ICMPv4/ICMPv6/...)
 		match = NewAndACLMatch(
 			NewACLMatch(portDirection, "==", "@"+pgName, ""),
 			NewACLMatch("ip", "", "", ""),
@@ -124,14 +120,13 @@ func (c *OVNNbClient) UpdateDefaultBlockACLOps(npName, pgName, direction string,
 	return ops, nil
 }
 
-// UpdateDefaultBlockExceptionsACLOps updates the exceptions to the default block ACLs of a NetworkPolicy to allow DHCPv4/DHCPv6.
 func (c *OVNNbClient) UpdateDefaultBlockExceptionsACLOps(npName, pgName, npNamespace, direction string) ([]ovsdb.Operation, error) {
 	portDirection := "outport"
 	priority := util.IngressAllowPriority
 	dhcpv4UdpSrc, dhcpv4UdpDst := "67", "68"
 	dhcpv6UdpSrc, dhcpv6UdpDst := "547", "546"
 
-	if direction == ovnnb.ACLDirectionFromLport { // Egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		portDirection = "inport"
 		priority = util.EgressAllowPriority
 		dhcpv4UdpSrc, dhcpv4UdpDst = dhcpv4UdpDst, dhcpv4UdpSrc
@@ -160,7 +155,6 @@ func (c *OVNNbClient) UpdateDefaultBlockExceptionsACLOps(npName, pgName, npNames
 		acls = append(acls, acl)
 	}
 
-	// Allow DHCPv6
 	dhcpv6Match := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("udp.src", "==", dhcpv6UdpSrc, ""),
@@ -169,7 +163,6 @@ func (c *OVNNbClient) UpdateDefaultBlockExceptionsACLOps(npName, pgName, npNames
 	)
 	newACL(dhcpv6Match.String())
 
-	// Allow DHCPv4
 	dhcpv4Match := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("udp.src", "==", dhcpv4UdpSrc, ""),
@@ -186,7 +179,6 @@ func (c *OVNNbClient) UpdateDefaultBlockExceptionsACLOps(npName, pgName, npNames
 	return ops, nil
 }
 
-// UpdateIngressACLOps return operation that creates an ingress ACL
 func (c *OVNNbClient) UpdateIngressACLOps(pgName, asIngressName, asExceptName, protocol, aclName string, npp []netv1.NetworkPolicyPort, logEnable bool, logACLActions []ovnnb.ACLAction, logRate int, namedPortMap map[string]*util.NamedPortInfo) ([]ovsdb.Operation, error) {
 	acls := make([]*ovnnb.ACL, 0)
 	meterName := fmt.Sprintf("%s_%s_meter", pgName, ovnnb.ACLDirectionToLport)
@@ -200,7 +192,6 @@ func (c *OVNNbClient) UpdateIngressACLOps(pgName, asIngressName, asExceptName, p
 		}
 	}
 
-	/* allow acl */
 	matches := newNetworkPolicyACLMatch(pgName, asIngressName, asExceptName, protocol, ovnnb.ACLDirectionToLport, npp, namedPortMap)
 	for _, m := range matches {
 		options := func(acl *ovnnb.ACL) {
@@ -231,7 +222,6 @@ func (c *OVNNbClient) UpdateIngressACLOps(pgName, asIngressName, asExceptName, p
 	return ops, nil
 }
 
-// UpdateEgressACLOps return operation that creates an egress ACL
 func (c *OVNNbClient) UpdateEgressACLOps(pgName, asEgressName, asExceptName, protocol, aclName string, npp []netv1.NetworkPolicyPort, logEnable bool, logACLActions []ovnnb.ACLAction, logRate int, namedPortMap map[string]*util.NamedPortInfo) ([]ovsdb.Operation, error) {
 	acls := make([]*ovnnb.ACL, 0)
 	meterName := fmt.Sprintf("%s_%s_meter", pgName, ovnnb.ACLDirectionFromLport)
@@ -245,7 +235,6 @@ func (c *OVNNbClient) UpdateEgressACLOps(pgName, asEgressName, asExceptName, pro
 		}
 	}
 
-	/* allow acl */
 	matches := newNetworkPolicyACLMatch(pgName, asEgressName, asExceptName, protocol, ovnnb.ACLDirectionFromLport, npp, namedPortMap)
 	for _, m := range matches {
 		allowACL, err := c.newACLWithoutCheck(pgName, ovnnb.ACLDirectionFromLport, util.EgressAllowPriority, m, ovnnb.ACLActionAllowRelated, util.NetpolACLTier, func(acl *ovnnb.ACL) {
@@ -278,10 +267,6 @@ func (c *OVNNbClient) UpdateEgressACLOps(pgName, asEgressName, asExceptName, pro
 	return ops, nil
 }
 
-// CreateGatewayACL create ICMPv6 allow acl for IPv6 gateway detection
-// This function should only be called when IPv6 is present
-// For IPv4: uses ARP (L2), no ACL needed
-// For IPv6: uses ping (ICMPv6), needs ICMPv6 protocol ACL
 func (c *OVNNbClient) CreateGatewayACL(lsName, pgName string) error {
 	var parentName, parentType string
 	switch {
@@ -320,7 +305,6 @@ func (c *OVNNbClient) CreateGatewayACL(lsName, pgName string) error {
 	return nil
 }
 
-// CreateNodeACL create allow acl for node join ip
 func (c *OVNNbClient) CreateNodeACL(pgName, nodeIPStr, joinIPStr string) error {
 	acls := make([]*ovnnb.ACL, 0)
 	nodeIPs := strings.Split(nodeIPStr, ",")
@@ -390,9 +374,6 @@ func (c *OVNNbClient) CreateSgDenyAllACL(sgName string) error {
 
 	acls := make([]*ovnnb.ACL, 0)
 
-	// Add default deny rules for all the tiers. This is to ensure that if a packet
-	// is moved between tiers during acl evaluation, it is always dropped if no explicit
-	// allow or drop rule is not hit.
 	for tier := util.SecurityGroupAPITierMinimum; tier <= util.SecurityGroupAPITierMaximum; tier++ {
 		ovnTier := util.ConvertSGTierToOvnTier(tier)
 		ingressACL, err := c.newACL(pgName, ovnnb.ACLDirectionToLport, util.SecurityGroupDropPriority, fmt.Sprintf("outport == @%s && ip", pgName), ovnnb.ACLActionDrop, ovnTier)
@@ -419,22 +400,15 @@ func (c *OVNNbClient) CreateSgDenyAllACL(sgName string) error {
 	return nil
 }
 
-// CreateSgACL create allow acl for security group
 func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 	pgName := GetSgPortGroupName(sgName)
 
-	// ingress rule
 	portDirection := "outport"
 	dhcpv4UdpSrc, dhcpv4UdpDst := "67", "68"
 	dhcpv6UdpSrc, dhcpv6UdpDst := "547", "546"
 	icmpv6Type := "{130, 134, 135, 136}"
-	// 130 group membership query
-	// 133 router solicitation
-	// 134 router advertisement
-	// 135 neighbor solicitation
-	// 136 neighbor advertisement
 
-	if direction == ovnnb.ACLDirectionFromLport { // egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		portDirection = "inport"
 		dhcpv4UdpSrc, dhcpv4UdpDst = dhcpv4UdpDst, dhcpv4UdpSrc
 		dhcpv6UdpSrc, dhcpv6UdpDst = dhcpv6UdpDst, dhcpv6UdpSrc
@@ -444,8 +418,6 @@ func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 	acls := make([]*ovnnb.ACL, 0)
 
 	newACL := func(match string) {
-		// Add baserules for all the tiers. This is to ensure that if a packet
-		// is moved between tiers during acl evaluation, the protocol packets are always allowed.
 		for tier := util.SecurityGroupAPITierMinimum; tier <= util.SecurityGroupAPITierMaximum; tier++ {
 			acl, err := c.newACL(pgName, direction, util.SecurityGroupBasePriority, match, ovnnb.ACLActionAllowRelated, util.ConvertSGTierToOvnTier(tier))
 			if err != nil {
@@ -457,14 +429,12 @@ func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 		}
 	}
 
-	// allow arp
 	allArpMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("arp", "", "", ""),
 	)
 	newACL(allArpMatch.String())
 
-	// icmpv6
 	icmpv6Match := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("icmp6.type", "==", icmpv6Type, ""),
@@ -473,7 +443,6 @@ func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 	)
 	newACL(icmpv6Match.String())
 
-	// dhcpv4 offer
 	dhcpv4Match := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("udp.src", "==", dhcpv4UdpSrc, ""),
@@ -482,7 +451,6 @@ func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 	)
 	newACL(dhcpv4Match.String())
 
-	// dhcpv6 offer
 	dhcpv6Match := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("udp.src", "==", dhcpv6UdpSrc, ""),
@@ -491,7 +459,6 @@ func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 	)
 	newACL(dhcpv6Match.String())
 
-	// vrrp
 	vrrpMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("ip.proto", "==", "112", ""),
@@ -508,7 +475,6 @@ func (c *OVNNbClient) CreateSgBaseACL(sgName, direction string) error {
 func (c *OVNNbClient) UpdateSgACL(sg *fabricv1.SecurityGroup, direction string) error {
 	pgName := GetSgPortGroupName(sg.Name)
 
-	// clear acl
 	if err := c.DeleteAcls(pgName, portGroupKey, direction, nil); err != nil {
 		klog.Error(err)
 		return fmt.Errorf("delete direction '%s' acls from port group %s: %w", direction, pgName, err)
@@ -516,15 +482,13 @@ func (c *OVNNbClient) UpdateSgACL(sg *fabricv1.SecurityGroup, direction string) 
 
 	acls := make([]*ovnnb.ACL, 0, 2)
 
-	// ingress rule
 	srcOrDst, portDirection, sgRules := "src", "outport", sg.Spec.IngressRules
-	if direction == ovnnb.ACLDirectionFromLport { // egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		srcOrDst = "dst"
 		portDirection = "inport"
 		sgRules = sg.Spec.EgressRules
 	}
 
-	/* create port_group associated acl */
 	if sg.Spec.AllowSameGroupTraffic {
 		asName := GetSgV4AssociatedName(sg.Name)
 		for _, ipSuffix := range []string{"ip4", "ip6"} {
@@ -547,7 +511,6 @@ func (c *OVNNbClient) UpdateSgACL(sg *fabricv1.SecurityGroup, direction string) 
 		}
 	}
 
-	/* create rule acl */
 	for _, rule := range sgRules {
 		acl, err := c.newSgRuleACL(sg.Name, direction, rule, util.ConvertSGTierToOvnTier(sg.Spec.Tier))
 		if err != nil {
@@ -592,7 +555,6 @@ func (c *OVNNbClient) UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcl
 				ipSuffix = "ip6"
 			}
 
-			/* same subnet acl */
 			sameSubnetMatch := NewAndACLMatch(
 				NewACLMatch(ipSuffix+".src", "==", cidr, ""),
 				NewACLMatch(ipSuffix+".dst", "==", cidr, ""),
@@ -614,7 +576,6 @@ func (c *OVNNbClient) UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcl
 		}
 	}
 
-	/* recreate logical switch acl */
 	for _, subnetACL := range subnetAcls {
 		acl, err := c.newACL(lsName, subnetACL.Direction, strconv.Itoa(subnetACL.Priority), subnetACL.Match, subnetACL.Action, util.NetpolACLTier, options)
 		if err != nil {
@@ -644,7 +605,6 @@ func (c *OVNNbClient) UpdateLogicalSwitchACL(lsName, cidrBlock string, subnetAcl
 	return nil
 }
 
-// UpdateACL update acl
 func (c *OVNNbClient) UpdateACL(acl *ovnnb.ACL, fields ...any) error {
 	if acl == nil {
 		return errors.New("address_set is nil")
@@ -664,9 +624,7 @@ func (c *OVNNbClient) UpdateACL(acl *ovnnb.ACL, fields ...any) error {
 	return nil
 }
 
-// SetLogicalSwitchPrivate will drop all ingress traffic except allow subnets, same subnet and node subnet
 func (c *OVNNbClient) SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR string, allowSubnets []string) error {
-	// clear acls
 	if err := c.DeleteAcls(lsName, LogicalSwitchKey, "", nil); err != nil {
 		klog.Error(err)
 		return fmt.Errorf("clear logical switch %s acls: %w", lsName, err)
@@ -674,7 +632,6 @@ func (c *OVNNbClient) SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR 
 
 	acls := make([]*ovnnb.ACL, 0)
 
-	/* default drop acl */
 	allIPMatch := NewACLMatch("ip", "", "", "")
 
 	options := func(acl *ovnnb.ACL) {
@@ -693,7 +650,6 @@ func (c *OVNNbClient) SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR 
 
 	nodeSubnetACLFunc := func(protocol, ipSuffix string) error {
 		for nodeCidr := range strings.SplitSeq(nodeSwitchCIDR, ",") {
-			// skip different address family
 			if protocol != util.CheckProtocol(nodeCidr) {
 				continue
 			}
@@ -715,12 +671,11 @@ func (c *OVNNbClient) SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR 
 	allowSubnetACLFunc := func(protocol, ipSuffix, cidr string) error {
 		for _, allowSubnet := range allowSubnets {
 			subnet := strings.TrimSpace(allowSubnet)
-			// skip empty subnet
+
 			if len(subnet) == 0 {
 				continue
 			}
 
-			// skip different address family
 			if util.CheckProtocol(subnet) != protocol {
 				continue
 			}
@@ -755,7 +710,6 @@ func (c *OVNNbClient) SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR 
 			ipSuffix = "ip6"
 		}
 
-		/* same subnet acl */
 		sameSubnetMatch := NewAndACLMatch(
 			NewACLMatch(ipSuffix+".src", "==", cidr, ""),
 			NewACLMatch(ipSuffix+".dst", "==", cidr, ""),
@@ -769,13 +723,11 @@ func (c *OVNNbClient) SetLogicalSwitchPrivate(lsName, cidrBlock, nodeSwitchCIDR 
 
 		acls = append(acls, sameSubnetACL)
 
-		// node subnet acl
 		if err := nodeSubnetACLFunc(protocol, ipSuffix); err != nil {
 			klog.Error(err)
 			return err
 		}
 
-		// allow subnet acl
 		if err := allowSubnetACLFunc(protocol, ipSuffix, cidr); err != nil {
 			klog.Error(err)
 			return err
@@ -798,7 +750,6 @@ func (c *OVNNbClient) SetNetPolACLLog(pgName string, logEnable, isIngress bool) 
 		portDirection = "inport"
 	}
 
-	// match all traffic to or from pgName
 	allIPMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("ip", "", "", ""),
@@ -811,7 +762,7 @@ func (c *OVNNbClient) SetNetPolACLLog(pgName string, logEnable, isIngress bool) 
 	}
 
 	if acl == nil {
-		return nil // skip if acl not found
+		return nil
 	}
 
 	if acl.Log == logEnable {
@@ -828,8 +779,6 @@ func (c *OVNNbClient) SetNetPolACLLog(pgName string, logEnable, isIngress bool) 
 	return nil
 }
 
-// CreateAcls create several acl once
-// parentType is 'ls' or 'pg'
 func (c *OVNNbClient) CreateAcls(parentName, parentType string, acls ...*ovnnb.ACL) error {
 	ops, err := c.CreateAclsOps(parentName, parentType, acls...)
 	if err != nil {
@@ -865,9 +814,6 @@ func (c *OVNNbClient) CreateBareACL(parentName, direction, priority, match, acti
 	return nil
 }
 
-// DeleteAcls delete several acl once,
-// delete to-lport and from-lport direction acl when direction is empty, otherwise one-way
-// parentType is 'ls' or 'pg'
 func (c *OVNNbClient) DeleteAcls(parentName, parentType, direction string, externalIDs map[string]string) error {
 	ops, err := c.DeleteAclsOps(parentName, parentType, direction, externalIDs)
 	if err != nil {
@@ -891,18 +837,17 @@ func (c *OVNNbClient) DeleteACL(parentName, parentType, direction, priority, mat
 	}
 
 	if acl == nil {
-		return nil // skip if acl not exist
+		return nil
 	}
 
-	// the acls column has a strong reference to the ACL table, so there is no need to delete the ACL
 	var removeACLOp []ovsdb.Operation
-	if parentType == portGroupKey { // remove acl from port group
+	if parentType == portGroupKey {
 		removeACLOp, err = c.portGroupUpdateACLOp(parentName, []string{acl.UUID}, ovsdb.MutateOperationDelete)
 		if err != nil {
 			klog.Error(err)
 			return fmt.Errorf("generate operations for deleting acl from port group %s: %w", parentName, err)
 		}
-	} else { // remove acl from logical switch
+	} else {
 		removeACLOp, err = c.logicalSwitchUpdateACLOp(parentName, []string{acl.UUID}, ovsdb.MutateOperationDelete)
 		if err != nil {
 			klog.Error(err)
@@ -918,10 +863,7 @@ func (c *OVNNbClient) DeleteACL(parentName, parentType, direction, priority, mat
 	return nil
 }
 
-// GetACL get acl by direction, priority and match,
-// be consistent with ovn-nbctl which direction, priority and match determine one acl in port group or logical switch
 func (c *OVNNbClient) GetACL(parent, direction, priority, match string, tier int, ignoreNotFound bool) (*ovnnb.ACL, error) {
-	// this is necessary because may exist same direction, priority and match acl in different port group or logical switch
 	if len(parent) == 0 {
 		return nil, errors.New("the port group name or logical switch name is required")
 	}
@@ -939,7 +881,6 @@ func (c *OVNNbClient) GetACL(parent, direction, priority, match string, tier int
 		return nil, NewACLError(ACLErrorDatabase, fmt.Sprintf("get acl with 'parent %s direction %s priority %s match %s tier %d': %v", parent, direction, priority, match, tier, err))
 	}
 
-	// not found
 	if len(aclList) == 0 {
 		if ignoreNotFound {
 			return nil, nil
@@ -955,11 +896,6 @@ func (c *OVNNbClient) GetACL(parent, direction, priority, match string, tier int
 	return &aclList[0], nil
 }
 
-// ListAcls list acls which match the given externalIDs,
-// result should include all to-lport and from-lport acls when direction is empty,
-// result should include all acls when externalIDs is empty,
-// result should include all acls which externalIDs[key] is not empty when externalIDs[key] is ""
-// TODO: maybe add other filter conditions(priority or match)
 func (c *OVNNbClient) ListAcls(direction string, externalIDs map[string]string) ([]ovnnb.ACL, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -986,7 +922,6 @@ func (c *OVNNbClient) ACLExists(parent, direction, priority, match string, tier 
 	return acl != nil, nil
 }
 
-// newACL return acl with basic information
 func (c *OVNNbClient) newACL(parent, direction, priority, match, action string, tier int, options ...func(acl *ovnnb.ACL)) (*ovnnb.ACL, error) {
 	if len(parent) == 0 {
 		return nil, errors.New("the port group name or logical switch name is required")
@@ -1002,7 +937,6 @@ func (c *OVNNbClient) newACL(parent, direction, priority, match, action string, 
 		return nil, fmt.Errorf("get parent %s acl: %w", parent, err)
 	}
 
-	// found, ignore
 	if exists {
 		return nil, nil
 	}
@@ -1029,9 +963,6 @@ func (c *OVNNbClient) newACL(parent, direction, priority, match, action string, 
 	return acl, nil
 }
 
-// newACLWithoutCheck return acl with basic information without check acl exists,
-// this would cause duplicated acl, so don't use this function to create acl normally,
-// but maybe used for updating network policy acl
 func (c *OVNNbClient) newACLWithoutCheck(parent, direction, priority, match, action string, tier int, options ...func(acl *ovnnb.ACL)) (*ovnnb.ACL, error) {
 	if len(parent) == 0 {
 		return nil, errors.New("the port group name or logical switch name is required")
@@ -1063,7 +994,6 @@ func (c *OVNNbClient) newACLWithoutCheck(parent, direction, priority, match, act
 	return acl, nil
 }
 
-// createSgRuleACL create security group rule acl
 func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule fabricv1.SecurityGroupRule, tier int) (*ovnnb.ACL, error) {
 	ipSuffix := "ip4"
 	if rule.IPVersion == "ipv6" {
@@ -1072,9 +1002,8 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule fabricv1.Secur
 
 	pgName := GetSgPortGroupName(sgName)
 
-	// ingress rule
 	localSrcOrDst, remoteSrcOrDst, portDirection := "dst", "src", "outport"
-	if direction == ovnnb.ACLDirectionFromLport { // egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		remoteSrcOrDst = "dst"
 		localSrcOrDst = "src"
 		portDirection = "inport"
@@ -1083,20 +1012,16 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule fabricv1.Secur
 	remoteIPKey := ipSuffix + "." + remoteSrcOrDst
 	localIPKey := ipSuffix + "." + localSrcOrDst
 
-	/* match all traffic to or from pgName */
 	allIPMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch(ipSuffix, "", "", ""),
 	)
 
-	/* allow allowed ip traffic */
-	// type address
 	allowedIPMatch := NewAndACLMatch(
 		allIPMatch,
 		NewACLMatch(remoteIPKey, "==", rule.RemoteAddress, ""),
 	)
 
-	// type securityGroup
 	remotePgName := GetSgV4AssociatedName(rule.RemoteSecurityGroup)
 	if rule.IPVersion == "ipv6" {
 		remotePgName = GetSgV6AssociatedName(rule.RemoteSecurityGroup)
@@ -1108,7 +1033,6 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule fabricv1.Secur
 		)
 	}
 
-	// Add a rule to match local address only if it is set
 	if rule.LocalAddress != "" {
 		allowedIPMatch = NewAndACLMatch(
 			allowedIPMatch,
@@ -1116,8 +1040,6 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule fabricv1.Secur
 		)
 	}
 
-	/* allow layer 4 traffic */
-	// allow all layer 4 traffic
 	match := allowedIPMatch
 
 	switch rule.Protocol {
@@ -1138,7 +1060,6 @@ func (c *OVNNbClient) newSgRuleACL(sgName, direction string, rule fabricv1.Secur
 			NewACLMatch(string(rule.Protocol)+".dst", "<=", strconv.Itoa(rule.PortRangeMin), strconv.Itoa(rule.PortRangeMax)),
 		)
 
-		// Add a match on source port if a local address was provided.
 		if rule.LocalAddress != "" {
 			match = NewAndACLMatch(
 				match,
@@ -1174,16 +1095,14 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 		ipSuffix = "ip6"
 	}
 
-	// ingress rule
 	srcOrDst, portDirection := "src", "outport"
-	if direction == ovnnb.ACLDirectionFromLport { // egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		srcOrDst = "dst"
 		portDirection = "inport"
 	}
 
 	ipKey := ipSuffix + "." + srcOrDst
 
-	// match all traffic to or from pgName
 	allIPMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("ip", "", "", ""),
@@ -1197,7 +1116,6 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 
 	matches := make([]string, 0, len(npp))
 
-	// allow allowed ip traffic but except
 	if len(npp) == 0 {
 		return []string{allowedIPMatch.String()}
 	}
@@ -1205,7 +1123,6 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 	for _, port := range npp {
 		protocol := strings.ToLower(string(*port.Protocol))
 
-		// allow all tcp or udp traffic
 		if port.Port == nil {
 			allLayer4Match := NewAndACLMatch(
 				allowedIPMatch,
@@ -1216,7 +1133,6 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 			continue
 		}
 
-		// allow one tcp or udp port traffic
 		if port.EndPort == nil {
 			tcpKey := protocol + ".dst"
 
@@ -1229,7 +1145,6 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 				}
 				info, ok := namedPortMap[port.Port.StrVal]
 				if !ok {
-					// no allow ACL generated = deny-all for this named port
 					klog.Errorf("no named port with name %s found in pg %s (%s)", port.Port.StrVal, pgName, direction)
 					continue
 				}
@@ -1246,13 +1161,11 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 			continue
 		}
 
-		// named port with endPort range is not supported
 		if port.Port.Type == intstr.String {
 			klog.Errorf("named port %s with endPort is not supported in pg %s (%s), skipping", port.Port.StrVal, pgName, direction)
 			continue
 		}
 
-		// allow several tcp or udp port traffic
 		tcpKey := protocol + ".dst"
 		severalTCPMatch := NewAndACLMatch(
 			allowedIPMatch,
@@ -1264,10 +1177,6 @@ func newNetworkPolicyACLMatch(pgName, asAllowName, asExceptName, protocol, direc
 	return matches
 }
 
-// newIPBlockACLMatch builds ACL match strings for ipBlock peers with per-CIDR scoped except.
-// Unlike newNetworkPolicyACLMatch which uses shared address sets, this function inlines the
-// CIDR and except values directly in the match expression, ensuring that except entries from
-// one ipBlock do not affect other peers in the same NetworkPolicy rule.
 func newIPBlockACLMatch(pgName, protocol, direction string, ipBlocks []netv1.IPBlock, npp []netv1.NetworkPolicyPort, namedPortMap map[string]*util.NamedPortInfo) []string {
 	ipSuffix := "ip4"
 	if protocol == fabricv1.ProtocolIPv6 {
@@ -1282,7 +1191,6 @@ func newIPBlockACLMatch(pgName, protocol, direction string, ipBlocks []netv1.IPB
 
 	ipKey := ipSuffix + "." + srcOrDst
 
-	// Build per-ipBlock match with scoped except
 	var perBlockMatches []ACLMatch
 	for i := range ipBlocks {
 		block := ipBlocks[i]
@@ -1321,7 +1229,6 @@ func newIPBlockACLMatch(pgName, protocol, direction string, ipBlocks []netv1.IPB
 		return nil
 	}
 
-	// Combine all ipBlock matches with OR
 	ipBlockL3Match := perBlockMatches[0]
 	if len(perBlockMatches) > 1 {
 		ipBlockL3Match = NewOrACLMatch(perBlockMatches...)
@@ -1367,7 +1274,6 @@ func newIPBlockACLMatch(pgName, protocol, direction string, ipBlocks []netv1.IPB
 			continue
 		}
 
-		// named port with endPort range is not supported
 		if port.Port.Type == intstr.String {
 			klog.Errorf("named port %s with endPort is not supported in pg %s (%s), skipping", port.Port.StrVal, pgName, direction)
 			continue
@@ -1380,7 +1286,6 @@ func newIPBlockACLMatch(pgName, protocol, direction string, ipBlocks []netv1.IPB
 	return matches
 }
 
-// UpdateIngressIPBlockACLOps returns operations that create ingress ACLs for ipBlock peers
 func (c *OVNNbClient) UpdateIngressIPBlockACLOps(pgName, protocol, aclName string, ipBlocks []netv1.IPBlock, npp []netv1.NetworkPolicyPort, logEnable bool, logACLActions []ovnnb.ACLAction, logRate int, namedPortMap map[string]*util.NamedPortInfo) ([]ovsdb.Operation, error) {
 	meterName := fmt.Sprintf("%s_%s_meter", pgName, ovnnb.ACLDirectionToLport)
 	matches := newIPBlockACLMatch(pgName, protocol, ovnnb.ACLDirectionToLport, ipBlocks, npp, namedPortMap)
@@ -1410,7 +1315,6 @@ func (c *OVNNbClient) UpdateIngressIPBlockACLOps(pgName, protocol, aclName strin
 	return c.CreateAclsOps(pgName, portGroupKey, acls...)
 }
 
-// UpdateEgressIPBlockACLOps returns operations that create egress ACLs for ipBlock peers
 func (c *OVNNbClient) UpdateEgressIPBlockACLOps(pgName, protocol, aclName string, ipBlocks []netv1.IPBlock, npp []netv1.NetworkPolicyPort, logEnable bool, logACLActions []ovnnb.ACLAction, logRate int, namedPortMap map[string]*util.NamedPortInfo) ([]ovsdb.Operation, error) {
 	meterName := fmt.Sprintf("%s_%s_meter", pgName, ovnnb.ACLDirectionFromLport)
 	matches := newIPBlockACLMatch(pgName, protocol, ovnnb.ACLDirectionFromLport, ipBlocks, npp, namedPortMap)
@@ -1442,11 +1346,6 @@ func (c *OVNNbClient) UpdateEgressIPBlockACLOps(pgName, protocol, aclName string
 	return c.CreateAclsOps(pgName, portGroupKey, acls...)
 }
 
-// aclFilter filter acls which match the given externalIDs,
-// result should include all to-lport and from-lport acls when direction is empty,
-// result should include all acls when externalIDs is empty,
-// result should include all acls which externalIDs[key] is not empty when externalIDs[key] is ""
-// TODO: maybe add other filter conditions(priority or match)
 func aclFilter(direction string, externalIDs map[string]string) func(acl *ovnnb.ACL) bool {
 	return func(acl *ovnnb.ACL) bool {
 		if len(acl.ExternalIDs) < len(externalIDs) {
@@ -1455,8 +1354,6 @@ func aclFilter(direction string, externalIDs map[string]string) func(acl *ovnnb.
 
 		if len(acl.ExternalIDs) != 0 {
 			for k, v := range externalIDs {
-				// if only key exist but not value in externalIDs, we should include this lsp,
-				// it's equal to shell command `ovn-nbctl --columns=xx find acl external_ids:key!=\"\"`
 				if len(v) == 0 {
 					if len(acl.ExternalIDs[k]) == 0 {
 						return false
@@ -1477,8 +1374,6 @@ func aclFilter(direction string, externalIDs map[string]string) func(acl *ovnnb.
 	}
 }
 
-// CreateAcls return operations which create several acl once
-// parentType is 'ls' or 'pg'
 func (c *OVNNbClient) CreateAclsOps(parentName, parentType string, acls ...*ovnnb.ACL) ([]ovsdb.Operation, error) {
 	if parentType != portGroupKey && parentType != LogicalSwitchKey {
 		return nil, fmt.Errorf("acl parent type must be '%s' or '%s'", portGroupKey, LogicalSwitchKey)
@@ -1504,13 +1399,13 @@ func (c *OVNNbClient) CreateAclsOps(parentName, parentType string, acls ...*ovnn
 	}
 
 	var aclAddOp []ovsdb.Operation
-	if parentType == portGroupKey { // acl attach to port group
+	if parentType == portGroupKey {
 		aclAddOp, err = c.portGroupUpdateACLOp(parentName, aclUUIDs, ovsdb.MutateOperationInsert)
 		if err != nil {
 			klog.Error(err)
 			return nil, fmt.Errorf("generate operations for adding acls to port group %s: %w", parentName, err)
 		}
-	} else { // acl attach to logical switch
+	} else {
 		aclAddOp, err = c.logicalSwitchUpdateACLOp(parentName, aclUUIDs, ovsdb.MutateOperationInsert)
 		if err != nil {
 			klog.Error(err)
@@ -1525,9 +1420,6 @@ func (c *OVNNbClient) CreateAclsOps(parentName, parentType string, acls ...*ovnn
 	return ops, nil
 }
 
-// DeleteAcls return operation which delete several acl once,
-// delete to-lport and from-lport direction acl when direction is empty, otherwise one-way
-// parentType is 'ls' or 'pg'
 func (c *OVNNbClient) DeleteAclsOps(parentName, parentType, direction string, externalIDs map[string]string) ([]ovsdb.Operation, error) {
 	if parentName == "" {
 		return nil, errors.New("the port group name or logical switch name is required")
@@ -1539,7 +1431,6 @@ func (c *OVNNbClient) DeleteAclsOps(parentName, parentType, direction string, ex
 
 	externalIDs[aclParentKey] = parentName
 
-	/* delete acls from port group or logical switch */
 	acls, err := c.ListAcls(direction, externalIDs)
 	if err != nil {
 		klog.Error(err)
@@ -1551,15 +1442,14 @@ func (c *OVNNbClient) DeleteAclsOps(parentName, parentType, direction string, ex
 		aclUUIDs = append(aclUUIDs, acl.UUID)
 	}
 
-	// the acls column has a strong reference to the ACL table, so there is no need to delete the ACL
 	var removeACLOp []ovsdb.Operation
-	if parentType == portGroupKey { // remove acl from port group
+	if parentType == portGroupKey {
 		removeACLOp, err = c.portGroupUpdateACLOp(parentName, aclUUIDs, ovsdb.MutateOperationDelete)
 		if err != nil {
 			klog.Error(err)
 			return nil, fmt.Errorf("generate operations for deleting acls from port group %s: %w", parentName, err)
 		}
-	} else { // remove acl from logical switch
+	} else {
 		removeACLOp, err = c.logicalSwitchUpdateACLOp(parentName, aclUUIDs, ovsdb.MutateOperationDelete)
 		if err != nil {
 			klog.Error(err)
@@ -1570,7 +1460,6 @@ func (c *OVNNbClient) DeleteAclsOps(parentName, parentType, direction string, ex
 	return removeACLOp, nil
 }
 
-// sgRuleNoACL check if security group rule has acl in a tier
 func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.SecurityGroupRule, tier int) (bool, error) {
 	ipSuffix := "ip4"
 	if rule.IPVersion == "ipv6" {
@@ -1579,9 +1468,8 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.Securi
 
 	pgName := GetSgPortGroupName(sgName)
 
-	// ingress rule
 	localSrcOrDst, remoteSrcOrDst, portDirection := "dst", "src", "outport"
-	if direction == ovnnb.ACLDirectionFromLport { // egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		remoteSrcOrDst = "dst"
 		localSrcOrDst = "src"
 		portDirection = "inport"
@@ -1590,20 +1478,16 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.Securi
 	ipKey := ipSuffix + "." + remoteSrcOrDst
 	localIPKey := ipSuffix + "." + localSrcOrDst
 
-	/* match all traffic to or from pgName */
 	allIPMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch(ipSuffix, "", "", ""),
 	)
 
-	/* allow allowed ip traffic */
-	// type address
 	allowedIPMatch := NewAndACLMatch(
 		allIPMatch,
 		NewACLMatch(ipKey, "==", rule.RemoteAddress, ""),
 	)
 
-	// type securityGroup
 	remotePgName := GetSgV4AssociatedName(rule.RemoteSecurityGroup)
 	if rule.IPVersion == "ipv6" {
 		remotePgName = GetSgV6AssociatedName(rule.RemoteSecurityGroup)
@@ -1615,7 +1499,6 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.Securi
 		)
 	}
 
-	// Add a rule to match local address only if it is set
 	if rule.LocalAddress != "" {
 		allowedIPMatch = NewAndACLMatch(
 			allowedIPMatch,
@@ -1623,8 +1506,6 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.Securi
 		)
 	}
 
-	/* allow layer 4 traffic */
-	// allow all layer 4 traffic
 	match := allowedIPMatch
 
 	switch rule.Protocol {
@@ -1645,7 +1526,6 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.Securi
 			NewACLMatch(string(rule.Protocol)+".dst", "<=", strconv.Itoa(rule.PortRangeMin), strconv.Itoa(rule.PortRangeMax)),
 		)
 
-		// Add a match on source port if a local address was provided.
 		if rule.LocalAddress != "" {
 			match = NewAndACLMatch(
 				match,
@@ -1663,14 +1543,12 @@ func (c *OVNNbClient) sgRuleNoACL(sgName, direction string, rule fabricv1.Securi
 		return false, err
 	}
 
-	// sg rule no acl, need to sync
 	if !exists {
 		return true, nil
 	}
 	return false, nil
 }
 
-// SGLostACL check if security group lost an acl
 func (c *OVNNbClient) SGLostACL(sg *fabricv1.SecurityGroup) (bool, error) {
 	ingressRules := sg.Spec.IngressRules
 	for _, rule := range ingressRules {
@@ -1699,7 +1577,6 @@ func (c *OVNNbClient) SGLostACL(sg *fabricv1.SecurityGroup) (bool, error) {
 	return false, nil
 }
 
-// UpdateAnpRuleACLOps return operation that creates an ingress/egress ACL
 func (c *OVNNbClient) UpdateAnpRuleACLOps(pgName, asName, protocol, aclName string, priority int, aclAction ovnnb.ACLAction, logACLActions []ovnnb.ACLAction, rulePorts []v1alpha1.AdminNetworkPolicyPort, isIngress, isBanp bool) ([]ovsdb.Operation, error) {
 	acls := make([]*ovnnb.ACL, 0, 10)
 
@@ -1759,7 +1636,6 @@ func (c *OVNNbClient) UpdateAnpRuleACLOps(pgName, asName, protocol, aclName stri
 	return ops, nil
 }
 
-// UpdateCnpRuleACLOps return operation that creates an ingress/egress ACL
 func (c *OVNNbClient) UpdateCnpRuleACLOps(pgName, asName, protocol, aclName string, priority int, aclAction ovnnb.ACLAction, logACLActions []ovnnb.ACLAction, rulePorts []v1alpha2.ClusterNetworkPolicyPort, isIngress bool, tier int) ([]ovsdb.Operation, error) {
 	acls := make([]*ovnnb.ACL, 0, 10)
 
@@ -1818,16 +1694,14 @@ func newAnpACLMatch(pgName, asName, protocol, direction string, rulePorts []v1al
 		ipSuffix = "ip6"
 	}
 
-	// ingress rule
 	srcOrDst, portDirection := "src", "outport"
-	if direction == ovnnb.ACLDirectionFromLport { // egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		srcOrDst = "dst"
 		portDirection = "inport"
 	}
 
 	ipKey := ipSuffix + "." + srcOrDst
 
-	// match all traffic to or from pgName
 	allIPMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("ip", "", "", ""),
@@ -1843,8 +1717,6 @@ func newAnpACLMatch(pgName, asName, protocol, direction string, rulePorts []v1al
 
 	matches := make([]string, 0, 10)
 	for _, port := range rulePorts {
-		// Exactly one field must be set.
-		// Do not support NamedPort now
 		switch {
 		case port.PortNumber != nil:
 			protocol := strings.ToLower(string(port.PortNumber.Protocol))
@@ -1877,16 +1749,14 @@ func newCnpACLMatch(pgName, asName, protocol, direction string, rulePorts []v1al
 		ipSuffix = "ip6"
 	}
 
-	// ingress rule
 	srcOrDst, portDirection := "src", "outport"
-	if direction == ovnnb.ACLDirectionFromLport { // egress rule
+	if direction == ovnnb.ACLDirectionFromLport {
 		srcOrDst = "dst"
 		portDirection = "inport"
 	}
 
 	ipKey := ipSuffix + "." + srcOrDst
 
-	// match all traffic to or from pgName
 	allIPMatch := NewAndACLMatch(
 		NewACLMatch(portDirection, "==", "@"+pgName, ""),
 		NewACLMatch("ip", "", "", ""),
@@ -1902,8 +1772,6 @@ func newCnpACLMatch(pgName, asName, protocol, direction string, rulePorts []v1al
 
 	matches := make([]string, 0, 10)
 	for _, port := range rulePorts {
-		// Exactly one field must be set.
-		// Do not support NamedPort now
 		switch {
 		case port.PortNumber != nil:
 			protocol := strings.ToLower(string(port.PortNumber.Protocol))
@@ -1969,17 +1837,14 @@ func (c *OVNNbClient) CleanNoParentKeyAcls() error {
 
 	var aclList []ovnnb.ACL
 	if err := c.ovsDbClient.WhereCache(func(acl *ovnnb.ACL) bool {
-		// Only clean ACLs that belong to fabric (vendor=VendorTag) but are missing the parent key.
-		// This ensures we never touch ACLs created by external systems like OpenStack Neutron.
-		// ACLs without vendor tag or with a different vendor are left untouched.
 		if len(acl.ExternalIDs) == 0 {
 			return false
 		}
-		// Skip ACLs that don't belong to fabric
+
 		if acl.ExternalIDs["vendor"] != util.VendorTag {
 			return false
 		}
-		// Only target fabric ACLs that are missing the parent key
+
 		_, hasParent := acl.ExternalIDs[aclParentKey]
 		return !hasParent
 	}).List(ctx, &aclList); err != nil {

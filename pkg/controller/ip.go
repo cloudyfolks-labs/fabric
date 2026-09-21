@@ -46,7 +46,7 @@ func (c *Controller) enqueueAddIP(obj any) {
 func (c *Controller) enqueueUpdateIP(oldObj, newObj any) {
 	oldIP := oldObj.(*fabricv1.IP)
 	newIP := newObj.(*fabricv1.IP)
-	// ip can not change these specs below
+
 	if oldIP.Spec.Subnet != "" && newIP.Spec.Subnet != oldIP.Spec.Subnet {
 		klog.Warningf("ip %s subnet changed from %s to %s", newIP.Name, oldIP.Spec.Subnet, newIP.Spec.Subnet)
 		c.updateSubnetStatusQueue.Add(oldIP.Spec.Subnet)
@@ -74,7 +74,6 @@ func (c *Controller) enqueueUpdateIP(oldObj, newObj any) {
 		return
 	}
 	if oldIP.Spec.V6IPAddress != "" {
-		// v6 ip address can not use upper case
 		if util.ContainsUppercase(newIP.Spec.V6IPAddress) {
 			err := fmt.Errorf("ip %s v6 ip address %s can not contain upper case", newIP.Name, newIP.Spec.V6IPAddress)
 			klog.Error(err)
@@ -141,7 +140,6 @@ func (c *Controller) handleAddReservedIP(key string) error {
 		return nil
 	}
 	if len(ip.Finalizers) != 0 {
-		// finalizer already added, no need to handle it again
 		return nil
 	}
 
@@ -170,24 +168,20 @@ func (c *Controller) handleAddReservedIP(key string) error {
 
 	portName := ovs.PodNameToPortName(ip.Spec.PodName, ip.Spec.Namespace, subnet.Spec.Provider)
 	if portName != ip.Name {
-		// invalid ip or node ip, no need to handle it here
 		klog.V(3).Infof("port name %s is not equal to ip name %s", portName, ip.Name)
 		return nil
 	}
 
-	// not handle add the ip, which created in pod process, lsp created before ip
 	lsp, err := c.OVNNbClient.GetLogicalSwitchPort(portName, true)
 	if err != nil {
 		klog.Errorf("failed to list logical switch ports %s, %v", portName, err)
 		return err
 	}
 	if lsp != nil {
-		// port already exists means the ip already created
 		klog.V(3).Infof("ip %s is ready", portName)
 		return nil
 	}
 
-	// v6 ip address can not use upper case
 	if util.ContainsUppercase(ip.Spec.V6IPAddress) {
 		err := fmt.Errorf("ip %s v6 ip address %s can not contain upper case", ip.Name, ip.Spec.V6IPAddress)
 		klog.Error(err)
@@ -246,8 +240,7 @@ func (c *Controller) handleUpdateIP(key string) error {
 				klog.Errorf("failed to get subnet %s: %v", cachedIP.Spec.Subnet, err)
 				return err
 			}
-			// subnet not found, but ip exists, check if the ip is u2o ip or mcast querier ip
-			// if yes, remove finalizer to let ip be deleted
+
 			klog.Warningf("subnet %s not found for deleting ip %s", cachedIP.Spec.Subnet, cachedIP.Name)
 			if strings.HasPrefix(cachedIP.Name, util.U2OInterconnName[0:20]) ||
 				strings.HasPrefix(cachedIP.Name, util.McastQuerierName[0:14]) {
@@ -307,7 +300,6 @@ func (c *Controller) handleDelIP(ip *fabricv1.IP) error {
 }
 
 func (c *Controller) syncIPFinalizer(cl client.Client) error {
-	// migrate deprecated finalizer to new finalizer
 	ips := &fabricv1.IPList{}
 	return migrateFinalizers(cl, ips, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(ips.Items) {
@@ -390,15 +382,12 @@ func (c *Controller) acquireStaticIPAddress(subnetName, name, nicName, ip string
 }
 
 func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, ns, nodeName, podType string) error {
-	// `ipCRName`: pod or vm IP name must set ip CR name when creating ip CR
 	var key, ipName string
 	var owner *metav1.OwnerReference
 	if ipCRName != "" {
-		// pod IP
 		key = podName
 		ipName = ipCRName
 	} else {
-		// node IP, u2o IP or mcast querier IP
 		switch {
 		case subnetName == c.config.NodeSwitch:
 			node, err := c.nodesLister.Get(nodeName)
@@ -416,7 +405,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 				UID:        node.UID,
 			}
 		case strings.HasPrefix(podName, util.U2OInterconnName[0:20]) || strings.HasPrefix(podName, util.McastQuerierName[0:14]):
-			// u2o IP or mcast querier IP
+
 			subnet, err := c.subnetsLister.Get(subnetName)
 			if err != nil {
 				err = fmt.Errorf("failed to get subnet %s: %w", subnetName, err)
@@ -443,11 +432,10 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 			klog.Error(err)
 			return err
 		}
-		// the returned pointer is not nil if the CR does not exist
+
 		ipCR = nil
 	}
 	if ipCR != nil && !ipCR.DeletionTimestamp.IsZero() {
-		// this ip is being deleted, no need to update
 		klog.Infof("enqueue update for removing finalizer to delete ip %s", ipCR.Name)
 		c.updateIPQueue.Add(ipCR.Name)
 		return nil
@@ -461,7 +449,7 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 					util.SubnetNameLabel: subnetName,
 					util.NodeNameLabel:   nodeName,
 					subnetName:           "",
-					util.IPReservedLabel: "false", // ip create with pod or node, ip not reserved
+					util.IPReservedLabel: "false",
 				},
 				Finalizers: []string{util.FabricControllerFinalizer},
 			},
@@ -491,7 +479,6 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 	} else {
 		newIPCR := ipCR.DeepCopy()
 		if newIPCR.Labels != nil {
-			// Remove old subnet dynamic label if subnet changed
 			oldSubnet := ipCR.Spec.Subnet
 			if oldSubnet != "" && oldSubnet != subnetName {
 				delete(newIPCR.Labels, oldSubnet)
@@ -507,8 +494,6 @@ func (c *Controller) createOrUpdateIPCR(ipCRName, podName, ip, mac, subnetName, 
 			}
 		}
 		if owner != nil {
-			// currently we only set owner for node IP, u2o IP and mcast querier ip,
-			// so it's ok to overwrite it here
 			newIPCR.OwnerReferences = []metav1.OwnerReference{*owner}
 		}
 		newIPCR.Spec.PodName = key
@@ -554,14 +539,12 @@ func (c *Controller) ipAcquireAddress(ip *fabricv1.IP, subnet *fabricv1.Subnet) 
 	}
 
 	if ipStr == "" {
-		// allocate address
 		v4IP, v6IP, mac, err = c.acquireIPAddress(subnet.Name, ip.Name, portName)
 		if err == nil {
 			return v4IP, v6IP, mac, err
 		}
 		err = fmt.Errorf("failed to get random address for ip %s, %w", ip.Name, err)
 	} else {
-		// static address
 		v4IP, v6IP, mac, err = c.acquireStaticAddress(key, portName, ipStr, macPtr, subnet.Name, true, "")
 		if err == nil {
 			return v4IP, v6IP, mac, nil

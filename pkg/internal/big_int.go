@@ -52,8 +52,6 @@ func (b BigInt) Sub(n BigInt) BigInt {
 	return BigInt{*big.NewInt(0).Sub(&b.Int, &n.Int)}
 }
 
-// Float64 converts to float64 for Prometheus metrics export.
-// Precision is lost for values exceeding 2^53 (e.g. large IPv6 subnets).
 func (b BigInt) Float64() float64 {
 	f, _ := new(big.Float).SetInt(&b.Int).Float64()
 	return f
@@ -72,7 +70,6 @@ func (b *BigInt) UnmarshalJSON(p []byte) error {
 		return nil
 	}
 
-	// Remove quotes if present (support both "123" and 123 for compatibility)
 	s := string(p)
 	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
 		s = s[1 : len(s)-1]

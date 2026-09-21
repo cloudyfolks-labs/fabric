@@ -17,14 +17,11 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// CreateAddressSet create address set with external ids
 func (c *OVNNbClient) CreateAddressSet(asName string, externalIDs map[string]string) error {
-	// ovn acl doesn't support address_set name with '-'
 	if matched := matchAddressSetName(asName); !matched {
 		return fmt.Errorf("address set %s must match `[a-zA-Z_.][a-zA-Z_.0-9]*`", asName)
 	}
 
-	// Create new map with vendor tag to avoid modifying caller's map
 	finalExternalIDs := make(map[string]string, len(externalIDs)+1)
 	maps.Copy(finalExternalIDs, externalIDs)
 	finalExternalIDs["vendor"] = util.VendorTag
@@ -35,7 +32,6 @@ func (c *OVNNbClient) CreateAddressSet(asName string, externalIDs map[string]str
 		return err
 	}
 
-	// found, ignore
 	if exists {
 		return nil
 	}
@@ -59,11 +55,6 @@ func (c *OVNNbClient) CreateAddressSet(asName string, externalIDs map[string]str
 	return nil
 }
 
-// normalizeAddresses formats CIDR addresses to keep them the same in both nb and sb,
-// and drops duplicate elements which would make the update fail. An address whose CIDR
-// cannot be parsed is kept as is. The returned set is order independent, so it can be
-// compared against the addresses currently stored in the database.
-// The given slice is never modified: it may be owned by the caller.
 func normalizeAddresses(addresses []string) *strset.Set {
 	result := strset.NewWithSize(len(addresses))
 	for _, addr := range addresses {
@@ -79,8 +70,6 @@ func normalizeAddresses(addresses []string) *strset.Set {
 	return result
 }
 
-// AddressSetUpdateAddress update addresses,
-// clear addresses when addresses is empty
 func (c *OVNNbClient) AddressSetUpdateAddress(asName string, addresses ...string) error {
 	as, err := c.GetAddressSet(asName, false)
 	if err != nil {
@@ -88,14 +77,11 @@ func (c *OVNNbClient) AddressSetUpdateAddress(asName string, addresses ...string
 		return fmt.Errorf("get address set %s: %w", asName, err)
 	}
 
-	// the current addresses are read from the local ovsdb cache, so comparing them
-	// costs nothing and saves a needless nb transaction when nothing has changed
 	expected := normalizeAddresses(addresses)
 	if expected.IsEqual(strset.New(as.Addresses...)) {
 		return nil
 	}
 
-	// clear addresses when addresses is empty
 	as.Addresses = expected.List()
 
 	if err := c.UpdateAddressSet(as, &as.Addresses); err != nil {
@@ -106,7 +92,6 @@ func (c *OVNNbClient) AddressSetUpdateAddress(asName string, addresses ...string
 	return nil
 }
 
-// UpdateAddressSet update address set
 func (c *OVNNbClient) UpdateAddressSet(as *ovnnb.AddressSet, fields ...any) error {
 	if as == nil {
 		return errors.New("address_set is nil")
@@ -129,12 +114,11 @@ func (c *OVNNbClient) UpdateAddressSet(as *ovnnb.AddressSet, fields ...any) erro
 func (c *OVNNbClient) DeleteAddressSet(asName ...string) error {
 	delList := make([]*ovnnb.AddressSet, 0, len(asName))
 	for _, name := range asName {
-		// get address set
 		as, err := c.GetAddressSet(name, true)
 		if err != nil {
 			return fmt.Errorf("get address set %s when delete: %w", name, err)
 		}
-		// not found, skip
+
 		if as == nil {
 			continue
 		}
@@ -161,7 +145,6 @@ func (c *OVNNbClient) DeleteAddressSet(asName ...string) error {
 	return nil
 }
 
-// BatchDeleteAddressSetByAsName batch delete address set by names
 func (c *OVNNbClient) BatchDeleteAddressSetByNames(asNames []string) error {
 	asNameMap := make(map[string]struct{}, len(asNames))
 	for _, name := range asNames {
@@ -179,7 +162,6 @@ func (c *OVNNbClient) BatchDeleteAddressSetByNames(asNames []string) error {
 		return fmt.Errorf("batch delete address set %d list failed: %w", len(asNames), err)
 	}
 
-	// not found, skip
 	if len(asList) == 0 {
 		return nil
 	}
@@ -201,9 +183,7 @@ func (c *OVNNbClient) BatchDeleteAddressSetByNames(asNames []string) error {
 	return nil
 }
 
-// DeleteAddressSets delete several address set once
 func (c *OVNNbClient) DeleteAddressSets(externalIDs map[string]string) error {
-	// it's dangerous when externalIDs is empty, it will delete all address set
 	if len(externalIDs) == 0 {
 		return nil
 	}
@@ -222,7 +202,6 @@ func (c *OVNNbClient) DeleteAddressSets(externalIDs map[string]string) error {
 	return nil
 }
 
-// GetAddressSet get address set by name
 func (c *OVNNbClient) GetAddressSet(asName string, ignoreNotFound bool) (*ovnnb.AddressSet, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -244,7 +223,6 @@ func (c *OVNNbClient) AddressSetExists(name string) (bool, error) {
 	return as != nil, err
 }
 
-// ListAddressSets list address set by external_ids
 func (c *OVNNbClient) ListAddressSets(externalIDs map[string]string) ([]ovnnb.AddressSet, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -259,10 +237,6 @@ func (c *OVNNbClient) ListAddressSets(externalIDs map[string]string) ([]ovnnb.Ad
 	return asList, nil
 }
 
-// addressSetFilter filter address set which match the given externalIDs,
-// result should include all to-lport and from-lport acls when direction is empty,
-// result should include all acls when externalIDs is empty,
-// result should include all acls which externalIDs[key] is not empty when externalIDs[key] is ""
 func addressSetFilter(externalIDs map[string]string) func(as *ovnnb.AddressSet) bool {
 	return func(as *ovnnb.AddressSet) bool {
 		if len(as.ExternalIDs) < len(externalIDs) {
@@ -271,8 +245,6 @@ func addressSetFilter(externalIDs map[string]string) func(as *ovnnb.AddressSet) 
 
 		if len(as.ExternalIDs) != 0 {
 			for k, v := range externalIDs {
-				// if only key exist but not value in externalIDs, we should include this lsp,
-				// it's equal to shell command `ovn-nbctl --columns=xx find address_set external_ids:key!=\"\"`
 				if len(v) == 0 {
 					if len(as.ExternalIDs[k]) == 0 {
 						return false

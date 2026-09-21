@@ -52,7 +52,6 @@ var _ = framework.Describe("[group:crd]", func() {
 })
 
 func waitForCRDEstablished(name string) error {
-	// Wait for the CRD to be Established
 	cmd := exec.Command("kubectl", "wait", "--for=condition=Established", fmt.Sprintf("crd/%s", name), "--timeout=30s")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

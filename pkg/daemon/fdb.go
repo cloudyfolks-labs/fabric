@@ -17,19 +17,15 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// default max fdb age is 300s in ovs-vswitchd
 const fdbSyncPeriod = 100 * time.Second
 
-// regexp to match fdb entry line
 var macMatch = regexp.MustCompile(`(?i)\s+([0-9a-f]{2}:){5}([0-9a-f]{2})\s+`)
 
-// fdbIndex represents the identity of a fdb entry
 type fdbIndex struct {
 	vlan int
 	mac  string
 }
 
-// fdbEntries represents fdb entries on an ovs bridge
 type fdbEntries map[fdbIndex]string
 
 func newFdbEntries() fdbEntries {
@@ -40,12 +36,7 @@ func (f fdbEntries) Insert(vlan int, mac, port string) {
 	f[fdbIndex{vlan, mac}] = port
 }
 
-// parse output of command `ovs-appctl fdb/show <bridge>` and return static fdb entries
 func parseStaticFdbEntries(bridge, output string, ports map[int]string) fdbEntries {
-	// example output:
-	//  port  VLAN  MAC                Age
-	//     1   341  be:42:32:58:3d:73   65
-	//     1   341  da:4c:ba:95:93:60  static
 	entries := newFdbEntries()
 	for s := range strings.SplitAfterSeq(strings.TrimSpace(output), "\n") {
 		fields := strings.Fields(s)
@@ -175,18 +166,16 @@ func (c *Controller) syncFdb() {
 		index := fdbIndex{vlan.Spec.ID, subnet.Status.U2OInterconnectionMAC}
 		entries := current[bridge]
 		if entries != nil && entries[index] == port {
-			// the fdb entry already exists, remove it from current entries to avoid deletion
 			delete(current[bridge], index)
 			continue
 		}
-		// install static fdb entry
+
 		klog.Infof("adding fdb entry vlan %d mac %s port %s on bridge %s", index.vlan, index.mac, port, bridge)
 		if _, err = ovs.Appctl(ovs.OvsVswitchd, "fdb/add", bridge, port, strconv.Itoa(index.vlan), index.mac); err != nil {
 			klog.Errorf("failed to add fdb entry vlan %d mac %s port %s on bridge %s: %v", index.vlan, index.mac, port, bridge, err)
 		}
 	}
 
-	// delete unused fdb entries
 	for bridge, entries := range current {
 		for index := range entries {
 			klog.Infof("deleting fdb entry vlan %d mac %s on bridge %s", index.vlan, index.mac, bridge)

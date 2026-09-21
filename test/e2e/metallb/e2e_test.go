@@ -80,7 +80,6 @@ type logicalFlow struct {
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)
@@ -222,7 +221,7 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		containerID = containerInfo.ID
 		ContainerInspect, err := docker.ContainerInspect(containerID)
 		framework.ExpectNoError(err)
-		// Save both IPv4 and IPv6 addresses for dual stack testing
+
 		if ContainerInspect.NetworkSettings.Networks[dockerNetworkName].IPAddress.IsValid() {
 			clientIPv4 = ContainerInspect.NetworkSettings.Networks[dockerNetworkName].IPAddress.String()
 		}
@@ -244,10 +243,10 @@ var _ = framework.SerialDescribe("[group:metallb]", func() {
 		}
 
 		ginkgo.By("Deleting the IPAddressPool for metallb")
-		f.MetallbClientSet.DeleteIPAddressPool(metallbIPPoolName) // nolint:errcheck
+		_ = f.MetallbClientSet.DeleteIPAddressPool(metallbIPPoolName)
 
 		ginkgo.By("Deleting the l2 advertisement for metallb")
-		f.MetallbClientSet.DeleteL2Advertisement(metallbIPPoolName) // nolint:errcheck
+		_ = f.MetallbClientSet.DeleteL2Advertisement(metallbIPPoolName)
 
 		ginkgo.By("Deleting the deployment " + deployName)
 		deployClient.DeleteSync(deployName)
@@ -1259,7 +1258,6 @@ func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6,
 	ginkgo.By("checking curl reachable")
 	isIPv6 := util.CheckProtocol(targetIP) == apiv1.ProtocolIPv6
 
-	// Select the appropriate source IP based on target IP protocol
 	var sourceIP string
 	if isIPv6 {
 		sourceIP = sourceIPv6
@@ -1288,7 +1286,7 @@ func checkReachable(f *framework.Framework, containerID, sourceIPv4, sourceIPv6,
 		}, fmt.Sprintf("service %s:%s should be reachable", targetIP, targetPort))
 		client, _, err := net.SplitHostPort(strings.TrimSpace(string(output)))
 		framework.ExpectNoError(err)
-		// check packet has not SNAT
+
 		framework.ExpectEqual(sourceIP, client)
 	} else {
 		_, _, err := docker.Exec(containerID, nil, cmd...)
@@ -1454,9 +1452,9 @@ func waitUnderlayServiceFlowCleaned(nodeNames []string, providerNetworkName, ser
 			cmd := fmt.Sprintf("kubectl ko ofctl %s dump-flows %s | grep -w %s | grep -w %s",
 				nodeName, bridgeName, serviceIP, matchPort)
 			if _, err := exec.Command("bash", "-c", cmd).CombinedOutput(); err == nil {
-				return false, nil // flow still exists on this node
+				return false, nil
 			}
 		}
-		return true, nil // flow cleaned from all nodes
+		return true, nil
 	}, fmt.Sprintf("underlay service flow for %s should be cleaned up", serviceIP))
 }

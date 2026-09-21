@@ -21,7 +21,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovsdb/ovnsb"
 )
 
-// LegacyClient is the legacy ovn client
 type LegacyClient struct {
 	OvnTimeout     int
 	OvnICNbAddress string
@@ -55,7 +54,6 @@ const (
 	ExternalIDVpcNatGateway    = "vpc-nat-gateway"
 )
 
-// NewLegacyClient init a legacy ovn client
 func NewLegacyClient(timeout int) *LegacyClient {
 	return &LegacyClient{
 		OvnTimeout: timeout,
@@ -252,8 +250,6 @@ func NewOvnSbClient(ovnSbAddr string, ovnSbTimeout, ovsDbConTimeout, ovsDbInacti
 	return c, nil
 }
 
-// TODO: support ic-nb ic-sb client
-
 func (c *ovsDbClient) Transact(method string, operations []ovsdb.Operation) error {
 	if len(operations) == 0 {
 		klog.V(6).Info("operations should not be empty")
@@ -299,9 +295,6 @@ func (c *ovsDbClient) Transact(method string, operations []ovsdb.Operation) erro
 	return nil
 }
 
-// GetEntityInfo get entity info by column which is the index,
-// reference to ovn-nb.ovsschema(ovsdb-client get-schema unix:/var/run/ovn/ovnnb_db.sock OVN_Northbound) for more information,
-// UUID is index
 func (c *ovsDbClient) GetEntityInfo(entity any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()

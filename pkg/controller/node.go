@@ -266,7 +266,6 @@ func (c *Controller) handleAddNode(key string) error {
 			return err
 		}
 
-		// Clean up potentially existing logical switch ports to avoid leftover issues from previous failed configurations
 		if err := c.OVNNbClient.DeleteLogicalSwitchPort(portName); err != nil {
 			klog.Errorf("failed to delete stale logical switch port %s: %v", portName, err)
 			return err
@@ -359,7 +358,6 @@ func (c *Controller) handleAddNode(key string) error {
 	}
 	c.distributedSubnetNeedSync.Store(true)
 
-	// ovn acl doesn't support address_set name with '-', so replace '-' by '.'
 	pgName := strings.ReplaceAll(portName, "-", ".")
 	if err = c.OVNNbClient.CreatePortGroup(pgName, map[string]string{"node": node.Name, networkPolicyKey: "node" + "/" + key}); err != nil {
 		klog.Errorf("create port group %s for node %s: %v", pgName, key, err)
@@ -401,7 +399,6 @@ func (c *Controller) handleNodeAnnotationsForProviderNetworks(node *v1.Node) err
 			return err
 		}
 
-		// Handle node annotation for exclusion (only when nodeSelector is not set)
 		if !excluded && pn.Spec.NodeSelector == nil && len(node.Annotations) != 0 && node.Annotations[excludeAnno] == "true" {
 			newPn = pn.DeepCopy()
 			newPn.Spec.ExcludeNodes = append(newPn.Spec.ExcludeNodes, node.Name)
@@ -518,7 +515,6 @@ func (c *Controller) deleteNode(key string) error {
 		}
 	}
 
-	// ovn acl doesn't support address_set name with '-', so replace '-' by '.'
 	pgName := strings.ReplaceAll(portName, "-", ".")
 	if err := c.OVNNbClient.DeletePortGroup(pgName); err != nil {
 		klog.Errorf("delete port group %s for node: %v", portName, err)
@@ -563,7 +559,6 @@ func (c *Controller) deleteNode(key string) error {
 }
 
 func (c *Controller) updateProviderNetworkForNodeDeletion(pn *fabricv1.ProviderNetwork, node string) error {
-	// update provider network status
 	var needUpdate bool
 	newPn := pn.DeepCopy()
 	if slices.Contains(newPn.Status.ReadyNodes, node) {
@@ -582,7 +577,6 @@ func (c *Controller) updateProviderNetworkForNodeDeletion(pn *fabricv1.ProviderN
 		}
 	}
 
-	// update provider network spec
 	pn, newPn = newPn, nil
 	if excludeNodes := util.RemoveString(pn.Spec.ExcludeNodes, node); len(excludeNodes) != len(pn.Spec.ExcludeNodes) {
 		newPn = pn.DeepCopy()
@@ -655,9 +649,6 @@ func (c *Controller) handleUpdateNode(key string) error {
 			continue
 		}
 
-		// For subnets using GatewayNodeSelectors, always trigger reconciliation
-		// when node labels change, since the node might have been added or removed
-		// from the gateway list
 		if cachedSubnet.Spec.GatewayNode == "" && len(cachedSubnet.Spec.GatewayNodeSelectors) > 0 {
 			c.addOrUpdateSubnetQueue.Add(cachedSubnet.Name)
 			continue
@@ -850,7 +841,6 @@ func (c *Controller) checkSubnetGatewayNode() error {
 }
 
 func (c *Controller) cleanDuplicatedChassis(node *v1.Node) error {
-	// if multi chassis has the same node name, delete all of them
 	_, err := c.OVNSbClient.GetChassisByHost(node.Name)
 	if err == nil {
 		return nil
@@ -956,14 +946,12 @@ func (c *Controller) checkAndUpdateNodePortGroup() error {
 	}
 
 	for _, node := range nodes {
-		// The port-group should already created when add node
 		pgName := strings.ReplaceAll(node.Annotations[util.PortNameAnnotation], "-", ".")
 		if pgName == "" {
 			klog.V(2).Infof("node %s does not have port name annotation, skip port group update", node.Name)
 			continue
 		}
 
-		// use join IP only when no internal IP exists
 		nodeIPv4, nodeIPv6 := util.GetNodeInternalIP(*node)
 		joinIP := node.Annotations[util.IPAddressAnnotation]
 		joinIPv4, joinIPv6 := util.SplitStringIP(joinIP)
@@ -991,7 +979,6 @@ func (c *Controller) checkAndUpdateNodePortGroup() error {
 				klog.Errorf("create node acl for node pg %s: %v", pgName, err)
 			}
 		} else {
-			// clear all acl
 			if err = c.OVNNbClient.DeleteAcls(pgName, portGroupKey, "", nil); err != nil {
 				klog.Errorf("delete node acl for node pg %s: %v", pgName, err)
 			}
@@ -1004,7 +991,6 @@ func (c *Controller) checkAndUpdateNodePortGroup() error {
 func (c *Controller) UpdateChassisTag(node *v1.Node) error {
 	annoChassisName := node.Annotations[util.ChassisAnnotation]
 	if annoChassisName == "" {
-		// fabric-cni not ready to set chassis
 		return nil
 	}
 	chassis, err := c.OVNSbClient.GetChassis(annoChassisName, true)
@@ -1014,7 +1000,7 @@ func (c *Controller) UpdateChassisTag(node *v1.Node) error {
 	}
 	if chassis == nil {
 		klog.Infof("chassis %q not registered for node %s, do chassis gc once", annoChassisName, node.Name)
-		// chassis name conflict, do GC
+
 		if err = c.gcChassis(); err != nil {
 			klog.Errorf("failed to gc chassis: %v", err)
 			return err
@@ -1242,7 +1228,7 @@ func (c *Controller) addPolicyRouteForLocalDNSCacheOnNode(dnsIPs []string, nodeP
 			matches.Remove(policy.Match)
 			continue
 		}
-		// delete unused policy router policy
+
 		klog.Infof("deleting logical router policy by UUID %s", policy.UUID)
 		if err = c.OVNNbClient.DeleteLogicalRouterPolicyByUUID(c.config.ClusterRouter, policy.UUID); err != nil {
 			klog.Errorf("failed to delete logical router policy by UUID %s: %v", policy.UUID, err)

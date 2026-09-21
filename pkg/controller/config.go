@@ -30,7 +30,6 @@ const (
 	defaultLeaderRetryPeriod   = 6 * time.Second
 )
 
-// LeaderElectionConfiguration contains the timing configuration for controller leader election.
 type LeaderElectionConfiguration struct {
 	LeaseDuration time.Duration
 	RenewDeadline time.Duration
@@ -70,7 +69,6 @@ func (config LeaderElectionConfiguration) validate() error {
 	return nil
 }
 
-// Configuration is the controller config
 type Configuration struct {
 	OvnNbAddr              string
 	OvnSbAddr              string
@@ -160,26 +158,19 @@ type Configuration struct {
 
 	NodeLocalDNSIPs []string
 
-	// used to set log file permission
 	LogPerm string
 
-	// TLS configuration for secure serving
 	TLSMinVersion   string
 	TLSMaxVersion   string
 	TLSCipherSuites []string
 
-	// Non Primary CNI flag
 	EnableNonPrimaryCNI bool
 
-	// Enforcement level of network policies (standard, lax)
 	NetworkPolicyEnforcement string
 
-	// Skip conntrack for specific destination IP CIDRs
 	SkipConntrackDstCidrs string
 }
 
-// ParseFlags parses cmd args then init kubeclient and conf
-// TODO: validate configuration
 func ParseFlags() (*Configuration, error) {
 	leaderElectionConfig := defaultLeaderElectionConfiguration()
 	leaderElectionConfig.addFlags(pflag.CommandLine)
@@ -270,7 +261,6 @@ func ParseFlags() (*Configuration, error) {
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 
-	// sync the glog and klog flags.
 	pflag.CommandLine.VisitAll(func(f1 *pflag.Flag) {
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {
@@ -434,7 +424,6 @@ func (config *Configuration) initKubeClient() error {
 		return err
 	}
 
-	// try to connect to apiserver's tcp port
 	if err = util.DialAPIServer(cfg.Host, 3*time.Second, 10); err != nil {
 		klog.Errorf("failed to dial apiserver: %v", err)
 		return err
@@ -442,7 +431,7 @@ func (config *Configuration) initKubeClient() error {
 
 	cfg.QPS = 1000
 	cfg.Burst = 2000
-	// use cmd arg to modify timeout later
+
 	cfg.Timeout = 30 * time.Second
 
 	AttachNetClient, err := attachnetclientset.NewForConfig(cfg)
@@ -452,7 +441,6 @@ func (config *Configuration) initKubeClient() error {
 	}
 	config.AttachNetClient = AttachNetClient
 
-	// get the kubevirt client, using which kubevirt resources can be managed.
 	virtClient, err := kubecli.GetKubevirtClientFromRESTConfig(cfg)
 	if err != nil {
 		klog.Errorf("init kubevirt client failed %v", err)

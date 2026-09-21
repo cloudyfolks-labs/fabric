@@ -27,7 +27,6 @@ var (
 	}, []string{"vpc", "table", "node"})
 )
 
-// RegisterMetrics adds the agent gauges to the registry served by the metrics server.
 func RegisterMetrics() {
 	metrics.Registry.MustRegister(bgpPeerUp, bgpPeerPrefixesAdvertised, vpcAdvertisedPrefixes, vpcTableRoutes)
 }

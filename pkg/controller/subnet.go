@@ -135,7 +135,6 @@ func (c *Controller) formatSubnet(subnet *fabricv1.Subnet) (*fabricv1.Subnet, er
 	}
 
 	if newSubnet.Spec.Vpc == c.config.ClusterRouter && newSubnet.Name != c.config.NodeSwitch {
-		// Some format only needed in the default VPC
 		if newSubnet.Spec.GatewayType == "" {
 			newSubnet.Spec.GatewayType = fabricv1.GWDistributedType
 		}
@@ -147,7 +146,7 @@ func (c *Controller) formatSubnet(subnet *fabricv1.Subnet) (*fabricv1.Subnet, er
 	if newSubnet.Spec.EnableLb == nil && newSubnet.Name != c.config.NodeSwitch {
 		newSubnet.Spec.EnableLb = &c.config.EnableLb
 	}
-	// set join subnet Spec.EnableLb to nil
+
 	if newSubnet.Spec.EnableLb != nil && newSubnet.Name == c.config.NodeSwitch {
 		newSubnet.Spec.EnableLb = nil
 	}
@@ -173,9 +172,6 @@ func (c *Controller) formatSubnet(subnet *fabricv1.Subnet) (*fabricv1.Subnet, er
 	return subnet, nil
 }
 
-// errVlanNotReady is returned when the vlan has not been fully processed by
-// the vlan handler yet. The caller should requeue silently without patching
-// the subnet status as failed.
 var errVlanNotReady = errors.New("vlan not ready")
 
 func (c *Controller) validateSubnetVlan(subnet *fabricv1.Subnet) error {
@@ -196,13 +192,6 @@ func (c *Controller) validateSubnetVlan(subnet *fabricv1.Subnet) error {
 		return err
 	}
 
-	// Ensure the vlan has been fully processed by the vlan handler before
-	// allowing the subnet to proceed. A newly created vlan has Conflict=false
-	// (zero value) which is indistinguishable from a processed non-conflicting
-	// vlan. Use pn.Status.Vlans as a "vlan ready" signal — only set after
-	// the vlan handler completes successfully (including conflict check).
-	// This prevents a race where the subnet allocates IPAM before the vlan's
-	// conflict status is determined.
 	if vlan.Spec.Provider == "" {
 		return fmt.Errorf("vlan %s provider not yet set, deferring subnet %s: %w", vlan.Name, subnet.Name, errVlanNotReady)
 	}
@@ -218,9 +207,6 @@ func (c *Controller) validateSubnetVlan(subnet *fabricv1.Subnet) error {
 }
 
 func formatAddress(subnet *fabricv1.Subnet) error {
-	// Underlay subnets without a CIDR (BYO-DHCP / external DHCP) have no address
-	// to normalize - skip CIDR/gateway/excludeIPs formatting which would fail on
-	// an empty CIDRBlock.
 	if subnet.Spec.CIDRBlock != "" {
 		if err := formatCIDR(subnet); err != nil {
 			klog.Error(err)
@@ -236,8 +222,6 @@ func formatAddress(subnet *fabricv1.Subnet) error {
 	}
 
 	if subnet.Spec.Vlan != "" && subnet.Spec.CIDRBlock == "" {
-		// Underlay subnet without a CIDR (BYO-DHCP / external DHCP): it allocates only
-		// a MAC address per pod NIC, so it gets its own protocol.
 		subnet.Spec.Protocol = fabricv1.ProtocolMac
 	} else {
 		subnet.Spec.Protocol = util.CheckProtocol(subnet.Spec.CIDRBlock)
@@ -309,7 +293,6 @@ func formatExcludeIPs(subnet *fabricv1.Subnet) {
 }
 
 func (c *Controller) syncSubnetFinalizer(cl client.Client) error {
-	// migrate deprecated finalizer to new finalizer
 	subnets := &fabricv1.SubnetList{}
 	return migrateFinalizers(cl, subnets, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(subnets.Items) {
@@ -472,7 +455,6 @@ func (c *Controller) checkSubnetConflict(subnet *fabricv1.Subnet) error {
 	return nil
 }
 
-// getSubnetMTU returns the effective MTU for DHCP options of the given subnet.
 func (c *Controller) getSubnetMTU(subnet *fabricv1.Subnet) (int, error) {
 	var mtu int
 	if subnet.Spec.Mtu > 0 {
@@ -482,7 +464,7 @@ func (c *Controller) getSubnetMTU(subnet *fabricv1.Subnet) (int, error) {
 		if subnet.Spec.Vlan == "" {
 			switch c.config.NetworkType {
 			case util.NetworkTypeVlan:
-				// default to geneve
+
 				fallthrough
 			case util.NetworkTypeGeneve:
 				mtu -= util.GeneveHeaderLength
@@ -493,12 +475,7 @@ func (c *Controller) getSubnetMTU(subnet *fabricv1.Subnet) (int, error) {
 			}
 		}
 	}
-	// Surface IPv6 MTU misconfiguration without rewriting the value: the path
-	// MTU is set by the underlying link, so silently raising it would only
-	// shift the failure to fragmentation/blackholing of IPv4 traffic. The
-	// webhook rejects new subnets that violate the floor; this branch warns
-	// for upgraded subnets and auto-computed values that can no longer carry
-	// IPv6.
+
 	if mtu < util.IPv6MinMTU {
 		protocol := util.CheckProtocol(subnet.Spec.CIDRBlock)
 		if protocol == fabricv1.ProtocolIPv6 || protocol == fabricv1.ProtocolDual {
@@ -583,8 +560,6 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 	err = c.validateSubnetVlan(subnet)
 	if err != nil {
 		if errors.Is(err, errVlanNotReady) {
-			// vlan hasn't been processed yet, requeue silently without
-			// marking the subnet as failed
 			klog.Infof("deferring subnet %s: %v", key, err)
 			return err
 		}
@@ -616,17 +591,12 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 			return err
 		}
 
-		// availableIPStr valued from ipam, so leave update subnet.status after ipam process
 		subnet, err = c.calcSubnetStatusIP(subnet)
 		if err != nil {
 			klog.Errorf("calculate subnet %s used ip failed, %v", cachedSubnet.Name, err)
 			return err
 		}
 	} else {
-		// Mac-only subnet (underlay without CIDR, BYO-DHCP / external DHCP). Register a
-		// lightweight IPAM entry so MAC allocations are tracked and the GC does not
-		// clean the subnet's mac-only IP/LSP resources. It has no IP ranges, so there
-		// is no subnet IP status to calculate.
 		if err := c.ipam.AddOrUpdateSubnet(subnet.Name, "", "", nil); err != nil {
 			klog.Error(err)
 			return err
@@ -644,7 +614,6 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 	}
 
 	if !isOvnSubnet(subnet) {
-		// subnet provider is not ovn, and vpc is empty, should not reconcile
 		if err = c.patchSubnetStatus(subnet, "SetNonOvnSubnetSuccess", ""); err != nil {
 			klog.Error(err)
 			return err
@@ -655,7 +624,6 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 		return nil
 	}
 
-	// This validate should be processed after isOvnSubnet, since maybe there's no vpc for subnet not managed by fabric
 	vpc, err := c.validateVpcBySubnet(subnet)
 	if err != nil {
 		klog.Errorf("failed to get subnet's vpc '%s', %v", subnet.Spec.Vpc, err)
@@ -669,10 +637,8 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 
 	needRouter := subnet.Spec.Vlan == "" || subnet.Spec.LogicalGateway ||
 		(subnet.Status.U2OInterconnectionIP != "" && subnet.Spec.U2OInterconnection)
-	// 1. overlay subnet, should add lrp, lrp ip is subnet gw
-	// 2. underlay subnet use logical gw, should add lrp, lrp ip is subnet gw
+
 	randomAllocateGW := !subnet.Spec.LogicalGateway && vpc.Spec.EnableExternal && subnet.Name == c.config.ExternalGatewaySwitch
-	// 3. underlay subnet use physical gw, vpc has eip, lrp managed in vpc process, lrp ip is random allocation, not subnet gw
 
 	gateway := subnet.Spec.Gateway
 	var gatewayMAC string
@@ -686,7 +652,6 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 		return err
 	}
 
-	// Lock VPC to prevent CIDR conflict between concurrent subnet creations in the same VPC
 	if err := func() error {
 		c.vpcKeyMutex.LockKey(subnet.Spec.Vpc)
 		defer func() { _ = c.vpcKeyMutex.UnlockKey(subnet.Spec.Vpc) }()
@@ -695,7 +660,7 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 			klog.Errorf("failed to check subnet %s, %v", subnet.Name, err)
 			return err
 		}
-		// create or update logical switch
+
 		if err := c.OVNNbClient.CreateLogicalSwitch(subnet.Name, vpc.Status.Router, subnet.Spec.CIDRBlock, gateway, gatewayMAC, needRouter, randomAllocateGW); err != nil {
 			klog.Errorf("create logical switch %s: %v", subnet.Name, err)
 			return err
@@ -705,7 +670,6 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 		return err
 	}
 
-	// Record the gateway MAC in ipam if router port exists
 	if needRouter {
 		routerPortName := ovs.LogicalRouterPortName(vpc.Status.Router, subnet.Name)
 		if lrp, err := c.OVNNbClient.GetLogicalRouterPort(routerPortName, true); err == nil && lrp != nil && lrp.MAC != "" {
@@ -787,7 +751,6 @@ func (c *Controller) handleAddOrUpdateSubnet(key string) error {
 			return err
 		}
 	} else {
-		// clear acl when direction is ""
 		if aclErr := c.OVNNbClient.DeleteAcls(subnet.Name, logicalSwitchKey, "", nil); aclErr != nil {
 			klog.Error(aclErr)
 			if patchErr := c.patchSubnetStatus(subnet, "ResetLogicalSwitchAclFailed", aclErr.Error()); patchErr != nil {
@@ -840,12 +803,10 @@ func (c *Controller) handleDeleteLogicalSwitch(key string) (err error) {
 		return err
 	}
 
-	// not found, skip
 	if !exist {
 		return nil
 	}
 
-	// clear acl when direction is ""
 	if err = c.OVNNbClient.DeleteAcls(key, logicalSwitchKey, "", nil); err != nil {
 		klog.Errorf("clear logical switch %s acls: %v", key, err)
 		return err
@@ -867,7 +828,6 @@ func (c *Controller) handleDeleteLogicalSwitch(key string) (err error) {
 		return err
 	}
 
-	// re-annotate namespace
 	for _, ns := range nss {
 		annotations := ns.GetAnnotations()
 		if annotations == nil {
@@ -1025,7 +985,6 @@ func (c *Controller) reconcileSubnet(subnet *fabricv1.Subnet) error {
 }
 
 func (c *Controller) reconcileVips(subnet *fabricv1.Subnet) error {
-	/* get all virtual port belongs to this logical switch */
 	lsps, err := c.OVNNbClient.ListLogicalSwitchPorts(true, map[string]string{logicalSwitchKey: subnet.Name}, func(lsp *ovnnb.LogicalSwitchPort) bool {
 		return lsp.Type == "virtual"
 	})
@@ -1034,34 +993,29 @@ func (c *Controller) reconcileVips(subnet *fabricv1.Subnet) error {
 		return err
 	}
 
-	/* filter all invalid virtual port */
-	existVips := make(map[string]string) // key is vip, value is port name
+	existVips := make(map[string]string)
 	for _, lsp := range lsps {
 		vip, ok := lsp.Options["virtual-ip"]
 		if !ok {
-			continue // ignore vip which is empty
+			continue
 		}
 
 		if net.ParseIP(vip) == nil {
-			continue // ignore invalid vip
+			continue
 		}
 
 		existVips[vip] = lsp.Name
 	}
 
-	/* filter virtual port to be added and old virtual port to be deleted */
 	var newVips []string
 	for _, vip := range subnet.Spec.Vips {
 		if _, ok := existVips[vip]; !ok {
-			// new virtual port to be added
 			newVips = append(newVips, vip)
 		} else {
-			// delete old virtual port that do not need to be deleted
 			delete(existVips, vip)
 		}
 	}
 
-	// delete old virtual ports
 	for _, lspName := range existVips {
 		if err = c.OVNNbClient.DeleteLogicalSwitchPort(lspName); err != nil {
 			klog.Errorf("delete virtual port %s lspName from logical switch %s: %v", lspName, subnet.Name, err)
@@ -1069,7 +1023,6 @@ func (c *Controller) reconcileVips(subnet *fabricv1.Subnet) error {
 		}
 	}
 
-	// add new virtual port
 	if err = c.OVNNbClient.CreateVirtualLogicalSwitchPorts(subnet.Name, newVips...); err != nil {
 		klog.Errorf("create virtual port with vips %v from logical switch %s: %v", newVips, subnet.Name, err)
 		return err
@@ -1113,7 +1066,7 @@ func (c *Controller) syncVirtualPort(key string) error {
 		for _, lsp := range lsps {
 			vips, ok := lsp.ExternalIDs["vips"]
 			if !ok {
-				continue // ignore vips which is empty
+				continue
 			}
 
 			if slices.Contains(strings.Split(vips, ","), vip) {
@@ -1121,7 +1074,6 @@ func (c *Controller) syncVirtualPort(key string) error {
 			}
 		}
 
-		// logical switch port has no valid vip
 		if len(virtualParents) == 0 {
 			continue
 		}
@@ -1141,7 +1093,6 @@ func (c *Controller) reconcileNamespaces(subnet *fabricv1.Subnet) error {
 		err        error
 	)
 
-	// 1. get all namespaces should be updated
 	expectNss, err := c.getNamespacesBySelector(subnet.Spec.NamespaceSelectors)
 	if err != nil {
 		klog.Errorf("failed to list namespaces by selector, %v", err)
@@ -1153,7 +1104,6 @@ func (c *Controller) reconcileNamespaces(subnet *fabricv1.Subnet) error {
 		}
 	}
 
-	// 2. update namespaces
 	for _, expectNs := range expectNss {
 		checkNs, err := c.namespacesLister.Get(expectNs)
 		if err != nil {
@@ -1164,7 +1114,6 @@ func (c *Controller) reconcileNamespaces(subnet *fabricv1.Subnet) error {
 			return err
 		}
 		if checkNs.Annotations != nil && slices.Contains(strings.Split(checkNs.Annotations[util.LogicalSwitchAnnotation], ","), subnet.Name) {
-			// when subnet cidr changed, the ns annotation with the subnet should be updated
 			if !slices.Contains(strings.Split(checkNs.Annotations[util.CidrAnnotation], ";"), subnet.Spec.CIDRBlock) {
 				c.addNamespaceQueue.Add(checkNs.Name)
 			}
@@ -1173,7 +1122,6 @@ func (c *Controller) reconcileNamespaces(subnet *fabricv1.Subnet) error {
 		c.addNamespaceQueue.Add(expectNs)
 	}
 
-	// 3. update unbind namespace annotation
 	if namespaces, err = c.namespacesLister.List(labels.Everything()); err != nil {
 		klog.Errorf("failed to list namespaces, %v", err)
 		return err
@@ -1184,7 +1132,7 @@ func (c *Controller) reconcileNamespaces(subnet *fabricv1.Subnet) error {
 			if slices.Contains(expectNss, ns.Name) {
 				continue
 			}
-			// ns deleted from subnet.Spec.Namespaces or subnet delete namespaceSelectors which match the checked namespace
+
 			c.addNamespaceQueue.Add(ns.Name)
 		}
 	}
@@ -1214,8 +1162,6 @@ func (c *Controller) getNamespacesBySelector(nsSelectors []metav1.LabelSelector)
 }
 
 func (c *Controller) reconcileCustomVpcBfdStaticRoute(vpcName, subnetName string) error {
-	// vpc enable bfd and subnet enable ecmp
-	// use static ecmp route with bfd
 	ovnEips, err := c.ovnEipsLister.List(labels.SelectorFromSet(labels.Set{util.OvnEipTypeLabel: util.OvnEipTypeLSP}))
 	if err != nil {
 		klog.Errorf("failed to list node external ovn eip, %v", err)
@@ -1271,7 +1217,7 @@ func (c *Controller) reconcileCustomVpcBfdStaticRoute(vpcName, subnetName string
 			klog.Error(err)
 			return err
 		}
-		// TODO:// support v6
+
 		v4Exist = false
 		for _, route := range vpc.Spec.StaticRoutes {
 			if route.Policy == fabricv1.PolicySrc &&
@@ -1284,7 +1230,6 @@ func (c *Controller) reconcileCustomVpcBfdStaticRoute(vpcName, subnetName string
 			}
 		}
 		if !v4Exist {
-			// add ecmp type static route with bfd
 			route := &fabricv1.StaticRoute{
 				Policy:     fabricv1.PolicySrc,
 				CIDR:       subnet.Spec.CIDRBlock,
@@ -1312,8 +1257,6 @@ func (c *Controller) reconcileCustomVpcBfdStaticRoute(vpcName, subnetName string
 }
 
 func (c *Controller) reconcileCustomVpcDelNormalStaticRoute(vpcName string) error {
-	// normal static route is prior than ecmp bfd static route
-	// if use ecmp bfd static route, normal static route should not exist
 	defaultExternalSubnet, err := c.subnetsLister.Get(c.config.ExternalGatewaySwitch)
 	if err != nil {
 		klog.Errorf("failed to get default external switch subnet %s: %v", c.config.ExternalGatewaySwitch, err)
@@ -1460,8 +1403,6 @@ func (c *Controller) reconcileDistributedSubnetRouteInDefaultVpc(subnet *fabricv
 			portsToAdd = append(portsToAdd, port)
 		}
 
-		// remove lsp from other port groups
-		// we need to do this because the pod, e.g. a sts/vm, can be rescheduled to another node
 		for _, pg := range portGroups {
 			if pg.Name == pgName {
 				continue
@@ -1471,7 +1412,7 @@ func (c *Controller) reconcileDistributedSubnetRouteInDefaultVpc(subnet *fabricv
 				return err
 			}
 		}
-		// add ports to the port group
+
 		if err = c.OVNNbClient.PortGroupAddPorts(pgName, portsToAdd...); err != nil {
 			klog.Errorf("add ports to port group %s: %v", pgName, err)
 			return err
@@ -1487,7 +1428,6 @@ func (c *Controller) reconcileDefaultCentralizedSubnetRouteInDefaultVpc(subnet *
 		return err
 	}
 
-	// check if activateGateway still ready
 	if subnet.Status.ActivateGateway != "" && slices.Contains(gatewayNodes, subnet.Status.ActivateGateway) {
 		node, err := c.nodesLister.Get(subnet.Status.ActivateGateway)
 		if err == nil && nodeReady(node) {
@@ -1508,7 +1448,7 @@ func (c *Controller) reconcileDefaultCentralizedSubnetRouteInDefaultVpc(subnet *
 	}
 
 	klog.Info("find a new activate node")
-	// need a new activate gateway
+
 	newActivateNode := ""
 	var nodeTunlIPAddr []net.IP
 	for _, gw := range gatewayNodes {
@@ -1621,7 +1561,6 @@ func (c *Controller) reconcileOvnDefaultVpcRoute(subnet *fabricv1.Subnet) error 
 	}
 
 	if subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway {
-		// physical switch provide gw for this underlay subnet
 		pods, err := c.podsLister.Pods(metav1.NamespaceAll).List(labels.Everything())
 		if err != nil {
 			klog.Errorf("failed to list pods %v", err)
@@ -1678,7 +1617,6 @@ func (c *Controller) reconcileOvnDefaultVpcRoute(subnet *fabricv1.Subnet) error 
 			}
 		}
 	} else {
-		// It's difficult to update policy route when subnet cidr is changed, add check for cidr changed situation
 		if err := c.reconcilePolicyRouteForCidrChangedSubnet(subnet, true); err != nil {
 			klog.Error(err)
 			return err
@@ -1689,14 +1627,12 @@ func (c *Controller) reconcileOvnDefaultVpcRoute(subnet *fabricv1.Subnet) error 
 			return err
 		}
 
-		// distributed subnet, only add distributed policy route
 		if subnet.Spec.GatewayType == fabricv1.GWDistributedType {
 			if err := c.reconcileDistributedSubnetRouteInDefaultVpc(subnet); err != nil {
 				klog.Error(err)
 				return err
 			}
 		} else {
-			// centralized subnet
 			if subnet.Spec.GatewayNode == "" && len(subnet.Spec.GatewayNodeSelectors) == 0 {
 				subnet.Status.NotReady("NoReadyGateway", "")
 				if err := c.patchSubnetStatus(subnet, "NoReadyGateway", ""); err != nil {
@@ -1736,11 +1672,6 @@ func (c *Controller) reconcileOvnDefaultVpcRoute(subnet *fabricv1.Subnet) error 
 }
 
 func (c *Controller) reconcileCustomVpcStaticRoute(subnet *fabricv1.Subnet) error {
-	// in custom vpc, subnet gw type is unmeaning
-	// 1. vpc out to public network through vpc nat gw pod, the static route is auto managed by admin user
-	// 2. vpc out to public network through ovn nat lrp, whose nexthop rely on bfd ecmp, the vpc spec bfd static route is auto managed here
-	// 3. vpc out to public network through ovn nat lrp, without bfd ecmp, the vpc spec static route is auto managed here
-
 	vpc, err := c.vpcsLister.Get(subnet.Spec.Vpc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -1752,9 +1683,7 @@ func (c *Controller) reconcileCustomVpcStaticRoute(subnet *fabricv1.Subnet) erro
 
 	if vpc.Spec.EnableExternal && vpc.Spec.EnableBfd && subnet.Spec.EnableEcmp {
 		klog.Infof("add bfd and external static ecmp route for vpc %s, subnet %s", vpc.Name, subnet.Name)
-		// handle vpc static route
-		// use static ecmp route with bfd
-		// bfd ecmp static route depend on subnet cidr
+
 		if err := c.reconcileCustomVpcBfdStaticRoute(vpc.Name, subnet.Name); err != nil {
 			klog.Errorf("failed to reconcile vpc %q bfd static route", vpc.Name)
 			return err
@@ -1840,7 +1769,6 @@ func (c *Controller) reconcileSubnetSpecialIPs(subnet *fabricv1.Subnet) (bool, b
 	isMcastQuerierIPChanged := false
 	var err error
 
-	// reconcile u2o IP
 	if subnet.Spec.Vlan != "" && !subnet.Spec.LogicalGateway {
 		u2oInterconnName := fmt.Sprintf(util.U2OInterconnName, subnet.Spec.Vpc, subnet.Name)
 		u2oInterconnLrpName := fmt.Sprintf("%s-%s", subnet.Spec.Vpc, subnet.Name)
@@ -1868,7 +1796,6 @@ func (c *Controller) reconcileSubnetSpecialIPs(subnet *fabricv1.Subnet) (bool, b
 		}
 	}
 
-	// reconcile mcast querier IP
 	if subnet.Spec.EnableMulticastSnoop {
 		isMcastQuerierIPChanged, err = c.acquireMcastQuerierIP(subnet)
 		if err != nil {
@@ -1881,7 +1808,6 @@ func (c *Controller) reconcileSubnetSpecialIPs(subnet *fabricv1.Subnet) (bool, b
 		}
 	}
 
-	// calculate subnet status
 	if (isU2OIPChanged || isMcastQuerierIPChanged) && subnet.Spec.CIDRBlock != "" {
 		if _, err := c.calcSubnetStatusIP(subnet); err != nil {
 			klog.Error(err)
@@ -2072,7 +1998,6 @@ func filterRepeatIPRange(mapIPs map[string]*ipam.IPRange) map[string]*ipam.IPRan
 				continue
 			}
 
-			// a contains b
 			mapIPs[kb] = a
 			delete(mapIPs, ka)
 		}
@@ -2083,7 +2008,6 @@ func filterRepeatIPRange(mapIPs map[string]*ipam.IPRange) map[string]*ipam.IPRan
 func (c *Controller) checkGwNodeExists(gatewayNode string) bool {
 	found := false
 	for gwName := range strings.SplitSeq(gatewayNode, ",") {
-		// the format of gatewayNode can be like 'fabric-worker:172.18.0.2, fabric-control-plane:172.18.0.3', which consists of node name and designative egress ip
 		if strings.Contains(gwName, ":") {
 			gwName = strings.TrimSpace(strings.Split(gwName, ":")[0])
 		} else {
@@ -2286,12 +2210,10 @@ func (c *Controller) updatePolicyRouteForCentralizedSubnet(subnetName, cidr stri
 
 func (c *Controller) addPolicyRouteForCentralizedSubnet(subnet *fabricv1.Subnet, nodeName string, ipNameMap map[string]string, nodeIPs []string) error {
 	for _, nodeIP := range nodeIPs {
-		// node v4ip v6ip
 		for cidrBlock := range strings.SplitSeq(subnet.Spec.CIDRBlock, ",") {
 			if util.CheckProtocol(cidrBlock) != util.CheckProtocol(nodeIP) {
 				continue
 			}
-			// Check for repeat policy route is processed in AddPolicyRoute
 
 			var nextHops []string
 			nameIPMap := map[string]string{}
@@ -2514,20 +2436,6 @@ func (c *Controller) addPolicyRouteForU2OInterconn(subnet *fabricv1.Subnet) erro
 		matchSameSubnet := fmt.Sprintf("%s.src == %s && %s.dst == %s", ipSuffix, cidrBlock, ipSuffix, cidrBlock)
 		matchOverlayToUnderlay := fmt.Sprintf("%s.src == $%s && %s.dst == %s", ipSuffix, overlayCIDRsAg, ipSuffix, cidrBlock)
 
-		/*
-			default u2o:
-			policy1 priority 29400 match: "ip4.dst == underlay subnet cidr"                         action: allow
-			policy2 priority 31000 match: "ip4.dst == node ips && ip4.src == underlay subnet cidr"  action: reroute physical gw
-			policy3 priority 29000 match: "ip4.src == underlay subnet cidr"                         action: reroute physical gw
-
-			overlay only u2o:
-			baseline priority 31000 match: "ip4.dst == overlay cidr"                          action: allow
-			baseline priority 31000 match: "ip4.dst == join cidr"                             action: allow
-			policy1 priority 31000 match: "ip4.dst == node ips && ip4.src == underlay subnet cidr"  action: reroute physical gw
-			policy2 priority 30060 match: "ip4.src == underlay subnet cidr && ip4.dst == underlay subnet cidr" action: allow
-			policy3 priority 30050 match: "ip4.src == underlay cidr"                          action: reroute physical gw
-			policy4 priority 29400 match: "ip4.src == overlay cidrs && ip4.dst == underlay cidr" action: allow
-		*/
 		action := fabricv1.PolicyRouteActionAllow
 		if overlayOnly {
 			klog.Infof("add u2o overlay only policy for router: %s, match %s, action %s", subnet.Spec.Vpc, matchOverlayToUnderlay, action)
@@ -2641,8 +2549,6 @@ func u2oOverlayCIDRsAddressSetNames(vpcName string) (string, string) {
 }
 
 func u2oOverlayCIDRsAddressSetExternalIDs(vpcName string) map[string]string {
-	// These ExternalIDs mark OVN address sets that cache overlay CIDRs per VPC.
-	// They are resource ownership metadata for lookup/debugging, not route policy labels.
 	return map[string]string{
 		"isU2OOverlayCIDRs": "true",
 		"vpc":               vpcName,
@@ -2720,9 +2626,6 @@ func (c *Controller) deleteStaleU2ORoutePolicies(subnet *fabricv1.Subnet, desire
 		return err
 	}
 	for _, policy := range policies {
-		// No-LB U2O policies are managed by add/deletePolicyRouteForU2ONoLoadBalancer.
-		// They share the generic isU2ORoutePolicy label, so skip them here to avoid
-		// deleting policies that are outside this reconcile loop.
 		if policy.ExternalIDs["isU2ONoLBRoutePolicy"] == "true" {
 			continue
 		}
@@ -2757,7 +2660,6 @@ func (c *Controller) deletePolicyRouteForU2OInterconn(subnet *fabricv1.Subnet) e
 
 	lr := subnet.Status.U2OInterconnectionVPC
 	if lr == "" {
-		// old version field U2OInterconnectionVPC may be "" and then use subnet.Spec.Vpc
 		lr = subnet.Spec.Vpc
 	}
 
@@ -2872,7 +2774,6 @@ func (c *Controller) reconcileRouteTableForSubnet(subnet *fabricv1.Subnet) error
 
 	rtb := lrp.Options["route_table"]
 
-	// no need to update
 	if rtb == subnet.Spec.RouteTable {
 		return nil
 	}
@@ -2906,7 +2807,6 @@ func (c *Controller) deleteCustomVPCPolicyRoutesForSubnet(subnet *fabricv1.Subne
 func (c *Controller) clearOldU2OResource(subnet *fabricv1.Subnet) error {
 	if subnet.Status.U2OInterconnectionVPC != "" &&
 		(!subnet.Spec.U2OInterconnection || (subnet.Spec.U2OInterconnection && subnet.Status.U2OInterconnectionVPC != subnet.Spec.Vpc)) {
-		// remove old u2o lsp and lrp first
 		lspName := fmt.Sprintf("%s-%s", subnet.Name, subnet.Status.U2OInterconnectionVPC)
 		lrpName := fmt.Sprintf("%s-%s", subnet.Status.U2OInterconnectionVPC, subnet.Name)
 		klog.Infof("clean subnet %s old u2o resource with lsp %s lrp %s", subnet.Name, lspName, lrpName)
@@ -3001,9 +2901,7 @@ func (c *Controller) addPolicyRouteForU2ONoLoadBalancer(subnet *fabricv1.Subnet)
 		klog.Errorf("failed to list nodes: %v", err)
 		return err
 	}
-	// Drop any policies belonging to a previous Service CIDR set so that
-	// shrinking the merged set (e.g. ServiceCIDR object deleted) does not
-	// leave stale OVN entries behind. Port groups are reused, not touched.
+
 	if c.logicalRouterExists(subnet.Spec.Vpc) {
 		if err := c.OVNNbClient.DeleteLogicalRouterPolicies(subnet.Spec.Vpc, -1, map[string]string{
 			"isU2ONoLBRoutePolicy": "true",
@@ -3110,7 +3008,6 @@ func (c *Controller) deletePolicyRouteForU2ONoLoadBalancer(subnet *fabricv1.Subn
 
 	lr := subnet.Status.U2OInterconnectionVPC
 	if lr == "" {
-		// old version field U2OInterconnectionVPC may be "" and then use subnet.Spec.Vpc
 		lr = subnet.Spec.Vpc
 	}
 

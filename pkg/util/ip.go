@@ -14,10 +14,6 @@ func IPv4ToUint32(ip net.IP) uint32 {
 	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
 }
 
-// IPv6ToLabelValue sanitizes an IPv6 address for use as a Kubernetes label value.
-// Colons are not allowed in label values, and a label value must start and end
-// with an alphanumeric character, which a zero-compressed address (e.g. "::1"
-// or "fd00::") would otherwise violate after the colons are replaced.
 func IPv6ToLabelValue(ip string) string {
 	if ip == "" {
 		return ""

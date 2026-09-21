@@ -20,7 +20,6 @@ import (
 )
 
 func buildLogicalSwitchPort(lspName, lsName, ip, mac, podName, namespace string, portSecurity bool, securityGroups, vips string, enableDHCP bool, dhcpOptions *DHCPOptionsUUIDs, vpc string) *ovnnb.LogicalSwitchPort {
-	/* normal lsp creation */
 	lsp := &ovnnb.LogicalSwitchPort{
 		UUID:        ovsclient.NamedUUID(),
 		Name:        lspName,
@@ -33,12 +32,9 @@ func buildLogicalSwitchPort(lspName, lsName, ip, mac, podName, namespace string,
 	addresses = append(addresses, mac)
 	addresses = append(addresses, ipList...)
 
-	// MAC-only case (underlay subnet without CIDR / external DHCP): only set the MAC,
-	// no IP address and no port security
 	if ip == "" {
 		lsp.Addresses = []string{mac}
 	} else {
-		// addresses is the first element of addresses
 		lsp.Addresses = []string{strings.TrimSpace(strings.Join(addresses, " "))}
 
 		lsp.PortSecurity = nil
@@ -46,13 +42,12 @@ func buildLogicalSwitchPort(lspName, lsName, ip, mac, podName, namespace string,
 			if len(vips) != 0 {
 				addresses = append(addresses, vipList...)
 			}
-			// addresses is the first element of port_security
+
 			lsp.PortSecurity = []string{strings.TrimSpace(strings.Join(addresses, " "))}
 		}
 	}
 	lsp.ExternalIDs["vendor"] = util.VendorTag
 
-	// set security groups
 	if len(securityGroups) != 0 {
 		lsp.ExternalIDs[sgsKey] = strings.ReplaceAll(securityGroups, ",", "/")
 
@@ -62,27 +57,22 @@ func buildLogicalSwitchPort(lspName, lsName, ip, mac, podName, namespace string,
 		}
 	}
 
-	// add lsp which does not belong to default vpc to default-securitygroup when default-securitygroup configMap exist
 	if vpc != "" && vpc != util.DefaultVpc && !strings.Contains(securityGroups, util.DefaultSecurityGroupName) {
 		lsp.ExternalIDs[associatedSgKeyPrefix+util.DefaultSecurityGroupName] = "false"
 	}
 
-	// set vips info to external-ids
 	if len(vips) != 0 {
 		lsp.ExternalIDs["vips"] = vips
 		lsp.ExternalIDs["attach-vips"] = "true"
 	}
 
-	// set pod info to external-ids
 	if len(podName) != 0 && len(namespace) != 0 {
 		lsp.ExternalIDs["pod"] = namespace + "/" + podName
 	}
 
-	// attach necessary info
 	lsp.ExternalIDs[LogicalSwitchKey] = lsName
 	lsp.ExternalIDs["vendor"] = util.VendorTag
 
-	// set dhcp options
 	if enableDHCP && dhcpOptions != nil {
 		if len(dhcpOptions.DHCPv4OptionsUUID) != 0 {
 			lsp.Dhcpv4Options = &dhcpOptions.DHCPv4OptionsUUID
@@ -132,7 +122,6 @@ func (c *OVNNbClient) CreateLogicalSwitchPort(lsName, lspName, ip, mac, podName,
 	return nil
 }
 
-// CreateLocalnetLogicalSwitchPort create localnet type logical switch port
 func (c *OVNNbClient) CreateLocalnetLogicalSwitchPort(lsName, lspName, provider, cidrBlock string, vlanID int) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, true)
 	if err != nil {
@@ -171,7 +160,6 @@ func (c *OVNNbClient) CreateLocalnetLogicalSwitchPort(lsName, lspName, provider,
 		return nil
 	}
 
-	/* create logical switch port */
 	lsp = &ovnnb.LogicalSwitchPort{
 		UUID:      ovsclient.NamedUUID(),
 		Name:      lspName,
@@ -201,7 +189,6 @@ func (c *OVNNbClient) CreateLocalnetLogicalSwitchPort(lsName, lspName, provider,
 	return nil
 }
 
-// CreateVirtualLogicalSwitchPorts create several virtual type logical switch port once
 func (c *OVNNbClient) CreateVirtualLogicalSwitchPorts(lsName string, ips ...string) error {
 	ops := make([]ovsdb.Operation, 0, len(ips))
 
@@ -214,7 +201,6 @@ func (c *OVNNbClient) CreateVirtualLogicalSwitchPorts(lsName string, ips ...stri
 			return err
 		}
 
-		// ignore
 		if exist {
 			continue
 		}
@@ -245,7 +231,6 @@ func (c *OVNNbClient) CreateVirtualLogicalSwitchPorts(lsName string, ips ...stri
 	return nil
 }
 
-// CreateVirtualLogicalSwitchPort create one virtual type logical switch port for allowed-address-pair
 func (c *OVNNbClient) CreateVirtualLogicalSwitchPort(lspName, lsName, ip string) error {
 	exist, err := c.LogicalSwitchPortExists(lspName)
 	if err != nil {
@@ -253,7 +238,6 @@ func (c *OVNNbClient) CreateVirtualLogicalSwitchPort(lspName, lsName, ip string)
 		return err
 	}
 
-	// ignore
 	if exist {
 		return nil
 	}
@@ -281,7 +265,6 @@ func (c *OVNNbClient) CreateVirtualLogicalSwitchPort(lspName, lsName, ip string)
 	return nil
 }
 
-// CreateBareLogicalSwitchPort create logical switch port with basic configuration
 func (c *OVNNbClient) CreateBareLogicalSwitchPort(lsName, lspName, ip, mac string) error {
 	exist, err := c.LogicalSwitchPortExists(lspName)
 	if err != nil {
@@ -289,7 +272,6 @@ func (c *OVNNbClient) CreateBareLogicalSwitchPort(lsName, lspName, ip, mac strin
 		return err
 	}
 
-	// ignore
 	if exist {
 		return nil
 	}
@@ -299,11 +281,10 @@ func (c *OVNNbClient) CreateBareLogicalSwitchPort(lsName, lspName, ip, mac strin
 	addresses = append(addresses, mac)
 	addresses = append(addresses, ipList...)
 
-	/* create logical switch port */
 	lsp := &ovnnb.LogicalSwitchPort{
 		UUID:      ovsclient.NamedUUID(),
 		Name:      lspName,
-		Addresses: []string{strings.TrimSpace(strings.Join(addresses, " "))}, // addresses is the first element of addresses
+		Addresses: []string{strings.TrimSpace(strings.Join(addresses, " "))},
 	}
 
 	ops, err := c.CreateLogicalSwitchPortOp(lsp, lsName)
@@ -320,7 +301,6 @@ func (c *OVNNbClient) CreateBareLogicalSwitchPort(lsName, lspName, ip, mac strin
 	return nil
 }
 
-// SetLogicalSwitchPortVirtualParents updates several virtual type logical switch port virtual-parents at once
 func (c *OVNNbClient) SetLogicalSwitchPortVirtualParents(lsName, parents string, ips ...string) error {
 	ops := make([]ovsdb.Operation, 0, len(ips))
 	for _, ip := range ips {
@@ -359,7 +339,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortVirtualParents(lsName, parents string,
 	return nil
 }
 
-// SetVirtualLogicalSwitchPortVirtualParents updates one virtual type logical switch port virtual-parents for allowed-address-pair
 func (c *OVNNbClient) SetVirtualLogicalSwitchPortVirtualParents(lspName, parents string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, true)
 	if err != nil {
@@ -456,7 +435,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortNatAddresses(lspName, natAddresses str
 	return nil
 }
 
-// SetLogicalSwitchPortSecurity set logical switch port port_security
 func (c *OVNNbClient) SetLogicalSwitchPortSecurity(portSecurity bool, lspName, mac, ips, vips string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, false)
 	if err != nil {
@@ -478,17 +456,14 @@ func (c *OVNNbClient) SetLogicalSwitchPortSecurity(portSecurity bool, lspName, m
 		addresses = append(addresses, mac)
 		addresses = append(addresses, ipList...)
 
-		// it's necessary to add vip to port_security
 		if vips != "" {
 			addresses = append(addresses, vipList...)
 		}
 
-		// addresses is the first element of port_security
 		lsp.PortSecurity = []string{strings.TrimSpace(strings.Join(addresses, " "))}
 	}
 
 	if vips != "" {
-		// be careful that don't overwrite origin ExternalIDs
 		if lsp.ExternalIDs == nil {
 			lsp.ExternalIDs = make(map[string]string)
 		}
@@ -507,7 +482,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortSecurity(portSecurity bool, lspName, m
 	return nil
 }
 
-// SetLogicalSwitchPortExternalIDs sets logical switch port external ids
 func (c *OVNNbClient) SetLogicalSwitchPortExternalIDs(lspName string, externalIDs map[string]string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, false)
 	if err != nil {
@@ -533,8 +507,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortExternalIDs(lspName string, externalID
 	return nil
 }
 
-// SetLogicalSwitchPortSecurityGroup set logical switch port security group,
-// op is 'add' or 'remove'
 func (c *OVNNbClient) SetLogicalSwitchPortSecurityGroup(lsp *ovnnb.LogicalSwitchPort, op string, sgs ...string) ([]string, error) {
 	if len(sgs) == 0 {
 		return nil, nil
@@ -550,7 +522,7 @@ func (c *OVNNbClient) SetLogicalSwitchPortSecurityGroup(lsp *ovnnb.LogicalSwitch
 		associatedSgKey := associatedSgKeyPrefix + sgName
 		if op == "add" {
 			if oldSgs.Has(sgName) {
-				continue // ignore existent
+				continue
 			}
 
 			lsp.ExternalIDs[associatedSgKey] = "true"
@@ -558,7 +530,7 @@ func (c *OVNNbClient) SetLogicalSwitchPortSecurityGroup(lsp *ovnnb.LogicalSwitch
 			diffSgs = append(diffSgs, sgName)
 		} else {
 			if !oldSgs.Has(sgName) {
-				continue // ignore non-existent
+				continue
 			}
 
 			lsp.ExternalIDs[associatedSgKey] = "false"
@@ -569,7 +541,7 @@ func (c *OVNNbClient) SetLogicalSwitchPortSecurityGroup(lsp *ovnnb.LogicalSwitch
 
 	newSgs := strings.Join(oldSgs.List(), "/")
 	lsp.ExternalIDs[sgsKey] = newSgs
-	if len(newSgs) == 0 { // when all sgs had been removed, delete sgsKey
+	if len(newSgs) == 0 {
 		delete(lsp.ExternalIDs, sgsKey)
 	}
 
@@ -580,17 +552,14 @@ func (c *OVNNbClient) SetLogicalSwitchPortSecurityGroup(lsp *ovnnb.LogicalSwitch
 	return diffSgs, nil
 }
 
-// SetLogicalSwitchPortsSecurityGroup set logical switch port security group,
-// op is 'add' or 'remove'
 func (c *OVNNbClient) SetLogicalSwitchPortsSecurityGroup(sgName, op string) error {
 	if op != "add" && op != "remove" {
 		return errors.New("op must be 'add' or 'remove'")
 	}
 
-	/* list sg port */
 	associatedSgKey := associatedSgKeyPrefix + sgName
-	associated := "false" // list false associated sg port when add sg to port external_ids
-	if op == "remove" {   // list true associated sg port when remove sg from port external_ids
+	associated := "false"
+	if op == "remove" {
 		associated = "true"
 	}
 
@@ -601,7 +570,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortsSecurityGroup(sgName, op string) erro
 		return fmt.Errorf("list logical switch ports with external_ids %v: %w", externalIDs, err)
 	}
 
-	/* add to or remove from sgs form port external_ids */
 	for _, lsp := range lsps {
 		if _, err := c.SetLogicalSwitchPortSecurityGroup(&lsp, op, sgName); err != nil {
 			klog.Error(err)
@@ -612,7 +580,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortsSecurityGroup(sgName, op string) erro
 	return nil
 }
 
-// EnablePortLayer2forward adds "unknown" to logical switch port's addresses
 func (c *OVNNbClient) EnablePortLayer2forward(lspName string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, false)
 	if err != nil {
@@ -638,7 +605,6 @@ func (c *OVNNbClient) EnablePortLayer2forward(lspName string) error {
 }
 
 func (c *OVNNbClient) SetLogicalSwitchPortVlanTag(lspName string, vlanID int) error {
-	// valid vlan id is 0~4095
 	if vlanID < 0 || vlanID > 4095 {
 		return fmt.Errorf("invalid vlan id %d", vlanID)
 	}
@@ -655,7 +621,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortVlanTag(lspName string, vlanID int) er
 		return err
 	}
 
-	// no need update vlan id when vlan id is the same
 	if lsp.Tag != nil && *lsp.Tag == vlanID {
 		return nil
 	}
@@ -673,7 +638,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortVlanTag(lspName string, vlanID int) er
 	return nil
 }
 
-// UpdateLogicalSwitchPort update logical switch port
 func (c *OVNNbClient) UpdateLogicalSwitchPort(lsp *ovnnb.LogicalSwitchPort, fields ...any) error {
 	if lsp == nil {
 		err := errors.New("logical switch port is nil")
@@ -695,9 +659,6 @@ func (c *OVNNbClient) UpdateLogicalSwitchPort(lsp *ovnnb.LogicalSwitchPort, fiel
 	return nil
 }
 
-// SetLogicalSwitchPortDHCPOptions updates only the dhcpv4_options and dhcpv6_options fields
-// of a logical switch port. Used to apply per-port DHCP option changes on running pods
-// without rebuilding the entire port.
 func (c *OVNNbClient) SetLogicalSwitchPortDHCPOptions(portName string, dhcpOptions *DHCPOptionsUUIDs) error {
 	lsp, err := c.GetLogicalSwitchPort(portName, false)
 	if err != nil {
@@ -713,7 +674,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortDHCPOptions(portName string, dhcpOptio
 		desiredV6 = &dhcpOptions.DHCPv6OptionsUUID
 	}
 
-	// Fast path: skip the OVN transaction when nothing changed.
 	v4Same := (lsp.Dhcpv4Options == nil && desiredV4 == nil) ||
 		(lsp.Dhcpv4Options != nil && desiredV4 != nil && *lsp.Dhcpv4Options == *desiredV4)
 	v6Same := (lsp.Dhcpv6Options == nil && desiredV6 == nil) ||
@@ -727,12 +687,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortDHCPOptions(portName string, dhcpOptio
 	return c.UpdateLogicalSwitchPort(lsp, &lsp.Dhcpv4Options, &lsp.Dhcpv6Options)
 }
 
-// ReconcilePortDHCPOptions reconciles per-port DHCP_Options for a logical switch port.
-// When v4Options or v6Options are non-empty (pod has DHCP annotations), it creates/updates
-// per-port DHCP_Options rows and updates the LSP if it already exists.
-// When both are empty, it uses the LSP's current DHCP pointers (compared against subnetDHCP)
-// to detect stale per-port entries, cleaning them up only when needed.
-// Returns the effective DHCP UUIDs and whether per-port override is active.
 func (c *OVNNbClient) ReconcilePortDHCPOptions(
 	lsName, portName string,
 	subnetDHCP *DHCPOptionsUUIDs,
@@ -740,12 +694,11 @@ func (c *OVNNbClient) ReconcilePortDHCPOptions(
 	mtu int,
 ) (*DHCPOptionsUUIDs, bool, error) {
 	if v4Options != "" || v6Options != "" {
-		// Per-port annotations present: create/update per-port DHCP_Options entries.
 		perPortDHCP, err := c.UpdateDHCPOptionsForPort(lsName, portName, cidrBlock, gateway, v4Options, v6Options, mtu)
 		if err != nil {
 			return nil, false, err
 		}
-		// Fall back to subnet-level for families without per-port annotation.
+
 		result := &DHCPOptionsUUIDs{
 			DHCPv4OptionsUUID: perPortDHCP.DHCPv4OptionsUUID,
 			DHCPv6OptionsUUID: perPortDHCP.DHCPv6OptionsUUID,
@@ -757,8 +710,6 @@ func (c *OVNNbClient) ReconcilePortDHCPOptions(
 			result.DHCPv6OptionsUUID = subnetDHCP.DHCPv6OptionsUUID
 		}
 
-		// Update LSP if it already exists (reconcile path for running pods).
-		// For creation path, LSP doesn't exist yet; the caller passes UUIDs to CreateLogicalSwitchPort.
 		lsp, err := c.GetLogicalSwitchPort(portName, true)
 		if err != nil {
 			return nil, false, err
@@ -771,14 +722,11 @@ func (c *OVNNbClient) ReconcilePortDHCPOptions(
 		return result, true, nil
 	}
 
-	// No per-port annotations: check if stale per-port entries need cleanup
-	// by comparing the LSP's current DHCP pointers with subnet-level UUIDs.
 	lsp, err := c.GetLogicalSwitchPort(portName, true)
 	if err != nil {
 		return subnetDHCP, false, err
 	}
 	if lsp == nil {
-		// Creation path: LSP doesn't exist yet. No stale entries possible.
 		return subnetDHCP, false, nil
 	}
 
@@ -791,11 +739,9 @@ func (c *OVNNbClient) ReconcilePortDHCPOptions(
 	currentV6 := ptrToString(lsp.Dhcpv6Options)
 
 	if currentV4 == subnetV4 && currentV6 == subnetV6 {
-		// Fast path: LSP's DHCP pointers match subnet-level. No per-port DHCP, nothing to do.
 		return subnetDHCP, false, nil
 	}
 
-	// Stale per-port entries exist (or LSP pointers are outdated): clean up and revert.
 	if err := c.DeleteDHCPOptionsForPort(portName); err != nil {
 		return nil, false, err
 	}
@@ -805,8 +751,6 @@ func (c *OVNNbClient) ReconcilePortDHCPOptions(
 	return subnetDHCP, false, nil
 }
 
-// updateLSPDHCPPointers updates the dhcpv4_options and dhcpv6_options fields on an
-// already-fetched LSP object. Skips the OVN transaction when nothing changed.
 func (c *OVNNbClient) updateLSPDHCPPointers(lsp *ovnnb.LogicalSwitchPort, dhcpOptions *DHCPOptionsUUIDs) error {
 	var desiredV4, desiredV6 *string
 	if dhcpOptions != nil && dhcpOptions.DHCPv4OptionsUUID != "" {
@@ -836,7 +780,6 @@ func ptrToString(p *string) string {
 	return *p
 }
 
-// DeleteLogicalSwitchPort deletes a logical switch port and its associated per-port DHCP options.
 func (c *OVNNbClient) DeleteLogicalSwitchPort(lspName string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, true)
 	if err != nil {
@@ -847,7 +790,6 @@ func (c *OVNNbClient) DeleteLogicalSwitchPort(lspName string) error {
 		return nil
 	}
 
-	// Clean up per-port DHCP entries before deleting the LSP (best-effort).
 	if err := c.DeleteDHCPOptionsForPort(lspName); err != nil {
 		klog.Warningf("failed to delete per-port dhcp options for %s during LSP deletion: %v", lspName, err)
 	}
@@ -870,7 +812,6 @@ func (c *OVNNbClient) DeleteLogicalSwitchPortByUUID(lsName, lspUUID string) erro
 	return nil
 }
 
-// DeleteLogicalSwitchPorts delete logical switch port from logical switch
 func (c *OVNNbClient) DeleteLogicalSwitchPorts(externalIDs map[string]string, filter func(lrp *ovnnb.LogicalSwitchPort) bool) error {
 	lspList, err := c.ListLogicalSwitchPorts(false, externalIDs, filter)
 	if err != nil {
@@ -896,7 +837,6 @@ func (c *OVNNbClient) DeleteLogicalSwitchPorts(externalIDs map[string]string, fi
 	return nil
 }
 
-// GetLogicalSwitchPort get logical switch port by name
 func (c *OVNNbClient) GetLogicalSwitchPort(lspName string, ignoreNotFound bool) (*ovnnb.LogicalSwitchPort, error) {
 	if lspName == "" {
 		err := errors.New("logical switch port name is empty")
@@ -917,7 +857,6 @@ func (c *OVNNbClient) GetLogicalSwitchPort(lspName string, ignoreNotFound bool) 
 	return lsp, nil
 }
 
-// ListNormalLogicalSwitchPorts list logical switch ports which type is ""
 func (c *OVNNbClient) ListNormalLogicalSwitchPorts(needVendorFilter bool, externalIDs map[string]string) ([]ovnnb.LogicalSwitchPort, error) {
 	lsps, err := c.ListLogicalSwitchPorts(needVendorFilter, externalIDs, func(lsp *ovnnb.LogicalSwitchPort) bool {
 		return lsp.Type == ""
@@ -930,7 +869,6 @@ func (c *OVNNbClient) ListNormalLogicalSwitchPorts(needVendorFilter bool, extern
 	return lsps, nil
 }
 
-// ListLogicalSwitchPortsWithLegacyExternalIDs list logical switch ports with legacy external-ids
 func (c *OVNNbClient) ListLogicalSwitchPortsWithLegacyExternalIDs() ([]ovnnb.LogicalSwitchPort, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -946,7 +884,6 @@ func (c *OVNNbClient) ListLogicalSwitchPortsWithLegacyExternalIDs() ([]ovnnb.Log
 	return lspList, nil
 }
 
-// ListLogicalSwitchPorts list logical switch ports
 func (c *OVNNbClient) ListLogicalSwitchPorts(needVendorFilter bool, externalIDs map[string]string, filter func(lsp *ovnnb.LogicalSwitchPort) bool) ([]ovnnb.LogicalSwitchPort, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -966,7 +903,6 @@ func (c *OVNNbClient) LogicalSwitchPortExists(name string) (bool, error) {
 	return lsp != nil, err
 }
 
-// CreateLogicalSwitchPortOp create operations which create logical switch port
 func (c *OVNNbClient) CreateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, lsName string) ([]ovsdb.Operation, error) {
 	if lsp == nil {
 		return nil, errors.New("logical_switch_port is nil")
@@ -976,11 +912,9 @@ func (c *OVNNbClient) CreateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, ls
 		lsp.ExternalIDs = make(map[string]string)
 	}
 
-	// attach necessary info
 	lsp.ExternalIDs[LogicalSwitchKey] = lsName
 	lsp.ExternalIDs["vendor"] = util.VendorTag
 
-	/* create logical switch port */
 	klog.V(3).Infof("create logical switch port %s in logical switch %s", lsp.Name, lsName)
 	lspCreateOp, err := c.Create(lsp)
 	if err != nil {
@@ -988,7 +922,6 @@ func (c *OVNNbClient) CreateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, ls
 		return nil, fmt.Errorf("generate operations for creating logical switch port %s: %w", lsp.Name, err)
 	}
 
-	/* add logical switch port to logical switch*/
 	lspAddOp, err := c.LogicalSwitchUpdatePortOp(lsName, lsp.UUID, ovsdb.MutateOperationInsert)
 	if err != nil {
 		klog.Error(err)
@@ -1002,7 +935,6 @@ func (c *OVNNbClient) CreateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, ls
 	return ops, nil
 }
 
-// DeleteLogicalSwitchPortOp create operations which delete logical switch port
 func (c *OVNNbClient) DeleteLogicalSwitchPortOp(lsName, lspUUID string) ([]ovsdb.Operation, error) {
 	if lsName != "" {
 		exist, err := c.LogicalSwitchExists(lsName)
@@ -1023,9 +955,7 @@ func (c *OVNNbClient) DeleteLogicalSwitchPortOp(lsName, lspUUID string) ([]ovsdb
 	return ops, nil
 }
 
-// UpdateLogicalSwitchPortOp create operations which update logical switch port
 func (c *OVNNbClient) UpdateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, fields ...any) ([]ovsdb.Operation, error) {
-	// not found, skip
 	if lsp == nil {
 		return nil, nil
 	}
@@ -1039,7 +969,6 @@ func (c *OVNNbClient) UpdateLogicalSwitchPortOp(lsp *ovnnb.LogicalSwitchPort, fi
 	return op, nil
 }
 
-// logicalSwitchPortFilter filter logical_switch_port which match the given externalIDs and the custom filter
 func logicalSwitchPortFilter(needVendorFilter bool, externalIDs map[string]string, filter func(lsp *ovnnb.LogicalSwitchPort) bool) func(lsp *ovnnb.LogicalSwitchPort) bool {
 	return func(lsp *ovnnb.LogicalSwitchPort) bool {
 		if needVendorFilter && (len(lsp.ExternalIDs) == 0 || lsp.ExternalIDs["vendor"] != util.VendorTag) {
@@ -1051,8 +980,6 @@ func logicalSwitchPortFilter(needVendorFilter bool, externalIDs map[string]strin
 
 		if len(lsp.ExternalIDs) != 0 {
 			for k, v := range externalIDs {
-				// if only key exist but not value in externalIDs, we should include this lsp,
-				// it's equal to shell command `ovn-nbctl --columns=xx find logical_switch_port external_ids:key!=\"\"`
 				if len(v) == 0 {
 					if len(lsp.ExternalIDs[k]) == 0 {
 						return false
@@ -1073,7 +1000,6 @@ func logicalSwitchPortFilter(needVendorFilter bool, externalIDs map[string]strin
 	}
 }
 
-// getLogicalSwitchPortSgs get logical switch port security group
 func getLogicalSwitchPortSgs(lsp *ovnnb.LogicalSwitchPort) *strset.Set {
 	sgs := strset.New()
 	if lsp != nil {
@@ -1087,7 +1013,6 @@ func getLogicalSwitchPortSgs(lsp *ovnnb.LogicalSwitchPort) *strset.Set {
 	return sgs
 }
 
-// SetLogicalSwitchPortActivationStrategy sets activation-strategy to rarp for the logical switch port
 func (c *OVNNbClient) SetLogicalSwitchPortActivationStrategy(lspName, chassis string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, false)
 	if err != nil {
@@ -1124,10 +1049,7 @@ func (c *OVNNbClient) SetLogicalSwitchPortActivationStrategy(lspName, chassis st
 	return nil
 }
 
-// SetLogicalSwitchPortMigrateOptions set logical switch port options of migrate
 func (c *OVNNbClient) SetLogicalSwitchPortMigrateOptions(lspName, srcNodeName, targetNodeName string) error {
-	// to facilitate the migration of the VM: ovn-nbctl lsp-set-options migrator requested-chassis=src,target activation-strategy=rarp
-	// the options will be removed after the migration is completed
 	if srcNodeName == "" || targetNodeName == "" {
 		err := fmt.Errorf("src and target node can not be empty on migrator port %s", lspName)
 		klog.Error(err)
@@ -1151,7 +1073,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortMigrateOptions(lspName, srcNodeName, t
 	}
 
 	if src == srcNodeName && target == targetNodeName {
-		// already set
 		return nil
 	}
 
@@ -1170,7 +1091,6 @@ func (c *OVNNbClient) SetLogicalSwitchPortMigrateOptions(lspName, srcNodeName, t
 	return nil
 }
 
-// GetLogicalSwitchPortMigrateOptions get logical switch port src and target node name options of migrate
 func (c *OVNNbClient) GetLogicalSwitchPortMigrateOptions(lspName string) (*ovnnb.LogicalSwitchPort, string, string, error) {
 	lsp, err := c.GetLogicalSwitchPort(lspName, false)
 	if err != nil {
@@ -1219,7 +1139,6 @@ func (c *OVNNbClient) ResetLogicalSwitchPortMigrateOptions(lspName, srcNodeName,
 		return nil
 	}
 	if migratedFail {
-		// rollback
 		klog.Infof("reset migrator port %s to source node %s", lspName, srcNodeName)
 		lsp.Options["requested-chassis"] = srcNodeName
 	} else {
@@ -1235,7 +1154,6 @@ func (c *OVNNbClient) ResetLogicalSwitchPortMigrateOptions(lspName, srcNodeName,
 	return nil
 }
 
-// CleanLogicalSwitchPortMigrateOptions clean logical switch port options of migration
 func (c *OVNNbClient) CleanLogicalSwitchPortMigrateOptions(lspName string) error {
 	lsp, err := c.GetLogicalSwitchPort(lspName, true)
 	if err != nil {
@@ -1252,8 +1170,7 @@ func (c *OVNNbClient) CleanLogicalSwitchPortMigrateOptions(lspName string) error
 	if _, ok := lsp.Options["requested-chassis"]; !ok {
 		return nil
 	}
-	// migrated pod port has requested-chassis, if pod force deleted, the vm pod may schedule to another node
-	// if not clean the requested-chassis, the pod has no network connectivity
+
 	delete(lsp.Options, "requested-chassis")
 	delete(lsp.Options, "activation-strategy")
 	klog.Infof("cleaned migrator logical switch port %s options: %v", lspName, lsp.Options)

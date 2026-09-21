@@ -13,7 +13,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/ovs"
 )
 
-// IncrementErrorCounter increases the counter of failed queries to OVN server.
 func (e *Exporter) IncrementErrorCounter() {
 	e.errorsLocker.Lock()
 	defer e.errorsLocker.Unlock()
@@ -48,7 +47,6 @@ func (e *Exporter) getOvsDatapath() ([]string, error) {
 			datapath := strings.Split(line, "@")
 			datapathType, datapathName = datapath[0], datapath[1]
 		} else {
-			// There are two lines for "system@ovs-system\n", the second line is nil, ignore this situation
 			continue
 		}
 		metricOvsDp.WithLabelValues(e.Client.System.Hostname, datapathName, datapathType).Set(1)

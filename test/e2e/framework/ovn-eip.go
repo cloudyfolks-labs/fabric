@@ -21,7 +21,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// OvnEipClient is a struct for ovn eip client.
 type OvnEipClient struct {
 	f *Framework
 	v1.OvnEipInterface
@@ -41,7 +40,6 @@ func (c *OvnEipClient) Get(name string) *apiv1.OvnEip {
 	return eip
 }
 
-// Create creates a new ovn eip according to the framework specifications
 func (c *OvnEipClient) Create(eip *apiv1.OvnEip) *apiv1.OvnEip {
 	ginkgo.GinkgoHelper()
 	eip, err := c.OvnEipInterface.Create(context.TODO(), eip, metav1.CreateOptions{})
@@ -49,17 +47,15 @@ func (c *OvnEipClient) Create(eip *apiv1.OvnEip) *apiv1.OvnEip {
 	return eip.DeepCopy()
 }
 
-// CreateSync creates a new ovn eip according to the framework specifications, and waits for it to be ready.
 func (c *OvnEipClient) CreateSync(eip *apiv1.OvnEip) *apiv1.OvnEip {
 	ginkgo.GinkgoHelper()
 
 	eip = c.Create(eip)
 	ExpectTrue(c.WaitToBeReady(eip.Name, timeout))
-	// Get the newest ovn eip after it becomes ready
+
 	return c.Get(eip.Name).DeepCopy()
 }
 
-// Patch patches the ovn eip
 func (c *OvnEipClient) Patch(original, modified *apiv1.OvnEip) *apiv1.OvnEip {
 	ginkgo.GinkgoHelper()
 
@@ -87,19 +83,16 @@ func (c *OvnEipClient) Patch(original, modified *apiv1.OvnEip) *apiv1.OvnEip {
 	return nil
 }
 
-// PatchSync patches the ovn eip and waits for the ovn eip to be ready for `timeout`.
-// If the ovn eip doesn't become ready before the timeout, it will fail the test.
 func (c *OvnEipClient) PatchSync(original, modified *apiv1.OvnEip, timeout time.Duration) *apiv1.OvnEip {
 	ginkgo.GinkgoHelper()
 
 	eip := c.Patch(original, modified)
 	ExpectTrue(c.WaitToBeUpdated(eip, timeout))
 	ExpectTrue(c.WaitToBeReady(eip.Name, timeout))
-	// Get the newest ovn eip after it becomes ready
+
 	return c.Get(eip.Name).DeepCopy()
 }
 
-// Delete deletes a ovn eip if the ovn eip exists
 func (c *OvnEipClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.OvnEipInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -108,15 +101,12 @@ func (c *OvnEipClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the ovn eip and waits for the ovn eip to disappear for `timeout`.
-// If the ovn eip doesn't disappear before the timeout, it will fail the test.
 func (c *OvnEipClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for ovn eip %q to disappear", name)
 }
 
-// WaitToBeReady returns whether the ovn eip is ready within timeout.
 func (c *OvnEipClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	Logf("Waiting up to %v for ovn eip %s to be ready", timeout, name)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
@@ -130,7 +120,6 @@ func (c *OvnEipClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	return false
 }
 
-// WaitToBeUpdated returns whether the ovn eip is updated within timeout.
 func (c *OvnEipClient) WaitToBeUpdated(eip *apiv1.OvnEip, timeout time.Duration) bool {
 	Logf("Waiting up to %v for ovn eip %s to be updated", timeout, eip.Name)
 	rv, _ := big.NewInt(0).SetString(eip.ResourceVersion, 10)
@@ -144,7 +133,6 @@ func (c *OvnEipClient) WaitToBeUpdated(eip *apiv1.OvnEip, timeout time.Duration)
 	return false
 }
 
-// WaitToDisappear waits the given timeout duration for the specified OVN EIP to disappear.
 func (c *OvnEipClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.OvnEip, error) {
 		eip, err := c.OvnEipInterface.Get(ctx, name, metav1.GetOptions{})

@@ -21,7 +21,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// OvnSnatRuleClient is a struct for ovn snat client.
 type OvnSnatRuleClient struct {
 	f *Framework
 	v1.OvnSnatRuleInterface
@@ -41,7 +40,6 @@ func (c *OvnSnatRuleClient) Get(name string) *apiv1.OvnSnatRule {
 	return snat
 }
 
-// Create creates a new ovn snat according to the framework specifications
 func (c *OvnSnatRuleClient) Create(snat *apiv1.OvnSnatRule) *apiv1.OvnSnatRule {
 	ginkgo.GinkgoHelper()
 	snat, err := c.OvnSnatRuleInterface.Create(context.TODO(), snat, metav1.CreateOptions{})
@@ -49,17 +47,15 @@ func (c *OvnSnatRuleClient) Create(snat *apiv1.OvnSnatRule) *apiv1.OvnSnatRule {
 	return snat.DeepCopy()
 }
 
-// CreateSync creates a new ovn snat according to the framework specifications, and waits for it to be ready.
 func (c *OvnSnatRuleClient) CreateSync(snat *apiv1.OvnSnatRule) *apiv1.OvnSnatRule {
 	ginkgo.GinkgoHelper()
 
 	snat = c.Create(snat)
 	ExpectTrue(c.WaitToBeReady(snat.Name, timeout))
-	// Get the newest ovn snat after it becomes ready
+
 	return c.Get(snat.Name).DeepCopy()
 }
 
-// Patch patches the ovn snat
 func (c *OvnSnatRuleClient) Patch(original, modified *apiv1.OvnSnatRule) *apiv1.OvnSnatRule {
 	ginkgo.GinkgoHelper()
 
@@ -87,19 +83,16 @@ func (c *OvnSnatRuleClient) Patch(original, modified *apiv1.OvnSnatRule) *apiv1.
 	return nil
 }
 
-// PatchSync patches the ovn snat and waits for the ovn snat to be ready for `timeout`.
-// If the ovn snat doesn't become ready before the timeout, it will fail the test.
 func (c *OvnSnatRuleClient) PatchSync(original, modified *apiv1.OvnSnatRule, _ []string, timeout time.Duration) *apiv1.OvnSnatRule {
 	ginkgo.GinkgoHelper()
 
 	snat := c.Patch(original, modified)
 	ExpectTrue(c.WaitToBeUpdated(snat, timeout))
 	ExpectTrue(c.WaitToBeReady(snat.Name, timeout))
-	// Get the newest ovn snat after it becomes ready
+
 	return c.Get(snat.Name).DeepCopy()
 }
 
-// Delete deletes a ovn snat if the ovn snat exists
 func (c *OvnSnatRuleClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.OvnSnatRuleInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -108,15 +101,12 @@ func (c *OvnSnatRuleClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the ovn snat and waits for the ovn snat to disappear for `timeout`.
-// If the ovn snat doesn't disappear before the timeout, it will fail the test.
 func (c *OvnSnatRuleClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for ovn snat %q to disappear", name)
 }
 
-// WaitToBeReady returns whether the ovn snat is ready within timeout.
 func (c *OvnSnatRuleClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	Logf("Waiting up to %v for ovn snat %s to be ready", timeout, name)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
@@ -130,7 +120,6 @@ func (c *OvnSnatRuleClient) WaitToBeReady(name string, timeout time.Duration) bo
 	return false
 }
 
-// WaitToBeUpdated returns whether the ovn snat is updated within timeout.
 func (c *OvnSnatRuleClient) WaitToBeUpdated(snat *apiv1.OvnSnatRule, timeout time.Duration) bool {
 	Logf("Waiting up to %v for ovn snat %s to be updated", timeout, snat.Name)
 	rv, _ := big.NewInt(0).SetString(snat.ResourceVersion, 10)
@@ -144,7 +133,6 @@ func (c *OvnSnatRuleClient) WaitToBeUpdated(snat *apiv1.OvnSnatRule, timeout tim
 	return false
 }
 
-// WaitToDisappear waits the given timeout duration for the specified OVN SNAT rule to disappear.
 func (c *OvnSnatRuleClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.OvnSnatRule, error) {
 		rule, err := c.OvnSnatRuleInterface.Get(ctx, name, metav1.GetOptions{})

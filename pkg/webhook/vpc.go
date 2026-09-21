@@ -79,7 +79,7 @@ func (v *ValidatingHook) VpcDeleteHook(ctx context.Context, req admission.Reques
 	if err := v.cache.List(ctx, dnatList); err != nil {
 		return ctrlwebhook.Errored(http.StatusInternalServerError, err)
 	}
-	// Use Status.Vpc first as vpc may be inferred from spec.ipName if not in spec.
+
 	for _, item := range dnatList.Items {
 		referencedVpc := item.Status.Vpc
 		if referencedVpc == "" {
@@ -94,7 +94,7 @@ func (v *ValidatingHook) VpcDeleteHook(ctx context.Context, req admission.Reques
 	if err := v.cache.List(ctx, snatList); err != nil {
 		return ctrlwebhook.Errored(http.StatusInternalServerError, err)
 	}
-	// Use Status.Vpc first as vpc may be inferred from spec.ipName if not in spec.
+
 	for _, item := range snatList.Items {
 		referencedVpc := item.Status.Vpc
 		if referencedVpc == "" {
@@ -109,7 +109,7 @@ func (v *ValidatingHook) VpcDeleteHook(ctx context.Context, req admission.Reques
 	if err := v.cache.List(ctx, fipList); err != nil {
 		return ctrlwebhook.Errored(http.StatusInternalServerError, err)
 	}
-	// Use Status.Vpc first as vpc may be inferred from spec.ipName if not in spec.
+
 	for _, item := range fipList.Items {
 		referencedVpc := item.Status.Vpc
 		if referencedVpc == "" {

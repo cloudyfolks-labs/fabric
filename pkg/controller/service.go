@@ -37,8 +37,6 @@ func (c *Controller) enqueueAddService(obj any) {
 	svc := obj.(*v1.Service)
 	key := cache.MetaObjectToName(svc).String()
 
-	// the queue consumers only run when EnableLb is set, so skip
-	// enqueueing to avoid unbounded accumulation when it is not
 	if c.config.EnableLb {
 		klog.V(3).Infof("enqueue add service %s", key)
 		c.addOrUpdateEndpointSliceQueue.Add(key)
@@ -125,10 +123,6 @@ func (c *Controller) enqueueUpdateService(oldObj, newObj any) {
 	oldClusterIps := getVipIps(oldSvc)
 	newClusterIps := getVipIps(newSvc)
 
-	// skip updates that touch none of the fields consumed by handleUpdateService,
-	// e.g. status noise or third-party annotation churn bumping the resource version.
-	// LoadBalancer services are always enqueued: their reconcile also depends on
-	// status.loadBalancer.ingress and the lb-svc attachment deployment.
 	if newSvc.Spec.Type != v1.ServiceTypeLoadBalancer &&
 		oldSvc.DeletionTimestamp.Equal(newSvc.DeletionTimestamp) &&
 		oldSvc.Annotations[util.VpcAnnotation] == newSvc.Annotations[util.VpcAnnotation] &&
@@ -294,7 +288,6 @@ func (c *Controller) handleUpdateService(svcObject *updateSvcObject) error {
 		ignoreHealthCheck       = true
 	)
 
-	// for service update
 	updateVip := func(lbName, oLbName string, svcVips []string) error {
 		if len(lbName) == 0 {
 			return nil
@@ -372,7 +365,7 @@ func (c *Controller) handleUpdateService(svcObject *updateSvcObject) error {
 	if needUpdateEndpointQueue {
 		c.addOrUpdateEndpointSliceQueue.Add(key)
 	}
-	// add the svc key which has the same vip
+
 	vip, ok := svc.Annotations[util.SwitchLBRuleVipsAnnotation]
 	if ok && vip != "" {
 		allSlrs, err := c.switchLBRuleLister.List(labels.Everything())
@@ -391,7 +384,6 @@ func (c *Controller) handleUpdateService(svcObject *updateSvcObject) error {
 	return nil
 }
 
-// Parse key of map, [fd00:10:96::11c9]:10665 for example
 func parseVipAddr(vip string) string {
 	host, _, err := net.SplitHostPort(vip)
 	if err != nil {
@@ -432,8 +424,6 @@ func getVipIps(svc *v1.Service) []string {
 }
 
 func (c *Controller) checkServiceLBIPBelongToSubnet(svc *v1.Service) error {
-	// resolve the subnet whose CIDR contains the service external IP.
-	// only list subnets when there is an external IP to match against.
 	desiredSubnet := ""
 	if len(svc.Status.LoadBalancer.Ingress) > 0 {
 		subnets, err := c.subnetsLister.List(labels.Everything())
@@ -443,13 +433,10 @@ func (c *Controller) checkServiceLBIPBelongToSubnet(svc *v1.Service) error {
 		}
 		for _, subnet := range subnets {
 			for _, ingress := range svc.Status.LoadBalancer.Ingress {
-				// ingress entries may carry only a Hostname; skip empty IPs to
-				// avoid noisy error logs from CIDRContainIP
 				if ingress.IP == "" {
 					continue
 				}
 				if util.CIDRContainIP(subnet.Spec.CIDRBlock, ingress.IP) {
-					// inner break only, keep the original "last matching subnet wins" semantics
 					desiredSubnet = subnet.Name
 					break
 				}
@@ -457,9 +444,6 @@ func (c *Controller) checkServiceLBIPBelongToSubnet(svc *v1.Service) error {
 		}
 	}
 
-	// nothing changed, skip the DeepCopy and the redundant API update to avoid
-	// generating a no-op watch event on every reconcile. when no subnet matches
-	// the annotation must be absent, so an explicit empty value is still removed.
 	cur, ok := svc.Annotations[util.ServiceExternalIPFromSubnetAnnotation]
 	if desiredSubnet == "" {
 		if !ok {

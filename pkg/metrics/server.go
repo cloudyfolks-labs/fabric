@@ -67,10 +67,6 @@ func CipherSuitesFromNames(suites []string) ([]uint16, error) {
 	return cipherSuites, nil
 }
 
-// Run creates a listener on addr and starts serving metrics.
-// The listener is created synchronously before this function blocks on
-// serving, so callers can rely on the bind completing before Run returns
-// an error or starts serving.
 func Run(ctx context.Context, config *rest.Config, addr string, secureServing, withPprof bool, tlsMinVersion, tlsMaxVersion string, tlsCipherSuites []string) error {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -79,9 +75,6 @@ func Run(ctx context.Context, config *rest.Config, addr string, secureServing, w
 	return ServeWithListener(ctx, config, listener, secureServing, withPprof, tlsMinVersion, tlsMaxVersion, tlsCipherSuites)
 }
 
-// ServeWithListener starts a metrics server using a pre-created listener.
-// This avoids the race condition where the listener creation and address
-// transfer happen concurrently, causing bind failures.
 func ServeWithListener(ctx context.Context, config *rest.Config, listener net.Listener, secureServing, withPprof bool, tlsMinVersion, tlsMaxVersion string, tlsCipherSuites []string) error {
 	if config == nil {
 		config = ctrl.GetConfigOrDie()
@@ -93,9 +86,6 @@ func ServeWithListener(ctx context.Context, config *rest.Config, listener net.Li
 		ErrorHandling: promhttp.HTTPErrorOnError,
 	})
 
-	// When secureServing is enabled, wrap handlers with auth filter.
-	// Health check endpoints are exempt from auth, matching the
-	// behavior of the filterProvider used in the controller-runtime path.
 	var authFilter func(logr.Logger, http.Handler) (http.Handler, error)
 	if secureServing {
 		client, err := rest.HTTPClientFor(config)

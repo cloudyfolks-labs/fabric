@@ -20,7 +20,6 @@ func TestCheckSystemCIDR(t *testing.T) {
 		config []string
 		expect string
 	}{
-		// for all check
 		{"1v4", []string{"10.16.0.0/16"}, ""},
 		{"v4", []string{"10.16.0.0/16", "10.96.0.0/12", "100.64.0.0/16"}, ""},
 		{"dual", []string{"10.16.0.0/16,fd00:10:16::/64", "10.96.0.0/12,fd00:10:96::/112", "100.64.0.0/16,fd00:100:64::/64"}, ""},
@@ -30,7 +29,7 @@ func TestCheckSystemCIDR(t *testing.T) {
 		{"127", []string{"10.16.0.0/16", "10.96.0.0/12", "127.127.0.0/16"}, "127.127.0.0/16 conflict with v4 loopback cidr 127.0.0.1/8"},
 		{"255", []string{"10.16.0.0/16", "10.96.0.0/12", "255.255.0.0/16"}, "255.255.0.0/16 conflict with v4 broadcast cidr 255.255.255.255/32"},
 		{"ff80", []string{"10.16.0.0/16,ff80::/64", "10.96.0.0/12,fd00:10:96::/112", "100.64.0.0/16,fd00:100:64::/64"}, "10.16.0.0/16,ff80::/64 conflict with v6 multicast cidr ff00::/8"},
-		// overlap only
+
 		{"overlapped", []string{"10.16.0.0/16", "10.96.0.0/12", "10.96.0.2/16"}, "conflict with cidr"},
 	}
 
@@ -52,12 +51,11 @@ func TestCIDROverlap(t *testing.T) {
 		subnet2 string
 		expect  bool
 	}{
-		// for all check
 		{"v4", "10.16.0.0/16", "10.96.0.0/12", false},
 		{"dual", "10.16.0.0/16,fd00:10:16::/64", "10.96.0.0/12,fd00:10:96::/112", false},
 		{"v6", "fd00:10:16::/64", "fd00:10:96::/112", false},
 		{"overlap", "10.96.0.0/12", "10.96.0.2/16", true},
-		// overlap only, spec ignore
+
 		{"spec", "10.16.0.0/16", "169.254.0.0/12", false},
 		{"allerr", "10.16.0/16", "169.254.0/12", false},
 	}
@@ -79,7 +77,6 @@ func TestCIDRGlobalUnicast(t *testing.T) {
 		subnet string
 		expect string
 	}{
-		// for all check
 		{"1v4", "10.16.0.0/16", ""},
 		{"dual", "10.16.0.0/16,fd00:10:16::/64", ""},
 		{"v6", "fd00:10:16::/64", ""},
@@ -234,7 +231,6 @@ func TestSubnetBroadcast(t *testing.T) {
 			expect: "192.129.255.255",
 		},
 		{
-			// TODO: this is a bug, the broadcast address should be 192.128.23.1
 			name:   "v4/31",
 			subnet: "192.128.23.0/31",
 			expect: "",
@@ -379,7 +375,6 @@ func TestLastIP(t *testing.T) {
 	}
 }
 
-// unstable function
 func TestCIDRContainIP(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -487,7 +482,6 @@ func TestCheckProtocol(t *testing.T) {
 }
 
 func TestAddressCountBigInt(t *testing.T) {
-	// 2^64 - 2: the expected count for an IPv6 /64 subnet
 	ipv6Slash64Want := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 64), big.NewInt(2))
 
 	tests := []struct {
@@ -1646,14 +1640,13 @@ func Test_CIDRContainIP(t *testing.T) {
 }
 
 func TestTCPConnectivityListen(t *testing.T) {
-	// Start a ipv4 TCP server
 	validEndpoint := "127.0.0.1:65531"
 	err := TCPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
 	invalidEndpoint := "127.0.0.1:65536"
 	err = TCPConnectivityListen(invalidEndpoint)
 	require.Error(t, err)
-	// Start a ipv6 TCP server
+
 	validEndpoint = "[::1]:65531"
 	err = TCPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
@@ -1663,7 +1656,6 @@ func TestTCPConnectivityListen(t *testing.T) {
 }
 
 func TestTCPConnectivityCheck(t *testing.T) {
-	// Start a ipv4 TCP server
 	validEndpoint := "127.0.0.1:65532"
 	err := TCPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
@@ -1672,7 +1664,7 @@ func TestTCPConnectivityCheck(t *testing.T) {
 	invalidEndpoint := "127.0.0.1:65536"
 	err = TCPConnectivityCheck(invalidEndpoint)
 	require.Error(t, err)
-	// Start a ipv6 TCP server
+
 	validEndpoint = "[::1]:65532"
 	err = TCPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
@@ -1684,7 +1676,6 @@ func TestTCPConnectivityCheck(t *testing.T) {
 }
 
 func TestUDPConnectivityListen(t *testing.T) {
-	// Start a ipv4 UDP server
 	validEndpoint := "127.0.0.1:65533"
 	err := UDPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
@@ -1694,7 +1685,7 @@ func TestUDPConnectivityListen(t *testing.T) {
 	invalidEndpoint = "127.0.0.256:65536"
 	err = UDPConnectivityListen(invalidEndpoint)
 	require.Error(t, err)
-	// Start a ipv6 UDP server
+
 	validEndpoint = "[::1]:65533"
 	err = UDPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
@@ -1707,7 +1698,6 @@ func TestUDPConnectivityListen(t *testing.T) {
 }
 
 func TestUDPConnectivityCheck(t *testing.T) {
-	// Start a ipv4 UDP server
 	validEndpoint := "127.0.0.1:65534"
 	err := UDPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
@@ -1719,7 +1709,7 @@ func TestUDPConnectivityCheck(t *testing.T) {
 	invalidEndpoint = "127.0.0.256:65536"
 	err = UDPConnectivityCheck(invalidEndpoint)
 	require.Error(t, err)
-	// Start a ipv6 UDP server
+
 	validEndpoint = "[::1]:65534"
 	err = UDPConnectivityListen(validEndpoint)
 	require.NoError(t, err)
@@ -1797,7 +1787,6 @@ func TestInvalidNetworkMask(t *testing.T) {
 	err = InvalidNetworkMask(&validNet)
 	require.Error(t, err)
 
-	// Test for IPv6
 	validNet = net.IPNet{
 		IP:   net.ParseIP("2001:db8::1"),
 		Mask: net.CIDRMask(0, 128),

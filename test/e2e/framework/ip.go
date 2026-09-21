@@ -20,7 +20,6 @@ import (
 	"github.com/cloudyfolks-labs/fabric/pkg/util"
 )
 
-// IPClient is a struct for IP client.
 type IPClient struct {
 	f *Framework
 	v1.IPInterface
@@ -40,7 +39,6 @@ func (c *IPClient) Get(name string) *apiv1.IP {
 	return IP.DeepCopy()
 }
 
-// Create creates a new IP according to the framework specifications
 func (c *IPClient) Create(iP *apiv1.IP) *apiv1.IP {
 	ginkgo.GinkgoHelper()
 	iP, err := c.IPInterface.Create(context.TODO(), iP, metav1.CreateOptions{})
@@ -48,17 +46,15 @@ func (c *IPClient) Create(iP *apiv1.IP) *apiv1.IP {
 	return iP.DeepCopy()
 }
 
-// CreateSync creates a new IP according to the framework specifications, and waits for it to be ready.
 func (c *IPClient) CreateSync(iP *apiv1.IP) *apiv1.IP {
 	ginkgo.GinkgoHelper()
 
 	iP = c.Create(iP)
 	ExpectTrue(c.WaitToBeReady(iP.Name, timeout))
-	// Get the newest IP after it becomes ready
+
 	return c.Get(iP.Name).DeepCopy()
 }
 
-// WaitToBeReady returns whether the IP is ready within timeout.
 func (c *IPClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	Logf("Waiting up to %v for IP %s to be ready", timeout, name)
 	for start := time.Now(); time.Since(start) < timeout; time.Sleep(poll) {
@@ -73,7 +69,6 @@ func (c *IPClient) WaitToBeReady(name string, timeout time.Duration) bool {
 	return false
 }
 
-// Patch patches the IP
 func (c *IPClient) Patch(original, modified *apiv1.IP, timeout time.Duration) *apiv1.IP {
 	ginkgo.GinkgoHelper()
 
@@ -101,7 +96,6 @@ func (c *IPClient) Patch(original, modified *apiv1.IP, timeout time.Duration) *a
 	return nil
 }
 
-// Delete deletes an IP if the IP exists
 func (c *IPClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.IPInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -110,15 +104,12 @@ func (c *IPClient) Delete(name string) {
 	}
 }
 
-// DeleteSync deletes the IP and waits for the IP to disappear for `timeout`.
-// If the IP doesn't disappear before the timeout, it will fail the test.
 func (c *IPClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for ovn eip %q to disappear", name)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified IP to disappear.
 func (c *IPClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := framework.Gomega().Eventually(context.Background(), framework.HandleRetry(func(ctx context.Context) (*apiv1.IP, error) {
 		ip, err := c.IPInterface.Get(ctx, name, metav1.GetOptions{})
@@ -134,8 +125,6 @@ func (c *IPClient) WaitToDisappear(name string, _, timeout time.Duration) error 
 }
 
 func MakeIP(name, ns, subnet string) *apiv1.IP {
-	// pod ip name should include: pod name and namespace
-	// node ip name: only node name
 	IP := &apiv1.IP{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

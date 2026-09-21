@@ -37,7 +37,6 @@ var clusters []string
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)

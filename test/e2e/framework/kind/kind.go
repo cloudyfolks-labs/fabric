@@ -43,11 +43,7 @@ func (n *Node) NetworkConnect(networkID string) error {
 			return nil
 		}
 	}
-	// Connecting a node to the docker network can transiently fail with
-	// "cannot program address ... conflicts with existing route" when a
-	// previous spec's provider-network teardown has not finished flushing the
-	// orphaned route from the node's network namespace. Retry to absorb that
-	// convergence window, and treat an already-connected endpoint as success.
+
 	var lastErr error
 	if err := wait.PollUntilContextTimeout(context.Background(), 2*time.Second, time.Minute, true,
 		func(context.Context) (bool, error) {
@@ -70,10 +66,6 @@ func (n *Node) NetworkConnect(networkID string) error {
 func (n *Node) NetworkDisconnect(networkID string) error {
 	for _, settings := range n.NetworkSettings.Networks {
 		if settings.NetworkID == networkID {
-			// The node snapshot may be stale: docker can report the container
-			// is no longer connected when a previous connect attempt rolled
-			// back. Treat that as success (idempotent), and retry transient
-			// failures while the endpoint is being released.
 			var lastErr error
 			if err := wait.PollUntilContextTimeout(context.Background(), 2*time.Second, time.Minute, true,
 				func(context.Context) (bool, error) {
@@ -170,7 +162,6 @@ func ListClusters() ([]string, error) {
 func ListNodes(cluster, role string) ([]Node, error) {
 	labels := []string{labelCluster + "=" + cluster}
 	if role != "" {
-		// control-plane or worker
 		labels = append(labels, labelRole+"="+role)
 	}
 
@@ -189,7 +180,6 @@ func ListNodes(cluster, role string) ([]Node, error) {
 }
 
 func IsKindProvided(providerID string) (string, bool) {
-	// kind://docker/fabric/fabric-control-plane
 	u, err := url.Parse(providerID)
 	if err != nil || u.Scheme != "kind" || u.Host != "docker" {
 		return "", false

@@ -47,7 +47,6 @@ func TestPatchAnnotations(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		// create a node
 		node, err := client.CoreV1().Nodes().Create(context.Background(), &v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: tt.node,
@@ -94,7 +93,6 @@ func TestPatchLabels(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		// create a node
 		node, err := client.CoreV1().Namespaces().Create(context.Background(), &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: tt.namespace,
@@ -118,11 +116,10 @@ func TestGenerateStrategicMergePatchPayload(t *testing.T) {
 	}
 
 	type args struct {
-		// original stands for the original object we seen before we handle
 		original runtime.Object
-		// modified stands for the modified object
+
 		modified runtime.Object
-		// remote stands for the latest object in the server before apply patch
+
 		remote runtime.Object
 	}
 	tests := []struct {
@@ -200,7 +197,7 @@ func TestGenerateStrategicMergePatchPayload(t *testing.T) {
 			}
 
 			b, _ := json.Marshal(tt.args.remote)
-			// apply patch for remote obj
+
 			newB, _ := strategicpatch.StrategicMergePatch(b, got, v1.Pod{})
 			patchedPod := v1.Pod{}
 			_ = json.Unmarshal(newB, &patchedPod)
@@ -219,11 +216,10 @@ func TestGenerateMergePatchPayload(t *testing.T) {
 	}
 
 	type args struct {
-		// original stands for the original object we seen before we handle
 		original runtime.Object
-		// modified stands for the modified object
+
 		modified runtime.Object
-		// remote stands for the latest object in the server before apply patch
+
 		remote runtime.Object
 	}
 	tests := []struct {
@@ -301,7 +297,7 @@ func TestGenerateMergePatchPayload(t *testing.T) {
 			}
 
 			b, _ := json.Marshal(tt.args.remote)
-			// apply patch for remote obj
+
 			newB, _ := strategicpatch.StrategicMergePatch(b, got, v1.Pod{})
 			patchedPod := v1.Pod{}
 			_ = json.Unmarshal(newB, &patchedPod)
@@ -313,7 +309,6 @@ func TestGenerateMergePatchPayload(t *testing.T) {
 }
 
 func TestFailedGenerateStrategicMergePatchPayload(t *testing.T) {
-	// test original and modified object are nil
 	got, err := GenerateStrategicMergePatchPayload(nil, nil)
 	require.Error(t, err)
 	require.Nil(t, got)

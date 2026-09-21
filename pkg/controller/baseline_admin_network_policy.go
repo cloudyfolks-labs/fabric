@@ -47,15 +47,11 @@ func (c *Controller) enqueueUpdateBanp(oldObj, newObj any) {
 	oldBanp := oldObj.(*v1alpha1.BaselineAdminNetworkPolicy)
 	newBanp := newObj.(*v1alpha1.BaselineAdminNetworkPolicy)
 
-	// All the acls should be recreated with the following situations
 	if len(oldBanp.Spec.Ingress) != len(newBanp.Spec.Ingress) || len(oldBanp.Spec.Egress) != len(newBanp.Spec.Egress) {
 		c.addBanpQueue.Add(newBanp.Name)
 		return
 	}
 
-	// ACLs should be updated when the name, action, or ports of an ingress/egress rule have changed.
-	// The rule name is part of both the ACL name and the address set name referenced by the ACL match,
-	// so a renamed rule requires the ACLs to be recreated together with the address sets.
 	for index, rule := range newBanp.Spec.Ingress {
 		oldRule := oldBanp.Spec.Ingress[index]
 		if oldRule.Name != rule.Name || oldRule.Action != rule.Action || !reflect.DeepEqual(oldRule.Ports, rule.Ports) {
@@ -78,13 +74,10 @@ func (c *Controller) enqueueUpdateBanp(oldObj, newObj any) {
 	}
 	klog.V(3).Infof("enqueue update banp %s", newBanp.Name)
 
-	// The remaining changes do not affect the acls. The port-group or address-set should be updated.
-	// The port-group for anp should be updated
 	if !reflect.DeepEqual(oldBanp.Spec.Subject, newBanp.Spec.Subject) {
 		c.updateBanpQueue.Add(&AdminNetworkPolicyChangedDelta{key: newBanp.Name, field: ChangedSubject})
 	}
 
-	// Peer selector in ingress/egress rule has changed, the corresponding address-set need be updated
 	ruleChanged := false
 	var changedIngressRuleNames, changedEgressRuleNames [util.AnpMaxRules]ChangedName
 
@@ -123,7 +116,6 @@ func banpACLAction(action v1alpha1.BaselineAdminNetworkPolicyRuleAction) ovnnb.A
 }
 
 func (c *Controller) handleAddBanp(key string) (err error) {
-	// Only one banp with default name can be created in cluster, no need to check
 	c.banpKeyMutex.LockKey(key)
 	defer func() { _ = c.banpKeyMutex.UnlockKey(key) }()
 
@@ -144,7 +136,6 @@ func (c *Controller) handleAddBanp(key string) (err error) {
 		logActions = strings.Split(banp.Annotations[util.ACLActionsLogAnnotation], ",")
 	}
 
-	// ovn portGroup/addressSet doesn't support name with '-', so we replace '-' by '.'.
 	pgName := strings.ReplaceAll(banpName, "-", ".")
 	if err = c.OVNNbClient.CreatePortGroup(pgName, map[string]string{baselineAdminNetworkPolicyKey: banpName}); err != nil {
 		klog.Errorf("failed to create port group for banp %s: %v", key, err)
@@ -176,14 +167,12 @@ func (c *Controller) handleAddBanp(key string) (err error) {
 	desiredIngressAddrSet := strset.NewWithSize(len(banp.Spec.Ingress) * 2)
 	desiredEgressAddrSet := strset.NewWithSize(len(banp.Spec.Egress) * 2)
 
-	// create ingress acl
 	for index, banpr := range banp.Spec.Ingress {
-		// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
 		ingressAsV4Name, ingressAsV6Name := getAnpAddressSetName(pgName, banpr.Name, index, true)
 		desiredIngressAddrSet.Add(ingressAsV4Name, ingressAsV6Name)
 
 		var v4Addrs, v4Addr, v6Addrs, v6Addr []string
-		// This field must be defined and contain at least one item.
+
 		for _, anprpeer := range banpr.From {
 			if v4Addr, v6Addr, err = c.fetchIngressSelectedAddresses(&anprpeer); err != nil {
 				klog.Errorf("failed to fetch admin network policy selected addresses, %v", err)
@@ -203,7 +192,6 @@ func (c *Controller) handleAddBanp(key string) (err error) {
 			return err
 		}
 
-		// use 1700-1800 for banp acl priority
 		aclPriority := util.BanpACLMaxPriority - index
 		aclAction := banpACLAction(banpr.Action)
 		rulePorts := []v1alpha1.AdminNetworkPolicyPort{}
@@ -244,14 +232,13 @@ func (c *Controller) handleAddBanp(key string) (err error) {
 		klog.Errorf("failed to generate clear operations for banp %s egress acls: %v", key, err)
 		return err
 	}
-	// create egress acl
+
 	for index, banpr := range banp.Spec.Egress {
-		// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
 		egressAsV4Name, egressAsV6Name := getAnpAddressSetName(pgName, banpr.Name, index, false)
 		desiredEgressAddrSet.Add(egressAsV4Name, egressAsV6Name)
 
 		var v4Addrs, v4Addr, v6Addrs, v6Addr []string
-		// This field must be defined and contain at least one item.
+
 		for _, anprpeer := range banpr.To {
 			if v4Addr, v6Addr, err = c.fetchBaselineEgressSelectedAddresses(&anprpeer); err != nil {
 				klog.Errorf("failed to fetch admin network policy selected addresses, %v", err)
@@ -316,7 +303,6 @@ func (c *Controller) handleDeleteBanp(banp *v1alpha1.BaselineAdminNetworkPolicy)
 	klog.Infof("handle delete banp %s", banp.Name)
 	banpName := getAnpName(banp.Name)
 
-	// ACLs related to port_group will be deleted automatically when port_group is deleted
 	pgName := strings.ReplaceAll(banpName, "-", ".")
 	if err := c.OVNNbClient.DeletePortGroup(pgName); err != nil {
 		klog.Errorf("failed to delete port group for banp %s: %v", banpName, err)
@@ -340,7 +326,6 @@ func (c *Controller) handleDeleteBanp(banp *v1alpha1.BaselineAdminNetworkPolicy)
 }
 
 func (c *Controller) handleUpdateBanp(changed *AdminNetworkPolicyChangedDelta) error {
-	// Only handle updates that do not affect acls.
 	c.banpKeyMutex.LockKey(changed.key)
 	defer func() { _ = c.banpKeyMutex.UnlockKey(changed.key) }()
 
@@ -358,9 +343,7 @@ func (c *Controller) handleUpdateBanp(changed *AdminNetworkPolicyChangedDelta) e
 	banpName := getAnpName(desiredBanp.Name)
 	pgName := strings.ReplaceAll(banpName, "-", ".")
 
-	// The port-group for anp should be updated
 	if changed.field == ChangedSubject {
-		// The port-group must exist when update anp, this check should never be matched.
 		if ok, err := c.OVNNbClient.PortGroupExists(pgName); !ok || err != nil {
 			klog.Errorf("port-group for banp %s does not exist when update banp", desiredBanp.Name)
 			return err
@@ -378,10 +361,8 @@ func (c *Controller) handleUpdateBanp(changed *AdminNetworkPolicyChangedDelta) e
 		}
 	}
 
-	// Peer selector in ingress/egress rule has changed, so the corresponding address-set need be updated
 	if changed.field == ChangedIngressRule {
 		for index, rule := range desiredBanp.Spec.Ingress {
-			// Make sure the rule is changed and go on update
 			if rule.Name == changed.ruleNames[index].curRuleName {
 				if err := c.setAddrSetForAnpRule(banpName, pgName, rule.Name, index, rule.From, []v1alpha1.AdminNetworkPolicyEgressPeer{}, true, true); err != nil {
 					klog.Errorf("failed to set ingress address-set for anp rule %s/%s, %v", banpName, rule.Name, err)
@@ -393,7 +374,6 @@ func (c *Controller) handleUpdateBanp(changed *AdminNetworkPolicyChangedDelta) e
 
 	if changed.field == ChangedEgressRule {
 		for index, rule := range desiredBanp.Spec.Egress {
-			// Make sure the rule is changed and go on update
 			if rule.Name == changed.ruleNames[index].curRuleName {
 				if err := c.setAddrSetForBaselineAnpRule(banpName, pgName, rule.Name, index, []v1alpha1.AdminNetworkPolicyIngressPeer{}, rule.To, false, true); err != nil {
 					klog.Errorf("failed to set egress address-set for banp rule %s/%s, %v", banpName, rule.Name, err)

@@ -130,9 +130,6 @@ func (c *Controller) enqueueDeleteRouterLBRule(obj any) {
 	c.delRouterLBRuleQueue.Add(newRouterLBRuleInfo(rlr))
 }
 
-// checkEipPortConflict returns an error if eip:portStr is already used by another
-// RouterLBRule or OvnDnatRule (excluding the named resources).
-// portStr is the string representation of the port number.
 func (c *Controller) checkEipPortConflict(eipName, portStr, excludeRlr, excludeDnat string) error {
 	rlrs, err := c.routerLBRuleLister.List(labels.Everything())
 	if err != nil {
@@ -263,8 +260,6 @@ func (c *Controller) attachVpcLBsToRouter(vpcName string) error {
 	return nil
 }
 
-// cleanupRouterLBVips removes ip:port vips with their health checks and
-// ip_port_mappings from the VPC shared LBs; a nil vpcLBNames means unscoped.
 func (c *Controller) cleanupRouterLBVips(vpcLBNames set.Set[string], vips []string) error {
 	if len(vips) == 0 {
 		return nil
@@ -514,7 +509,6 @@ func (c *Controller) handleAddOrUpdateRouterLBRule(key string) error {
 		}
 	}
 
-	// Attach VPC shared LBs to the router so external traffic gets LB applied at the router.
 	if err = c.attachVpcLBsToRouter(rlr.Spec.Vpc); err != nil {
 		klog.Error(err)
 		return err
@@ -549,7 +543,6 @@ func (c *Controller) handleDelRouterLBRule(info *RouterLBRuleInfo) error {
 	var vips []string
 	vpcForRlr := ""
 	if svc, e := c.servicesLister.Services(info.Namespace).Get(svcName); e == nil {
-		// Build ip:port vips for LBHC cleanup from the service annotation IPs + known ports.
 		if vipAnnotation := svc.Annotations[util.RouterLBRuleVipsAnnotation]; vipAnnotation != "" {
 			for ip := range strings.SplitSeq(vipAnnotation, ",") {
 				ip = strings.TrimSpace(ip)
@@ -587,7 +580,6 @@ func (c *Controller) handleDelRouterLBRule(info *RouterLBRuleInfo) error {
 		}
 	}
 
-	// Detach shared LBs from the router when the last RouterLBRule for this VPC is deleted.
 	if vpcForRlr != "" && vpcLBNames != nil {
 		remaining, err := c.routerLBRuleLister.List(labels.Everything())
 		if err != nil {

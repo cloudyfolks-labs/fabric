@@ -1210,9 +1210,6 @@ func waitTorLearnsEip(topo *drTopology, w *drWorkload) {
 	}, "ToR learned EIP "+w.eipV4+" via the owning VPC LRP")
 }
 
-// dumpOvnDynamicRoutingState prints the NB and SB side of the advertisement
-// chain when a spec fails: what the router redistributes, which load
-// balancers it carries, and what northd actually put into Advertised_Route.
 func dumpOvnDynamicRoutingState(f *framework.Framework) {
 	if !ginkgo.CurrentSpecReport().Failed() {
 		return
@@ -1229,9 +1226,6 @@ func dumpOvnDynamicRoutingState(f *framework.Framework) {
 	}
 }
 
-// dumpAgentFrrState prints the agent pods' apply result and the live FRR
-// state when a spec fails, so a CI log carries the evidence instead of only
-// the timed-out assertion.
 func dumpAgentFrrState(f *framework.Framework, topo *drTopology) {
 	if !ginkgo.CurrentSpecReport().Failed() {
 		return
@@ -1291,9 +1285,6 @@ func lrpGatewayChassis(f *framework.Framework, lrpName string) string {
 	return stdout
 }
 
-// failOverGatewayNode removes the external gateway label from a node. The
-// controller elects the gateway chassis on every reconcile, so the label is
-// the supported way to take a chassis out of the external gateway set.
 func failOverGatewayNode(f *framework.Framework, topo *drTopology, vpcNames []string, fromNode string) {
 	ginkgo.GinkgoHelper()
 

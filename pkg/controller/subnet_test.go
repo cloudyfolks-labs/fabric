@@ -627,8 +627,6 @@ func Test_syncVirtualPort_noSubstringMatch(t *testing.T) {
 	err := fakeinformers.subnetInformer.Informer().GetStore().Add(subnet)
 	require.NoError(t, err)
 
-	// LSP has vip "10.0.0.10" which contains "10.0.0.1" as a substring
-	// but should NOT match the vip "10.0.0.1"
 	lsps := []ovnnb.LogicalSwitchPort{
 		{
 			Name: "lsp-no-match",
@@ -647,7 +645,7 @@ func Test_syncVirtualPort_noSubstringMatch(t *testing.T) {
 	}
 
 	mockOvnClient.EXPECT().ListNormalLogicalSwitchPorts(true, gomock.Any()).Return(lsps, nil)
-	// Only "lsp-match" should be a virtual parent, not "lsp-no-match"
+
 	mockOvnClient.EXPECT().SetLogicalSwitchPortVirtualParents(subnet.Name, "lsp-match", "10.0.0.1").Return(nil)
 
 	err = ctrl.syncVirtualPort(subnet.Name)
@@ -798,7 +796,6 @@ func Test_formatSubnet(t *testing.T) {
 func Test_handleAddOrUpdateSubnet_vlanValidationError(t *testing.T) {
 	t.Parallel()
 
-	// Create a subnet that references a non-existent vlan
 	subnet := &fabricv1.Subnet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-underlay",
@@ -816,8 +813,6 @@ func Test_handleAddOrUpdateSubnet_vlanValidationError(t *testing.T) {
 	require.NoError(t, err)
 	ctrl := fakeController.fakeController
 
-	// handleAddOrUpdateSubnet should return an error when the vlan does not exist,
-	// so that the work queue retries the item instead of forgetting it
 	err = ctrl.handleAddOrUpdateSubnet("test-underlay")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to validate vlan")
@@ -1007,11 +1002,11 @@ func Test_validateSubnetVlan(t *testing.T) {
 	unprocessedVlan := &fabricv1.Vlan{
 		ObjectMeta: metav1.ObjectMeta{Name: "unprocessed-vlan"},
 		Spec:       fabricv1.VlanSpec{ID: 300, Provider: "test-pn"},
-		Status:     fabricv1.VlanStatus{Conflict: false}, // same as ready, but NOT in pn.Status.Vlans
+		Status:     fabricv1.VlanStatus{Conflict: false},
 	}
 	emptyProviderVlan := &fabricv1.Vlan{
 		ObjectMeta: metav1.ObjectMeta{Name: "empty-provider-vlan"},
-		Spec:       fabricv1.VlanSpec{ID: 400, Provider: ""}, // not yet defaulted by vlan handler
+		Spec:       fabricv1.VlanSpec{ID: 400, Provider: ""},
 	}
 
 	fakeCtrl, err := newFakeControllerWithOptions(t, &FakeControllerOptions{
@@ -1187,7 +1182,6 @@ func Test_handleMcastQuerierChange(t *testing.T) {
 		require.Contains(t, err.Error(), "list failed")
 	})
 
-	// logical switch not found: cleanup is unnecessary, should return nil to avoid infinite requeue
 	t.Run("disable multicast snoop logical switch not found skips cleanup", func(t *testing.T) {
 		fakeController := newFakeController(t)
 		ctrl := fakeController.fakeController

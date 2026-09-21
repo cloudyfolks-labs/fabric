@@ -29,8 +29,6 @@ func appctlByTarget(appctlCmd, target, command string, args ...string) (string, 
 	return string(output), nil
 }
 
-// OvnDatabaseControl sends a command to the specified OVN database control socket
-// and returns the output or an error if the command fails.
 func OvnDatabaseControl(db, command string, args ...string) (string, error) {
 	var socket string
 	switch db {

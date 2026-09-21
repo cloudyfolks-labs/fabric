@@ -15,8 +15,6 @@ const linuxInterfaceNameMaxLength = 15
 
 var vlanInternalPortHashEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
-// VlanInternalPortName returns a deterministic OVS internal interface name that
-// fits Linux's IFNAMSIZ limit while preserving existing compatible names.
 func VlanInternalPortName(bridgeName string, vlanID int) string {
 	name := fmt.Sprintf("%s-vlan%d", bridgeName, vlanID)
 	if len(name) <= linuxInterfaceNameMaxLength {
@@ -89,7 +87,6 @@ func FindFabricAutoCreatedInterfaces(providerName string) ([]string, error) {
 		return nil, fmt.Errorf("failed to list network interfaces: %w", err)
 	}
 
-	// Use link.Attrs().Alias (parsed from IFLA_IFALIAS by netlink) instead of reading sysfs
 	prefix := "fabric:" + providerName
 	for _, link := range links {
 		if link.Attrs().Alias == prefix {
@@ -101,8 +98,6 @@ func FindFabricAutoCreatedInterfaces(providerName string) ([]string, error) {
 	return createdInterfaces, nil
 }
 
-// IsVlanInternalPortForBridge reports whether portName is a compact or legacy
-// VLAN internal port created for bridgeName.
 func IsVlanInternalPortForBridge(portName, bridgeName string) (bool, int) {
 	if matched, vlanID := isCompactVlanInternalPort(portName); matched {
 		if portName == VlanInternalPortName(bridgeName, vlanID) {

@@ -63,7 +63,6 @@ const (
 	clusterNetworkPolicyKey       = "cnp"
 )
 
-// Controller is fabric main controller that watch ns/pod/node/svc/ep and operate ovn
 type Controller struct {
 	config *Configuration
 
@@ -283,7 +282,6 @@ type Controller struct {
 	fabricInformerFactory fabricinformer.SharedInformerFactory
 	anpInformerFactory    anpinformer.SharedInformerFactory
 
-	// Database health check
 	dbFailureCount int
 
 	distributedSubnetNeedSync atomic.Bool
@@ -296,10 +294,6 @@ func newTypedRateLimitingQueue[T comparable](name string, rateLimiter workqueue.
 	return workqueue.NewTypedRateLimitingQueueWithConfig(rateLimiter, workqueue.TypedRateLimitingQueueConfig[T]{Name: name})
 }
 
-// enqueueUpdateIfTerminatingWithFinalizer routes a terminating object to the update queue but skips objects
-// whose finalizer has already been removed (their cleanup is done and they only await API server
-// deletion), mirroring the OVN enqueueUpdate* deletion branch to avoid a double delete. It returns
-// true when the object is terminating, so the add handler stops regardless of whether it enqueued.
 func enqueueUpdateIfTerminatingWithFinalizer(queue workqueue.TypedRateLimitingInterface[string], key, kind string, deletionTimestamp *metav1.Time, finalizers []string) bool {
 	if deletionTimestamp.IsZero() {
 		return false
@@ -311,7 +305,6 @@ func enqueueUpdateIfTerminatingWithFinalizer(queue workqueue.TypedRateLimitingIn
 	return true
 }
 
-// Run creates and runs a new ovn controller
 func Run(ctx context.Context, config *Configuration) {
 	klog.V(4).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{BurstSize: 100})
@@ -335,7 +328,7 @@ func Run(ctx context.Context, config *Configuration) {
 		kubeinformers.WithTweakListOptions(func(listOption *metav1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
 		}))
-	// deployment informer used to list/watch vpc egress gateway and nat gateway workloads
+
 	deployInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(config.KubeFactoryClient, 0,
 		kubeinformers.WithTransform(util.TrimManagedFields),
 		kubeinformers.WithTweakListOptions(func(listOption *metav1.ListOptions) {
@@ -359,8 +352,7 @@ func Run(ctx context.Context, config *Configuration) {
 	kubevirtInformerFactory := informer.NewKubeVirtInformerFactoryWithOptions(config.KubevirtClient.RestClient(), config.KubevirtClient,
 		informer.WithTransform(util.TrimManagedFields),
 	)
-	// Dedicated factory so that on clusters without the ServiceCIDR API the
-	// failed list/watch does not contaminate the main informer factory.
+
 	serviceCIDRInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(config.KubeClient, 0,
 		kubeinformers.WithTweakListOptions(func(listOption *metav1.ListOptions) {
 			listOption.AllowWatchBookmarks = true
@@ -681,17 +673,12 @@ func Run(ctx context.Context, config *Configuration) {
 	defer controller.shutdown()
 	klog.Info("Starting OVN controller")
 
-	// Start and sync NAD informer first, as many resources depend on NAD cache
-	// NAD CRD is optional, so we check if it exists before starting the informer
 	controller.StartNetAttachInformerFactory(ctx)
 
-	// ServiceCIDR (networking.k8s.io/v1) is GA in K8s 1.33; older clusters
-	// don't have the API at all. Best-effort start with periodic retry.
 	controller.StartServiceCIDRInformerFactory(ctx)
 
 	controller.StartServiceL2StatusInformer(ctx)
 
-	// Wait for the caches to be synced before starting workers
 	controller.informerFactory.Start(ctx.Done())
 	controller.cmInformerFactory.Start(ctx.Done())
 	controller.deployInformerFactory.Start(ctx.Done())
@@ -955,7 +942,6 @@ func Run(ctx context.Context, config *Configuration) {
 		if _, err = csrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    controller.enqueueAddCsr,
 			UpdateFunc: controller.enqueueUpdateCsr,
-			// no need to add delete func for csr
 		}); err != nil {
 			util.LogFatalAndExit(err, "failed to add csr event handler")
 		}
@@ -964,13 +950,7 @@ func Run(ctx context.Context, config *Configuration) {
 	controller.Run(ctx)
 }
 
-// Run will set up the event handlers for types we are interested in, as well
-// as syncing informer caches and starting workers. It will block until stopCh
-// is closed, at which point it will shutdown the workqueue and wait for
-// workers to finish processing their current work items.
 func (c *Controller) Run(ctx context.Context) {
-	// The init process can only be placed here if the init process do really affect the normal process of controller, such as Nodes/Pods/Subnets...
-	// Otherwise, the init process should be placed after all workers have already started working
 	if err := c.OVNNbClient.SetLsDnatModDlDst(c.config.LsDnatModDlDst); err != nil {
 		util.LogFatalAndExit(err, "failed to set NB_Global option ls_dnat_mod_dl_dst")
 	}
@@ -999,7 +979,6 @@ func (c *Controller) Run(ctx context.Context) {
 		util.LogFatalAndExit(err, "failed to initialize ovn resources")
 	}
 
-	// sync ip crd before initIPAM since ip crd will be used to restore vm and statefulset pod in initIPAM
 	if err := c.syncIPCR(); err != nil {
 		util.LogFatalAndExit(err, "failed to sync crd ips")
 	}
@@ -1032,7 +1011,6 @@ func (c *Controller) Run(ctx context.Context) {
 
 	c.startFabricTLSManager(ctx)
 
-	// start workers to do all the network operations
 	c.startWorkers(ctx)
 
 	c.initResourceOnce()
@@ -1201,7 +1179,7 @@ func (c *Controller) startWorkers(ctx context.Context) {
 	go wait.Until(runWorker("update status of vpc", c.updateVpcStatusQueue, c.handleUpdateVpcStatus), time.Second, ctx.Done())
 
 	go wait.Until(runWorker("add/update csr", c.addOrUpdateCsrQueue, c.handleAddOrUpdateCsr), time.Second, ctx.Done())
-	// add default and join subnet and wait them ready
+
 	for range c.config.WorkerNum {
 		go wait.Until(runWorker("add/update subnet", c.addOrUpdateSubnetQueue, c.handleAddOrUpdateSubnet), time.Second, ctx.Done())
 	}
@@ -1222,7 +1200,6 @@ func (c *Controller) startWorkers(ctx context.Context) {
 	go wait.Until(runWorker("delete security group", c.delSgQueue, c.handleDeleteSg), time.Second, ctx.Done())
 	go wait.Until(runWorker("ports for security group", c.syncSgPortsQueue, c.syncSgLogicalPort), time.Second, ctx.Done())
 
-	// run node worker before handle any pods
 	for range c.config.WorkerNum {
 		go wait.Until(runWorker("add node", c.addNodeQueue, c.handleAddNode), time.Second, ctx.Done())
 		go wait.Until(runWorker("update node", c.updateNodeQueue, c.handleUpdateNode), time.Second, ctx.Done())
@@ -1248,7 +1225,6 @@ func (c *Controller) startWorkers(ctx context.Context) {
 	}
 
 	if c.config.EnableLb {
-		// run in a single worker to avoid delete the last vip, which will lead ovn to delete the loadbalancer
 		go wait.Until(runWorker("delete service", c.deleteServiceQueue, c.handleDeleteService), time.Second, ctx.Done())
 
 		go wait.Until(runWorker("add/update router lb rule", c.addRouterLBRuleQueue, c.handleAddOrUpdateRouterLBRule), time.Second, ctx.Done())
@@ -1402,8 +1378,6 @@ func (c *Controller) initResourceOnce() {
 		util.LogFatalAndExit(err, "failed to sync security group")
 	}
 
-	// remove resources in ovndb that not exist any more in kubernetes resources
-	// process gc at last in case of affecting other init process
 	if err := c.gc(); err != nil {
 		util.LogFatalAndExit(err, "failed to run gc")
 	}

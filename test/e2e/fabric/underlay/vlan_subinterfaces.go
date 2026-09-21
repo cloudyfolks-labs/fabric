@@ -31,8 +31,8 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 	var kindNodes []kind.Node
 	var dockerNetwork *dockernetwork.Inspect
 	var dockerNetworkName string
-	var pnDefaultParentInterface string  // interface name (on the first node) for the test docker network; used as the default
-	var nodeInterfaces map[string]string // actual interface name per node for the test docker network, keyed by node name
+	var pnDefaultParentInterface string
+	var nodeInterfaces map[string]string
 
 	ginkgo.BeforeEach(func() {
 		providerNetworkClient = f.ProviderNetworkClient()
@@ -101,12 +101,6 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 			providerNetworkClient.DeleteSync(providerNetworkName)
 		}
 
-		// Wait for OVS bridges to disappear on all nodes before disconnecting
-		// the Docker network. Without this, the daemon may still be processing
-		// the provider network deletion (configProviderNic / add-port) when Docker
-		// removes the NIC. A failed add-port leaves a stale netdev cache entry in
-		// ovs-vswitchd, which causes EEXIST errors for subsequent bridge creation
-		// with exchangeLinkName=true.
 		ginkgo.By("Waiting for ovs bridges to disappear")
 		deadline := time.Now().Add(2 * time.Minute)
 		for _, pnName := range providerNetworkNames {
@@ -141,7 +135,7 @@ var _ = framework.SerialDescribe("[group:underlay]", func() {
 	framework.ConformanceIt(`should create vlan subinterface when autoCreateVlanSubinterfaces is true`, func() {
 		f.SkipVersionPriorTo(1, 14, "vlan subinterfaces are not supported before 1.14.0")
 		providerNetworkName := allocProviderNetworkName()
-		pnDefaultInterface := pnDefaultParentInterface + ".100" // VLAN interface we expect to manage (physical interface + VLAN ID)
+		pnDefaultInterface := pnDefaultParentInterface + ".100"
 		vlanID := extractVlanID(pnDefaultInterface)
 
 		customInterfaces := makeCustomInterfaceMap(vlanID, nodeInterfaces)
@@ -400,7 +394,6 @@ func buildCustomInterfaces(customInterfaceNodes map[string][]string) []v1.Custom
 	return customIfs
 }
 
-// makeCustomInterfaceMap builds customInterfaces based on the VLAN ID and each node's actual interface name.
 func makeCustomInterfaceMap(vlanID string, nodeInterfaces map[string]string) map[string][]string {
 	customInterfaceNodes := make(map[string][]string, len(nodeInterfaces))
 	for nodeName, nodeIface := range nodeInterfaces {

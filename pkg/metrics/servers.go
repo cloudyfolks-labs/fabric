@@ -98,14 +98,7 @@ func StartMetricsOrHealthServer(ctx context.Context, enableMetrics bool, addrs [
 				return
 			}
 			listenAddr := util.JoinHostPort(addr, int32(port)) // #nosec G115
-			// Create the listener synchronously before returning.
-			// This ensures the listen socket is bound while the IP
-			// address is still present on the original NIC.  If the
-			// listener were created asynchronously (inside a goroutine),
-			// a concurrent address transfer (e.g. configProviderNic
-			// moving an IP from eth0 to br-provider) could race with
-			// the bind call, causing "cannot assign requested address"
-			// and a fatal daemon crash.
+
 			listener, err := net.Listen("tcp", listenAddr)
 			if err != nil {
 				util.LogFatalAndExit(err, "failed to listen on %s for metrics server", listenAddr)

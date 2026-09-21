@@ -80,14 +80,12 @@ func tlsGetConfigForClient(config *tls.Config) (func(*tls.ClientHelloInfo) (*tls
 	caProvider.AddListener(controller)
 	certKeyProvider.AddListener(controller)
 
-	// generate a context from stopCh. This is to avoid modifying files which are relying on apiserver
-	// TODO: See if we can pass ctx to the current method
 	stopCh := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // cancel is invoked when stopCh closes
 	go func() {
 		select {
 		case <-stopCh:
-			cancel() // stopCh closed, so cancel our context
+			cancel()
 		case <-ctx.Done():
 		}
 	}()
@@ -111,14 +109,14 @@ func tlsGetConfigForClient(config *tls.Config) (func(*tls.ClientHelloInfo) (*tls
 
 func GenerateSelfSignedCertKey(host string, caCert *x509.Certificate, caKey *rsa.PrivateKey, alternateIPs []net.IP, alternateDNS []string) ([]byte, []byte, *time.Time, error) {
 	now := time.Now().Truncate(0)
-	validFrom := now.Add(-time.Hour) // valid an hour earlier to avoid flakes due to clock skew
-	maxAge := time.Hour * 24 * 365   // one year self-signed certs
+	validFrom := now.Add(-time.Hour)
+	maxAge := time.Hour * 24 * 365
 
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// returns a uniform random value in [0, max-1), then add 1 to serial to make it a uniform random value in [1, max).
+
 	serial, err := rand.Int(rand.Reader, new(big.Int).SetInt64(math.MaxInt64-1))
 	if err != nil {
 		return nil, nil, nil, err
@@ -151,13 +149,11 @@ func GenerateSelfSignedCertKey(host string, caCert *x509.Certificate, caKey *rsa
 		return nil, nil, nil, err
 	}
 
-	// Generate cert
 	certBuffer := bytes.Buffer{}
 	if err := pem.Encode(&certBuffer, &pem.Block{Type: certutil.CertificateBlockType, Bytes: derBytes}); err != nil {
 		return nil, nil, nil, err
 	}
 
-	// Generate key
 	keyBuffer := bytes.Buffer{}
 	if err := pem.Encode(&keyBuffer, &pem.Block{Type: keyutil.RSAPrivateKeyBlockType, Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
 		return nil, nil, nil, err
@@ -173,7 +169,6 @@ type DynamicInMemoryCertKeyPairContent struct {
 	alternateIPs []net.IP
 	alternateDNS []string
 
-	// certKeyPair is a certKeyPair that contains the last read, non-zero length content of the key and cert
 	certKeyPair atomic.Value
 
 	expireTime time.Time
@@ -201,7 +196,6 @@ func NewDynamicInMemoryCertKeyPairContent(host string, caCert *x509.Certificate,
 	return ret, nil
 }
 
-// AddListener adds a listener to be notified when the serving cert content changes.
 func (c *DynamicInMemoryCertKeyPairContent) AddListener(listener dynamiccertificates.Listener) {
 	c.listeners = append(c.listeners, listener)
 }
@@ -231,12 +225,10 @@ func (c *DynamicInMemoryCertKeyPairContent) generateCertKeyPair() error {
 	return nil
 }
 
-// RunOnce runs a single sync loop
 func (c *DynamicInMemoryCertKeyPairContent) RunOnce(_ context.Context) error {
 	return c.generateCertKeyPair()
 }
 
-// Run starts the controller and blocks until context is killed.
 func (c *DynamicInMemoryCertKeyPairContent) Run(ctx context.Context, _ int) {
 	defer runtime.HandleCrash()
 
@@ -252,18 +244,15 @@ func (c *DynamicInMemoryCertKeyPairContent) Run(ctx context.Context, _ int) {
 	<-ctx.Done()
 }
 
-// Name is just an identifier
 func (c *DynamicInMemoryCertKeyPairContent) Name() string {
 	return ""
 }
 
-// CurrentCertKeyContent provides cert and key byte content
 func (c *DynamicInMemoryCertKeyPairContent) CurrentCertKeyContent() ([]byte, []byte) {
 	certKeyPair := c.certKeyPair.Load().(*certKeyPair)
 	return certKeyPair.cert, certKeyPair.key
 }
 
-// certKeyPair holds the content for the cert and key
 type certKeyPair struct {
 	cert []byte
 	key  []byte

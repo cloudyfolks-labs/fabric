@@ -45,7 +45,6 @@ func CmdMain() {
 	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
 	klog.InitFlags(klogFlags)
 
-	// Sync the glog and klog flags.
 	pflag.CommandLine.VisitAll(func(f1 *pflag.Flag) {
 		f2 := klogFlags.Lookup(f1.Name)
 		if f2 != nil {
@@ -60,10 +59,8 @@ func CmdMain() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
-	// set logger for controller-runtime framework
 	ctrl.SetLogger(klog.NewKlogr())
 
-	// Create a webhook server.
 	hookServer := ctrlwebhook.NewServer(ctrlwebhook.Options{
 		Port:    *port,
 		CertDir: hookServerCertDir,
@@ -71,7 +68,7 @@ func CmdMain() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
-		// disable metrics to avoid port conflict
+
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
@@ -87,7 +84,7 @@ func CmdMain() {
 	}
 
 	klog.Infof("register path /validating")
-	// Register the webhooks in the server.
+
 	hookServer.Register("/validating", &ctrlwebhook.Admission{Handler: validatingHook})
 
 	if err := mgr.Add(hookServer); err != nil {
@@ -101,7 +98,6 @@ func CmdMain() {
 		panic(err)
 	}
 
-	// Start the server by starting a previously-set-up manager
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		panic(err)
 	}

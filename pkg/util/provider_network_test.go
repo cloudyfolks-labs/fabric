@@ -224,7 +224,7 @@ func TestIsNodeExcludedFromProviderNetwork(t *testing.T) {
 							"env": "test",
 						},
 					},
-					ExcludeNodes: []string{"worker-1"}, // Should be ignored when nodeSelector is present
+					ExcludeNodes: []string{"worker-1"},
 				},
 			},
 			want:    false,

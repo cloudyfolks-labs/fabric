@@ -136,20 +136,15 @@ func TestIPGreaterThan(t *testing.T) {
 	}
 }
 
-// TestIPCompareMixedRepresentation ensures the comparison orders IPv4 addresses
-// by numeric value regardless of whether they are stored in 4-byte or 16-byte
-// (v4-in-v6) representation. The previous big.Int implementation compared raw
-// bytes and got this wrong for mixed representations.
 func TestIPCompareMixedRepresentation(t *testing.T) {
-	v4 := IP(net.ParseIP("192.168.1.5").To4())   // 4-byte form
-	v16 := IP(net.ParseIP("192.168.1.2").To16()) // 16-byte v4-in-v6 form
+	v4 := IP(net.ParseIP("192.168.1.5").To4())
+	v16 := IP(net.ParseIP("192.168.1.2").To16())
 
 	require.True(t, v4.GreaterThan(v16), "192.168.1.5 (4-byte) > 192.168.1.2 (16-byte)")
 	require.True(t, v16.LessThan(v4), "192.168.1.2 (16-byte) < 192.168.1.5 (4-byte)")
 	require.False(t, v4.LessThan(v16))
 	require.False(t, v16.GreaterThan(v4))
 
-	// Same value across representations: neither less nor greater, and equal.
 	same4 := IP(net.ParseIP("10.0.0.1").To4())
 	same16 := IP(net.ParseIP("10.0.0.1").To16())
 	require.False(t, same4.LessThan(same16))
@@ -157,13 +152,9 @@ func TestIPCompareMixedRepresentation(t *testing.T) {
 	require.True(t, same4.Equal(same16))
 }
 
-// TestIPCompareV4ZeroVsV6Zero documents that 0.0.0.0 and :: are treated as
-// distinct addresses with a deterministic, total ordering that is consistent
-// with Equal. This case does not occur in practice because IP range lists are
-// segregated by address family, but the comparison must not report them equal.
 func TestIPCompareV4ZeroVsV6Zero(t *testing.T) {
-	v4zero := IP(net.ParseIP("0.0.0.0").To4()) // 4-byte, all zero
-	v6zero := IP(net.ParseIP("::"))            // 16-byte, all zero
+	v4zero := IP(net.ParseIP("0.0.0.0").To4())
+	v6zero := IP(net.ParseIP("::"))
 
 	require.False(t, v4zero.Equal(v6zero))
 	require.True(t, v4zero.GreaterThan(v6zero))
@@ -172,16 +163,12 @@ func TestIPCompareV4ZeroVsV6Zero(t *testing.T) {
 	require.False(t, v6zero.GreaterThan(v4zero))
 }
 
-// TestIPCompareIPv6 exercises the same-family IPv6 comparison path of cmp:
-// ordering across different 16-bit groups, compressed vs. expanded equality,
-// multi-byte boundaries, and the all-zero / all-ones extremes. Each case also
-// verifies the ordering is total by checking the reversed operands.
 func TestIPCompareIPv6(t *testing.T) {
 	tests := []struct {
 		name string
 		a    IP
 		b    IP
-		// rel is the expected relationship of a to b: -1 (a<b), 0 (a==b), 1 (a>b).
+
 		rel int
 	}{
 		{
@@ -233,7 +220,7 @@ func TestIPCompareIPv6(t *testing.T) {
 			require.Equal(t, tt.rel < 0, tt.a.LessThan(tt.b), "LessThan")
 			require.Equal(t, tt.rel > 0, tt.a.GreaterThan(tt.b), "GreaterThan")
 			require.Equal(t, tt.rel == 0, tt.a.Equal(tt.b), "Equal")
-			// swapping the operands must invert the ordering
+
 			require.Equal(t, tt.rel > 0, tt.b.LessThan(tt.a), "reverse LessThan")
 			require.Equal(t, tt.rel < 0, tt.b.GreaterThan(tt.a), "reverse GreaterThan")
 		})
@@ -527,8 +514,6 @@ func TestIPString(t *testing.T) {
 }
 
 func TestAddOrUpdateSubnet(t *testing.T) {
-	// ipv4
-	// invalid v4 cidr mask len > 32
 	ipam := NewIPAM()
 	subnetName := "v4InvalidMaskSubnet"
 	v4Gw := "1.1.1.1"
@@ -536,7 +521,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	err := ipam.AddOrUpdateSubnet(subnetName, fmt.Sprintf("1.1.1.0/%d", maskV4Length), v4Gw, nil)
 	require.EqualError(t, err, ErrInvalidCIDR.Error())
 
-	// invalid v4 ip range
 	subnetName = "v4InvalidRangeSubnet1"
 	invalidV4Ip := fmt.Sprintf("%d.1.1.0/24", rand.Int()+256)
 	err = ipam.AddOrUpdateSubnet(subnetName, invalidV4Ip, v4Gw, nil)
@@ -552,8 +536,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	err = ipam.AddOrUpdateSubnet(subnetName, invalidV4Ip, v4Gw, nil)
 	require.EqualError(t, err, ErrInvalidCIDR.Error())
 
-	// normal subnet
-	// create pod with static ip
 	ipv4CIDR := "1.1.1.0/24"
 	v4Gw = "1.1.1.1"
 	ipv4ExcludeIPs := []string{"1.1.1.10", "1.1.1.100", "1.1.1.200"}
@@ -575,7 +557,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, freeIP1, ip)
 
-	// create multiple ips on one pod
 	pod2 := "pod2.ns"
 	pod2Nic1 := "pod2Nic1.ns"
 	pod2Nic2 := "pod2Nic2.ns"
@@ -606,13 +587,11 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.True(t, isIPAssigned)
 	require.Equal(t, pod1, assignedPod)
 
-	// get static ip conflict with ip in use
 	pod3 := "pod3.ns"
 	pod3Nic1 := "pod3Nic1.ns"
 	_, _, _, err = ipam.GetStaticAddress(pod3, pod3Nic1, freeIP3, nil, subnetName, true)
 	require.EqualError(t, err, ErrConflict.Error())
 
-	// release pod with multiple nics
 	ipam.ReleaseAddressByPod(pod2, "")
 	ip2, err := NewIP(freeIP2)
 	require.NoError(t, err)
@@ -621,26 +600,22 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V4Released.Contains(ip2))
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V4Released.Contains(ip3))
 
-	// release pod with single nic
 	ipam.ReleaseAddressByPod(pod1, "")
 	ip1, err := NewIP(freeIP1)
 	require.NoError(t, err)
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V4Released.Contains(ip1))
 
-	// create new pod with released ips
 	pod4 := "pod4.ns"
 	pod4Nic1 := "pod4Nic1.ns"
 	_, _, _, err = ipam.GetStaticAddress(pod4, pod4Nic1, freeIP1, nil, subnetName, true)
 	require.NoError(t, err)
 
-	// create pod with no initialized subnet
 	pod5 := "pod5.ns"
 	pod5Nic1 := "pod5Nic1.ns"
 
 	_, _, _, err = ipam.GetRandomAddress(pod5, pod5Nic1, nil, "invalid_subnet", "", nil, true)
 	require.EqualError(t, err, ErrNoSubnet.Error())
 
-	// change cidr
 	ipv4CIDR = "10.16.0.0/16"
 	v4Gw = "10.16.0.1"
 	subnetName = "v4ChangeCIDRSubnet"
@@ -655,12 +630,10 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ip, "10.17.0.2")
 
-	// update to be invalid cidr, subnet should not change
 	err = ipam.AddOrUpdateSubnet(subnetName, "1.1.256.1", v4Gw, nil)
 	require.EqualError(t, err, ErrInvalidCIDR.Error())
 	require.Equal(t, ipam.Subnets[subnetName].V4CIDR.IP.String(), "10.17.0.0")
 
-	// reuse released address when no unused address
 	subnetName = "v4ReuseReleasedAddressSubnet"
 	ipv4CIDR = "10.16.0.0/30"
 	v4Gw = "10.16.0.1"
@@ -681,7 +654,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ip, "10.16.0.1")
 
-	// do not reuse released address after update subnet's excludedIps
 	subnetName = "v4NotReuseReleasedAddressSubnet"
 	ipv4CIDR = "10.16.0.0/30"
 	v4Gw = "10.16.0.1"
@@ -699,7 +671,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	_, _, _, err = ipam.GetRandomAddress("pod1.ns", "pod1.ns", nil, subnetName, "", nil, true)
 	require.EqualError(t, err, ErrNoAvailable.Error())
 
-	//  do not count excludedIps as subnet's v4availableIPs and v4usingIPs
 	subnetName = "v4ExcludeIPsSubnet"
 	ipv4CIDR = "10.16.10.0/28"
 	v4Gw = "10.16.10.1"
@@ -724,23 +695,17 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.Equal(t, v4UsingIPStr, "10.16.10.10")
 	require.Equal(t, v4AvailableIPStr, "10.16.10.2-10.16.10.9,10.16.10.11-10.16.10.14")
 
-	// IPv6
-
-	// invalid v6 cidr mask len > 128
 	subnetName = "v6InvalidMaskSubnet"
 	v6Gw := "fd00::1"
 	maskV6Length := rand.Int() + 128
 	err = ipam.AddOrUpdateSubnet(subnetName, fmt.Sprintf("fd00::/%d", maskV6Length), v6Gw, nil)
 	require.EqualError(t, err, ErrInvalidCIDR.Error())
 
-	// invalid v6 ip range
 	subnetName = "v6InvalidRangeSubnet1"
 	invalidV6Ip := fmt.Sprintf("fd00::%d::/120", rand.Int()+1)
 	err = ipam.AddOrUpdateSubnet(subnetName, invalidV6Ip, v6Gw, nil)
 	require.EqualError(t, err, ErrInvalidCIDR.Error())
 
-	// normal subnet
-	// create pod with static ip
 	ipv6CIDR := "fd00::/120"
 	v6Gw = "fd00::1"
 	ipv6ExcludeIPs := []string{"fd00::10", "fd00::20", "fd00::30"}
@@ -754,8 +719,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.Equal(t, ipam.Subnets[subnetName].V6Reserved.ranges[1].String(), "fd00::20")
 	require.Equal(t, ipam.Subnets[subnetName].V6Reserved.ranges[2].String(), "fd00::30")
 
-	// require.Equal(t, nil, ipam.Subnets[subnetName].V6Reserved.ranges)
-
 	pod1 = "pod1.ns"
 	pod1Nic1 = "pod1nic1.ns"
 	freeIP1 = "fd00::2"
@@ -767,7 +730,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, freeIP1, ip)
 
-	// create multiple ips on one pod
 	pod2 = "pod2.ns"
 	pod2Nic1 = "pod2Nic1.ns"
 	pod2Nic2 = "pod2Nic2.ns"
@@ -798,13 +760,11 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.True(t, isIPAssigned)
 	require.Equal(t, pod1, assignedPod)
 
-	// get static ip conflict with ip in use
 	pod3 = "pod3.ns"
 	pod3Nic1 = "pod3Nic1.ns"
 	_, _, _, err = ipam.GetStaticAddress(pod3, pod3Nic1, freeIP3, nil, subnetName, true)
 	require.EqualError(t, err, ErrConflict.Error())
 
-	// release pod with multiple nics
 	ipam.ReleaseAddressByPod(pod2, "")
 	ip2, err = NewIP(freeIP2)
 	require.NoError(t, err)
@@ -813,26 +773,22 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V6Released.Contains(ip2))
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V6Released.Contains(ip3))
 
-	// release pod with single nic
 	ipam.ReleaseAddressByPod(pod1, "")
 	ip1, err = NewIP(freeIP1)
 	require.NoError(t, err)
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V6Released.Contains(ip1))
 
-	// create new pod with released ips
 	pod4 = "pod4.ns"
 	pod4Nic1 = "pod4Nic1.ns"
 	_, _, _, err = ipam.GetStaticAddress(pod4, pod4Nic1, freeIP1, nil, subnetName, true)
 	require.NoError(t, err)
 
-	// create pod with no initialized subnet
 	pod5 = "pod5.ns"
 	pod5Nic1 = "pod5Nic1.ns"
 
 	_, _, _, err = ipam.GetRandomAddress(pod5, pod5Nic1, nil, "invalid_subnet", "", nil, true)
 	require.EqualError(t, err, ErrNoSubnet.Error())
 
-	// change cidr
 	ipv6CIDR = "fe00::/112"
 	v6Gw = "fd00::1"
 	err = ipam.AddOrUpdateSubnet(subnetName, ipv6CIDR, v6Gw, ipv6ExcludeIPs)
@@ -844,12 +800,10 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ip, "fe00::2")
 
-	// update to be invalid cidr, subnet should not change
 	err = ipam.AddOrUpdateSubnet(subnetName, "fd00::g/120", v6Gw, nil)
 	require.EqualError(t, err, ErrInvalidCIDR.Error())
 	require.Equal(t, ipam.Subnets[subnetName].V6CIDR.IP.String(), "fe00::")
 
-	// reuse released address when no unused address
 	subnetName = "v6ReuseReleasedAddressSubnet"
 	ipv6CIDR = "fd00::/126"
 	v6Gw = "fd00::1"
@@ -870,7 +824,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ip, "fd00::1")
 
-	// do not reuse released address after update subnet's excludedIps
 	subnetName = "v6NotReuseReleasedAddressSubnet"
 	ipv6CIDR = "fd00::/126"
 	v6Gw = "fd00::1"
@@ -888,8 +841,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	_, _, _, err = ipam.GetRandomAddress("pod1.ns", "pod1.ns", nil, subnetName, "", nil, true)
 	require.EqualError(t, err, ErrNoAvailable.Error())
 
-	// DualStack
-	// invalid subnet
 	subnetName = "dualInvalidSubnet"
 	ipv6CIDR = "fd00::/120"
 	dualGw := "fd00::1"
@@ -902,8 +853,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	err = ipam.AddOrUpdateSubnet(subnetName, ipv4CIDR+",fd00::g/120", dualGw, nil)
 	require.EqualError(t, err, ErrInvalidCIDR.Error())
 
-	// normal dual subnet
-	// create pod with static ip
 	dualCIDR := "10.0.0.0/24,fd00::/120"
 	dualGw = "10.0.0.1,fd00::1"
 	dualExcludeIPs := []string{"10.0.0.10", "10.0.0.100", "10.0.0.200", "fd00::10", "fd00::20", "fd00::30"}
@@ -930,7 +879,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.Equal(t, freeIP41, ip4)
 	require.Equal(t, freeIP61, ip6)
 
-	// create multiple ips on one pod
 	pod2 = "pod2.ns"
 	pod2Nic1 = "pod2Nic1.ns"
 	pod2Nic2 = "pod2Nic2.ns"
@@ -973,7 +921,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.True(t, isIPAssigned)
 	require.Equal(t, pod1, assignedPod)
 
-	// get static ip conflict with ip in use
 	pod3 = "pod3.ns"
 	pod3Nic1 = "pod3Nic1.ns"
 	_, _, _, err = ipam.GetStaticAddress(pod3, pod3Nic1, freeIP43, nil, subnetName, true)
@@ -982,7 +929,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	_, _, _, err = ipam.GetStaticAddress(pod3, pod3Nic1, freeIP63, nil, subnetName, true)
 	require.EqualError(t, err, ErrConflict.Error())
 
-	// release pod with multiple nics
 	ipam.ReleaseAddressByPod(pod2, "")
 	ip42, err := NewIP(freeIP42)
 	require.NoError(t, err)
@@ -997,7 +943,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V6Released.Contains(ip62))
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V6Released.Contains(ip63))
 
-	// release pod with single nic
 	ipam.ReleaseAddressByPod(pod1, "")
 	ip41, err := NewIP(freeIP41)
 	require.NoError(t, err)
@@ -1006,7 +951,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ipam.Subnets[subnetName].IPPools[""].V6Released.Contains(ip61))
 
-	// create new pod with released ips
 	pod4 = "pod4.ns"
 	pod4Nic1 = "pod4Nic1.ns"
 
@@ -1016,14 +960,12 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	_, _, _, err = ipam.GetStaticAddress(pod4, pod4Nic1, freeIP61, nil, subnetName, true)
 	require.NoError(t, err)
 
-	// create pod with no initialized subnet
 	pod5 = "pod5.ns"
 	pod5Nic1 = "pod5Nic1.ns"
 
 	_, _, _, err = ipam.GetRandomAddress(pod5, pod5Nic1, nil, "invalid_subnet", "", nil, true)
 	require.EqualError(t, err, ErrNoSubnet.Error())
 
-	// dual stack subnet change cidr
 	subnetName = "dualChangeCIDRSubnet"
 	dualCIDR = "10.1.0.2/16,fe01::/112"
 	dualGw = "10.1.0.1,fe01::1"
@@ -1039,7 +981,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.Equal(t, ipv4, "10.17.0.2")
 	require.Equal(t, ipv6, "fe00::2")
 
-	// reuse released address when no unused address
 	err = ipam.AddOrUpdateSubnet(subnetName, "10.16.0.2/30,fd00::/126", dualGw, nil)
 	require.NoError(t, err)
 
@@ -1060,7 +1001,6 @@ func TestAddOrUpdateSubnet(t *testing.T) {
 	require.Equal(t, ipv4, "10.16.0.1")
 	require.Equal(t, ipv6, "fd00::1")
 
-	// do not reuse released address after update subnet's excludedIps
 	err = ipam.AddOrUpdateSubnet(subnetName, "10.16.0.2/30,fd00::/126", dualGw, nil)
 	require.NoError(t, err)
 

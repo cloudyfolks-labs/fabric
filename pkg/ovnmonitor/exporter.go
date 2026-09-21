@@ -23,8 +23,6 @@ var (
 	checkSbDbCnt  = 0
 )
 
-// Exporter collects OVN data from the given server and exports them using
-// the prometheus metrics package.
 type Exporter struct {
 	sync.RWMutex
 	Client       *ovsdb.OvnClient
@@ -34,7 +32,6 @@ type Exporter struct {
 	errorsLocker sync.RWMutex
 }
 
-// OVNDBClusterStatus contains information about a cluster.
 type OVNDBClusterStatus struct {
 	cid             string
 	sid             string
@@ -54,7 +51,6 @@ type OVNDBClusterStatus struct {
 	connOutErr      float64
 }
 
-// NewExporter returns an initialized Exporter.
 func NewExporter(cfg *Configuration) *Exporter {
 	e := Exporter{}
 	e.Client = ovsdb.NewOvnClient()
@@ -102,7 +98,6 @@ func (e *Exporter) initParas(cfg *Configuration) {
 	e.Client.Service.Northd.File.Pid.Path = cfg.ServiceNorthdFilePidPath
 }
 
-// StartConnection connect to database socket
 func (e *Exporter) StartConnection() error {
 	if err := e.Client.Connect(); err != nil {
 		return err
@@ -111,7 +106,6 @@ func (e *Exporter) StartConnection() error {
 	return nil
 }
 
-// TryClientConnection try to connect to database socket after init exporter
 func (e *Exporter) TryClientConnection() {
 	for {
 		if tryConnectCnt > 5 {
@@ -132,17 +126,14 @@ func (e *Exporter) TryClientConnection() {
 
 var registerOvnMetricsOnce sync.Once
 
-// StartOvnMetrics register and start to update ovn metrics
 func (e *Exporter) StartOvnMetrics() {
 	registerOvnMetricsOnce.Do(func() {
 		registerOvnMetrics()
 
-		// OVN metrics updater
 		go e.ovnMetricsUpdate()
 	})
 }
 
-// ovnMetricsUpdate updates the ovn metrics for every 30 sec
 func (e *Exporter) ovnMetricsUpdate() {
 	for {
 		e.exportOvnStatusGauge()
@@ -158,7 +149,6 @@ func (e *Exporter) ovnMetricsUpdate() {
 		if e.exportOvnClusterEnableGauge() {
 			e.exportOvnClusterInfoGauge()
 		} else {
-			// clear stale cluster info series exported by previous clustered polls
 			resetOvnClusterMetrics()
 		}
 
@@ -166,7 +156,6 @@ func (e *Exporter) ovnMetricsUpdate() {
 	}
 }
 
-// GetExporterName returns exporter name.
 func GetExporterName() string {
 	return appName
 }

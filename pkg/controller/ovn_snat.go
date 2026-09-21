@@ -22,7 +22,7 @@ import (
 func (c *Controller) enqueueAddOvnSnatRule(obj any) {
 	snat := obj.(*fabricv1.OvnSnatRule)
 	key := cache.MetaObjectToName(snat).String()
-	// A terminating object reconciles via the update queue for cleanup (handleAdd skips it; resync=0).
+
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnSnatRuleQueue, key, "ovn snat", snat.DeletionTimestamp, snat.GetFinalizers()) {
 		return
 	}
@@ -38,7 +38,6 @@ func (c *Controller) enqueueUpdateOvnSnatRule(oldObj, newObj any) {
 	}
 	oldSnat := oldObj.(*fabricv1.OvnSnatRule)
 	if oldSnat.Spec.OvnEip != newSnat.Spec.OvnEip {
-		// enqueue to reset eip to be clean
 		c.resetOvnEipQueue.Add(oldSnat.Spec.OvnEip)
 	}
 	if oldSnat.Spec.OvnEip != newSnat.Spec.OvnEip ||
@@ -85,7 +84,7 @@ func (c *Controller) handleAddOvnSnatRule(key string) error {
 		return c.convergeOvnSnatGatewayPort(cachedSnat)
 	}
 	klog.Infof("handle add ovn snat %s", key)
-	// check eip
+
 	eipName := cachedSnat.Spec.OvnEip
 	if eipName == "" {
 		err := errors.New("failed to create ovn snat rule, should set eip")
@@ -98,7 +97,6 @@ func (c *Controller) handleAddOvnSnatRule(key string) error {
 		return err
 	}
 	if cachedEip.Spec.Type == util.OvnEipTypeLSP {
-		// eip is used by ecmp nexthop lsp, nat can not use
 		err = fmt.Errorf("ovn nat %s can not use type %s eip %s", key, util.OvnEipTypeLSP, eipName)
 		klog.Error(err)
 		return err
@@ -155,7 +153,7 @@ func (c *Controller) handleAddOvnSnatRule(key string) error {
 		klog.Errorf("failed to resolve nat gateway port for snat %s, %v", key, err)
 		return err
 	}
-	// about conflicts: if multi vpc snat use the same eip, if only one gw node exist, it may should work
+
 	if v4IpCidr != "" && v4Eip != "" {
 		if err = c.OVNNbClient.AddNat(vpcName, ovnnb.NATTypeSNAT, v4Eip, v4IpCidr, "", "", gatewayPort, nil); err != nil {
 			klog.Errorf("failed to create v4 snat, %v", err)
@@ -201,11 +199,9 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 		return err
 	}
 
-	// Handle deletion first (for SNATs with finalizers)
 	if !cachedSnat.DeletionTimestamp.IsZero() {
 		klog.Infof("handle deleting ovn snat %s", key)
 		if cachedSnat.Status.Vpc == "" {
-			// Already cleaned, just remove finalizer
 			if err = c.handleDelOvnSnatFinalizer(cachedSnat); err != nil {
 				klog.Errorf("failed to remove finalizer for ovn snat %s, %v", cachedSnat.Name, err)
 				return err
@@ -213,7 +209,6 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 			return nil
 		}
 
-		// ovn delete snat
 		if cachedSnat.Status.V4Eip != "" && cachedSnat.Status.V4IpCidr != "" {
 			if err = c.OVNNbClient.DeleteNat(cachedSnat.Status.Vpc, ovnnb.NATTypeSNAT, cachedSnat.Status.V4Eip, cachedSnat.Status.V4IpCidr); err != nil {
 				klog.Errorf("failed to delete v4 snat %s, %v", key, err)
@@ -227,13 +222,11 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 			}
 		}
 
-		// Remove finalizer
 		if err = c.handleDelOvnSnatFinalizer(cachedSnat); err != nil {
 			klog.Errorf("failed to remove finalizer for ovn snat %s, %v", cachedSnat.Name, err)
 			return err
 		}
 
-		// Reset eip
 		if cachedSnat.Spec.OvnEip != "" {
 			c.resetOvnEipQueue.Add(cachedSnat.Spec.OvnEip)
 		}
@@ -245,7 +238,7 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 		return nil
 	}
 	klog.Infof("handle update ovn snat %s", key)
-	// check eip
+
 	eipName := cachedSnat.Spec.OvnEip
 	if eipName == "" {
 		err := errors.New("failed to create ovn snat rule, should set eip")
@@ -258,7 +251,6 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 		return err
 	}
 	if cachedEip.Spec.Type == util.OvnEipTypeLSP {
-		// eip is used by ecmp nexthop lsp, nat can not use
 		err = fmt.Errorf("ovn nat %s can not use type %s eip %s", key, util.OvnEipTypeLSP, eipName)
 		klog.Error(err)
 		return err
@@ -355,11 +347,6 @@ func (c *Controller) handleUpdateOvnSnatRule(key string) error {
 	return nil
 }
 
-// convergeOvnSnatGatewayPort re-derives gateway_port for a rule that is
-// already Ready. The informer replays every rule as an add on controller
-// start, so this is the convergence path for rules created before the
-// per-subnet derivation existed: the add path otherwise returns before
-// touching the nb, and the update path only fires on spec changes.
 func (c *Controller) convergeOvnSnatGatewayPort(cachedSnat *fabricv1.OvnSnatRule) error {
 	if cachedSnat.Status.Vpc == "" {
 		return nil
@@ -399,7 +386,7 @@ func (c *Controller) handleDelOvnSnatRule(key string) error {
 		klog.Error(err)
 		return err
 	}
-	// ovn delete snat
+
 	if cachedSnat.Status.Vpc != "" && cachedSnat.Status.V4Eip != "" && cachedSnat.Status.V4IpCidr != "" {
 		if err = c.OVNNbClient.DeleteNat(cachedSnat.Status.Vpc, ovnnb.NATTypeSNAT,
 			cachedSnat.Status.V4Eip, cachedSnat.Status.V4IpCidr); err != nil {
@@ -537,7 +524,6 @@ func (c *Controller) patchOvnSnatAnnotation(key, eipName string) error {
 }
 
 func (c *Controller) syncOvnSnatFinalizer(cl client.Client) error {
-	// migrate deprecated finalizer to new finalizer
 	rules := &fabricv1.OvnSnatRuleList{}
 	return migrateFinalizers(cl, rules, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(rules.Items) {
@@ -593,7 +579,6 @@ func (c *Controller) handleDelOvnSnatFinalizer(cachedSnat *fabricv1.OvnSnatRule)
 		return err
 	}
 
-	// Trigger associated EIP to recheck if it can be deleted now
 	if cachedSnat.Spec.OvnEip != "" {
 		klog.Infof("triggering eip %s update after snat %s deletion", cachedSnat.Spec.OvnEip, cachedSnat.Name)
 		c.updateOvnEipQueue.Add(cachedSnat.Spec.OvnEip)

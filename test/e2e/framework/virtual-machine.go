@@ -20,7 +20,6 @@ import (
 	"github.com/onsi/gomega/format"
 )
 
-// VMClient represents a KubeVirt VM client
 type VMClient struct {
 	f *Framework
 	kubecli.VirtualMachineInterface
@@ -44,7 +43,6 @@ func (c *VMClient) Get(name string) *v1.VirtualMachine {
 	return vm
 }
 
-// Create creates a new vm according to the framework specifications
 func (c *VMClient) Create(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	ginkgo.GinkgoHelper()
 	v, err := c.VirtualMachineInterface.Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -52,17 +50,15 @@ func (c *VMClient) Create(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	return c.Get(v.Name)
 }
 
-// CreateSync creates a new vm according to the framework specifications, and waits for it to be ready.
 func (c *VMClient) CreateSync(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	ginkgo.GinkgoHelper()
 
 	v := c.Create(vm)
 	ExpectNoError(c.WaitToBeReady(v.Name, timeout))
-	// Get the newest vm after it becomes ready
+
 	return c.Get(v.Name).DeepCopy()
 }
 
-// Start starts the vm.
 func (c *VMClient) Start(name string) *v1.VirtualMachine {
 	ginkgo.GinkgoHelper()
 
@@ -76,7 +72,6 @@ func (c *VMClient) Start(name string) *v1.VirtualMachine {
 	return c.Get(name)
 }
 
-// StartSync stops the vm and waits for it to be ready.
 func (c *VMClient) StartSync(name string) *v1.VirtualMachine {
 	ginkgo.GinkgoHelper()
 	_ = c.Start(name)
@@ -84,7 +79,6 @@ func (c *VMClient) StartSync(name string) *v1.VirtualMachine {
 	return c.Get(name)
 }
 
-// Stop stops the vm.
 func (c *VMClient) Stop(name string) *v1.VirtualMachine {
 	ginkgo.GinkgoHelper()
 
@@ -98,7 +92,6 @@ func (c *VMClient) Stop(name string) *v1.VirtualMachine {
 	return c.Get(name)
 }
 
-// StopSync stops the vm and waits for it to be stopped.
 func (c *VMClient) StopSync(name string) *v1.VirtualMachine {
 	ginkgo.GinkgoHelper()
 	_ = c.Stop(name)
@@ -106,7 +99,6 @@ func (c *VMClient) StopSync(name string) *v1.VirtualMachine {
 	return c.Get(name)
 }
 
-// Delete deletes a vm if the vm exists
 func (c *VMClient) Delete(name string) {
 	ginkgo.GinkgoHelper()
 	err := c.VirtualMachineInterface.Delete(context.TODO(), name, metav1.DeleteOptions{})
@@ -117,15 +109,12 @@ func (c *VMClient) Delete(name string) {
 	ExpectNoError(err, "failed to delete vm %s", name)
 }
 
-// DeleteSync deletes the vm and waits for the vm to disappear for `timeout`.
-// If the vm doesn't disappear before the timeout, it will fail the test.
 func (c *VMClient) DeleteSync(name string) {
 	ginkgo.GinkgoHelper()
 	c.Delete(name)
 	gomega.Expect(c.WaitToDisappear(name, poll, timeout)).To(gomega.Succeed(), "wait for vm %q to disappear", name)
 }
 
-// WaitToDisappear waits the given timeout duration for the specified vm to be ready.
 func (c *VMClient) WaitToBeReady(name string, timeout time.Duration) error {
 	err := k8sframework.Gomega().Eventually(context.TODO(), k8sframework.RetryNotFound(func(ctx context.Context) (*v1.VirtualMachine, error) {
 		return c.VirtualMachineInterface.Get(ctx, name, metav1.GetOptions{})
@@ -145,7 +134,6 @@ func (c *VMClient) WaitToBeReady(name string, timeout time.Duration) error {
 	return nil
 }
 
-// WaitToDisappear waits the given timeout duration for the specified vm to be stopped.
 func (c *VMClient) WaitToBeStopped(name string, timeout time.Duration) error {
 	err := k8sframework.Gomega().Eventually(context.TODO(), k8sframework.RetryNotFound(func(ctx context.Context) (*v1.VirtualMachine, error) {
 		return c.VirtualMachineInterface.Get(ctx, name, metav1.GetOptions{})
@@ -165,7 +153,6 @@ func (c *VMClient) WaitToBeStopped(name string, timeout time.Duration) error {
 	return nil
 }
 
-// WaitToDisappear waits the given timeout duration for the specified vm to disappear.
 func (c *VMClient) WaitToDisappear(name string, _, timeout time.Duration) error {
 	err := k8sframework.Gomega().Eventually(context.Background(), k8sframework.HandleRetry(func(ctx context.Context) (*v1.VirtualMachine, error) {
 		vm, err := c.VirtualMachineInterface.Get(ctx, name, metav1.GetOptions{})
@@ -180,7 +167,6 @@ func (c *VMClient) WaitToDisappear(name string, _, timeout time.Duration) error 
 	return nil
 }
 
-// Patch patches the vm with the given patch data, retrying on transient API errors.
 func (c *VMClient) Patch(name string, patchType types.PatchType, data []byte) *v1.VirtualMachine {
 	ginkgo.GinkgoHelper()
 	var patchedVM *v1.VirtualMachine
@@ -196,7 +182,6 @@ func (c *VMClient) Patch(name string, patchType types.PatchType, data []byte) *v
 	return patchedVM.DeepCopy()
 }
 
-// MakeVMWithMultusNetwork creates a VM with an additional multus secondary network using bridge binding.
 func MakeVMWithMultusNetwork(name, image, size string, runStrategy *v1.VirtualMachineRunStrategy, multusNetworkName string) *v1.VirtualMachine {
 	vm := MakeVM(name, image, size, runStrategy)
 	vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(

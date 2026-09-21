@@ -9,7 +9,6 @@ import (
 	fabricv1 "github.com/cloudyfolks-labs/fabric/pkg/apis/fabric/v1"
 )
 
-// ProtocolToFamily converts protocol string to netlink family
 func ProtocolToFamily(protocol string) (int, error) {
 	switch protocol {
 	case fabricv1.ProtocolDual:
@@ -23,9 +22,6 @@ func ProtocolToFamily(protocol string) (int, error) {
 	}
 }
 
-// NormalizeIPFamily converts annotation values to fabric protocol constants.
-// Only lowercase ipv4/ipv6 are accepted by validation; this helper keeps callers
-// working with the same protocol strings used by subnets and IPAM.
 func NormalizeIPFamily(ipFamily string) string {
 	switch ipFamily {
 	case strings.ToLower(fabricv1.ProtocolIPv4):

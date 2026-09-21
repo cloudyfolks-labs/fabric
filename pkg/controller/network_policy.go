@@ -129,9 +129,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 		npName = "np" + np.Name
 	}
 
-	// TODO: ovn acl doesn't support address_set name with '-', now we replace '-' by '.'.
-	// This may cause conflict if two np with name test-np and test.np. Maybe hash is a better solution,
-	// but we do not want to lost the readability now.
 	pgName := strings.ReplaceAll(fmt.Sprintf("%s.%s", npName, np.Namespace), "-", ".")
 	ingressAllowAsNamePrefix := strings.ReplaceAll(fmt.Sprintf("%s.%s.ingress.allow", npName, np.Namespace), "-", ".")
 	ingressExceptAsNamePrefix := strings.ReplaceAll(fmt.Sprintf("%s.%s.ingress.except", npName, np.Namespace), "-", ".")
@@ -199,14 +196,10 @@ func (c *Controller) handleUpdateNp(key string) error {
 
 		for _, protocol := range protocolSet.List() {
 			for idx, npr := range np.Spec.Ingress {
-				// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
 				ingressAllowAsName := fmt.Sprintf("%s.%s.%d", ingressAllowAsNamePrefix, protocol, idx)
 				ingressExceptAsName := fmt.Sprintf("%s.%s.%d", ingressExceptAsNamePrefix, protocol, idx)
 				aclName := fmt.Sprintf("np/%s.%s/ingress/%s/%d", npName, np.Namespace, protocol, idx)
 
-				// Separate ipBlock peers from selector peers to avoid ipBlock.except
-				// leaking into selector addresses. Per K8s NetworkPolicy spec, peers
-				// within a rule are OR'd, so each type needs its own ACL.
 				var selectorAllows []string
 				var ipBlocks []netv1.IPBlock
 				if len(npr.From) == 0 {
@@ -232,7 +225,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 				}
 				klog.Infof("UpdateNp Ingress %s, selectorAllows is %v, ipBlocks count %d, log %v", aclName, selectorAllows, len(ipBlocks), logEnable)
 
-				// Create ACL for selector peers (pod/namespace selectors) using address sets
 				if err = c.createAsForNetpol(np.Namespace, npName, "ingress", ingressAllowAsName, selectorAllows); err != nil {
 					klog.Error(err)
 					return err
@@ -251,7 +243,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 					ingressACLOps = append(ingressACLOps, ops...)
 				}
 
-				// Create separate ACL for ipBlock peers with inline per-CIDR except
 				if len(ipBlocks) != 0 {
 					ipBlockACLName := fmt.Sprintf("np/%s.%s/ingress/%s/%d/ipBlock", npName, np.Namespace, protocol, idx)
 					ops, err := c.OVNNbClient.UpdateIngressIPBlockACLOps(pgName, protocol, ipBlockACLName, ipBlocks, npr.Ports, logEnable, logActions, logRate, namedPortMap)
@@ -291,7 +282,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 		}
 
 		if err := c.OVNNbClient.SetNetPolACLLog(pgName, logEnable, true); err != nil {
-			// just log and do not return err here
 			klog.Errorf("failed to set ingress acl log for np %s, %v", key, err)
 		}
 
@@ -303,7 +293,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 			return err
 		}
 
-		// The format of asName is like "test.network.policy.test.ingress.except.0" or "test.network.policy.test.ingress.allow.0" for ingress
 		for _, as := range ass {
 			values := strings.Split(as.Name, ".")
 			if len(values) <= 1 {
@@ -362,14 +351,10 @@ func (c *Controller) handleUpdateNp(key string) error {
 
 		for _, protocol := range protocolSet.List() {
 			for idx, npr := range np.Spec.Egress {
-				// A single address set must contain addresses of the same type and the name must be unique within table, so IPv4 and IPv6 address set should be different
 				egressAllowAsName := fmt.Sprintf("%s.%s.%d", egressAllowAsNamePrefix, protocol, idx)
 				egressExceptAsName := fmt.Sprintf("%s.%s.%d", egressExceptAsNamePrefix, protocol, idx)
 				aclName := fmt.Sprintf("np/%s.%s/egress/%s/%d", npName, np.Namespace, protocol, idx)
 
-				// Separate ipBlock peers from selector peers to avoid ipBlock.except
-				// leaking into selector addresses. Per K8s NetworkPolicy spec, peers
-				// within a rule are OR'd, so each type needs its own ACL.
 				var selectorAllows []string
 				var ipBlocks []netv1.IPBlock
 				if len(npr.To) == 0 {
@@ -395,7 +380,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 				}
 				klog.Infof("UpdateNp Egress %s, selectorAllows is %v, ipBlocks count %d, log %v", aclName, selectorAllows, len(ipBlocks), logEnable)
 
-				// Create ACL for selector peers (pod/namespace selectors) using address sets
 				if err = c.createAsForNetpol(np.Namespace, npName, "egress", egressAllowAsName, selectorAllows); err != nil {
 					klog.Error(err)
 					return err
@@ -414,7 +398,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 					egressACLOps = append(egressACLOps, ops...)
 				}
 
-				// Create separate ACL for ipBlock peers with inline per-CIDR except
 				if len(ipBlocks) != 0 {
 					ipBlockACLName := fmt.Sprintf("np/%s.%s/egress/%s/%d/ipBlock", npName, np.Namespace, protocol, idx)
 					ops, err := c.OVNNbClient.UpdateEgressIPBlockACLOps(pgName, protocol, ipBlockACLName, ipBlocks, npr.Ports, logEnable, logActions, logRate, namedPortMap)
@@ -454,7 +437,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 		}
 
 		if err := c.OVNNbClient.SetNetPolACLLog(pgName, logEnable, false); err != nil {
-			// just log and do not return err here
 			klog.Errorf("failed to set egress acl log for np %s, %v", key, err)
 		}
 
@@ -466,7 +448,6 @@ func (c *Controller) handleUpdateNp(key string) error {
 			return err
 		}
 
-		// The format of asName is like "test.network.policy.test.egress.except.0" or "test.network.policy.test.egress.allow.0" for egress
 		for _, as := range ass {
 			values := strings.Split(as.Name, ".")
 			if len(values) <= 1 {
@@ -638,7 +619,7 @@ func (c *Controller) fetchSelectedPorts(namespace string, selector *metav1.Label
 
 			if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, podNet.ProviderName)] == "true" {
 				ports = append(ports, ovs.PodNameToPortName(podName, pod.Namespace, podNet.ProviderName))
-				// Pod selected by networkpolicy has its own subnet which is not the default subnet
+
 				subnets = append(subnets, podNet.Subnet.Name)
 			}
 		}
@@ -672,7 +653,6 @@ func (c *Controller) fetchPolicySelectedAddresses(namespace, protocol string, np
 	selectedAddresses := []string{}
 	exceptAddresses := []string{}
 
-	// ingress.from.ipblock or egress.to.ipblock
 	if npp.IPBlock != nil && util.CheckProtocol(npp.IPBlock.CIDR) == protocol {
 		selectedAddresses = append(selectedAddresses, npp.IPBlock.CIDR)
 		if npp.IPBlock.Except != nil {
@@ -846,12 +826,10 @@ func isNamespaceMatchNetworkPolicy(ns *corev1.Namespace, policy *netv1.NetworkPo
 }
 
 func (c *Controller) isNetworkPolicyEnforcementLax(policy *netv1.NetworkPolicy) bool {
-	// User provided a custom enforcement through annotations
 	if value, ok := policy.Annotations[util.NetworkPolicyEnforcementAnnotation]; ok {
 		return value == NetworkPolicyEnforcementLax
 	}
 
-	// Fallback to the configuration of the controller
 	return c.config.NetworkPolicyEnforcement == NetworkPolicyEnforcementLax
 }
 

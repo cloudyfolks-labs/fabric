@@ -34,7 +34,6 @@ import (
 func init() {
 	klog.SetOutput(ginkgo.GinkgoWriter)
 
-	// Register flags.
 	config.CopyFlags(config.Flags, flag.CommandLine)
 	k8sframework.RegisterCommonFlags(flag.CommandLine)
 	k8sframework.RegisterClusterFlags(flag.CommandLine)
@@ -42,13 +41,11 @@ func init() {
 
 func TestE2E(t *testing.T) {
 	k8sframework.AfterReadingAllFlags(&k8sframework.TestContext)
-	// Note: environment validation will happen during test execution
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "fabric non-primary cni e2e suite")
 }
 
-// Constants for test configuration
 const (
 	EnvTestConfigPath    = "TEST_CONFIG_PATH"
 	EnvKubeOVNPrimaryCNI = "KUBE_OVN_PRIMARY_CNI"
@@ -58,7 +55,6 @@ const (
 	DefaultCommandTimeout   = 30 * time.Second
 )
 
-// Helper functions
 func getTestConfigFile(relativePath string) string {
 	testConfigPath := os.Getenv(EnvTestConfigPath)
 	if testConfigPath == "" {
@@ -77,13 +73,11 @@ func isFabricPrimaryCNI() bool {
 	return os.Getenv(EnvKubeOVNPrimaryCNI) == "true"
 }
 
-// removeFinalizers removes finalizers from fabric resources to ensure cleanup
 func removeFinalizers(configStage string) {
 	ginkgo.GinkgoHelper()
 
 	ginkgo.By(fmt.Sprintf("Removing finalizers from config-stage=%s resources", configStage))
 
-	// Get all resources with the specific config-stage label
 	cmd := fmt.Sprintf("kubectl get all,vpc,subnet,networkattachmentdefinitions,providernet,vlan -l config-stage=%s -o custom-columns=KIND:.kind,NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers 2>/dev/null || true", configStage)
 	output, _ := runBashCommand(cmd)
 
@@ -104,10 +98,8 @@ func removeFinalizers(configStage string) {
 
 			var patchCmd string
 			if namespace == "<none>" || namespace == metav1.NamespaceNone {
-				// Cluster-scoped resource
 				patchCmd = fmt.Sprintf(`kubectl patch %s %s --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true`, strings.ToLower(kind), name)
 			} else {
-				// Namespaced resource
 				patchCmd = fmt.Sprintf(`kubectl patch %s %s -n %s --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true`, strings.ToLower(kind), name, namespace)
 			}
 			_, _ = runBashCommand(patchCmd)
@@ -115,13 +107,11 @@ func removeFinalizers(configStage string) {
 	}
 }
 
-// KindBridgeNetwork represents KIND bridge network configuration
 type KindBridgeNetwork struct {
 	CIDR    string
 	Gateway string
 }
 
-// detectKindBridgeNetwork dynamically detects KIND bridge network configuration
 func detectKindBridgeNetwork() *KindBridgeNetwork {
 	ginkgo.GinkgoHelper()
 
@@ -140,7 +130,6 @@ func detectKindBridgeNetwork() *KindBridgeNetwork {
 	return nil
 }
 
-// generateExcludeIPs creates a YAML list of IPs to exclude based on the gateway
 func generateExcludeIPs(_, gateway string) string {
 	lastDot := strings.LastIndex(gateway, ".")
 	if lastDot == -1 {
@@ -154,7 +143,6 @@ func generateExcludeIPs(_, gateway string) string {
 	return strings.Join(ips, "\n    ")
 }
 
-// processConfigWithKindBridge dynamically updates YAML configuration with KIND bridge network
 func processConfigWithKindBridge(yamlPath string, kindNetwork *KindBridgeNetwork) string {
 	ginkgo.GinkgoHelper()
 
@@ -163,7 +151,6 @@ func processConfigWithKindBridge(yamlPath string, kindNetwork *KindBridgeNetwork
 	content, err := os.ReadFile(yamlPath)
 	framework.ExpectNoError(err, "Failed to read config file %s", yamlPath)
 
-	// Replace common bridge network CIDRs with actual KIND bridge CIDR
 	bridgeCIDRs := []string{"172.17.0.0/16", "172.18.0.0/16", "172.19.0.0/16", "172.20.0.0/16"}
 	bridgeGateways := []string{"172.17.0.1", "172.18.0.1", "172.19.0.1", "172.20.0.1"}
 
@@ -187,7 +174,6 @@ func processConfigWithKindBridge(yamlPath string, kindNetwork *KindBridgeNetwork
 		yamlContent = strings.ReplaceAll(yamlContent, placeholder, value)
 	}
 
-	// Create temporary file with updated configuration
 	tmpFile, err := os.CreateTemp(os.TempDir(), "kind-config-*.yaml")
 	framework.ExpectNoError(err, "Failed to create temporary config file")
 	defer tmpFile.Close()
@@ -200,7 +186,6 @@ func processConfigWithKindBridge(yamlPath string, kindNetwork *KindBridgeNetwork
 	return tmpFile.Name()
 }
 
-// Helper function to get pod IPs (primary or non-primary)
 func getPodIPs(pod *corev1.Pod) []string {
 	ginkgo.GinkgoHelper()
 
@@ -210,7 +195,6 @@ func getPodIPs(pod *corev1.Pod) []string {
 	return getPodNonPrimaryIP(pod)
 }
 
-// VPC Simple Test
 var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 	f := framework.NewDefaultFramework("non-primary-cni-vpc-simple")
 
@@ -266,7 +250,6 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 			pod1 := podClient.GetPod(podNames[0])
 			pod2 := podClient.GetPod(podNames[1])
 
-			// Get pod IPs
 			pod1IPs := getPodIPs(pod1)
 			pod2IPs := getPodIPs(pod2)
 
@@ -283,7 +266,6 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 	})
 })
 
-// Logical Network Simple Test
 var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 	f := framework.NewDefaultFramework("non-primary-cni-lnet-simple")
 
@@ -291,7 +273,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 		namespaceName := "lnet-simple-ns"
 		podNames := []string{"lnet-simple-pod1", "lnet-simple-pod2"}
 		originalYamlFile := getTestConfigFile("LogicalNetwork/00-lnet-simple.yaml")
-		var yamlFile string // Will be set dynamically
+		var yamlFile string
 
 		var nodeNames []string
 		var cs clientset.Interface
@@ -351,7 +333,6 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 			pod1 := podClient.GetPod(podNames[0])
 			pod2 := podClient.GetPod(podNames[1])
 
-			// Get pod IPs
 			pod1IPs := getPodIPs(pod1)
 			pod2IPs := getPodIPs(pod2)
 			framework.ExpectNotEmpty(pod1IPs, "Pod1 should have at least one IP address")
@@ -367,11 +348,9 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 	})
 })
 
-// Helper function to get non-primary IP from pod annotation
 func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 	ginkgo.GinkgoHelper()
 
-	// For non-primary CNI, look for k8s.v1.cni.cncf.io/networks annotation
 	network := pod.Annotations[nadv1.NetworkAttachmentAnnot]
 	if network == "" {
 		return nil
@@ -383,12 +362,6 @@ func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 		return ips
 	}
 
-	// For fabric non-primary CNI, the IP is stored in a specific annotation format:
-	// {network-attachment-name}.{namespace}.fabric.cloudyfolks.io/ip_address
-	// Example: vpc-simple-nad.vpc-simple-ns.fabric.cloudyfolks.io/ip_address: 10.100.0.2
-	// Extract the network attachment definition name from the networks annotation
-	// Format: namespace/nad-name (e.g., "vpc-simple-ns/vpc-simple-nad")
-	// Convert namespace/nad-name to nad-name.namespace.fabric.cloudyfolks.io/ip_address format
 	parts := strings.Split(network, "/")
 	if len(parts) != 2 {
 		return nil
@@ -396,9 +369,8 @@ func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 	namespace := parts[0]
 	name := parts[1]
 
-	// Construct the fabric IP annotation key
 	ipAnnotationKey := fmt.Sprintf(util.IPAddressAnnotationTemplate, fmt.Sprintf("%s.%s", name, namespace))
-	// Get the IP from the annotation
+
 	ip := pod.Annotations[ipAnnotationKey]
 	if ip != "" {
 		return strings.Split(ip, ",")
@@ -407,12 +379,10 @@ func getPodNonPrimaryIP(pod *corev1.Pod) []string {
 	return nil
 }
 
-// Helper function to test network connectivity with proper interface handling
 func testPodConnectivity(sourcePod *corev1.Pod, targetIP, description string) error {
 	return testPodConnectivityWithInterface(sourcePod, targetIP, description, DefaultNetworkInterface)
 }
 
-// Helper function to test network connectivity with specified interface
 func testPodConnectivityWithInterface(sourcePod *corev1.Pod, targetIP, description, interfaceName string) error {
 	ginkgo.By(fmt.Sprintf("Testing connectivity: %s", description))
 
@@ -422,7 +392,7 @@ func testPodConnectivityWithInterface(sourcePod *corev1.Pod, targetIP, descripti
 		_, _, err := framework.KubectlExec(sourcePod.Namespace, sourcePod.Name, cmd)
 		return err
 	}
-	// For non-primary CNI, use specific interface
+
 	if interfaceName == "" {
 		interfaceName = DefaultNetworkInterface
 	}
@@ -431,7 +401,6 @@ func testPodConnectivityWithInterface(sourcePod *corev1.Pod, targetIP, descripti
 	return err
 }
 
-// Iptables Cleanup Verification Test
 var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 	f := framework.NewDefaultFramework("non-primary-cni-iptables")
 
@@ -456,7 +425,6 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 			ovsPod, err := daemonSetClient.GetPodOnNode(ds, node.Name)
 			framework.ExpectNoError(err)
 
-			// fabric custom chains that should not exist in non-primary CNI mode
 			fabricChains := []struct {
 				table string
 				chain string
@@ -472,10 +440,7 @@ var _ = framework.SerialDescribe("[group:non-primary-cni]", func() {
 
 			for _, tc := range fabricChains {
 				ginkgo.By(fmt.Sprintf("Verify chain %s/%s does not exist", tc.table, tc.chain))
-				// Use iptables -S to list all rules in the table and verify the chain
-				// name is absent. This is more robust across iptables variants
-				// (iptables-legacy vs iptables-nft) than relying on a specific error
-				// message when querying a non-existent chain.
+
 				cmd := fmt.Sprintf("iptables -t %s -S 2>&1", tc.table)
 				stdout, _, err := framework.KubectlExec(ovsPod.Namespace, ovsPod.Name, cmd)
 				framework.ExpectNoError(err)

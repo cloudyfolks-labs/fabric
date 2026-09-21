@@ -23,7 +23,7 @@ import (
 func (c *Controller) enqueueAddOvnDnatRule(obj any) {
 	dnat := obj.(*fabricv1.OvnDnatRule)
 	key := cache.MetaObjectToName(dnat).String()
-	// A terminating object reconciles via the update queue for cleanup (handleAdd skips it; resync=0).
+
 	if enqueueUpdateIfTerminatingWithFinalizer(c.updateOvnDnatRuleQueue, key, "ovn dnat", dnat.DeletionTimestamp, dnat.GetFinalizers()) {
 		return
 	}
@@ -85,7 +85,6 @@ func (c *Controller) handleAddOvnDnatRule(key string) error {
 	}
 
 	if cachedDnat.Status.Ready && (cachedDnat.Status.V4Ip != "" || cachedDnat.Status.V6Ip != "") {
-		// backfill ct_flush for existing UDP DNAT load balancers
 		if strings.EqualFold(cachedDnat.Spec.Protocol, "udp") {
 			if err = c.OVNNbClient.SetLoadBalancerCtFlush(cachedDnat.Name, true); err != nil {
 				klog.Errorf("failed to set ct_flush for load balancer %s: %v", cachedDnat.Name, err)
@@ -95,7 +94,7 @@ func (c *Controller) handleAddOvnDnatRule(key string) error {
 		return nil
 	}
 	klog.Infof("handle add dnat %s", key)
-	// check eip
+
 	eipName := cachedDnat.Spec.OvnEip
 	if eipName == "" {
 		err := fmt.Errorf("failed to create dnat %s, should set eip", cachedDnat.Name)
@@ -108,7 +107,6 @@ func (c *Controller) handleAddOvnDnatRule(key string) error {
 		return err
 	}
 	if cachedEip.Spec.Type == util.OvnEipTypeLSP {
-		// eip is used by ecmp nexthop lsp, nat can not use
 		err = fmt.Errorf("ovn nat %s can not use type %s eip %s", key, util.OvnEipTypeLSP, eipName)
 		klog.Error(err)
 		return err
@@ -209,7 +207,7 @@ func (c *Controller) handleAddOvnDnatRule(key string) error {
 		klog.Errorf("failed to add finalizer for ovn dnat %s, %v", cachedDnat.Name, err)
 		return err
 	}
-	// patch dnat eip relationship
+
 	if err = c.natLabelAndAnnoOvnEip(eipName, cachedDnat.Name, vpcName); err != nil {
 		klog.Errorf("failed to label dnat '%s' in eip %s, %v", cachedDnat.Name, eipName, err)
 		return err
@@ -280,11 +278,9 @@ func (c *Controller) handleUpdateOvnDnatRule(key string) error {
 		return err
 	}
 
-	// Handle deletion first (for DNATs with finalizers)
 	if !cachedDnat.DeletionTimestamp.IsZero() {
 		klog.Infof("handle deleting ovn dnat %s", key)
 		if cachedDnat.Status.Vpc == "" {
-			// Already cleaned, just remove finalizer
 			if err = c.handleDelOvnDnatFinalizer(cachedDnat); err != nil {
 				klog.Errorf("failed to remove finalizer for ovn dnat %s, %v", cachedDnat.Name, err)
 				return err
@@ -292,7 +288,6 @@ func (c *Controller) handleUpdateOvnDnatRule(key string) error {
 			return nil
 		}
 
-		// ovn delete dnat
 		if cachedDnat.Status.V4Eip != "" && cachedDnat.Status.ExternalPort != "" {
 			if err = c.DelDnatRule(cachedDnat.Status.Vpc, cachedDnat.Name,
 				cachedDnat.Status.V4Eip, cachedDnat.Status.ExternalPort); err != nil {
@@ -308,13 +303,11 @@ func (c *Controller) handleUpdateOvnDnatRule(key string) error {
 			}
 		}
 
-		// Remove finalizer
 		if err = c.handleDelOvnDnatFinalizer(cachedDnat); err != nil {
 			klog.Errorf("failed to remove finalizer for ovn dnat %s, %v", cachedDnat.Name, err)
 			return err
 		}
 
-		// Reset eip
 		if cachedDnat.Spec.OvnEip != "" {
 			c.resetOvnEipQueue.Add(cachedDnat.Spec.OvnEip)
 		}
@@ -322,12 +315,11 @@ func (c *Controller) handleUpdateOvnDnatRule(key string) error {
 	}
 
 	if !cachedDnat.Status.Ready {
-		// create dnat only in add process, just check to error out here
 		klog.Infof("wait ovn dnat %s to be ready only in the handle add process", cachedDnat.Name)
 		return nil
 	}
 	klog.Infof("handle update dnat %s", key)
-	// check eip
+
 	eipName := cachedDnat.Spec.OvnEip
 	if eipName == "" {
 		err := fmt.Errorf("failed to create dnat %s, should set eip", cachedDnat.Name)
@@ -340,7 +332,6 @@ func (c *Controller) handleUpdateOvnDnatRule(key string) error {
 		return err
 	}
 	if cachedEip.Spec.Type == util.OvnEipTypeLSP {
-		// eip is used by ecmp nexthop lsp, nat can not use
 		err = fmt.Errorf("ovn nat %s can not use type %s eip %s", key, util.OvnEipTypeLSP, eipName)
 		klog.Error(err)
 		return err
@@ -384,7 +375,7 @@ func (c *Controller) handleUpdateOvnDnatRule(key string) error {
 		}
 		vpcName = subnet.Spec.Vpc
 	}
-	// not support chang
+
 	if cachedDnat.Spec.ExternalPort != cachedDnat.Status.ExternalPort {
 		err := fmt.Errorf("not support change external port for dnat %s", cachedDnat.Name)
 		klog.Error(err)
@@ -628,7 +619,6 @@ func (c *Controller) DelDnatRule(vpcName, dnatName, externalIP, externalPort str
 }
 
 func (c *Controller) syncOvnDnatFinalizer(cl client.Client) error {
-	// migrate deprecated finalizer to new finalizer
 	rules := &fabricv1.OvnDnatRuleList{}
 	return migrateFinalizers(cl, rules, func(i int) (client.Object, client.Object) {
 		if i < 0 || i >= len(rules.Items) {
@@ -691,7 +681,6 @@ func (c *Controller) handleDelOvnDnatFinalizer(cachedDnat *fabricv1.OvnDnatRule)
 		return err
 	}
 
-	// Trigger associated EIP to recheck if it can be deleted now
 	if cachedDnat.Spec.OvnEip != "" {
 		klog.Infof("triggering eip %s update after dnat %s deletion", cachedDnat.Spec.OvnEip, cachedDnat.Name)
 		c.updateOvnEipQueue.Add(cachedDnat.Spec.OvnEip)
