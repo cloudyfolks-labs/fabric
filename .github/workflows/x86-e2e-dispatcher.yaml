@@ -172,9 +172,12 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
-          permission=$(gh api \
-            "repos/$GITHUB_REPOSITORY/collaborators/$COMMENTER/permission" \
-            --jq '.permission' 2>/dev/null || printf 'none')
+          if permissionResponse=$(gh api \
+            "repos/$GITHUB_REPOSITORY/collaborators/$COMMENTER/permission" 2>/dev/null); then
+            permission=$(jq -r '.permission' <<< "$permissionResponse")
+          else
+            permission=none
+          fi
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > pull-request.json
           baseRef=$(jq -r '.base.ref' pull-request.json)
           if ! [[ "$baseRef" == main || "$baseRef" =~ ^release-[A-Za-z0-9._-]+$ ]]; then
@@ -770,8 +773,11 @@ jobs:
           PY
           )
           refPath="refs/heads/$executorRef"
-          existingSHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$executorRef" \
-            --jq '.object.sha' 2>/dev/null || true)
+          if existingRef=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$executorRef" 2>/dev/null); then
+            existingSHA=$(jq -r '.object.sha' <<< "$existingRef")
+          else
+            existingSHA=""
+          fi
           if [ -n "$existingSHA" ] && [ "$existingSHA" != "$BASE_SHA" ]; then
             echo 'The isolated executor ref points at an unexpected revision.' >&2
             exit 1
