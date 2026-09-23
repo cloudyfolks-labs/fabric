@@ -1424,9 +1424,10 @@ jobs:
             --arg detailsURL "$RUN_URL" \
             --arg externalId "$externalId" \
             --arg summary "$SUMMARY" \
+            --arg marker "x86-e2e-gate request=$RUN_REQUEST_KEY approval=$APPROVAL_GENERATION" \
             '({name: $name, head_sha: $headSHA, status: $status,
                details_url: $detailsURL, external_id: $externalId,
-               output: {title: "x86 E2E gate", summary: $summary}}
+               output: {title: "x86 E2E gate", summary: $summary, text: $marker}}
               + if $status == "completed" then {conclusion: $conclusion} else {} end)' > check-run.json
           if [ -n "$checkId" ]; then
             jq 'del(.name, .head_sha)' check-run.json > check-run-update.json
